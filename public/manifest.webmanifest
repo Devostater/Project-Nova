@@ -1,0 +1,15 @@
+{
+  "name": "Project Nova: Starfighter",
+  "short_name": "Project Nova",
+  "start_url": "./standalone.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#030a14",
+  "theme_color": "#00e5ff",
+  "description": "WebXR starfighter for Meta Quest 3.",
+  "icons": [
+    { "src": "art/icon_192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "art/icon_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

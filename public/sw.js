@@ -1,0 +1,117 @@
+// Project Nova offline cache. Bump VERSION whenever the game files change.
+const VERSION = 'nova-alpha-1.0-rc3';
+const FILES = [
+"./art/alien_planet.jpg",
+"./art/asteroid.jpg",
+"./art/cargo_icons.jpg",
+"./art/eagle.png",
+"./art/icon_192.png",
+"./art/icon_512.png",
+"./art/keyart.jpg",
+"./art/matrix_holo.jpg",
+"./art/moon_rock.jpg",
+"./art/nav_bg.jpg",
+"./art/nav_cards.jpg",
+"./art/nova_logo.jpg",
+"./art/oh_icons.png",
+"./art/planet_ice.jpg",
+"./art/planet_lava.jpg",
+"./art/planet_red.jpg",
+"./art/planet_teal.jpg",
+"./art/reticle_aim.png",
+"./art/reticle_lock.png",
+"./art/ring.png",
+"./art/sky.jpg",
+"./manifest.webmanifest",
+"./models/alien_attack_drone.glb",
+"./models/alien_attack_drone_lo.glb",
+"./models/alien_carrier.glb",
+"./models/alien_carrier_lo.glb",
+"./models/alien_crew.glb",
+"./models/alien_fighter.glb",
+"./models/alien_fighter_lo.glb",
+"./models/alien_mothership.glb",
+"./models/alien_mothership_lo.glb",
+"./models/alien_spore_turret.glb",
+"./models/alien_spore_turret_lo.glb",
+"./models/alien_support.glb",
+"./models/alien_support_lo.glb",
+"./models/asteroid_ice.glb",
+"./models/asteroid_rock.glb",
+"./models/carrier.glb",
+"./models/cockpit_new.glb",
+"./models/cockpit_shell.glb",
+"./models/colony.glb",
+"./models/container.glb",
+"./models/drone.glb",
+"./models/edf_carrier.glb",
+"./models/edf_carrier_lo.glb",
+"./models/edf_fighter.glb",
+"./models/edf_fighter_lo.glb",
+"./models/fighter_alt.glb",
+"./models/flight_stick.glb",
+"./models/frigate.glb",
+"./models/frigate2.glb",
+"./models/gunship.glb",
+"./models/hauler.glb",
+"./models/holo_panel.glb",
+"./models/lantern_den.glb",
+"./models/manifest.json",
+"./models/matrix_character.glb",
+"./models/matrix_fighter.glb",
+"./models/matrix_fighter_lo.glb",
+"./models/meridian.glb",
+"./models/missile.glb",
+"./models/missile2.glb",
+"./models/missile_base.glb",
+"./models/missile_button.glb",
+"./models/missile_lever.glb",
+"./models/obi_cat.glb",
+"./models/overhead_dash.glb",
+"./models/patrol.glb",
+"./models/pirate_fighter.glb",
+"./models/pirate_fighter_lo.glb",
+"./models/pirate_frigate.glb",
+"./models/pirate_frigate_lo.glb",
+"./models/pirate_raider.glb",
+"./models/pirate_stealth.glb",
+"./models/pirate_stealth_lo.glb",
+"./models/player_ship.glb",
+"./models/seat.glb",
+"./models/side_console.glb",
+"./models/station_nova1.glb",
+"./models/throttle.glb",
+"./models/throttle_base.glb",
+"./models/throttle_stick.glb",
+"./models/thruster.glb",
+"./models/vr_hands.glb",
+"./models/wreck.glb",
+"./music/battle_market.mp3",
+"./music/space_caravan.mp3",
+"./music/voyager.mp3",
+"./standalone.html",
+"./vendor/cannon-es.js",
+"./vendor/loaders/GLTFLoader.js",
+"./vendor/three.module.js",
+"./vendor/utils/BufferGeometryUtils.js"
+];
+self.addEventListener('install', e => e.waitUntil((async () => {
+  const c = await caches.open(VERSION);
+  for (const f of FILES) { try { await c.add(f); } catch (err) { console.warn('[NOVA sw] skip', f); } }
+  self.skipWaiting();
+})()));
+self.addEventListener('activate', e => e.waitUntil((async () => {
+  for (const k of await caches.keys()) if (k !== VERSION) await caches.delete(k);
+  self.clients.claim();
+})()));
+// network first for the page (so updates arrive), cache first for models, art and music
+self.addEventListener('fetch', e => {
+  const u = new URL(e.request.url); if (e.request.method !== 'GET' || u.origin !== location.origin) return;
+  const page = u.pathname.endsWith('.html') || u.pathname.endsWith('/');
+  e.respondWith((async () => {
+    const c = await caches.open(VERSION);
+    if (page) { try { const r = await fetch(e.request); c.put(e.request, r.clone()); return r; } catch (err) { return (await c.match(e.request, { ignoreSearch: true })) || Response.error(); } }
+    const hit = await c.match(e.request, { ignoreSearch: true }); if (hit) return hit;
+    const r = await fetch(e.request); if (r.ok) c.put(e.request, r.clone()); return r;
+  })());
+});

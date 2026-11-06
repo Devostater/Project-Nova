@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Project Nova — 6DOF WebXR Starfighter Simulator</title>
-  <meta name="description" content="Standalone 6DOF Newtonian WebXR space flight simulator with HOTAS cockpit controls, Proportional Navigation dogfighting AI, branching wingman comms, and tractor beam station docking." />
-  <meta property="og:title" content="Project Nova — 6DOF WebXR Starfighter Simulator" />
-  <meta property="og:description" content="Standalone 6DOF Newtonian WebXR space flight simulator with HOTAS cockpit controls, Proportional Navigation dogfighting AI, branching wingman comms, and tractor beam station docking." />
+  
+  <title>Project Nova</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -81,79 +79,8 @@
     .modal-hint {
       font-size: 13px; color: #00ffaa; margin-top: 16px; opacity: 0.9;
     }
-
-    /* Tablet Virtual Flight Controller Styles */
-    #tablet-controller {
-      position: absolute; inset: 0; pointer-events: none; z-index: 40;
-      user-select: none; -webkit-user-select: none;
-      touch-action: none;
-      display: none;
-    }
-    .tablet-zone {
-      position: absolute; pointer-events: auto;
-      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-    }
-    .tablet-zone-left {
-      left: 18px; bottom: 22px; width: 180px; height: 260px;
-    }
-    .tablet-zone-right {
-      right: 18px; bottom: 22px; width: 220px; height: 260px;
-    }
-    .tablet-zone-top {
-      top: 14px; right: 18px; display: flex; flex-direction: row; gap: 8px; pointer-events: auto;
-    }
-    .tablet-joystick-base {
-      width: 140px; height: 140px; border-radius: 50%;
-      background: radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, rgba(4, 18, 32, 0.75) 70%, rgba(0, 240, 255, 0.4) 100%);
-      border: 2px solid rgba(0, 240, 255, 0.55);
-      position: relative; box-shadow: 0 0 18px rgba(0, 240, 255, 0.25);
-    }
-    .tablet-joystick-stick {
-      width: 54px; height: 54px; border-radius: 50%;
-      background: radial-gradient(circle, #00f0ff 0%, #0088aa 80%);
-      box-shadow: 0 0 14px #00f0ff; border: 2px solid #ffffff;
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      pointer-events: none;
-    }
-    .tablet-throttle-track {
-      width: 50px; height: 160px; background: rgba(5, 18, 30, 0.85);
-      border: 2px solid rgba(255, 204, 0, 0.5); border-radius: 25px;
-      position: relative; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 0 14px rgba(255, 204, 0, 0.2);
-    }
-    .tablet-throttle-handle {
-      width: 68px; height: 38px; border-radius: 8px;
-      background: linear-gradient(180deg, #ffd24a 0%, #d48800 100%);
-      border: 2px solid #ffffff; box-shadow: 0 0 12px #ffd24a;
-      position: absolute; left: 50%; transform: translate(-50%, -50%);
-      pointer-events: none; display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 900; color: #040c16; font-family: monospace;
-    }
-    .tablet-btn {
-      pointer-events: auto;
-      background: rgba(8, 24, 40, 0.88); border: 2px solid; border-radius: 8px;
-      color: #fff; font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold;
-      text-transform: uppercase; cursor: pointer; transition: transform 0.08s, filter 0.08s;
-      display: flex; align-items: center; justify-content: center;
-      touch-action: none;
-    }
-    .tablet-btn:active, .tablet-btn.active {
-      transform: scale(0.94); filter: brightness(1.4);
-    }
-    .tablet-btn-fire {
-      width: 90px; height: 90px; border-radius: 50%;
-      background: radial-gradient(circle, rgba(255, 68, 85, 0.35) 0%, rgba(200, 20, 40, 0.85) 80%);
-      border-color: #ff3344; box-shadow: 0 0 20px rgba(255, 51, 68, 0.45);
-      font-size: 15px; letter-spacing: 1px; color: #fff;
-    }
-    .tablet-btn-fire:active, .tablet-btn-fire.active {
-      background: #ff3344; box-shadow: 0 0 30px #ff3344; color: #000;
-    }
-    .tablet-btn-pill {
-      padding: 8px 14px; font-size: 12px; border-radius: 6px;
-      background: rgba(4, 16, 28, 0.85);
-    }
   </style>
+
   <script type="importmap">
     {
       "imports": {
@@ -163,12 +90,12 @@
     }
   </script>
 
-
   <!-- Immediate Synchronous Startup Script -->
   <script>
-    // Automatic HTTPS Redirect for WebXR Support (preserves default port unless running custom dev server)
+    // Automatic HTTPS Redirect for Meta Quest 3 WebXR Support
     if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      window.location.protocol = 'https:';
+      console.log('Redirecting to HTTPS:8443 for WebXR Passthrough support...');
+      window.location.replace('https://' + window.location.hostname + ':8443' + window.location.pathname + window.location.search);
     }
     window.dismissModal = function() {
       try {
@@ -220,107 +147,24 @@
     };
 
 
-    // Device & XR Capability Detection
-    window.novaDevice = {
-      isQuest: /Quest|Oculus/i.test(navigator.userAgent),
-      isMobile: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
-      hasXR: false,
-      hasVR: false,
-      hasAR: false,
-      detectedMode: '2D' // 'MR', 'VR', '2D'
-    };
-
-    // Detect device capabilities asynchronously
-    (function detectDevice() {
-      if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
-        Promise.all([
-          navigator.xr.isSessionSupported('immersive-ar').catch(function() { return false; }),
-          navigator.xr.isSessionSupported('immersive-vr').catch(function() { return false; })
-        ]).then(function(results) {
-          window.novaDevice.hasAR = !!results[0];
-          window.novaDevice.hasVR = !!results[1];
-          window.novaDevice.hasXR = window.novaDevice.hasAR || window.novaDevice.hasVR;
-
-          var preferred = localStorage.getItem('novaPreferredMode');
-          if (preferred && (preferred === '2D' || (preferred === 'MR' && window.novaDevice.hasAR) || (preferred === 'VR' && window.novaDevice.hasVR))) {
-            window.novaDevice.detectedMode = preferred;
-          } else if (window.novaDevice.isQuest && window.novaDevice.hasAR) {
-            window.novaDevice.detectedMode = 'MR';
-          } else if (window.novaDevice.hasVR) {
-            window.novaDevice.detectedMode = 'VR';
-          } else {
-            window.novaDevice.detectedMode = '2D';
-          }
-          window.novaUpdatePlayButton();
-        }).catch(function() {
-          window.novaDevice.detectedMode = '2D';
-          window.novaUpdatePlayButton();
-        });
-      } else {
-        window.novaDevice.detectedMode = '2D';
-        window.novaUpdatePlayButton();
-      }
-    })();
-
-    window.novaSetPreferredMode = function(mode) {
-      window.novaDevice.detectedMode = mode;
-      try { localStorage.setItem('novaPreferredMode', mode); } catch (e) {}
-      window.novaUpdatePlayButton();
-      if (typeof window.showToast === 'function') {
-        window.showToast('Default Play Mode: ' + mode, 2000, '#00ffcc');
-      }
-    };
-
-    window.novaUpdatePlayButton = function() {
-      try {
-        var btn = document.getElementById('btn-play');
-        var hint = document.getElementById('menu-hint');
-        var badge = document.getElementById('device-badge');
-        var mode = window.novaDevice.detectedMode;
-        if (btn) {
-          if (mode === 'MR') {
-            btn.innerHTML = '&#9654; PLAY (PASSTHROUGH MR)';
-            btn.className = 'modal-btn btn-mr';
-          } else if (mode === 'VR') {
-            btn.innerHTML = '&#9654; PLAY (VR 360&deg;)';
-            btn.className = 'modal-btn btn-vr';
-          } else {
-            btn.innerHTML = '&#9654; PLAY (DESKTOP / SCREEN)';
-            btn.className = 'modal-btn btn-2d';
-          }
-        }
-        if (badge) {
-          var label = window.novaDevice.isQuest ? 'Meta Quest Detected' : (window.novaDevice.hasXR ? 'WebXR Headset Detected' : 'Standard Display (Desktop/Mobile)');
-          badge.textContent = 'Detected Device: ' + label + ' | Default: ' + mode;
-        }
-        if (hint) {
-          hint.textContent = 'Non-mandatory VR: Play directly on screen or headset. Change modes anytime in Options.';
-        }
-      } catch (e) {}
-    };
-
     window.novaMenuView = function(v) {
       try {
         document.getElementById('menu-main').style.display = v === 'main' ? '' : 'none';
         document.getElementById('menu-options').style.display = v === 'opt' ? '' : 'none';
-        var gh = document.getElementById('menu-github');
-        if (gh) gh.style.display = v === 'github' ? '' : 'none';
-        window.novaMenuFocusIdx = 0;
-        if (typeof window.novaUpdateMenuFocus === 'function') window.novaUpdateMenuFocus();
       } catch (e) {}
     };
-    window.novaOpenGitHubModal = function() {
-      window.novaMenuView('github');
-    };
     window.novaPlay = function() {
-      var mode = window.novaDevice.detectedMode || '2D';
-      if (mode === 'MR') {
-        window.launchMR();
-      } else if (mode === 'VR') {
-        window.launchVR();
-      } else {
-        window.launch2D();
-      }
+      var done = false;
+      function go2D() { if (!done) { done = true; window.launch2D(); } }
+      try {
+        if (navigator.xr && navigator.xr.isSessionSupported) {
+          navigator.xr.isSessionSupported('immersive-ar').then(function(ar) {
+            if (ar) { done = true; window.launchMR(); return; }
+            return navigator.xr.isSessionSupported('immersive-vr').then(function(vr) { if (vr) { done = true; window.launchVR(); } else go2D(); });
+          }).catch(go2D);
+          setTimeout(go2D, 2500);
+        } else go2D();
+      } catch (e) { go2D(); }
     };
     window.novaExit = function() {
       try { var ses = window.novaGetXR && window.novaGetXR(); if (ses && ses.end) ses.end(); } catch (e) {}
@@ -344,224 +188,6 @@
         window.dismissModal();
       }
     };
-
-    // ── Controller / Gamepad & Keyboard Navigation for Main Menu & Options ──
-    window.novaMenuFocusIdx = 0;
-    window.novaGetVisibleMenuButtons = function() {
-      var overlay = document.getElementById('modal-overlay');
-      if (!overlay || overlay.style.display === 'none') return [];
-      var containers = ['menu-main', 'menu-options', 'menu-github'];
-      for (var i = 0; i < containers.length; i++) {
-        var c = document.getElementById(containers[i]);
-        if (c && c.style.display !== 'none') {
-          return Array.prototype.slice.call(c.querySelectorAll('button.modal-btn, a.modal-btn'));
-        }
-      }
-      return [];
-    };
-
-    window.novaUpdateMenuFocus = function() {
-      var btns = window.novaGetVisibleMenuButtons();
-      if (!btns.length) return;
-      if (window.novaMenuFocusIdx < 0) window.novaMenuFocusIdx = btns.length - 1;
-      if (window.novaMenuFocusIdx >= btns.length) window.novaMenuFocusIdx = 0;
-      document.querySelectorAll('.modal-btn').forEach(function(b) {
-        b.style.outline = '';
-        b.style.outlineOffset = '';
-        b.style.transform = '';
-      });
-      var active = btns[window.novaMenuFocusIdx];
-      if (active) {
-        active.style.outline = '3px solid #ffffff';
-        active.style.outlineOffset = '3px';
-        active.style.transform = 'scale(1.02)';
-        try { active.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
-      }
-    };
-
-    window.addEventListener('DOMContentLoaded', function() {
-      setTimeout(window.novaUpdateMenuFocus, 150);
-    });
-
-    (function initMenuControllerLoop() {
-      var lastNavT = 0;
-      var prevA = false, prevB = false, prevStart = false;
-      var prevFire = false, prevMsl = false, prevBoost = false, prevTarget = false, prevRadar = false, prevDamp = false, prevWarp = false;
-
-      window.addEventListener('gamepadconnected', function(e) {
-        try {
-          var badge = document.getElementById('device-badge');
-          if (badge && badge.textContent.indexOf('Controller') === -1) {
-            badge.textContent += ' | 🎮 Controller Connected';
-          }
-          if (typeof window.showToast === 'function') {
-            window.showToast('🎮 CONTROLLER CONNECTED: ' + (e.gamepad.id || 'Gamepad').slice(0, 28), 2500, '#00ffcc');
-          }
-          window.novaUpdateMenuFocus();
-        } catch (err) {}
-      });
-
-      function pollGamepad() {
-        requestAnimationFrame(pollGamepad);
-        if (!navigator.getGamepads) return;
-        var pads = navigator.getGamepads();
-        var gp = null;
-        for (var i = 0; i < pads.length; i++) {
-          if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
-        }
-        if (!gp) return;
-
-        var now = performance.now();
-        var overlay = document.getElementById('modal-overlay');
-        var menuOpen = overlay && overlay.style.display !== 'none';
-
-        var b0 = !!(gp.buttons[0] && gp.buttons[0].pressed); // A / Cross (Select / Fire)
-        var b1 = !!(gp.buttons[1] && gp.buttons[1].pressed); // B / Circle (Back / Missiles)
-        var b2 = !!(gp.buttons[2] && gp.buttons[2].pressed); // X / Square (Target Cycle)
-        var b3 = !!(gp.buttons[3] && gp.buttons[3].pressed); // Y / Triangle (3D Radar Toggle)
-        var lb = !!(gp.buttons[4] && gp.buttons[4].pressed); // LB / L1 (Throttle Down / Dampeners)
-        var rb = !!(gp.buttons[5] && gp.buttons[5].pressed); // RB / R1 (Afterburner Boost)
-        var lt = (gp.buttons[6] && typeof gp.buttons[6].value === 'number') ? gp.buttons[6].value : 0; // LT / L2 (Throttle / Brake)
-        var rt = (gp.buttons[7] && typeof gp.buttons[7].value === 'number') ? gp.buttons[7].value : 0; // RT / R2 (Primary Fire)
-        var startBtn = !!(gp.buttons[9] && gp.buttons[9].pressed); // Start / Options (Menu Toggle)
-        var dUp = !!(gp.buttons[12] && gp.buttons[12].pressed);
-        var dDown = !!(gp.buttons[13] && gp.buttons[13].pressed);
-        var dLeft = !!(gp.buttons[14] && gp.buttons[14].pressed);
-        var dRight = !!(gp.buttons[15] && gp.buttons[15].pressed);
-        var ay = (gp.axes && gp.axes.length > 1) ? gp.axes[1] : 0;
-
-        // Start button toggles launch/options modal when in 2D/Tablet mode
-        if (startBtn && !prevStart) {
-          if (menuOpen) {
-            window.dismissModal();
-          } else if (overlay) {
-            overlay.style.setProperty('display', 'flex', 'important');
-            window.novaMenuView('main');
-          }
-        }
-        prevStart = startBtn;
-
-        if (menuOpen) {
-          // Menu navigation with D-Pad Up/Down or Left Stick Y
-          if (now - lastNavT > 200) {
-            if (dUp || ay < -0.45) {
-              window.novaMenuFocusIdx--;
-              window.novaUpdateMenuFocus();
-              if (window.sound && window.sound.beep) window.sound.beep(780, 0.04);
-              lastNavT = now;
-            } else if (dDown || ay > 0.45) {
-              window.novaMenuFocusIdx++;
-              window.novaUpdateMenuFocus();
-              if (window.sound && window.sound.beep) window.sound.beep(680, 0.04);
-              lastNavT = now;
-            }
-          }
-          // A / Cross presses the highlighted menu button
-          if (b0 && !prevA) {
-            var btns = window.novaGetVisibleMenuButtons();
-            var active = btns[window.novaMenuFocusIdx] || btns[0];
-            if (active) {
-              if (window.sound && window.sound.switchClick) window.sound.switchClick();
-              active.click();
-            }
-          }
-          // B / Circle returns to Main Menu from submenus
-          if (b1 && !prevB) {
-            var mainEl = document.getElementById('menu-main');
-            if (mainEl && mainEl.style.display === 'none') {
-              window.novaMenuView('main');
-              if (window.sound && window.sound.beep) window.sound.beep(520, 0.05);
-            }
-          }
-          prevA = b0;
-          prevB = b1;
-          return;
-        }
-
-        prevA = b0;
-        prevB = b1;
-
-        // In-Flight Standard Gamepad Controls (for Tablet / PC Bluetooth Controllers when not in WebXR)
-        var inXR = !!(window.renderer && window.renderer.xr && window.renderer.xr.isPresenting);
-        if (!inXR && window.stickPivot) {
-          var DZ = 0.16;
-          // Right stick (axes 2,3) or Left stick (axes 0,1) steers Pitch & Roll
-          var rx = (gp.axes && Math.abs(gp.axes[2] || 0) > Math.abs(gp.axes[0] || 0)) ? (gp.axes[2] || 0) : (gp.axes ? (gp.axes[0] || 0) : 0);
-          var ry = (gp.axes && Math.abs(gp.axes[3] || 0) > Math.abs(gp.axes[1] || 0)) ? (gp.axes[3] || 0) : (gp.axes ? (gp.axes[1] || 0) : 0);
-          var nx = Math.abs(rx) > DZ ? Math.sign(rx) * ((Math.abs(rx) - DZ) / (1 - DZ)) : 0;
-          var ny = Math.abs(ry) > DZ ? Math.sign(ry) * ((Math.abs(ry) - DZ) / (1 - DZ)) : 0;
-          if (nx !== 0 || ny !== 0) {
-            window.isTestingGripStick = true;
-            window.stickPivot.rotation.x = ny * 0.45;
-            window.stickPivot.rotation.z = -nx * 0.45;
-          } else if (window.isTestingGripStick) {
-            window.isTestingGripStick = false;
-            window.stickPivot.rotation.x = 0;
-            window.stickPivot.rotation.z = 0;
-          }
-
-          // D-Pad Up / Down shifts throttle gates
-          if (now - lastNavT > 240) {
-            if (dUp && typeof window.shiftThrottleGate === 'function') {
-              window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) + 1, true);
-              if (window.novaUpdateTabletThrottle) window.novaUpdateTabletThrottle();
-              lastNavT = now;
-            } else if (dDown && typeof window.shiftThrottleGate === 'function') {
-              window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) - 1, true);
-              if (window.novaUpdateTabletThrottle) window.novaUpdateTabletThrottle();
-              lastNavT = now;
-            }
-          }
-
-          // Primary Fire: RT trigger (>0.25) or A button
-          var fireNow = (rt > 0.25) || b0;
-          if (window.NFM) {
-            if (fireNow) window.NFM.padT = now;
-          } else if (fireNow && !prevFire && typeof window.triggerFire === 'function') {
-            window.triggerFire();
-          }
-          prevFire = fireNow;
-
-          // B button: Launch Homing Missile
-          if (b1 && !prevMsl && typeof window.fireHomingMissile === 'function') {
-            if (typeof window.isMissileLidOpen === 'function' && !window.isMissileLidOpen() && typeof window.toggleMissileLid === 'function') {
-              window.toggleMissileLid();
-            }
-            window.fireHomingMissile();
-          }
-          prevMsl = b1;
-
-          // X button: Cycle Target
-          if (b2 && !prevTarget && typeof window.cycleTarget === 'function') {
-            window.cycleTarget();
-          }
-          prevTarget = b2;
-
-          // Y button: Toggle 3D Radar
-          if (b3 && !prevRadar && typeof window.novaRadarToggle === 'function') {
-            window.novaRadarToggle();
-          }
-          prevRadar = b3;
-
-          // RB: Afterburner Boost, LB: Rotation Dampeners, D-Right: Warp, D-Left: Autopilot
-          if (rb && !prevBoost && typeof window.shiftThrottleGate === 'function') {
-            window.shiftThrottleGate(4, true);
-          }
-          prevBoost = rb;
-
-          if (lb && !prevDamp && typeof window.toggleRotationDampeners === 'function') {
-            window.toggleRotationDampeners();
-          }
-          prevDamp = lb;
-
-          if (dRight && !prevWarp && typeof window.triggerLightspeed === 'function') {
-            window.triggerLightspeed();
-          }
-          prevWarp = dRight;
-        }
-      }
-      requestAnimationFrame(pollGamepad);
-    })();
   </script>
   <link rel="manifest" href="./manifest.webmanifest">
   <meta name="theme-color" content="#00e5ff">
@@ -587,106 +213,24 @@
     <div class="modal-box">
       <div class="modal-title">🚀 PROJECT NOVA: STARFIGHTER SIM</div>
       <div class="modal-subtitle">
-        6DOF Space Flight Simulator • Newtonian HOTAS Flight Model • Proportional Navigation Dogfights • Hyperspace Drive
+        Meta Quest 3 Space Flight • Newtonian Physics • Hand Tracking HOTAS Controls • Homing Missiles &amp; Hyperspace Drive
       </div>
-      <div id="device-badge" style="font-size: 11px; color: #79c0ff; background: rgba(14, 40, 70, 0.7); border: 1px solid #1f6feb; border-radius: 4px; padding: 4px 8px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px;">
-        Detecting Display Capabilities...
-      </div>
-      <!-- Clean, focused Main Menu -->
       <div id="menu-main">
-        <button class="modal-btn btn-2d" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
-        <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS &amp; MODES</button>
+        <button class="modal-btn btn-mr" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
+        <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS</button>
         <button class="modal-btn" id="btn-exit" style="border-color:#885566;color:#cc8899;background:rgba(120,30,50,0.15);" onclick="window.novaExit(); event.stopPropagation();">&#10006; EXIT</button>
       </div>
-
-      <!-- Options & Device Setup Menu -->
-      <div id="menu-options" style="display:none; text-align: left;">
-        <div style="font-size: 14px; font-weight: bold; color: #00f0ff; margin-bottom: 8px; text-transform: uppercase;">Display &amp; Immersion Modes:</div>
-        <button class="modal-btn btn-2d" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('2D'); window.launch2D(); event.stopPropagation();">🎮 2D DESKTOP / SCREEN MODE (NO VR REQUIRED)</button>
-        <button class="modal-btn btn-mr" id="btn-mr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('MR'); window.launchMR(); event.stopPropagation();">👁️ ENTER PASSTHROUGH MR (QUEST 3 / AR)</button>
-        <button class="modal-btn btn-vr" id="btn-vr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('VR'); window.launchVR(); event.stopPropagation();">🚀 ENTER IMMERSIVE VR (FULL 360° SPACE)</button>
-
-        <div style="font-size: 14px; font-weight: bold; color: #00ffcc; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Tablet / Touch Controls:</div>
-        <button class="modal-btn" id="btn-toggle-touch-ctrl" style="background: rgba(0, 255, 204, 0.15); border-color: #00ffcc; color: #00ffcc; padding: 10px; margin: 4px 0;" onclick="window.novaToggleTabletCtrl(); event.stopPropagation();">📱 TABLET CONTROLLER: ON / OFF</button>
-
-        <div style="font-size: 14px; font-weight: bold; color: #ffcc00; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Flight Activities:</div>
-        <button class="modal-btn" id="btn-companion" style="background: rgba(178, 102, 255, 0.18); border-color: #b266ff; color: #cc99ff; padding: 10px; margin: 4px 0;" onclick="window.novaCompanionMenu && window.novaCompanionMenu(); event.stopPropagation();">💜 CHOOSE COMPANION (NYX / MATRIX)</button>
-        <button class="modal-btn" id="btn-tutorial" style="background: rgba(255, 204, 0, 0.18); border-color: #ffcc00; color: #ffcc00; padding: 10px; margin: 4px 0;" onclick="window.launchTutorial(false); event.stopPropagation();">📖 GUIDED FLIGHT TUTORIAL</button>
-        <button class="modal-btn" id="btn-frigate" style="background: rgba(0, 240, 255, 0.18); border-color: #00f0ff; color: #00f0ff; padding: 10px; margin: 4px 0;" onclick="window.launchFrigate(); event.stopPropagation();">🌌 FRIGATE HALL &amp; 3D GALAXY MAP</button>
-
-        <div style="font-size: 14px; font-weight: bold; color: #3fb950; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Developer &amp; Standalone:</div>
-        <button class="modal-btn" id="btn-github-connect" style="background: rgba(46, 160, 67, 0.20); border-color: #3fb950; color: #3fb950; font-size: 13px; padding: 10px; margin: 4px 0;" onclick="window.novaOpenGitHubModal(); event.stopPropagation();">🐙 GITHUB &amp; QUEST CONNECTION DETAILS</button>
-        <button class="modal-btn" id="btn-download-standalone" style="background: rgba(0, 255, 170, 0.15); border-color: #00ffaa; color: #00ffaa; font-size: 13px; padding: 10px; margin: 4px 0;" onclick="if(window.downloadStandaloneForClaude) window.downloadStandaloneForClaude(); event.stopPropagation();">⬇️ DOWNLOAD STANDALONE HTML (FOR CLAUDE AI)</button>
-
-        <button class="modal-btn" id="btn-back" style="margin-top: 12px; padding: 12px;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK TO MAIN MENU</button>
-      </div>
-
-      <!-- GitHub & Meta Quest Connect Dialog -->
-      <div id="menu-github" style="display:none; text-align: left; padding: 10px 4px;">
-        <div style="font-size: 18px; color: #3fb950; font-weight: bold; margin-bottom: 8px;">🥽 1. CONNECT &amp; PLAY ON META QUEST</div>
-        <div style="font-size: 13px; color: #a0c4df; line-height: 1.5; margin-bottom: 12px;">
-          Open the <b>Meta Quest Browser</b> on your headset and navigate to this live WebXR URL:
-        </div>
-        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
-          <input type="text" id="quest-url-input" readonly value="https://ais-pre-ju7jgpdtyqtmofenwhjexo-454911322812.us-west1.run.app" style="flex: 1; background: #040d1a; border: 1px solid #00f0ff; color: #00f0ff; padding: 8px 12px; font-family: monospace; font-size: 12px; border-radius: 6px;" />
-          <button class="modal-btn" style="width: auto; margin: 0; padding: 8px 14px; font-size: 12px; border-color: #00f0ff; color: #00f0ff;" onclick="navigator.clipboard.writeText(document.getElementById('quest-url-input').value); window.showToast('Copied Quest URL!', 2000, '#00f0ff'); event.stopPropagation();">📋 COPY</button>
-        </div>
-
-        <div style="font-size: 18px; color: #58a6ff; font-weight: bold; margin-top: 14px; margin-bottom: 8px;">🐙 2. GITHUB REPOSITORY: Devostater/Project-Nova</div>
-        <div style="font-size: 13px; color: #a0c4df; line-height: 1.5; margin-bottom: 8px;">
-          Origin remote is configured to <code>https://github.com/Devostater/Project-Nova.git</code>.
-        </div>
-        <pre style="background: #020813; border: 1px solid #238636; color: #7ee787; padding: 10px; font-size: 11px; border-radius: 6px; overflow-x: auto; margin-bottom: 12px; font-family: monospace;">git remote add origin https://github.com/Devostater/Project-Nova.git
-git branch -M main
-git push -u origin main</pre>
-        <div style="margin-bottom: 12px;">
-          <a href="./project-nova-git.tar.gz" download="project-nova-git.tar.gz" class="modal-btn" style="text-decoration: none; text-align: center; background: rgba(88, 166, 255, 0.18); border-color: #58a6ff; color: #79c0ff; font-size: 13px; padding: 10px; margin: 0;" onclick="event.stopPropagation();">📦 DOWNLOAD FULL REPO ARCHIVE (WITH .GIT &amp; HISTORY)</a>
-        </div>
-        <div style="font-size: 12px; color: #88aacc; line-height: 1.4; margin-bottom: 14px;">
-          ✨ <b>AI Collaboration Ready</b>: Other AI models (Claude, Cursor, Copilot, ChatGPT) can directly open or edit <code>index.html</code> or <code>public/standalone.html</code>. Both files are 100% self-contained and ready to build.
-        </div>
-        <button class="modal-btn" style="margin-top: 6px; border-color: #3fb950; color: #3fb950;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK TO MENU</button>
+      <div id="menu-options" style="display:none;">
+        <button class="modal-btn btn-mr" id="btn-mr" style="border-width: 3px; box-shadow: 0 0 25px rgba(255, 51, 170, 0.45); font-size: 18px;" onclick="window.launchMR(); event.stopPropagation();">👁️ ENTER MR (PASSTHROUGH COCKPIT) [QUEST 3]</button>
+      <button class="modal-btn btn-vr" id="btn-vr" onclick="window.launchVR(); event.stopPropagation();">🚀 ENTER VR SPACE FLIGHT (FULL 360° SPACE)</button>
+      <button class="modal-btn btn-2d" id="btn-2d" onclick="window.launch2D(); event.stopPropagation();">🎮 2D DESKTOP TEST MODE</button>
+      <button class="modal-btn" id="btn-companion" style="background: rgba(178, 102, 255, 0.18); border-color: #b266ff; color: #cc99ff;" onclick="window.novaCompanionMenu && window.novaCompanionMenu(); event.stopPropagation();">💜 CHOOSE YOUR COMPANION (NYX / MATRIX)</button>
+      <button class="modal-btn" id="btn-tutorial" style="background: rgba(255, 204, 0, 0.18); border-color: #ffcc00; color: #ffcc00;" onclick="window.launchTutorial(false); event.stopPropagation();">📖 TUTORIAL: LEARN TO FLY (GUIDED, 2D)</button>
+      <button class="modal-btn" id="btn-tutorial-vr" style="background: rgba(255, 204, 0, 0.10); border-color: #b38f00; color: #ffcc00; font-size: 12px; padding: 9px;" onclick="window.launchTutorial(true); event.stopPropagation();">📖 RUN THE TUTORIAL IN VR INSTEAD</button>
+      <button class="modal-btn" id="btn-frigate" style="background: rgba(0, 240, 255, 0.22); border-color: #00f0ff; color: #00f0ff; margin-top: 6px;" onclick="window.launchFrigate(); event.stopPropagation();">🌌 ENTER CENTRAL FRIGATE HALL &amp; 3D GALAXY MAP</button>
+      <button class="modal-btn" id="btn-back" style="margin-top:6px;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK</button>
       </div>
       <div class="modal-hint" id="menu-hint">PLAY starts Mixed Reality on Quest, or desktop mode on a computer. Options has VR, tutorial and companion.</div>
-    </div>
-  </div>
-
-  <!-- Tablet / Touch On-Screen Flight Controller Overlay -->
-  <div id="tablet-controller">
-    <!-- Top Quick Action Strip -->
-    <div class="tablet-zone-top">
-      <button class="tablet-btn tablet-btn-pill" id="tc-btn-radar" style="border-color: #00e5ff; color: #00e5ff;">📡 RADAR</button>
-      <button class="tablet-btn tablet-btn-pill" id="tc-btn-target" style="border-color: #33ff99; color: #33ff99;">🎯 TARGET</button>
-      <button class="tablet-btn tablet-btn-pill" id="tc-btn-damp" style="border-color: #ffd24a; color: #ffd24a;">⚖️ DAMP</button>
-      <button class="tablet-btn tablet-btn-pill" id="tc-btn-options" style="border-color: #88aacc; color: #88aacc;" onclick="window.novaMenuView('opt'); document.getElementById('modal-overlay').style.setProperty('display', 'flex', 'important');">⚙️ MENU</button>
-    </div>
-
-    <!-- Left Zone: Throttle Lever + Booster + Reverse Cut -->
-    <div class="tablet-zone tablet-zone-left">
-      <div style="font-size: 11px; font-weight: bold; color: #ffd24a; margin-bottom: 6px; font-family: monospace; letter-spacing: 1px;">THROTTLE</div>
-      <div class="tablet-throttle-track" id="tc-throttle-track">
-        <div class="tablet-throttle-handle" id="tc-throttle-handle">0%</div>
-      </div>
-      <div style="display: flex; gap: 6px; width: 100%; margin-top: 8px;">
-        <button class="tablet-btn" id="tc-btn-boost" style="flex: 1; height: 36px; border-color: #ffaa00; color: #ffaa00; font-size: 11px;">🚀 BOOST</button>
-        <button class="tablet-btn" id="tc-btn-warp" style="flex: 1; height: 36px; border-color: #b266ff; color: #cc99ff; font-size: 11px;">⚡ WARP</button>
-      </div>
-    </div>
-
-    <!-- Right Zone: Virtual Flight Stick + Dedicated Fire + Missile Launch -->
-    <div class="tablet-zone tablet-zone-right">
-      <div style="display: flex; gap: 8px; margin-bottom: 10px; width: 100%; justify-content: flex-end;">
-        <button class="tablet-btn" id="tc-btn-missile" style="width: 80px; height: 38px; border-color: #ff5566; color: #ff5566; font-size: 11px;">🚀 MSL</button>
-        <button class="tablet-btn" id="tc-btn-flare" style="width: 60px; height: 38px; border-color: #ff8833; color: #ff8833; font-size: 11px;">✨ FLR</button>
-      </div>
-      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-        <div class="tablet-joystick-base" id="tc-stick-base">
-          <div class="tablet-joystick-stick" id="tc-stick-handle"></div>
-        </div>
-        <!-- Fire Button next to joystick -->
-        <button class="tablet-btn tablet-btn-fire" id="tc-btn-fire" style="position: absolute; right: -12px; bottom: 70px;">FIRE</button>
-      </div>
-      <div style="font-size: 11px; font-weight: bold; color: #00f0ff; margin-top: 6px; font-family: monospace; letter-spacing: 1px;">FLIGHT STICK</div>
     </div>
   </div>
 
@@ -7491,7 +7035,6 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           const hitMesh = cHits[0].object;
           const entry = cockpitInteractables.find(b => { let o = hitMesh; while (o) { if (b.mesh === o) return true; o = o.parent; } return false; });
           if (entry && entry.action) {
-            if (window.NFM && entry.label === 'THUMB FIRE LASER') window.NFM.mouseHeld = true;
             entry.action();
             sound.switchClick();
             return;
@@ -7559,7 +7102,6 @@ const GAME_VERSION = 'Alpha 1.0 RC';
 
     window.addEventListener('mouseup', () => {
       isMouseDown = false;
-      if (window.NFM) window.NFM.mouseHeld = false;
       if (activeDragTarget === 'stick') {
         isGrippingStick = false;
         // Spring back
@@ -7624,240 +7166,12 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       }
     });
 
-    // ── Tablet / Touch On-Screen Flight Controller Setup ──
-    const tabletCtrl = {
-      active: false,
-      userToggled: false,
-      stickTouchId: null,
-      stickCenter: { x: 0, y: 0 },
-      stickRadius: 60,
-      throttleTouchId: null,
-      throttleTrackTop: 0,
-      throttleTrackHeight: 160
-    };
-
-    function updateTabletCtrlVisibility() {
-      const tcEl = document.getElementById('tablet-controller');
-      if (!tcEl) return;
-      const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.novaDevice.isMobile;
-      const shouldShow = (tabletCtrl.userToggled ? tabletCtrl.active : isTouchDevice) && !renderer.xr.isPresenting;
-      tabletCtrl.active = shouldShow;
-      tcEl.style.display = shouldShow ? 'block' : 'none';
-      const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
-      if (toggleBtn) {
-        toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (shouldShow ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
-      }
-    }
-    window.novaToggleTabletCtrl = function(force) {
-      tabletCtrl.userToggled = true;
-      tabletCtrl.active = (typeof force === 'boolean') ? force : !tabletCtrl.active;
-      const tcEl = document.getElementById('tablet-controller');
-      if (tcEl) tcEl.style.display = tabletCtrl.active ? 'block' : 'none';
-      const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
-      if (toggleBtn) toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (tabletCtrl.active ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
-      showToast('Tablet Controller ' + (tabletCtrl.active ? 'ENABLED' : 'DISABLED'), 2000, '#00ffcc');
-    };
-
-    function initTabletController() {
-      const tcEl = document.getElementById('tablet-controller');
-      const stickBase = document.getElementById('tc-stick-base');
-      const stickHandle = document.getElementById('tc-stick-handle');
-      const throttleTrack = document.getElementById('tc-throttle-track');
-      const throttleHandle = document.getElementById('tc-throttle-handle');
-      const btnFire = document.getElementById('tc-btn-fire');
-      const btnBoost = document.getElementById('tc-btn-boost');
-      const btnWarp = document.getElementById('tc-btn-warp');
-      const btnMsl = document.getElementById('tc-btn-missile');
-      const btnFlr = document.getElementById('tc-btn-flare');
-      const btnRdr = document.getElementById('tc-btn-radar');
-      const btnTgt = document.getElementById('tc-btn-target');
-      const btnDmp = document.getElementById('tc-btn-damp');
-
-      if (!tcEl || !stickBase || !stickHandle) return;
-
-      // Flight Stick Touch Events
-      stickBase.addEventListener('touchstart', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        sound.init();
-        if (tabletCtrl.stickTouchId !== null) return;
-        const touch = e.changedTouches[0];
-        tabletCtrl.stickTouchId = touch.identifier;
-        const rect = stickBase.getBoundingClientRect();
-        tabletCtrl.stickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        updateStick(touch.clientX, touch.clientY);
-      }, { passive: false });
-
-      stickBase.addEventListener('touchmove', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-          const touch = e.changedTouches[i];
-          if (touch.identifier === tabletCtrl.stickTouchId) {
-            updateStick(touch.clientX, touch.clientY);
-            break;
-          }
-        }
-      }, { passive: false });
-
-      const resetStick = (e) => {
-        if (e) {
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === tabletCtrl.stickTouchId) {
-              tabletCtrl.stickTouchId = null;
-              break;
-            }
-          }
-        } else {
-          tabletCtrl.stickTouchId = null;
-        }
-        if (tabletCtrl.stickTouchId === null) {
-          stickHandle.style.transform = 'translate(-50%, -50%)';
-          isGrippingStick = false;
-          stickPivot.rotation.x = 0;
-          stickPivot.rotation.z = 0;
-          stickPitchDeg = 0; stickRollDeg = 0;
-          drawHUD();
-        }
-      };
-      stickBase.addEventListener('touchend', resetStick, { passive: false });
-      stickBase.addEventListener('touchcancel', resetStick, { passive: false });
-
-      function updateStick(cx, cy) {
-        const dx = cx - tabletCtrl.stickCenter.x;
-        const dy = cy - tabletCtrl.stickCenter.y;
-        const dist = Math.hypot(dx, dy);
-        const maxR = tabletCtrl.stickRadius;
-        const clampedR = Math.min(dist, maxR);
-        const angle = Math.atan2(dy, dx);
-        const hx = Math.cos(angle) * clampedR;
-        const hy = Math.sin(angle) * clampedR;
-        stickHandle.style.transform = `translate(calc(-50% + ${hx}px), calc(-50% + ${hy}px))`;
-
-        isGrippingStick = true;
-        // Inverted flight pitch (pull back / drag down = pitch up)
-        stickPivot.rotation.x = THREE.MathUtils.clamp((hy / maxR) * 0.45, -0.45, 0.45);
-        stickPivot.rotation.z = THREE.MathUtils.clamp((-hx / maxR) * 0.45, -0.45, 0.45);
-        stickPitchDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.x);
-        stickRollDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.z);
-        drawHUD();
-      }
-
-      // Throttle Track Touch Events
-      function updateThrottleUI() {
-        if (!throttleHandle || !throttleTrack) return;
-        const pct = throttlePct;
-        const pctHeight = (1 - pct) * 122 + 19; // 19px to 141px
-        throttleHandle.style.top = `${pctHeight}px`;
-        throttleHandle.textContent = `${Math.round(pct * 100)}%`;
-      }
-      window.novaUpdateTabletThrottle = updateThrottleUI;
-
-      throttleTrack.addEventListener('touchstart', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        sound.init();
-        const touch = e.changedTouches[0];
-        tabletCtrl.throttleTouchId = touch.identifier;
-        applyThrottleTouch(touch.clientY);
-      }, { passive: false });
-
-      throttleTrack.addEventListener('touchmove', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-          const touch = e.changedTouches[i];
-          if (touch.identifier === tabletCtrl.throttleTouchId) {
-            applyThrottleTouch(touch.clientY);
-            break;
-          }
-        }
-      }, { passive: false });
-
-      const endThrottle = (e) => {
-        if (e) {
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === tabletCtrl.throttleTouchId) {
-              tabletCtrl.throttleTouchId = null;
-              break;
-            }
-          }
-        } else {
-          tabletCtrl.throttleTouchId = null;
-        }
-        // Snap to nearest detent notch on touch release
-        const nearestNotch = Math.round(throttlePct * 4) / 4;
-        setThrottle(nearestNotch);
-        updateThrottleUI();
-      };
-      throttleTrack.addEventListener('touchend', endThrottle, { passive: false });
-      throttleTrack.addEventListener('touchcancel', endThrottle, { passive: false });
-
-      function applyThrottleTouch(clientY) {
-        const rect = throttleTrack.getBoundingClientRect();
-        const relY = THREE.MathUtils.clamp((clientY - rect.top) / rect.height, 0, 1);
-        const newPct = THREE.MathUtils.clamp(1 - relY, 0, 1);
-        setThrottle(newPct);
-        updateThrottleUI();
-      }
-
-      // Action Buttons Binding
-      const bindHoldButton = (btn, onDown, onUp) => {
-        if (!btn) return;
-        btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); btn.classList.add('active'); onDown(); }, { passive: false });
-        btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); }, { passive: false });
-        btn.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); }, { passive: false });
-        btn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); btn.classList.add('active'); onDown(); });
-        btn.addEventListener('mouseup', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); });
-      };
-
-      const bindTapButton = (btn, action) => {
-        if (!btn) return;
-        btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); action(); }, { passive: false });
-        btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); action(); });
-      };
-
-      // Continuous Hold Primary Fire
-      bindHoldButton(btnFire, () => {
-        if (window.NFM) window.NFM.mouseHeld = true;
-        triggerFire();
-      }, () => {
-        if (window.NFM) window.NFM.mouseHeld = false;
-      });
-
-      // Quick Actions
-      bindTapButton(btnBoost, () => {
-        triggerAfterburner();
-        sound.switchClick();
-      });
-      bindTapButton(btnWarp, () => {
-        triggerLightspeed();
-      });
-      bindTapButton(btnMsl, () => {
-        // Auto-open safety lid if closed then launch missile
-        if (typeof isMissileLidOpen !== 'undefined' && !isMissileLidOpen) {
-          toggleMissileLid();
-        }
-        fireHomingMissile();
-      });
-      bindTapButton(btnFlr, () => {
-        if (typeof deployCountermeasureFlares === 'function') deployCountermeasureFlares();
-        else showToast('FLARES DEPLOYED', 1500, '#ff8833');
-      });
-      bindTapButton(btnRdr, () => {
-        if (typeof window.novaRadarToggle === 'function') window.novaRadarToggle();
-      });
-      bindTapButton(btnTgt, () => {
-        if (typeof cycleTarget === 'function') cycleTarget();
-      });
-      bindTapButton(btnDmp, () => {
-        if (typeof toggleRotationDampeners === 'function') toggleRotationDampeners();
-      });
-    }
-
     // ── WebXR Session Startup Handlers ──
     let isStartingXR = false;
 
     const dismissModal = () => {
       const m = document.getElementById('modal-overlay');
       if (m) m.style.display = 'none';
-      updateTabletCtrlVisibility();
     };
 
     window.sound = sound;
@@ -7999,13 +7313,23 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       });
     }
 
-    // Clicking on modal overlay background uses the user's selected/detected mode without forcing VR
+    // Clicking anywhere on modal overlay or modal box starts/enters the game
     const modalOverlay = document.getElementById('modal-overlay');
     if (modalOverlay) {
       modalOverlay.addEventListener('click', (e) => {
         sound.init();
-        if (typeof window.novaPlay === 'function') {
-          window.novaPlay();
+        if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
+          navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+            if (supported) {
+              startXR('immersive-vr', false);
+            } else {
+              dismissModal();
+              showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
+            }
+          }).catch(() => {
+            dismissModal();
+            showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
+          });
         } else {
           dismissModal();
           showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
@@ -10288,19 +9612,10 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         }
       }
 
-      // ── Flight Steering & Propulsion via Joystick & Throttle (Crisp Agile Starfighter Model) ──
+            // ── Flight Steering & Propulsion via Joystick & Throttle (Crisp Agile Starfighter Model) ──
       // Active Steering Determination: When pilot is gripping stick or using thumbstick
       const isActivelySteering = (isGrippingStick || isGrippingStickHand || isThumbstickSteering || Boolean(window.isTestingGripStick));
-      // Angular Deadzone (~3.2 deg / 0.055 rad) with smooth rescaling up to max 0.45 rad deflection
-      const STICK_ANGLE_DEADZONE = 0.055;
-      const stickAxisNorm = (rad) => {
-        const abs = Math.abs(rad);
-        if (abs <= STICK_ANGLE_DEADZONE) return 0;
-        return Math.sign(rad) * Math.min(1.0, (abs - STICK_ANGLE_DEADZONE) / (0.45 - STICK_ANGLE_DEADZONE));
-      };
-      const normPitch = stickAxisNorm(stickPivot.rotation.x);
-      const normRoll  = stickAxisNorm(stickPivot.rotation.z);
-      const isStickDeflected = (normPitch !== 0 || normRoll !== 0);
+      const isStickDeflected = (Math.abs(stickPivot.rotation.x) > 0.015 || Math.abs(stickPivot.rotation.z) > 0.015);
       const isSteeringNeutral = (!isActivelySteering || !isStickDeflected);
 
       // Starfighter Agile Flight Rates: Responsive, agile, comfortable star travel
@@ -10313,13 +9628,13 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       // Pitch: Inverted Y (Default): Pull back (stick.rotation.x > 0) -> Climb / Pitch UP! Push forward -> Dive / Pitch DOWN!
       // In Three.js coordinates, a negative rotation around local X pitches the nose UP towards +Y.
       const pitchFactor = isPitchInverted ? -1.0 : 1.0;
-      const pitchRate = pitchFactor * normPitch * pitchSpeed;
+      const pitchRate = pitchFactor * (stickPivot.rotation.x / 0.45) * pitchSpeed;
 
       // Turn / Yaw: Tilt Right (stick.rotation.z < 0) -> Turn RIGHT; Tilt Left -> Turn LEFT
-      const yawRate = normRoll * yawSpeed;
+      const yawRate = (stickPivot.rotation.z / 0.45) * yawSpeed;
 
       // Roll: Coordinated Banking: Tilt Right -> Bank RIGHT; Tilt Left -> Bank LEFT
-      const rollRate = normRoll * 0.45 * rollSpeed;
+      const rollRate = (stickPivot.rotation.z / 0.45) * 0.45 * rollSpeed;
 
       if (!isSteeringNeutral) {
         // Direct local attitude integration: rotates strictly around ship's CURRENT local axes (Pitch=X, Yaw=Y, Roll=Z)
@@ -11121,25 +10436,27 @@ const GAME_VERSION = 'Alpha 1.0 RC';
               if (!isGripActive || distStick > 0.165 || isHandBusyWithControls) {
                 isGrippingStickHand = false;
               } else {
-                // Deflection relative to initial hand grab anchor with generous 2.2cm deadzone
-                const dz = localStickHand.z - (typeof stickGrabAnchorZ === 'number' ? stickGrabAnchorZ : 0.020);
-                const dx = localStickHand.x - (typeof stickGrabAnchorX === 'number' ? stickGrabAnchorX : 0.0);
+                // Deflection relative to current joystick location in cockpit
+                // Hand center has natural 2cm palm offset at stick handle
+                const handNeutralZ = 0.020;
+                const dz = localStickHand.z - handNeutralZ;
+                const dx = localStickHand.x;
 
-                const DEADZONE = 0.022;
+                const DEADZONE = 0.008;
                 let targetPitch = 0.0;
                 let targetRoll = 0.0;
 
                 // Deflection along Z (Forward / Backward Pitch)
                 if (Math.abs(dz) > DEADZONE) {
                   const signZ = Math.sign(dz);
-                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.055, 1.0);
+                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.050, 1.0);
                   targetPitch = signZ * magZ * 0.45;
                 }
 
                 // Deflection along X (Left / Right Roll & Turn)
                 if (Math.abs(dx) > DEADZONE) {
                   const signX = Math.sign(dx);
-                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.055, 1.0);
+                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.050, 1.0);
                   targetRoll = -signX * magX * 0.45;
                 }
 
@@ -11437,11 +10754,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
             stickHandle.getWorldPosition(stickWorldPos);
             const distStick = cPos.distanceTo(stickWorldPos);
 
-            // Right Controller Trigger or 'A'/'B' button fires laser continuously while holding stick
+            // Right Controller Trigger or 'A' button fires laser when holding or pointing near stick!
             if (rightGamepad && rightGamepad.buttons) {
-              const isTrigger = !!(rightGamepad.buttons[0] && rightGamepad.buttons[0].pressed);
-              const isAButton = !!(rightGamepad.buttons[4] && rightGamepad.buttons[4].pressed) || !!(rightGamepad.buttons[5] && rightGamepad.buttons[5].pressed);
-              if ((isTrigger || isAButton) && isGrippingStickCtrl) {
+              const isTrigger = false;   // the grip squeeze/trigger no longer fires
+              const isAButton = (rightGamepad.buttons[4] && rightGamepad.buttons[4].pressed) || (rightGamepad.buttons[5] && rightGamepad.buttons[5].pressed);
+              if ((isTrigger || isAButton) && isGrippingStickCtrl && (now - lastFireTime > 160)) {
                 pressThumbFireButton();
               }
             }
@@ -11458,21 +10775,21 @@ const GAME_VERSION = 'Alpha 1.0 RC';
                 isGrippingStickCtrl = false;
               } else {
                 const localStickHand = stickGroup.worldToLocal(cPos.clone());
-                const dz = localStickHand.z - (typeof stickGrabAnchorCtrlZ === 'number' ? stickGrabAnchorCtrlZ : 0.0);
-                const dx = localStickHand.x - (typeof stickGrabAnchorCtrlX === 'number' ? stickGrabAnchorCtrlX : 0.0);
+                const dz = localStickHand.z;
+                const dx = localStickHand.x;
 
-                const DEADZONE = 0.022;
+                const DEADZONE = 0.008;
                 let targetPitch = 0.0;
                 let targetRoll = 0.0;
 
                 if (Math.abs(dz) > DEADZONE) {
                   const signZ = Math.sign(dz);
-                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.055, 1.0);
+                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.050, 1.0);
                   targetPitch = signZ * magZ * 0.45;
                 }
                 if (Math.abs(dx) > DEADZONE) {
                   const signX = Math.sign(dx);
-                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.055, 1.0);
+                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.050, 1.0);
                   targetRoll = -signX * magX * 0.45;
                 }
 
@@ -11640,16 +10957,13 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         }
       }
 
-      // ── Direct Thumbstick Input (Flight & Throttle without Needing 6DOF Grip, with 0.16 Deadzone) ──
+      // ── Direct Thumbstick Input (Flight & Throttle without Needing 6DOF Grip) ──
       isThumbstickSteering = false;
       if (!isGrippingStick && rightGamepad && rightGamepad.axes && rightGamepad.axes.length >= 2) {
-        const THUMB_DZ = 0.16;
-        const rawX = (Math.abs(rightGamepad.axes[2]) > Math.abs(rightGamepad.axes[0] || 0)) ? rightGamepad.axes[2] : (rightGamepad.axes[0] || 0);
-        const rawY = (Math.abs(rightGamepad.axes[3]) > Math.abs(rightGamepad.axes[1] || 0)) ? rightGamepad.axes[3] : (rightGamepad.axes[1] || 0);
-        const axisX = Math.abs(rawX) > THUMB_DZ ? Math.sign(rawX) * ((Math.abs(rawX) - THUMB_DZ) / (1 - THUMB_DZ)) : 0;
-        const axisY = Math.abs(rawY) > THUMB_DZ ? Math.sign(rawY) * ((Math.abs(rawY) - THUMB_DZ) / (1 - THUMB_DZ)) : 0;
+        const axisX = (Math.abs(rightGamepad.axes[2]) > 0.08) ? rightGamepad.axes[2] : (Math.abs(rightGamepad.axes[0]) > 0.08 ? rightGamepad.axes[0] : 0);
+        const axisY = (Math.abs(rightGamepad.axes[3]) > 0.08) ? rightGamepad.axes[3] : (Math.abs(rightGamepad.axes[1]) > 0.08 ? rightGamepad.axes[1] : 0);
 
-        if (axisX !== 0 || axisY !== 0) {
+        if (Math.abs(axisX) > 0.08 || Math.abs(axisY) > 0.08) {
           isThumbstickSteering = true;
           const targetPitch = axisY * 0.45;
           const targetRoll = -axisX * 0.45;
@@ -14208,11 +13522,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       return e;
     }
     function nmPressTick() {
-      NOP.list.forEach(it => {
-        if (it.e && it.e.label === 'THUMB FIRE LASER') return; // Handled continuously by nfmTick() so hold-to-fire stays depressed
-        const p = it.e.pressTimer;
-        it.node.position[it.axis] = it.base - (p > 0 ? Math.sin((1 - p / 0.15) * Math.PI) * it.depth : 0);
-      });
+      NOP.list.forEach(it => { const p = it.e.pressTimer; it.node.position[it.axis] = it.base - (p > 0 ? Math.sin((1 - p / 0.15) * Math.PI) * it.depth : 0); });
     }
     // flight stick: the cap on top of the lever is the fire button
     function nmWireStickFire(w) {
@@ -14220,8 +13530,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         const cap = w.getObjectByName('tripo_part_2'); const old = cockpitInteractables.find(e => e.label === 'THUMB FIRE LASER');
         if (!cap || !cap.isMesh || !old) return;
         nmRecenter(cap);
-        cap.userData.restY = cap.position.y;
-        nmPressable(cap, 'THUMB FIRE LASER', old.action, 0.048, 'y', 0.015);
+        nmPressable(cap, 'THUMB FIRE LASER', old.action, 0.045, 'y', 0.05);
         console.log('[NOVA12] stick fire button wired');
       } catch (e) { console.warn('stick fire wiring failed', e); }
     }
@@ -14729,7 +14038,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     // ── NOVA14: overhead buttons press in like the missile button, with your icon art, lit in their colour (brighter while active) ──
     const NOH = { img: new Image(), ok: false, wired: false };
     NOH.img.onload = () => { NOH.ok = true; NOH.wired = false; }; NOH.img.src = './art/oh_icons.png';
-    const NOH_MAP = { 'SHIELD BOOST': [0, '#00e5ff', 'SHIELD'], 'FLARES': [1, '#ff8833', 'FLARES'], 'DOME LIGHT': [2, '#ffee88', 'LIGHT'], 'POLARIZER': [3, '#aa88ff', 'POLAR'], 'OH AUTOPILOT': [4, '#33ff99', 'AUTOPILOT'], 'OH STEALTH': [3, '#9a7dff', 'STEALTH'], 'OH REPAIR': [5, '#33ff99', 'REPAIR'], 'OH RADAR': [2, '#00e5ff', 'RADAR 3D'], 'AUTO-DOCK': [5, '#00f0ff', 'DOCK'] };
+    const NOH_MAP = { 'SHIELD BOOST': [0, '#00e5ff', 'SHIELD'], 'FLARES': [1, '#ff8833', 'FLARES'], 'DOME LIGHT': [2, '#ffee88', 'LIGHT'], 'POLARIZER': [3, '#aa88ff', 'POLAR'], 'OH AUTOPILOT': [4, '#33ff99', 'AUTOPILOT'], 'OH STEALTH': [3, '#9a7dff', 'STEALTH'], 'OH REPAIR': [5, '#33ff99', 'REPAIR'], 'OH RADAR': [2, '#00e5ff', 'RADAR'], 'AUTO-DOCK': [5, '#00f0ff', 'DOCK'] };
     const nohTint = document.createElement('canvas'); nohTint.width = nohTint.height = 256;
     function nohPaint(it, on) {
       const m = NOH_MAP[it.label]; if (!m) return;
@@ -14770,7 +14079,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           let on = false;
           if (it.label === 'OH AUTOPILOT') on = !!isAutopilotActive;
           else if (it.label === 'OH STEALTH') on = !!(window.NF && NF.stealth);
-          else if (it.label === 'OH RADAR') on = NH.on !== false;
+          else if (it.label === 'OH RADAR') on = !!NH.on;
           else if (it.label === 'OH REPAIR') on = (window.novaKits || 0) > 0 && (window.novaHull ?? 100) < 100;
           else if (it.label === 'AUTO-DOCK') { try { on = window.ndkState === 'hold' || novaDock.state !== 'idle'; } catch (e) { } }
           else if (it.label === 'DOME LIGHT' || it.label === 'POLARIZER') on = !!it.tog;
@@ -14780,7 +14089,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         });
       }; }
     // ── NOVA13: 3D holo-radar over the centre dash screen; touch a contact to lock, touch the range tag to zoom ──
-    const NH = { g: null, on: true, models: true, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {} };
+    const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {} };
     window.NH = NH;
     const NH_COL = { hostile: 0xff3344, allied: 0x33ff88, station: 0x3fa9ff, asteroid: 0x9aa6b8, wreck: 0xffaa33 };
     function nhMat(type) { const k = NH_COL[type] !== undefined ? type : 'asteroid'; return NH.mats[k] || (NH.mats[k] = new THREE.MeshBasicMaterial({ color: NH_COL[k], toneMapped: false })); }
@@ -14836,7 +14145,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     }
     function nhTick(dt) {
       if (!NH.g) return;
-      NH.g.visible = (NH.on !== false) && cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen; if (!NH.g.visible) return;
+      NH.g.visible = cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen; if (!NH.g.visible) return;
       NH.t += dt; NH.listT -= dt;
       const range = (typeof radarZoomLevels !== 'undefined') ? radarZoomLevels[radarZoomIdx] : 600;
       if (NH.listT <= 0) { NH.listT = 0.3; try { NH.list = nmContactList(range, true).slice(0, NH.pool.length); } catch (e) { NH.list = []; } }
@@ -15277,7 +14586,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       ['RECENTER VIEW (1 s countdown)', '#ffd24a', () => npRecenterDelayed()],
       ['SAVE GAME', '#33ff99', () => nsvSave(1)], ['LOAD GAME', '#ffd24a', () => nsvLoad(1)],
       ['MASTER VOLUME ' + Math.round(NOPT.o.master * 100) + '%', '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }],
-      ['GRAPHICS ' + String(NOPT.o.gfx).toUpperCase(), '#b266ff', () => { const L = ['low', 'mid', 'high']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 3]; noptSave(); noptApplyGfx(); showToast('GRAPHICS ' + NOPT.o.gfx.toUpperCase() + (renderer.xr.isPresenting ? ' (VR resolution changes next launch)' : ''), 2000, '#b266ff'); }],
+      ['GRAPHICS ' + String(NOPT.o.gfx).toUpperCase(), '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); showToast('GRAPHICS ' + NOPT.o.gfx.toUpperCase() + (renderer.xr.isPresenting ? ' (VR resolution changes next launch)' : ''), 2000, '#b266ff'); }],
       [(localStorage.getItem('novaEndingSeen') === '1') ? 'WATCH ENDING & CREDITS' : 'STORY INTRO', '#b266ff', () => { if (localStorage.getItem('novaEndingSeen') === '1') nrmPlayEnding(); else nkIntroStart(true); }],
       ['EXIT GAME', '#ff3344', () => npExitArm()]];
     const NP_OPT = { name: 'OPTIONS', c: '#9fc3d8', hint: 'touch a row · EXIT GAME needs a second touch · key bindings are in the main menu OPTIONS',
@@ -15836,7 +15145,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       try { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr)); } catch (e) { }
       try { if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(q.xr); } catch (e) { }
       try { renderer.xr.setFoveation(q.fov); } catch (e) { }
-      try { if (window.NF) NF.cap = NOPT.o.gfx === 'low' ? 14 : NOPT.o.gfx === 'high' ? 40 : 26; } catch (e) { }
+      try { if (window.NF) NF.cap = NOPT.o.gfx === 'low' ? 14 : (NOPT.o.gfx === 'high' || NOPT.o.gfx === 'ultra') ? 40 : 26; } catch (e) { }
     }
 
     // key bindings: a rebound key is replayed to the game as the key it replaces, so every existing control keeps working
@@ -15885,8 +15194,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         s += `<div style="${row}"><span>${l}</span><input data-nvol="${k}" type="range" min="0" max="100" value="${Math.round(o[k] * 100)}" style="flex:1;max-width:220px"><span style="width:40px;text-align:right">${Math.round(o[k] * 100)}%</span></div>`;
       });
       s += h('GRAPHICS');
-      s += `<div style="${row};justify-content:flex-start">${['low', 'mid', 'high'].map(g => btn('gfx:' + g, g.toUpperCase(), o.gfx === g)).join('')}</div>`;
-      s += `<div style="font:11px monospace;color:#88aacc">${(NOPT_GFX[o.gfx] || NOPT_GFX.mid).label}. VR resolution changes on the next VR launch.</div>`;
+      s += `<div style="${row};justify-content:flex-start">${['low', 'mid', 'high', 'ultra'].map(g => btn('gfx:' + g, g.toUpperCase(), o.gfx === g)).join('')}</div>`;
+      s += `<div style="font:11px monospace;color:#88aacc">${(NOPT_GFX[o.gfx] || NOPT_GFX.mid).label}. VR resolution changes on the next VR launch. ULTRA (original models) applies after reloading the page.</div>`;
       s += h('KEY BINDINGS <span style="color:#88aacc;font-weight:normal;letter-spacing:0">(click, then press a key; Esc cancels)</span>');
       s += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px">';
       NOPT_KEYS.forEach(([id, l]) => {
@@ -17256,76 +16565,30 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       });
     }, 1000);
 
-    // 2) fire modes: AUTO (hold = continuous), SINGLE, BURST 3 — with continuous button hold & reliable spring return
-    const NFM = { modes: ['AUTO', 'SINGLE', 'BURST 3'], i: 0, held: false, was: false, burst: 0, nextT: 0, padT: 0, keyHeld: false, mouseHeld: false, thumb: false };
+    // 2) fire modes: AUTO (hold = continuous), SINGLE, BURST 3
+    const NFM = { modes: ['AUTO', 'SINGLE', 'BURST 3'], i: 0, held: false, was: false, burst: 0, nextT: 0, padT: 0, keyHeld: false, thumb: false };
     try { NFM.i = Math.max(0, NFM.modes.indexOf(localStorage.getItem('novaFireMode') || 'AUTO')); } catch (e) { }
     window.NFM = NFM;
     window.novaFireModeCycle = () => { NFM.i = (NFM.i + 1) % NFM.modes.length; try { localStorage.setItem('novaFireMode', NFM.modes[NFM.i]); } catch (e) { } showToast('FIRE MODE: ' + NFM.modes[NFM.i], 1600, '#ff5566'); try { sound.switchClick(); } catch (e) { } };
-    // controller A/B or trigger while gripping reports "held" via NFM.padT
+    // controller A/B while gripping used to call pressThumbFireButton every frame; it now just reports "held"
     { const _pt = pressThumbFireButton; pressThumbFireButton = function () { NFM.padT = performance.now(); }; NFM.rawFire = _pt; }
     window.addEventListener('keydown', e => { if (e.code === 'Space' && !e._nopt) NFM.keyHeld = true; }, true);
     window.addEventListener('keyup', e => { if (e.code === 'Space') NFM.keyHeld = false; }, true);
-    window.addEventListener('mouseup', () => { NFM.mouseHeld = false; }, true);
-    window.addEventListener('blur', () => { NFM.keyHeld = false; NFM.mouseHeld = false; }, true);
-    if (thumbFireBtn && thumbFireBtn.userData) thumbFireBtn.userData.restY = 0.010;
-    function nfmShot() {
-      lastFireTime = 0;
-      try { triggerFire(); } catch (e) { }
-    }
+    function nfmShot() { lastFireTime = 0; try { NFM.rawFire(); } catch (e) { try { triggerFire(); } catch (e2) { } } }
     function nfmTick() {
       const now = performance.now();
-      // Continuous proximity detection on all THUMB FIRE LASER meshes (cap + fallback cylinder)
-      // Works when gripping stick with thumb, poking from above with index finger, or poking with VR controller tip
+      // hand tracking: thumb tip on the stick's fire button while the right hand grips the stick
       NFM.thumb = false;
-      const fireEntries = cockpitInteractables.filter(q => q && q.label === 'THUMB FIRE LASER' && q.mesh && q.mesh.isMesh);
       try {
-        if (renderer.xr.isPresenting && fireEntries.length > 0) {
-          const fingerJoints = [];
-          [h1, h2].forEach(h => {
-            if (!h || !h.joints) return;
-            ['thumb-tip', 'index-finger-tip'].forEach(jn => {
-              const j = h.joints[jn];
-              if (j && j.visible !== false) fingerJoints.push(j.getWorldPosition(new THREE.Vector3()));
-            });
-          });
-          ['left', 'right'].forEach(s => {
-            const nh = novaHands && novaHands[s];
-            if (nh && nh.grip && nh.grip.visible && nh.tip) {
-              fingerJoints.push(nh.tip.getWorldPosition(new THREE.Vector3()));
-            }
-          });
-          const bp = new THREE.Vector3();
-          for (let i = 0; i < fireEntries.length && !NFM.thumb; i++) {
-            const m = fireEntries[i].mesh;
-            if (!novaWorldVisible(m)) continue;
-            m.getWorldPosition(bp);
-            for (let k = 0; k < fingerJoints.length; k++) {
-              if (fingerJoints[k].distanceTo(bp) < 0.046) {
-                NFM.thumb = true;
-                break;
-              }
-            }
+        if (renderer.xr.isPresenting && isGrippingStickHand) {
+          const fb = cockpitInteractables.find(q => q.label === 'THUMB FIRE LASER' && q.mesh && q.mesh.isMesh);
+          if (fb) { const bp = fb.mesh.getWorldPosition(new THREE.Vector3());
+            [h1, h2].forEach(h => { const j = h && h.joints && h.joints['thumb-tip']; if (j && j.visible !== false && j.getWorldPosition(new THREE.Vector3()).distanceTo(bp) < 0.035) NFM.thumb = true; });
+            fb.mesh.position.y = (fb.mesh.userData.y0 ?? (fb.mesh.userData.y0 = fb.mesh.position.y)) - (NFM.thumb ? 0.012 : 0);   // the cap goes down under your thumb
           }
         }
       } catch (e) { }
-
-      const held = NFM.keyHeld || NFM.mouseHeld || NFM.thumb || (now - NFM.padT < 180);
-      NFM.held = held;
-
-      // Visually depress the fire button while held and reliably spring back to restY when released
-      try {
-        fireEntries.forEach(fe => {
-          const m = fe.mesh;
-          if (!m) return;
-          if (m.userData.restY === undefined) m.userData.restY = (m === thumbFireBtn) ? 0.010 : m.position.y;
-          const targetY = m.userData.restY - (held ? (m === thumbFireBtn ? 0.007 : 0.014) : 0);
-          m.position.y = THREE.MathUtils.lerp(m.position.y, targetY, 0.65);
-        });
-        if (typeof thumbFireBtnMat !== 'undefined' && thumbFireBtnMat) {
-          thumbFireBtnMat.emissiveIntensity = held ? 2.4 : 0.95;
-        }
-      } catch (e) { }
-
+      const held = NFM.keyHeld || NFM.thumb || (now - NFM.padT < 120);
       const edge = held && !NFM.was; NFM.was = held;
       const mode = NFM.modes[NFM.i];
       if (mode === 'AUTO') { if (held && now >= NFM.nextT) { NFM.nextT = now + 160; nfmShot(); } }
@@ -17363,17 +16626,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     { const _ex = exitLightspeed; exitLightspeed = function () { const was = isLightspeedActive; const r = _ex.apply(this, arguments); if (was && !isLightspeedActive) setTimeout(() => novaFlightRestore('warp exit'), 50); return r; }; }
     { const _ed = executeDocking; executeDocking = function () { const r = _ed.apply(this, arguments); novaFlightRestore('docked'); return r; }; }
 
-    // 4) 3D holo-radar with real 3D ship models — overhead RADAR button toggles the entire 3D radar ON/OFF
-    NH.models = true;
-    NH.on = true; try { NH.on = localStorage.getItem('novaRadarOn') !== '0'; } catch (e) { }
-    window.novaRadarToggle = (forceState) => {
-      NH.on = (typeof forceState === 'boolean') ? forceState : !NH.on;
-      NH.models = true;
-      try { localStorage.setItem('novaRadarOn', NH.on ? '1' : '0'); } catch (e) { }
-      if (NH.g) NH.g.visible = NH.on && cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen;
-      showToast('3D HOLO-RADAR: ' + (NH.on ? 'ONLINE (3D SHIPS)' : 'OFFLINE'), 1500, NH.on ? '#00e5ff' : '#ff5566');
-      try { sound.switchClick(); } catch (e) { }
-    };
+    // 4) holo-radar shows little hologram models of real ships (overhead RADAR button: models <-> dots)
+    NH.models = true; try { NH.models = localStorage.getItem('novaRadarModels') !== '0'; } catch (e) { }
+    window.novaRadarToggle = () => { NH.models = !NH.models; try { localStorage.setItem('novaRadarModels', NH.models ? '1' : '0'); } catch (e) { } showToast('HOLO-RADAR: ' + (NH.models ? '3D MODELS' : 'DOTS'), 1500, '#00e5ff'); };
     NH.minis = new Map(); NH.invis = new THREE.MeshBasicMaterial({ visible: false });
     function nhMini(c) {
       if (NH.minis.has(c.obj)) return NH.minis.get(c.obj);
@@ -17403,167 +16658,100 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         });
       }; }
 
-    // 5) centre dash screen: SHIP TELEMETRY & SYSTEMS DATA (replaces turn directions)
+    // 5) centre dash screen: NAV (objective, heading arrow, distance, ETA, autopilot / dock / stealth / fire mode) instead of a 2D copy of the radar
     nkDrawPlate = function () {
-      const { x, w, h } = NKS.plate;
-      x.fillStyle = '#020a14';
-      x.fillRect(0, 0, w, h);
-      x.strokeStyle = 'rgba(0,229,255,0.35)';
-      x.lineWidth = 2;
-      x.strokeRect(4, 4, w - 8, h - 8);
-      x.textBaseline = 'alphabetic';
-
-      // Header bar
-      x.fillStyle = 'rgba(0,229,255,0.12)';
-      x.fillRect(6, 6, w - 12, 34);
-      x.font = 'bold 20px monospace';
-      x.fillStyle = '#00e5ff';
-      x.textAlign = 'left';
-      x.fillText('SHIP TELEMETRY // SYS-DATA', 14, 29);
-      let shipName = 'NOVA-1';
-      try { shipName = (novaShipDef && novaShipDef().name) ? novaShipDef().name.toUpperCase() : 'STARFIGHTER'; } catch (e) { }
-      x.textAlign = 'right';
-      x.fillStyle = '#7fb6d0';
-      x.font = 'bold 17px monospace';
-      x.fillText(nkFit(x, shipName, 175), w - 14, 29);
-
-      // Compute flight kinematics
-      const spd = shipBody ? Math.round(shipBody.velocity.length()) : 0;
-      const thr = Math.round((throttlePct || 0) * 100);
-      const eul = new THREE.Euler().setFromQuaternion(shipGroup.quaternion, 'YXZ');
-      const hdg = ((Math.round(THREE.MathUtils.radToDeg(-eul.y)) % 360) + 360) % 360;
-      const pit = Math.round(THREE.MathUtils.radToDeg(eul.x));
-      const rol = Math.round(THREE.MathUtils.radToDeg(-eul.z));
-
-      // Row 1: Flight Kinematics (Boxes)
-      const boxY = 48, boxH = 58, boxW = (w - 36) / 3;
-      const drawStatBox = (idx, label, val, sub, col) => {
-        const bx = 12 + idx * (boxW + 6);
-        x.fillStyle = 'rgba(6,22,38,0.9)';
-        x.fillRect(bx, boxY, boxW, boxH);
-        x.strokeStyle = 'rgba(0,229,255,0.28)';
-        x.lineWidth = 1.5;
-        x.strokeRect(bx, boxY, boxW, boxH);
-        x.textAlign = 'left';
-        x.fillStyle = '#7fb6d0';
-        x.font = 'bold 13px monospace';
-        x.fillText(label, bx + 8, boxY + 17);
-        x.fillStyle = col;
-        x.font = 'bold 24px monospace';
-        x.fillText(val, bx + 8, boxY + 43);
-        if (sub) {
-          x.textAlign = 'right';
-          x.fillStyle = '#9fc3d8';
-          x.font = '13px monospace';
-          x.fillText(sub, bx + boxW - 8, boxY + 17);
-        }
-      };
-      drawStatBox(0, 'VELOCITY', spd + ' m/s', isLightspeedActive ? 'WARP' : 'SUBLIGHT', '#00ffcc');
-      drawStatBox(1, 'THROTTLE', thr + '%', 'GATE ' + (currentThrottleNotch || 0) + '/4', '#ffd24a');
-      drawStatBox(2, 'ATTITUDE', String(hdg).padStart(3, '0') + '°', `P:${pit >= 0 ? '+' : ''}${pit}° R:${rol >= 0 ? '+' : ''}${rol}°`, '#00e5ff');
-
-      // Row 2: Vitals Bars (Hull, Shields, Warp Core)
-      const hull = Math.max(0, Math.min(100, Math.round(window.novaHull ?? 100)));
-      const shld = Math.max(0, Math.min(100, Math.round(window.novaShield ?? 100)));
-      let wCore = 100, wCap = 100, wReg = 1.0;
-      try { wCore = Math.round(NW.core); wCap = novaWarpCap(); wReg = novaWarpRegen(); } catch (e) { }
-      const wPct = Math.max(0, Math.min(100, Math.round((wCore / Math.max(1, wCap)) * 100)));
-
-      const drawBar = (y, label, valTxt, pct, col) => {
-        x.textAlign = 'left';
-        x.font = 'bold 16px monospace';
-        x.fillStyle = '#bfefff';
-        x.fillText(label, 14, y + 15);
-        x.fillStyle = '#081828';
-        x.fillRect(116, y, 260, 18);
-        x.fillStyle = col;
-        x.fillRect(116, y, Math.round(2.6 * pct), 18);
-        x.strokeStyle = 'rgba(0,229,255,0.4)';
-        x.strokeRect(116, y, 260, 18);
-        x.textAlign = 'right';
-        x.fillStyle = col;
-        x.fillText(valTxt, w - 14, y + 15);
-      };
-      drawBar(118, 'HULL INT', hull + '%', hull, hull > 50 ? '#33ff99' : hull > 25 ? '#ffcc00' : '#ff3344');
-      drawBar(144, 'SHIELDS', shld + '%', shld, '#00e5ff');
-      drawBar(170, 'WARP CORE', `${wCore}/${wCap} (+${wReg.toFixed(1)}/s)`, wPct, '#b266ff');
-
-      // Row 3: Ordnance, Repair & Cargo Grid
-      const ordY = 200;
-      x.fillStyle = 'rgba(6,22,38,0.85)';
-      x.fillRect(12, ordY, w - 24, 52);
-      x.strokeStyle = 'rgba(0,229,255,0.25)';
-      x.strokeRect(12, ordY, w - 24, 52);
-      x.textAlign = 'left';
-      x.font = 'bold 16px monospace';
-      const mArmed = (typeof isMissileLidOpen !== 'undefined' && isMissileLidOpen);
-      x.fillStyle = mArmed ? '#ff5566' : '#ffd24a';
-      x.fillText(`MSL: ${missileAmmo} [${mArmed ? 'ARMED' : 'SAFE'}]`, 22, ordY + 21);
-      x.fillStyle = '#ff9a3c';
-      x.fillText(`FLARES: ${typeof cargoFlares !== 'undefined' ? cargoFlares : 0}`, 215, ordY + 21);
-      x.fillStyle = '#33ff99';
-      x.fillText(`REPAIR KITS: ${window.novaKits || 0}`, 350, ordY + 21);
-
-      x.fillStyle = '#9fc3d8';
-      x.fillText(`ORE CARGO: ${typeof cargoOre !== 'undefined' ? cargoOre : 0} t`, 22, ordY + 43);
-      x.fillStyle = '#00ffcc';
-      x.fillText(`CREDITS: ${typeof bankCredits !== 'undefined' ? bankCredits : 0} CR`, 215, ordY + 43);
-      x.fillStyle = '#ff6688';
-      x.fillText(`MODE: ${NFM.modes[NFM.i]}`, 375, ordY + 43);
-
-      // Row 4: Sensor Lock & Objective Data Readout (Data Only, No Turn Directions)
-      const senY = 260;
-      x.fillStyle = 'rgba(4,16,30,0.92)';
-      x.fillRect(12, senY, w - 24, 58);
-      x.strokeStyle = 'rgba(0,229,255,0.28)';
-      x.strokeRect(12, senY, w - 24, 58);
-
-      let tName = 'STATION NOVA-1', tType = 'STATION', tCol = '#00ffcc', tPos = stationGroup.position;
-      try { const so = window.novaSiteObjective && window.novaSiteObjective(); if (so) { tPos = so.pos; tName = so.label; tType = 'WAYPOINT'; } } catch (e) { }
-      const lk = currentLockedTarget;
-      if (lk && lk.targetObj) {
-        tPos = lk.targetObj.getWorldPosition(new THREE.Vector3());
-        tName = lk.name || 'CONTACT';
-        tType = lk.isHostile ? 'HOSTILE LOCK' : ('LOCK · ' + String(lk.type || 'CONTACT').toUpperCase());
-        tCol = lk.isHostile ? '#ff5566' : '#33ff99';
-      }
-      const dist = tPos.distanceTo(shipGroup.position);
-      const distStr = dist < 1000 ? Math.round(dist) + ' m' : (dist / 1000).toFixed(2) + ' km';
-      const etaStr = spd > 2 ? Math.min(999, Math.round(dist / spd)) + ' s' : '--';
-
-      x.textAlign = 'left';
-      x.font = 'bold 15px monospace';
-      x.fillStyle = tCol;
-      x.fillText(tType, 22, senY + 21);
-      x.textAlign = 'right';
-      x.fillStyle = '#ffd24a';
-      x.fillText(`RNG: ${distStr}  |  ETA: ${etaStr}`, w - 22, senY + 21);
-
-      x.textAlign = 'left';
-      x.font = 'bold 21px monospace';
-      x.fillStyle = '#ffffff';
-      x.fillText(nkFit(x, tName, w - 190), 22, senY + 47);
-      x.textAlign = 'right';
-      x.font = '15px monospace';
-      x.fillStyle = '#7fb6d0';
-      x.fillText(`CONTACTS: ${(NH && NH.list) ? NH.list.length : 0}`, w - 22, senY + 47);
-
-      // Bottom Systems Status Strip
-      const sys = [
-        ['DAMP ' + (isRotationDampenerOn ? 'ON' : 'OFF'), isRotationDampenerOn ? '#33ff99' : '#668899'],
-        ['3D RADAR ' + (NH.on !== false ? 'ON' : 'OFF'), NH.on !== false ? '#00e5ff' : '#ff5566'],
-        ['AUTO ' + ((isAutopilotActive || novaAutoDockPending) ? 'ON' : 'OFF'), (isAutopilotActive || novaAutoDockPending) ? '#33ff99' : '#668899'],
-        ['STLTH ' + ((window.NF && NF.stealth) ? 'ON' : 'OFF'), (window.NF && NF.stealth) ? '#9a7dff' : '#668899']
-      ];
-      x.font = 'bold 16px monospace';
-      x.textAlign = 'center';
-      sys.forEach((s, i) => {
-        x.fillStyle = s[1];
-        x.fillText(s[0], (i + 0.5) * (w / sys.length), h - 14);
-      });
-
+      const { x, w, h } = NKS.plate; x.fillStyle = '#020a14'; x.fillRect(0, 0, w, h); x.textBaseline = 'alphabetic';
+      let pos = stationGroup.position, name = 'STATION NOVA-1', col = '#00ffcc', lab = 'OBJECTIVE';
+      try { const so = window.novaSiteObjective && window.novaSiteObjective(); if (so) { pos = so.pos; name = so.label; } } catch (e) { }
+      const lk = currentLockedTarget; if (lk && lk.targetObj) { pos = lk.targetObj.getWorldPosition(new THREE.Vector3()); name = lk.name; lab = lk.isHostile ? 'TARGET · HOSTILE' : 'TARGET'; col = lk.isHostile ? '#ff5566' : '#33ff99'; }
+      const rel = pos.clone().sub(shipGroup.position), d = rel.length(); rel.applyQuaternion(shipGroup.quaternion.clone().invert());
+      const brg = Math.atan2(rel.x, -rel.z), el = Math.atan2(rel.y, Math.hypot(rel.x, rel.z)), v = shipBody.velocity.length();
+      x.font = 'bold 24px monospace'; x.fillStyle = '#00e5ff'; x.textAlign = 'left'; x.fillText('NAV', 14, 32);
+      x.textAlign = 'right'; x.fillStyle = col; x.fillText(lab, w - 14, 32);
+      x.textAlign = 'center'; x.fillStyle = '#ffffff'; x.font = 'bold 30px monospace'; x.fillText(nkFit(x, name, w - 40), w / 2, 78);
+      // steering arrow: where to turn
+      const cx = w / 2, cy = 192, R = 70; x.strokeStyle = 'rgba(0,229,255,0.35)'; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, R, 0, 7); x.stroke();
+      x.save(); x.translate(cx, cy); x.rotate(brg); x.fillStyle = col; x.beginPath(); x.moveTo(0, -R + 6); x.lineTo(-18, -R + 40); x.lineTo(18, -R + 40); x.closePath(); x.fill(); x.restore();
+      x.fillStyle = Math.abs(brg) < 0.1 && Math.abs(el) < 0.1 ? '#33ff99' : '#9fc3d8'; x.font = 'bold 20px monospace';
+      x.fillText(Math.abs(brg) < 0.1 && Math.abs(el) < 0.1 ? 'ON TARGET' : (el > 0.1 ? 'UP ' : el < -0.1 ? 'DOWN ' : '') + Math.round(Math.abs(brg) * 57.3) + '° ' + (brg > 0 ? 'RIGHT' : 'LEFT'), cx, cy + 8);
+      x.font = 'bold 34px monospace'; x.fillStyle = '#ffd24a'; x.fillText(d < 1000 ? Math.round(d) + ' m' : (d / 1000).toFixed(1) + ' km', cx, 300);
+      x.font = '20px monospace'; x.fillStyle = '#7fb6d0'; x.fillText(v > 2 ? 'ETA ' + Math.round(d / v) + ' s  ·  ' + Math.round(v) + ' m/s' : Math.round(v) + ' m/s', cx, 328);
+      const st = [];
+      if (isAutopilotActive || novaAutoDockPending) st.push(['AUTOPILOT', '#33ff99']); if (novaDock.state !== 'idle') st.push(['DOCKING', '#00f0ff']);
+      if (window.NF && NF.stealth) st.push(['STEALTH', '#9a7dff']); st.push(['FIRE ' + NFM.modes[NFM.i], '#ff5566']);
+      x.font = 'bold 18px monospace'; st.forEach((s, i) => { x.fillStyle = s[1]; x.fillText(s[0], (i + 0.5) * w / st.length, h - 14); });
       NKS.plate.t.needsUpdate = true;
     };
+
+
+    // ── NOVA14: radar on/off, missile blips, fire button held down, data centre screen, ULTRA graphics (original models) ──
+    NH.on = true; try { NH.on = localStorage.getItem('novaRadarOn') !== '0'; } catch (e) { }
+    NH.models = true;
+    window.novaRadarToggle = () => { NH.on = !NH.on; try { localStorage.setItem('novaRadarOn', NH.on ? '1' : '0'); } catch (e) { } showToast('HOLO-RADAR ' + (NH.on ? 'ON' : 'OFF'), 1400, '#00e5ff'); };
+    NH.mb = [];
+    { const _nt2 = nhTick; nhTick = function (dt) {
+        if (!NH.on) { if (NH.g) NH.g.visible = false; return; }
+        _nt2(dt);
+        if (!NH.g || !NH.g.visible) return;
+        // missiles: tiny flashing blips (red = coming at you, white = yours)
+        const range = (typeof radarZoomLevels !== 'undefined') ? radarZoomLevels[radarZoomIdx] : 600, R = NH.R, iq = shipGroup.quaternion.clone().invert(), sp = shipGroup.position;
+        const list = [];
+        try { NF.msl.forEach(m => list.push([m.m.position, m.tgt && m.tgt.player ? 0xff2233 : 0xffaa33])); } catch (e) { }
+        try { activeMissiles.forEach(m => list.push([m.group.position, 0xffffff])); } catch (e) { }
+        while (NH.mb.length < list.length && NH.mb.length < 16) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, toneMapped: false })); b.raycast = () => { }; NH.g.add(b); NH.mb.push(b); }
+        const fl = 0.35 + 0.65 * (Math.sin(performance.now() * 0.025) > 0 ? 1 : 0);
+        NH.mb.forEach((b, i) => {
+          const it = list[i]; if (!it) { b.visible = false; return; }
+          const v = it[0].clone().sub(sp).applyQuaternion(iq).multiplyScalar(R / range); const L = v.length(); if (L > R * 0.97) { b.visible = false; return; }
+          b.position.copy(v); b.visible = true; b.material.color.setHex(it[1]); b.material.opacity = fl;
+        });
+      }; }
+    // the stick's fire cap stays down for as long as you hold fire (any input)
+    setInterval(() => {
+      try {
+        const fb = cockpitInteractables.find(q => q.label === 'THUMB FIRE LASER' && q.mesh && q.mesh.isMesh); if (!fb) return;
+        const held = NFM.keyHeld || NFM.thumb || (performance.now() - NFM.padT < 120);
+        const m = fb.mesh, u = m.userData; if (u.y0 === undefined) u.y0 = m.position.y;
+        m.position.y = u.y0 - (held ? 0.012 : 0);
+        if (m.material && m.material.emissive) { if (!u.em0) u.em0 = m.material.emissive.clone(); m.material.emissive.copy(held ? new THREE.Color(0xff2a1a) : u.em0); }
+      } catch (e) { }
+    }, 30);
+    // centre dash screen: ship data (no steering hints)
+    nkDrawPlate = function () {
+      const { x, w, h } = NKS.plate; x.fillStyle = '#020a14'; x.fillRect(0, 0, w, h); x.textBaseline = 'alphabetic';
+      const v = shipBody.velocity.length(), tp = throttlePct > 1 ? throttlePct : throttlePct * 100;
+      const hull = window.novaHull ?? 100, sh = window.novaShield ?? 100, core = (typeof NW !== 'undefined') ? NW.core : 0, cap = (typeof novaWarpCap === 'function') ? novaWarpCap() : 100;
+      x.font = 'bold 24px monospace'; x.fillStyle = '#00e5ff'; x.textAlign = 'left'; x.fillText('SHIP DATA', 14, 32);
+      x.textAlign = 'right'; x.fillStyle = '#ffd24a'; x.fillText(String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', w - 14, 32);
+      const big = (l, val, X, c) => { x.textAlign = 'center'; x.font = '18px monospace'; x.fillStyle = '#7fb6d0'; x.fillText(l, X, 68); x.font = 'bold 40px monospace'; x.fillStyle = c; x.fillText(val, X, 110); };
+      big('SPEED m/s', Math.round(v), w * 0.2, '#e9fbff'); big('THROTTLE', Math.round(tp) + '%', w * 0.5, '#00e5ff'); big('MISSILES', missileAmmo, w * 0.8, '#ffaa22');
+      const bar = (y, l, f, c) => { x.textAlign = 'left'; x.font = 'bold 18px monospace'; x.fillStyle = '#9fc3d8'; x.fillText(l, 18, y - 6); x.fillStyle = '#0d1d2b'; x.fillRect(18, y, w - 36, 18); x.fillStyle = c; x.fillRect(18, y, (w - 36) * Math.max(0, Math.min(1, f)), 18); };
+      bar(152, 'SHIELDS ' + Math.round(sh) + '%', sh / 100, '#00e5ff'); bar(198, 'HULL ' + Math.round(hull) + '%', hull / 100, hull < 35 ? '#ff3344' : '#33ff99'); bar(244, 'WARP CORE ' + Math.round(core) + '%', core / cap, '#b266ff');
+      x.font = 'bold 20px monospace'; x.textAlign = 'left'; x.fillStyle = '#e9fbff';
+      x.fillText(`FLR ${cargoFlares}  CAP ${cargoShieldCaps}  KIT ${window.novaKits || 0}  ORE ${cargoOre}t`, 18, 292);
+      let th = 0; try { th = ((NP.panels[0] && NP.panels[0].list) || []).filter(c => c.isHostile).length; } catch (e) { }
+      const st = [['FIRE ' + NFM.modes[NFM.i], '#ff5566'], [th ? th + ' HOSTILE' : 'CLEAR', th ? '#ff5566' : '#33ff99']];
+      if (isAutopilotActive || novaAutoDockPending) st.push(['AUTOPILOT', '#33ff99']); if (novaDock.state !== 'idle') st.push(['DOCKING', '#00f0ff']); if (window.NF && NF.stealth) st.push(['STEALTH', '#9a7dff']);
+      x.font = 'bold 17px monospace'; x.textAlign = 'center'; st.forEach((s, i) => { x.fillStyle = s[1]; x.fillText(s[0], (i + 0.5) * w / st.length, h - 14); });
+      NKS.plate.t.needsUpdate = true;
+    };
+    // ULTRA graphics: faction ships load your original full-detail files (big: Quest frame rate will drop, best on PC VR / desktop)
+    const NF_ORIG = {
+      alien_fighter: 'Alien/Alien fighterspaceship 3d model.glb', alien_mothership: 'Alien/futuristic dragon ring 3d model alien mothership.glb', alien_carrier: 'Alien/Alien carrier ship.glb',
+      alien_attack_drone: 'Alien/alien carrier drone.glb', alien_support: 'Alien/Alien all around wrokercargo drone.glb', alien_spore_turret: 'Alien/spiked sci-fi orb 3d model.glb',
+      pirate_fighter: 'Pirate/space pirate fighter3d model.glb', pirate_frigate: 'Pirate/Pirate frigate 3d model.glb', pirate_stealth: 'Pirate/Pirate stealth ship 3d model.glb',
+      edf_fighter: 'EDF/EDF Fighter.glb', edf_carrier: 'EDF/futuristic spaceship 3d model EDF FRigatecarrier.glb', matrix_fighter: 'EDF/Matrix Fighter.glb' };
+    NOPT_GFX.ultra = { pr: 2, xr: 1.4, fov: 0, fx: 1, label: 'ULTRA: original full-detail models, needs a strong PC (PC VR / desktop)' };
+    if (NOPT.o.gfx === 'ultra') {
+      Object.keys(NF_ORIG).forEach(k => { NF_ASSETS[k].origFile = NF_ORIG[k]; NF_ASSETS[k].lo = null; });
+      const _ld = nmLoad;
+      nmLoad = function (slug) {
+        const hit = Object.keys(NF_ASSETS).find(k => NF_ASSETS[k].origFile && NF_ASSETS[k].file === slug);
+        if (!hit) return _ld(slug);
+        return (async () => { const L = await nmGetLoader(); return new Promise(res => L.load('./' + NF_ASSETS[hit].origFile.split('/').map(encodeURIComponent).join('/'), g => res(g), undefined, () => { console.warn('[NOVA14] ULTRA: missing original', hit); _ld(slug).then(res); })); })();
+      };
+      console.log('[NOVA14] ULTRA graphics: original faction models');
+    }
 
     async function nmCockpit() {
       try {
@@ -17648,11 +16836,10 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       setTimeout(() => { try { console.log('[NOVA12] models in:', NM.done.join(', ')); showToast('MODELS: ' + NM.done.length + ' loaded', 2500, '#7fffd4'); } catch (e) { } }, 4000);
     }
     let nmLast = performance.now();
-    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); try { if (!isLightspeedActive) nfmTick(); } catch (e) { } nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
+    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
     window.nmFrame = nmFrame;
     (function f() { requestAnimationFrame(f); if (!renderer.xr.isPresenting) nmFrame(); })();
     nmBoot();
-    try { initTabletController(); updateTabletCtrlVisibility(); } catch (e) { console.warn('tablet controller init failed', e); }
 
     window.GAME_VERSION = GAME_VERSION;
     window.stickPivot = stickPivot;
@@ -17835,24 +17022,6 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     window.thumbFireBtn = thumbFireBtn;
     window.lightspeedBtnGroup = lightspeedBtnGroup;
     window.hullDeckGroup = hullDeckGroup;
-    window.downloadStandaloneForClaude = async function () {
-      try {
-        const res = await fetch('./standalone.html', { cache: 'no-store' });
-        const html = await res.text();
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'standalone.html';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-        showToast('⬇️ DOWNLOADED standalone.html (1-File for Claude AI)', 3000, '#00ffaa');
-      } catch (e) {
-        console.error(e);
-      }
-    };
   </script>
 </body>
 </html>

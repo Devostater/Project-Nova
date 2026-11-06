@@ -13,4 +13,8 @@ desktop.ini
 *.key
 # loose source models in the root (the game loads optimised copies from models/)
 /*.glb
+*.log
+.env*
+!.env.example
+# Nova local-only
 optimize_log.txt
