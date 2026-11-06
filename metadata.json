@@ -1,0 +1,6 @@
+{
+  "name": "Project Nova — 6DOF WebXR Starfighter Simulator",
+  "description": "Standalone 6DOF Newtonian WebXR space flight simulator with HOTAS cockpit controls, Proportional Navigation dogfighting AI, branching wingman comms, and tractor beam station docking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

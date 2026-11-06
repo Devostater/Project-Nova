@@ -1,0 +1,9 @@
+{
+  "name": "Project Nova — 6DOF WebXR Starfighter Simulator",
+  "short_name": "Project Nova",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060e18",
+  "theme_color": "#00f0ff",
+  "description": "Standalone 6DOF Newtonian WebXR space flight simulator targeting Meta Quest 3, Quest Pro, and PC VR browsers."
+}
