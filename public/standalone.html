@@ -81,6 +81,78 @@
     .modal-hint {
       font-size: 13px; color: #00ffaa; margin-top: 16px; opacity: 0.9;
     }
+
+    /* Tablet Virtual Flight Controller Styles */
+    #tablet-controller {
+      position: absolute; inset: 0; pointer-events: none; z-index: 40;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none;
+      display: none;
+    }
+    .tablet-zone {
+      position: absolute; pointer-events: auto;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    }
+    .tablet-zone-left {
+      left: 18px; bottom: 22px; width: 180px; height: 260px;
+    }
+    .tablet-zone-right {
+      right: 18px; bottom: 22px; width: 220px; height: 260px;
+    }
+    .tablet-zone-top {
+      top: 14px; right: 18px; display: flex; flex-direction: row; gap: 8px; pointer-events: auto;
+    }
+    .tablet-joystick-base {
+      width: 140px; height: 140px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, rgba(4, 18, 32, 0.75) 70%, rgba(0, 240, 255, 0.4) 100%);
+      border: 2px solid rgba(0, 240, 255, 0.55);
+      position: relative; box-shadow: 0 0 18px rgba(0, 240, 255, 0.25);
+    }
+    .tablet-joystick-stick {
+      width: 54px; height: 54px; border-radius: 50%;
+      background: radial-gradient(circle, #00f0ff 0%, #0088aa 80%);
+      box-shadow: 0 0 14px #00f0ff; border: 2px solid #ffffff;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .tablet-throttle-track {
+      width: 50px; height: 160px; background: rgba(5, 18, 30, 0.85);
+      border: 2px solid rgba(255, 204, 0, 0.5); border-radius: 25px;
+      position: relative; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 14px rgba(255, 204, 0, 0.2);
+    }
+    .tablet-throttle-handle {
+      width: 68px; height: 38px; border-radius: 8px;
+      background: linear-gradient(180deg, #ffd24a 0%, #d48800 100%);
+      border: 2px solid #ffffff; box-shadow: 0 0 12px #ffd24a;
+      position: absolute; left: 50%; transform: translate(-50%, -50%);
+      pointer-events: none; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 900; color: #040c16; font-family: monospace;
+    }
+    .tablet-btn {
+      pointer-events: auto;
+      background: rgba(8, 24, 40, 0.88); border: 2px solid; border-radius: 8px;
+      color: #fff; font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold;
+      text-transform: uppercase; cursor: pointer; transition: transform 0.08s, filter 0.08s;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: none;
+    }
+    .tablet-btn:active, .tablet-btn.active {
+      transform: scale(0.94); filter: brightness(1.4);
+    }
+    .tablet-btn-fire {
+      width: 90px; height: 90px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 68, 85, 0.35) 0%, rgba(200, 20, 40, 0.85) 80%);
+      border-color: #ff3344; box-shadow: 0 0 20px rgba(255, 51, 68, 0.45);
+      font-size: 15px; letter-spacing: 1px; color: #fff;
+    }
+    .tablet-btn-fire:active, .tablet-btn-fire.active {
+      background: #ff3344; box-shadow: 0 0 30px #ff3344; color: #000;
+    }
+    .tablet-btn-pill {
+      padding: 8px 14px; font-size: 12px; border-radius: 6px;
+      background: rgba(4, 16, 28, 0.85);
+    }
   </style>
   <script type="importmap">
     {
@@ -314,6 +386,9 @@
         <button class="modal-btn btn-mr" id="btn-mr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('MR'); window.launchMR(); event.stopPropagation();">👁️ ENTER PASSTHROUGH MR (QUEST 3 / AR)</button>
         <button class="modal-btn btn-vr" id="btn-vr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('VR'); window.launchVR(); event.stopPropagation();">🚀 ENTER IMMERSIVE VR (FULL 360° SPACE)</button>
 
+        <div style="font-size: 14px; font-weight: bold; color: #00ffcc; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Tablet / Touch Controls:</div>
+        <button class="modal-btn" id="btn-toggle-touch-ctrl" style="background: rgba(0, 255, 204, 0.15); border-color: #00ffcc; color: #00ffcc; padding: 10px; margin: 4px 0;" onclick="window.novaToggleTabletCtrl(); event.stopPropagation();">📱 TABLET CONTROLLER: ON / OFF</button>
+
         <div style="font-size: 14px; font-weight: bold; color: #ffcc00; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Flight Activities:</div>
         <button class="modal-btn" id="btn-companion" style="background: rgba(178, 102, 255, 0.18); border-color: #b266ff; color: #cc99ff; padding: 10px; margin: 4px 0;" onclick="window.novaCompanionMenu && window.novaCompanionMenu(); event.stopPropagation();">💜 CHOOSE COMPANION (NYX / MATRIX)</button>
         <button class="modal-btn" id="btn-tutorial" style="background: rgba(255, 204, 0, 0.18); border-color: #ffcc00; color: #ffcc00; padding: 10px; margin: 4px 0;" onclick="window.launchTutorial(false); event.stopPropagation();">📖 GUIDED FLIGHT TUTORIAL</button>
@@ -353,6 +428,45 @@ git push -u origin main</pre>
         <button class="modal-btn" style="margin-top: 6px; border-color: #3fb950; color: #3fb950;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK TO MENU</button>
       </div>
       <div class="modal-hint" id="menu-hint">PLAY starts Mixed Reality on Quest, or desktop mode on a computer. Options has VR, tutorial and companion.</div>
+    </div>
+  </div>
+
+  <!-- Tablet / Touch On-Screen Flight Controller Overlay -->
+  <div id="tablet-controller">
+    <!-- Top Quick Action Strip -->
+    <div class="tablet-zone-top">
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-radar" style="border-color: #00e5ff; color: #00e5ff;">📡 RADAR</button>
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-target" style="border-color: #33ff99; color: #33ff99;">🎯 TARGET</button>
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-damp" style="border-color: #ffd24a; color: #ffd24a;">⚖️ DAMP</button>
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-options" style="border-color: #88aacc; color: #88aacc;" onclick="window.novaMenuView('opt'); document.getElementById('modal-overlay').style.setProperty('display', 'flex', 'important');">⚙️ MENU</button>
+    </div>
+
+    <!-- Left Zone: Throttle Lever + Booster + Reverse Cut -->
+    <div class="tablet-zone tablet-zone-left">
+      <div style="font-size: 11px; font-weight: bold; color: #ffd24a; margin-bottom: 6px; font-family: monospace; letter-spacing: 1px;">THROTTLE</div>
+      <div class="tablet-throttle-track" id="tc-throttle-track">
+        <div class="tablet-throttle-handle" id="tc-throttle-handle">0%</div>
+      </div>
+      <div style="display: flex; gap: 6px; width: 100%; margin-top: 8px;">
+        <button class="tablet-btn" id="tc-btn-boost" style="flex: 1; height: 36px; border-color: #ffaa00; color: #ffaa00; font-size: 11px;">🚀 BOOST</button>
+        <button class="tablet-btn" id="tc-btn-warp" style="flex: 1; height: 36px; border-color: #b266ff; color: #cc99ff; font-size: 11px;">⚡ WARP</button>
+      </div>
+    </div>
+
+    <!-- Right Zone: Virtual Flight Stick + Dedicated Fire + Missile Launch -->
+    <div class="tablet-zone tablet-zone-right">
+      <div style="display: flex; gap: 8px; margin-bottom: 10px; width: 100%; justify-content: flex-end;">
+        <button class="tablet-btn" id="tc-btn-missile" style="width: 80px; height: 38px; border-color: #ff5566; color: #ff5566; font-size: 11px;">🚀 MSL</button>
+        <button class="tablet-btn" id="tc-btn-flare" style="width: 60px; height: 38px; border-color: #ff8833; color: #ff8833; font-size: 11px;">✨ FLR</button>
+      </div>
+      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div class="tablet-joystick-base" id="tc-stick-base">
+          <div class="tablet-joystick-stick" id="tc-stick-handle"></div>
+        </div>
+        <!-- Fire Button next to joystick -->
+        <button class="tablet-btn tablet-btn-fire" id="tc-btn-fire" style="position: absolute; right: -12px; bottom: 70px;">FIRE</button>
+      </div>
+      <div style="font-size: 11px; font-weight: bold; color: #00f0ff; margin-top: 6px; font-family: monospace; letter-spacing: 1px;">FLIGHT STICK</div>
     </div>
   </div>
 
@@ -7290,12 +7404,240 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       }
     });
 
+    // ── Tablet / Touch On-Screen Flight Controller Setup ──
+    const tabletCtrl = {
+      active: false,
+      userToggled: false,
+      stickTouchId: null,
+      stickCenter: { x: 0, y: 0 },
+      stickRadius: 60,
+      throttleTouchId: null,
+      throttleTrackTop: 0,
+      throttleTrackHeight: 160
+    };
+
+    function updateTabletCtrlVisibility() {
+      const tcEl = document.getElementById('tablet-controller');
+      if (!tcEl) return;
+      const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.novaDevice.isMobile;
+      const shouldShow = (tabletCtrl.userToggled ? tabletCtrl.active : isTouchDevice) && !renderer.xr.isPresenting;
+      tabletCtrl.active = shouldShow;
+      tcEl.style.display = shouldShow ? 'block' : 'none';
+      const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
+      if (toggleBtn) {
+        toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (shouldShow ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
+      }
+    }
+    window.novaToggleTabletCtrl = function(force) {
+      tabletCtrl.userToggled = true;
+      tabletCtrl.active = (typeof force === 'boolean') ? force : !tabletCtrl.active;
+      const tcEl = document.getElementById('tablet-controller');
+      if (tcEl) tcEl.style.display = tabletCtrl.active ? 'block' : 'none';
+      const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
+      if (toggleBtn) toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (tabletCtrl.active ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
+      showToast('Tablet Controller ' + (tabletCtrl.active ? 'ENABLED' : 'DISABLED'), 2000, '#00ffcc');
+    };
+
+    function initTabletController() {
+      const tcEl = document.getElementById('tablet-controller');
+      const stickBase = document.getElementById('tc-stick-base');
+      const stickHandle = document.getElementById('tc-stick-handle');
+      const throttleTrack = document.getElementById('tc-throttle-track');
+      const throttleHandle = document.getElementById('tc-throttle-handle');
+      const btnFire = document.getElementById('tc-btn-fire');
+      const btnBoost = document.getElementById('tc-btn-boost');
+      const btnWarp = document.getElementById('tc-btn-warp');
+      const btnMsl = document.getElementById('tc-btn-missile');
+      const btnFlr = document.getElementById('tc-btn-flare');
+      const btnRdr = document.getElementById('tc-btn-radar');
+      const btnTgt = document.getElementById('tc-btn-target');
+      const btnDmp = document.getElementById('tc-btn-damp');
+
+      if (!tcEl || !stickBase || !stickHandle) return;
+
+      // Flight Stick Touch Events
+      stickBase.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        sound.init();
+        if (tabletCtrl.stickTouchId !== null) return;
+        const touch = e.changedTouches[0];
+        tabletCtrl.stickTouchId = touch.identifier;
+        const rect = stickBase.getBoundingClientRect();
+        tabletCtrl.stickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        updateStick(touch.clientX, touch.clientY);
+      }, { passive: false });
+
+      stickBase.addEventListener('touchmove', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          if (touch.identifier === tabletCtrl.stickTouchId) {
+            updateStick(touch.clientX, touch.clientY);
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const resetStick = (e) => {
+        if (e) {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === tabletCtrl.stickTouchId) {
+              tabletCtrl.stickTouchId = null;
+              break;
+            }
+          }
+        } else {
+          tabletCtrl.stickTouchId = null;
+        }
+        if (tabletCtrl.stickTouchId === null) {
+          stickHandle.style.transform = 'translate(-50%, -50%)';
+          isGrippingStick = false;
+          stickPivot.rotation.x = 0;
+          stickPivot.rotation.z = 0;
+          stickPitchDeg = 0; stickRollDeg = 0;
+          drawHUD();
+        }
+      };
+      stickBase.addEventListener('touchend', resetStick, { passive: false });
+      stickBase.addEventListener('touchcancel', resetStick, { passive: false });
+
+      function updateStick(cx, cy) {
+        const dx = cx - tabletCtrl.stickCenter.x;
+        const dy = cy - tabletCtrl.stickCenter.y;
+        const dist = Math.hypot(dx, dy);
+        const maxR = tabletCtrl.stickRadius;
+        const clampedR = Math.min(dist, maxR);
+        const angle = Math.atan2(dy, dx);
+        const hx = Math.cos(angle) * clampedR;
+        const hy = Math.sin(angle) * clampedR;
+        stickHandle.style.transform = `translate(calc(-50% + ${hx}px), calc(-50% + ${hy}px))`;
+
+        isGrippingStick = true;
+        // Inverted flight pitch (pull back / drag down = pitch up)
+        stickPivot.rotation.x = THREE.MathUtils.clamp((hy / maxR) * 0.45, -0.45, 0.45);
+        stickPivot.rotation.z = THREE.MathUtils.clamp((-hx / maxR) * 0.45, -0.45, 0.45);
+        stickPitchDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.x);
+        stickRollDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.z);
+        drawHUD();
+      }
+
+      // Throttle Track Touch Events
+      function updateThrottleUI() {
+        if (!throttleHandle || !throttleTrack) return;
+        const pct = throttlePct;
+        const pctHeight = (1 - pct) * 122 + 19; // 19px to 141px
+        throttleHandle.style.top = `${pctHeight}px`;
+        throttleHandle.textContent = `${Math.round(pct * 100)}%`;
+      }
+      window.novaUpdateTabletThrottle = updateThrottleUI;
+
+      throttleTrack.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        sound.init();
+        const touch = e.changedTouches[0];
+        tabletCtrl.throttleTouchId = touch.identifier;
+        applyThrottleTouch(touch.clientY);
+      }, { passive: false });
+
+      throttleTrack.addEventListener('touchmove', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          if (touch.identifier === tabletCtrl.throttleTouchId) {
+            applyThrottleTouch(touch.clientY);
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const endThrottle = (e) => {
+        if (e) {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === tabletCtrl.throttleTouchId) {
+              tabletCtrl.throttleTouchId = null;
+              break;
+            }
+          }
+        } else {
+          tabletCtrl.throttleTouchId = null;
+        }
+        // Snap to nearest detent notch on touch release
+        const nearestNotch = Math.round(throttlePct * 4) / 4;
+        setThrottle(nearestNotch);
+        updateThrottleUI();
+      };
+      throttleTrack.addEventListener('touchend', endThrottle, { passive: false });
+      throttleTrack.addEventListener('touchcancel', endThrottle, { passive: false });
+
+      function applyThrottleTouch(clientY) {
+        const rect = throttleTrack.getBoundingClientRect();
+        const relY = THREE.MathUtils.clamp((clientY - rect.top) / rect.height, 0, 1);
+        const newPct = THREE.MathUtils.clamp(1 - relY, 0, 1);
+        setThrottle(newPct);
+        updateThrottleUI();
+      }
+
+      // Action Buttons Binding
+      const bindHoldButton = (btn, onDown, onUp) => {
+        if (!btn) return;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); btn.classList.add('active'); onDown(); }, { passive: false });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); }, { passive: false });
+        btn.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); }, { passive: false });
+        btn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); btn.classList.add('active'); onDown(); });
+        btn.addEventListener('mouseup', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); });
+      };
+
+      const bindTapButton = (btn, action) => {
+        if (!btn) return;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); action(); }, { passive: false });
+        btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); action(); });
+      };
+
+      // Continuous Hold Primary Fire
+      bindHoldButton(btnFire, () => {
+        if (window.NFM) window.NFM.mouseHeld = true;
+        triggerFire();
+      }, () => {
+        if (window.NFM) window.NFM.mouseHeld = false;
+      });
+
+      // Quick Actions
+      bindTapButton(btnBoost, () => {
+        triggerAfterburner();
+        sound.switchClick();
+      });
+      bindTapButton(btnWarp, () => {
+        triggerLightspeed();
+      });
+      bindTapButton(btnMsl, () => {
+        // Auto-open safety lid if closed then launch missile
+        if (typeof isMissileLidOpen !== 'undefined' && !isMissileLidOpen) {
+          toggleMissileLid();
+        }
+        fireHomingMissile();
+      });
+      bindTapButton(btnFlr, () => {
+        if (typeof deployCountermeasureFlares === 'function') deployCountermeasureFlares();
+        else showToast('FLARES DEPLOYED', 1500, '#ff8833');
+      });
+      bindTapButton(btnRdr, () => {
+        if (typeof window.novaRadarToggle === 'function') window.novaRadarToggle();
+      });
+      bindTapButton(btnTgt, () => {
+        if (typeof cycleTarget === 'function') cycleTarget();
+      });
+      bindTapButton(btnDmp, () => {
+        if (typeof toggleRotationDampeners === 'function') toggleRotationDampeners();
+      });
+    }
+
     // ── WebXR Session Startup Handlers ──
     let isStartingXR = false;
 
     const dismissModal = () => {
       const m = document.getElementById('modal-overlay');
       if (m) m.style.display = 'none';
+      updateTabletCtrlVisibility();
     };
 
     window.sound = sound;
@@ -17086,10 +17428,10 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       setTimeout(() => { try { console.log('[NOVA12] models in:', NM.done.join(', ')); showToast('MODELS: ' + NM.done.length + ' loaded', 2500, '#7fffd4'); } catch (e) { } }, 4000);
     }
     let nmLast = performance.now();
-    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); try { if (!isLightspeedActive) nfmTick(); } catch (e) { } nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
     window.nmFrame = nmFrame;
     (function f() { requestAnimationFrame(f); if (!renderer.xr.isPresenting) nmFrame(); })();
     nmBoot();
+    try { initTabletController(); updateTabletCtrlVisibility(); } catch (e) { console.warn('tablet controller init failed', e); }
 
     window.GAME_VERSION = GAME_VERSION;
     window.stickPivot = stickPivot;
