@@ -79,6 +79,78 @@
     .modal-hint {
       font-size: 13px; color: #00ffaa; margin-top: 16px; opacity: 0.9;
     }
+
+    /* Tablet Virtual Flight Controller Styles */
+    #tablet-controller {
+      position: absolute; inset: 0; pointer-events: none; z-index: 40;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none;
+      display: none;
+    }
+    .tablet-zone {
+      position: absolute; pointer-events: auto;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    }
+    .tablet-zone-left {
+      left: 18px; bottom: 22px; width: 180px; height: 260px;
+    }
+    .tablet-zone-right {
+      right: 18px; bottom: 22px; width: 220px; height: 260px;
+    }
+    .tablet-zone-top {
+      top: 14px; right: 18px; display: flex; flex-direction: row; gap: 8px; pointer-events: auto;
+    }
+    .tablet-joystick-base {
+      width: 140px; height: 140px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, rgba(4, 18, 32, 0.75) 70%, rgba(0, 240, 255, 0.4) 100%);
+      border: 2px solid rgba(0, 240, 255, 0.55);
+      position: relative; box-shadow: 0 0 18px rgba(0, 240, 255, 0.25);
+    }
+    .tablet-joystick-stick {
+      width: 54px; height: 54px; border-radius: 50%;
+      background: radial-gradient(circle, #00f0ff 0%, #0088aa 80%);
+      box-shadow: 0 0 14px #00f0ff; border: 2px solid #ffffff;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .tablet-throttle-track {
+      width: 50px; height: 160px; background: rgba(5, 18, 30, 0.85);
+      border: 2px solid rgba(255, 204, 0, 0.5); border-radius: 25px;
+      position: relative; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 14px rgba(255, 204, 0, 0.2);
+    }
+    .tablet-throttle-handle {
+      width: 68px; height: 38px; border-radius: 8px;
+      background: linear-gradient(180deg, #ffd24a 0%, #d48800 100%);
+      border: 2px solid #ffffff; box-shadow: 0 0 12px #ffd24a;
+      position: absolute; left: 50%; transform: translate(-50%, -50%);
+      pointer-events: none; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 900; color: #040c16; font-family: monospace;
+    }
+    .tablet-btn {
+      pointer-events: auto;
+      background: rgba(8, 24, 40, 0.88); border: 2px solid; border-radius: 8px;
+      color: #fff; font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold;
+      text-transform: uppercase; cursor: pointer; transition: transform 0.08s, filter 0.08s;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: none;
+    }
+    .tablet-btn:active, .tablet-btn.active {
+      transform: scale(0.94); filter: brightness(1.4);
+    }
+    .tablet-btn-fire {
+      width: 90px; height: 90px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 68, 85, 0.35) 0%, rgba(200, 20, 40, 0.85) 80%);
+      border-color: #ff3344; box-shadow: 0 0 20px rgba(255, 51, 68, 0.45);
+      font-size: 15px; letter-spacing: 1px; color: #fff;
+    }
+    .tablet-btn-fire:active, .tablet-btn-fire.active {
+      background: #ff3344; box-shadow: 0 0 30px #ff3344; color: #000;
+    }
+    .tablet-btn-pill {
+      padding: 8px 14px; font-size: 12px; border-radius: 6px;
+      background: rgba(4, 16, 28, 0.85);
+    }
   </style>
 
   <script type="importmap">
@@ -92,10 +164,9 @@
 
   <!-- Immediate Synchronous Startup Script -->
   <script>
-    // Automatic HTTPS Redirect for Meta Quest 3 WebXR Support
+    // Automatic HTTPS Redirect for WebXR Support (preserves default port unless running custom dev server)
     if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      console.log('Redirecting to HTTPS:8443 for WebXR Passthrough support...');
-      window.location.replace('https://' + window.location.hostname + ':8443' + window.location.pathname + window.location.search);
+      window.location.protocol = 'https:';
     }
     window.dismissModal = function() {
       try {
@@ -147,24 +218,107 @@
     };
 
 
+    // Device & XR Capability Detection
+    window.novaDevice = {
+      isQuest: /Quest|Oculus/i.test(navigator.userAgent),
+      isMobile: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+      hasXR: false,
+      hasVR: false,
+      hasAR: false,
+      detectedMode: '2D' // 'MR', 'VR', '2D'
+    };
+
+    // Detect device capabilities asynchronously
+    (function detectDevice() {
+      if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
+        Promise.all([
+          navigator.xr.isSessionSupported('immersive-ar').catch(function() { return false; }),
+          navigator.xr.isSessionSupported('immersive-vr').catch(function() { return false; })
+        ]).then(function(results) {
+          window.novaDevice.hasAR = !!results[0];
+          window.novaDevice.hasVR = !!results[1];
+          window.novaDevice.hasXR = window.novaDevice.hasAR || window.novaDevice.hasVR;
+
+          var preferred = localStorage.getItem('novaPreferredMode');
+          if (preferred && (preferred === '2D' || (preferred === 'MR' && window.novaDevice.hasAR) || (preferred === 'VR' && window.novaDevice.hasVR))) {
+            window.novaDevice.detectedMode = preferred;
+          } else if (window.novaDevice.isQuest && window.novaDevice.hasAR) {
+            window.novaDevice.detectedMode = 'MR';
+          } else if (window.novaDevice.hasVR) {
+            window.novaDevice.detectedMode = 'VR';
+          } else {
+            window.novaDevice.detectedMode = '2D';
+          }
+          window.novaUpdatePlayButton();
+        }).catch(function() {
+          window.novaDevice.detectedMode = '2D';
+          window.novaUpdatePlayButton();
+        });
+      } else {
+        window.novaDevice.detectedMode = '2D';
+        window.novaUpdatePlayButton();
+      }
+    })();
+
+    window.novaSetPreferredMode = function(mode) {
+      window.novaDevice.detectedMode = mode;
+      try { localStorage.setItem('novaPreferredMode', mode); } catch (e) {}
+      window.novaUpdatePlayButton();
+      if (typeof window.showToast === 'function') {
+        window.showToast('Default Play Mode: ' + mode, 2000, '#00ffcc');
+      }
+    };
+
+    window.novaUpdatePlayButton = function() {
+      try {
+        var btn = document.getElementById('btn-play');
+        var hint = document.getElementById('menu-hint');
+        var badge = document.getElementById('device-badge');
+        var mode = window.novaDevice.detectedMode;
+        if (btn) {
+          if (mode === 'MR') {
+            btn.innerHTML = '&#9654; PLAY (PASSTHROUGH MR)';
+            btn.className = 'modal-btn btn-mr';
+          } else if (mode === 'VR') {
+            btn.innerHTML = '&#9654; PLAY (VR 360&deg;)';
+            btn.className = 'modal-btn btn-vr';
+          } else {
+            btn.innerHTML = '&#9654; PLAY (DESKTOP / SCREEN)';
+            btn.className = 'modal-btn btn-2d';
+          }
+        }
+        if (badge) {
+          var label = window.novaDevice.isQuest ? 'Meta Quest Detected' : (window.novaDevice.hasXR ? 'WebXR Headset Detected' : 'Standard Display (Desktop/Mobile)');
+          badge.textContent = 'Detected Device: ' + label + ' | Default: ' + mode;
+        }
+        if (hint) {
+          hint.textContent = 'Non-mandatory VR: Play directly on screen or headset. Change modes anytime in Options.';
+        }
+      } catch (e) {}
+    };
+
     window.novaMenuView = function(v) {
       try {
         document.getElementById('menu-main').style.display = v === 'main' ? '' : 'none';
         document.getElementById('menu-options').style.display = v === 'opt' ? '' : 'none';
+        var gh = document.getElementById('menu-github');
+        if (gh) gh.style.display = v === 'github' ? '' : 'none';
+        window.novaMenuFocusIdx = 0;
+        if (typeof window.novaUpdateMenuFocus === 'function') window.novaUpdateMenuFocus();
       } catch (e) {}
     };
+    window.novaOpenGitHubModal = function() {
+      window.novaMenuView('github');
+    };
     window.novaPlay = function() {
-      var done = false;
-      function go2D() { if (!done) { done = true; window.launch2D(); } }
-      try {
-        if (navigator.xr && navigator.xr.isSessionSupported) {
-          navigator.xr.isSessionSupported('immersive-ar').then(function(ar) {
-            if (ar) { done = true; window.launchMR(); return; }
-            return navigator.xr.isSessionSupported('immersive-vr').then(function(vr) { if (vr) { done = true; window.launchVR(); } else go2D(); });
-          }).catch(go2D);
-          setTimeout(go2D, 2500);
-        } else go2D();
-      } catch (e) { go2D(); }
+      var mode = window.novaDevice.detectedMode || '2D';
+      if (mode === 'MR') {
+        window.launchMR();
+      } else if (mode === 'VR') {
+        window.launchVR();
+      } else {
+        window.launch2D();
+      }
     };
     window.novaExit = function() {
       try { var ses = window.novaGetXR && window.novaGetXR(); if (ses && ses.end) ses.end(); } catch (e) {}
@@ -188,6 +342,224 @@
         window.dismissModal();
       }
     };
+
+    // ── Controller / Gamepad & Keyboard Navigation for Main Menu & Options ──
+    window.novaMenuFocusIdx = 0;
+    window.novaGetVisibleMenuButtons = function() {
+      var overlay = document.getElementById('modal-overlay');
+      if (!overlay || overlay.style.display === 'none') return [];
+      var containers = ['menu-main', 'menu-options', 'menu-github'];
+      for (var i = 0; i < containers.length; i++) {
+        var c = document.getElementById(containers[i]);
+        if (c && c.style.display !== 'none') {
+          return Array.prototype.slice.call(c.querySelectorAll('button.modal-btn, a.modal-btn'));
+        }
+      }
+      return [];
+    };
+
+    window.novaUpdateMenuFocus = function() {
+      var btns = window.novaGetVisibleMenuButtons();
+      if (!btns.length) return;
+      if (window.novaMenuFocusIdx < 0) window.novaMenuFocusIdx = btns.length - 1;
+      if (window.novaMenuFocusIdx >= btns.length) window.novaMenuFocusIdx = 0;
+      document.querySelectorAll('.modal-btn').forEach(function(b) {
+        b.style.outline = '';
+        b.style.outlineOffset = '';
+        b.style.transform = '';
+      });
+      var active = btns[window.novaMenuFocusIdx];
+      if (active) {
+        active.style.outline = '3px solid #ffffff';
+        active.style.outlineOffset = '3px';
+        active.style.transform = 'scale(1.02)';
+        try { active.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+      }
+    };
+
+    window.addEventListener('DOMContentLoaded', function() {
+      setTimeout(window.novaUpdateMenuFocus, 150);
+    });
+
+    (function initMenuControllerLoop() {
+      var lastNavT = 0;
+      var prevA = false, prevB = false, prevStart = false;
+      var prevFire = false, prevMsl = false, prevBoost = false, prevTarget = false, prevRadar = false, prevDamp = false, prevWarp = false;
+
+      window.addEventListener('gamepadconnected', function(e) {
+        try {
+          var badge = document.getElementById('device-badge');
+          if (badge && badge.textContent.indexOf('Controller') === -1) {
+            badge.textContent += ' | 🎮 Controller Connected';
+          }
+          if (typeof window.showToast === 'function') {
+            window.showToast('🎮 CONTROLLER CONNECTED: ' + (e.gamepad.id || 'Gamepad').slice(0, 28), 2500, '#00ffcc');
+          }
+          window.novaUpdateMenuFocus();
+        } catch (err) {}
+      });
+
+      function pollGamepad() {
+        requestAnimationFrame(pollGamepad);
+        if (!navigator.getGamepads) return;
+        var pads = navigator.getGamepads();
+        var gp = null;
+        for (var i = 0; i < pads.length; i++) {
+          if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
+        }
+        if (!gp) return;
+
+        var now = performance.now();
+        var overlay = document.getElementById('modal-overlay');
+        var menuOpen = overlay && overlay.style.display !== 'none';
+
+        var b0 = !!(gp.buttons[0] && gp.buttons[0].pressed); // A / Cross (Select / Fire)
+        var b1 = !!(gp.buttons[1] && gp.buttons[1].pressed); // B / Circle (Back / Missiles)
+        var b2 = !!(gp.buttons[2] && gp.buttons[2].pressed); // X / Square (Target Cycle)
+        var b3 = !!(gp.buttons[3] && gp.buttons[3].pressed); // Y / Triangle (3D Radar Toggle)
+        var lb = !!(gp.buttons[4] && gp.buttons[4].pressed); // LB / L1 (Throttle Down / Dampeners)
+        var rb = !!(gp.buttons[5] && gp.buttons[5].pressed); // RB / R1 (Afterburner Boost)
+        var lt = (gp.buttons[6] && typeof gp.buttons[6].value === 'number') ? gp.buttons[6].value : 0; // LT / L2 (Throttle / Brake)
+        var rt = (gp.buttons[7] && typeof gp.buttons[7].value === 'number') ? gp.buttons[7].value : 0; // RT / R2 (Primary Fire)
+        var startBtn = !!(gp.buttons[9] && gp.buttons[9].pressed); // Start / Options (Menu Toggle)
+        var dUp = !!(gp.buttons[12] && gp.buttons[12].pressed);
+        var dDown = !!(gp.buttons[13] && gp.buttons[13].pressed);
+        var dLeft = !!(gp.buttons[14] && gp.buttons[14].pressed);
+        var dRight = !!(gp.buttons[15] && gp.buttons[15].pressed);
+        var ay = (gp.axes && gp.axes.length > 1) ? gp.axes[1] : 0;
+
+        // Start button toggles launch/options modal when in 2D/Tablet mode
+        if (startBtn && !prevStart) {
+          if (menuOpen) {
+            window.dismissModal();
+          } else if (overlay) {
+            overlay.style.setProperty('display', 'flex', 'important');
+            window.novaMenuView('main');
+          }
+        }
+        prevStart = startBtn;
+
+        if (menuOpen) {
+          // Menu navigation with D-Pad Up/Down or Left Stick Y
+          if (now - lastNavT > 200) {
+            if (dUp || ay < -0.45) {
+              window.novaMenuFocusIdx--;
+              window.novaUpdateMenuFocus();
+              if (window.sound && window.sound.beep) window.sound.beep(780, 0.04);
+              lastNavT = now;
+            } else if (dDown || ay > 0.45) {
+              window.novaMenuFocusIdx++;
+              window.novaUpdateMenuFocus();
+              if (window.sound && window.sound.beep) window.sound.beep(680, 0.04);
+              lastNavT = now;
+            }
+          }
+          // A / Cross presses the highlighted menu button
+          if (b0 && !prevA) {
+            var btns = window.novaGetVisibleMenuButtons();
+            var active = btns[window.novaMenuFocusIdx] || btns[0];
+            if (active) {
+              if (window.sound && window.sound.switchClick) window.sound.switchClick();
+              active.click();
+            }
+          }
+          // B / Circle returns to Main Menu from submenus
+          if (b1 && !prevB) {
+            var mainEl = document.getElementById('menu-main');
+            if (mainEl && mainEl.style.display === 'none') {
+              window.novaMenuView('main');
+              if (window.sound && window.sound.beep) window.sound.beep(520, 0.05);
+            }
+          }
+          prevA = b0;
+          prevB = b1;
+          return;
+        }
+
+        prevA = b0;
+        prevB = b1;
+
+        // In-Flight Standard Gamepad Controls (for Tablet / PC Bluetooth Controllers when not in WebXR)
+        var inXR = !!(window.renderer && window.renderer.xr && window.renderer.xr.isPresenting);
+        if (!inXR && window.stickPivot) {
+          var DZ = 0.16;
+          // Right stick (axes 2,3) or Left stick (axes 0,1) steers Pitch & Roll
+          var rx = (gp.axes && Math.abs(gp.axes[2] || 0) > Math.abs(gp.axes[0] || 0)) ? (gp.axes[2] || 0) : (gp.axes ? (gp.axes[0] || 0) : 0);
+          var ry = (gp.axes && Math.abs(gp.axes[3] || 0) > Math.abs(gp.axes[1] || 0)) ? (gp.axes[3] || 0) : (gp.axes ? (gp.axes[1] || 0) : 0);
+          var nx = Math.abs(rx) > DZ ? Math.sign(rx) * ((Math.abs(rx) - DZ) / (1 - DZ)) : 0;
+          var ny = Math.abs(ry) > DZ ? Math.sign(ry) * ((Math.abs(ry) - DZ) / (1 - DZ)) : 0;
+          if (nx !== 0 || ny !== 0) {
+            window.isTestingGripStick = true;
+            window.stickPivot.rotation.x = ny * 0.45;
+            window.stickPivot.rotation.z = -nx * 0.45;
+          } else if (window.isTestingGripStick) {
+            window.isTestingGripStick = false;
+            window.stickPivot.rotation.x = 0;
+            window.stickPivot.rotation.z = 0;
+          }
+
+          // D-Pad Up / Down shifts throttle gates
+          if (now - lastNavT > 240) {
+            if (dUp && typeof window.shiftThrottleGate === 'function') {
+              window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) + 1, true);
+              if (window.novaUpdateTabletThrottle) window.novaUpdateTabletThrottle();
+              lastNavT = now;
+            } else if (dDown && typeof window.shiftThrottleGate === 'function') {
+              window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) - 1, true);
+              if (window.novaUpdateTabletThrottle) window.novaUpdateTabletThrottle();
+              lastNavT = now;
+            }
+          }
+
+          // Primary Fire: RT trigger (>0.25) or A button
+          var fireNow = (rt > 0.25) || b0;
+          if (window.NFM) {
+            if (fireNow) window.NFM.padT = now;
+          } else if (fireNow && !prevFire && typeof window.triggerFire === 'function') {
+            window.triggerFire();
+          }
+          prevFire = fireNow;
+
+          // B button: Launch Homing Missile
+          if (b1 && !prevMsl && typeof window.fireHomingMissile === 'function') {
+            if (typeof window.isMissileLidOpen === 'function' && !window.isMissileLidOpen() && typeof window.toggleMissileLid === 'function') {
+              window.toggleMissileLid();
+            }
+            window.fireHomingMissile();
+          }
+          prevMsl = b1;
+
+          // X button: Cycle Target
+          if (b2 && !prevTarget && typeof window.cycleTarget === 'function') {
+            window.cycleTarget();
+          }
+          prevTarget = b2;
+
+          // Y button: Toggle 3D Radar
+          if (b3 && !prevRadar && typeof window.novaRadarToggle === 'function') {
+            window.novaRadarToggle();
+          }
+          prevRadar = b3;
+
+          // RB: Afterburner Boost, LB: Rotation Dampeners, D-Right: Warp, D-Left: Autopilot
+          if (rb && !prevBoost && typeof window.shiftThrottleGate === 'function') {
+            window.shiftThrottleGate(4, true);
+          }
+          prevBoost = rb;
+
+          if (lb && !prevDamp && typeof window.toggleRotationDampeners === 'function') {
+            window.toggleRotationDampeners();
+          }
+          prevDamp = lb;
+
+          if (dRight && !prevWarp && typeof window.triggerLightspeed === 'function') {
+            window.triggerLightspeed();
+          }
+          prevWarp = dRight;
+        }
+      }
+      requestAnimationFrame(pollGamepad);
+    })();
   </script>
   <link rel="manifest" href="./manifest.webmanifest">
   <meta name="theme-color" content="#00e5ff">
@@ -213,24 +585,106 @@
     <div class="modal-box">
       <div class="modal-title">🚀 PROJECT NOVA: STARFIGHTER SIM</div>
       <div class="modal-subtitle">
-        Meta Quest 3 Space Flight • Newtonian Physics • Hand Tracking HOTAS Controls • Homing Missiles &amp; Hyperspace Drive
+        6DOF Space Flight Simulator • Newtonian HOTAS Flight Model • Proportional Navigation Dogfights • Hyperspace Drive
       </div>
+      <div id="device-badge" style="font-size: 11px; color: #79c0ff; background: rgba(14, 40, 70, 0.7); border: 1px solid #1f6feb; border-radius: 4px; padding: 4px 8px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px;">
+        Detecting Display Capabilities...
+      </div>
+      <!-- Clean, focused Main Menu -->
       <div id="menu-main">
-        <button class="modal-btn btn-mr" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
-        <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS</button>
+        <button class="modal-btn btn-2d" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
+        <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS &amp; MODES</button>
         <button class="modal-btn" id="btn-exit" style="border-color:#885566;color:#cc8899;background:rgba(120,30,50,0.15);" onclick="window.novaExit(); event.stopPropagation();">&#10006; EXIT</button>
       </div>
-      <div id="menu-options" style="display:none;">
-        <button class="modal-btn btn-mr" id="btn-mr" style="border-width: 3px; box-shadow: 0 0 25px rgba(255, 51, 170, 0.45); font-size: 18px;" onclick="window.launchMR(); event.stopPropagation();">👁️ ENTER MR (PASSTHROUGH COCKPIT) [QUEST 3]</button>
-      <button class="modal-btn btn-vr" id="btn-vr" onclick="window.launchVR(); event.stopPropagation();">🚀 ENTER VR SPACE FLIGHT (FULL 360° SPACE)</button>
-      <button class="modal-btn btn-2d" id="btn-2d" onclick="window.launch2D(); event.stopPropagation();">🎮 2D DESKTOP TEST MODE</button>
-      <button class="modal-btn" id="btn-companion" style="background: rgba(178, 102, 255, 0.18); border-color: #b266ff; color: #cc99ff;" onclick="window.novaCompanionMenu && window.novaCompanionMenu(); event.stopPropagation();">💜 CHOOSE YOUR COMPANION (NYX / MATRIX)</button>
-      <button class="modal-btn" id="btn-tutorial" style="background: rgba(255, 204, 0, 0.18); border-color: #ffcc00; color: #ffcc00;" onclick="window.launchTutorial(false); event.stopPropagation();">📖 TUTORIAL: LEARN TO FLY (GUIDED, 2D)</button>
-      <button class="modal-btn" id="btn-tutorial-vr" style="background: rgba(255, 204, 0, 0.10); border-color: #b38f00; color: #ffcc00; font-size: 12px; padding: 9px;" onclick="window.launchTutorial(true); event.stopPropagation();">📖 RUN THE TUTORIAL IN VR INSTEAD</button>
-      <button class="modal-btn" id="btn-frigate" style="background: rgba(0, 240, 255, 0.22); border-color: #00f0ff; color: #00f0ff; margin-top: 6px;" onclick="window.launchFrigate(); event.stopPropagation();">🌌 ENTER CENTRAL FRIGATE HALL &amp; 3D GALAXY MAP</button>
-      <button class="modal-btn" id="btn-back" style="margin-top:6px;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK</button>
+
+      <!-- Options & Device Setup Menu -->
+      <div id="menu-options" style="display:none; text-align: left;">
+        <div style="font-size: 14px; font-weight: bold; color: #00f0ff; margin-bottom: 8px; text-transform: uppercase;">Display &amp; Immersion Modes:</div>
+        <button class="modal-btn btn-2d" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('2D'); window.launch2D(); event.stopPropagation();">🎮 2D DESKTOP / SCREEN MODE (NO VR REQUIRED)</button>
+        <button class="modal-btn btn-mr" id="btn-mr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('MR'); window.launchMR(); event.stopPropagation();">👁️ ENTER PASSTHROUGH MR (QUEST 3 / AR)</button>
+        <button class="modal-btn btn-vr" id="btn-vr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('VR'); window.launchVR(); event.stopPropagation();">🚀 ENTER IMMERSIVE VR (FULL 360° SPACE)</button>
+
+        <div style="font-size: 14px; font-weight: bold; color: #00ffcc; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Tablet / Touch Controls:</div>
+        <button class="modal-btn" id="btn-toggle-touch-ctrl" style="background: rgba(0, 255, 204, 0.15); border-color: #00ffcc; color: #00ffcc; padding: 10px; margin: 4px 0;" onclick="window.novaToggleTabletCtrl(); event.stopPropagation();">📱 TABLET CONTROLLER: ON / OFF</button>
+
+        <div style="font-size: 14px; font-weight: bold; color: #ffcc00; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Flight Activities:</div>
+        <button class="modal-btn" id="btn-companion" style="background: rgba(178, 102, 255, 0.18); border-color: #b266ff; color: #cc99ff; padding: 10px; margin: 4px 0;" onclick="window.novaCompanionMenu && window.novaCompanionMenu(); event.stopPropagation();">💜 CHOOSE COMPANION (NYX / MATRIX)</button>
+        <button class="modal-btn" id="btn-tutorial" style="background: rgba(255, 204, 0, 0.18); border-color: #ffcc00; color: #ffcc00; padding: 10px; margin: 4px 0;" onclick="window.launchTutorial(false); event.stopPropagation();">📖 GUIDED FLIGHT TUTORIAL</button>
+        <button class="modal-btn" id="btn-frigate" style="background: rgba(0, 240, 255, 0.18); border-color: #00f0ff; color: #00f0ff; padding: 10px; margin: 4px 0;" onclick="window.launchFrigate(); event.stopPropagation();">🌌 FRIGATE HALL &amp; 3D GALAXY MAP</button>
+
+        <div style="font-size: 14px; font-weight: bold; color: #3fb950; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Developer &amp; Standalone:</div>
+        <button class="modal-btn" id="btn-github-connect" style="background: rgba(46, 160, 67, 0.20); border-color: #3fb950; color: #3fb950; font-size: 13px; padding: 10px; margin: 4px 0;" onclick="window.novaOpenGitHubModal(); event.stopPropagation();">🐙 GITHUB &amp; QUEST CONNECTION DETAILS</button>
+        <button class="modal-btn" id="btn-download-standalone" style="background: rgba(0, 255, 170, 0.15); border-color: #00ffaa; color: #00ffaa; font-size: 13px; padding: 10px; margin: 4px 0;" onclick="if(window.downloadStandaloneForClaude) window.downloadStandaloneForClaude(); event.stopPropagation();">⬇️ DOWNLOAD STANDALONE HTML (FOR CLAUDE AI)</button>
+
+        <button class="modal-btn" id="btn-back" style="margin-top: 12px; padding: 12px;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK TO MAIN MENU</button>
+      </div>
+
+      <!-- GitHub & Meta Quest Connect Dialog -->
+      <div id="menu-github" style="display:none; text-align: left; padding: 10px 4px;">
+        <div style="font-size: 18px; color: #3fb950; font-weight: bold; margin-bottom: 8px;">🥽 1. CONNECT &amp; PLAY ON META QUEST</div>
+        <div style="font-size: 13px; color: #a0c4df; line-height: 1.5; margin-bottom: 12px;">
+          Open the <b>Meta Quest Browser</b> on your headset and navigate to this live WebXR URL:
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+          <input type="text" id="quest-url-input" readonly value="https://ais-pre-ju7jgpdtyqtmofenwhjexo-454911322812.us-west1.run.app" style="flex: 1; background: #040d1a; border: 1px solid #00f0ff; color: #00f0ff; padding: 8px 12px; font-family: monospace; font-size: 12px; border-radius: 6px;" />
+          <button class="modal-btn" style="width: auto; margin: 0; padding: 8px 14px; font-size: 12px; border-color: #00f0ff; color: #00f0ff;" onclick="navigator.clipboard.writeText(document.getElementById('quest-url-input').value); window.showToast('Copied Quest URL!', 2000, '#00f0ff'); event.stopPropagation();">📋 COPY</button>
+        </div>
+
+        <div style="font-size: 18px; color: #58a6ff; font-weight: bold; margin-top: 14px; margin-bottom: 8px;">🐙 2. GITHUB REPOSITORY: Devostater/Project-Nova</div>
+        <div style="font-size: 13px; color: #a0c4df; line-height: 1.5; margin-bottom: 8px;">
+          Origin remote is configured to <code>https://github.com/Devostater/Project-Nova.git</code>.
+        </div>
+        <pre style="background: #020813; border: 1px solid #238636; color: #7ee787; padding: 10px; font-size: 11px; border-radius: 6px; overflow-x: auto; margin-bottom: 12px; font-family: monospace;">git remote add origin https://github.com/Devostater/Project-Nova.git
+git branch -M main
+git push -u origin main</pre>
+        <div style="margin-bottom: 12px;">
+          <a href="./project-nova-git.tar.gz" download="project-nova-git.tar.gz" class="modal-btn" style="text-decoration: none; text-align: center; background: rgba(88, 166, 255, 0.18); border-color: #58a6ff; color: #79c0ff; font-size: 13px; padding: 10px; margin: 0;" onclick="event.stopPropagation();">📦 DOWNLOAD FULL REPO ARCHIVE (WITH .GIT &amp; HISTORY)</a>
+        </div>
+        <div style="font-size: 12px; color: #88aacc; line-height: 1.4; margin-bottom: 14px;">
+          ✨ <b>AI Collaboration Ready</b>: Other AI models (Claude, Cursor, Copilot, ChatGPT) can directly open or edit <code>index.html</code> or <code>public/standalone.html</code>. Both files are 100% self-contained and ready to build.
+        </div>
+        <button class="modal-btn" style="margin-top: 6px; border-color: #3fb950; color: #3fb950;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK TO MENU</button>
       </div>
       <div class="modal-hint" id="menu-hint">PLAY starts Mixed Reality on Quest, or desktop mode on a computer. Options has VR, tutorial and companion.</div>
+    </div>
+  </div>
+
+  <!-- Tablet / Touch On-Screen Flight Controller Overlay -->
+  <div id="tablet-controller">
+    <!-- Top Quick Action Strip -->
+    <div class="tablet-zone-top">
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-radar" style="border-color: #00e5ff; color: #00e5ff;">📡 RADAR</button>
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-target" style="border-color: #33ff99; color: #33ff99;">🎯 TARGET</button>
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-damp" style="border-color: #ffd24a; color: #ffd24a;">⚖️ DAMP</button>
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-options" style="border-color: #88aacc; color: #88aacc;" onclick="window.novaMenuView('opt'); document.getElementById('modal-overlay').style.setProperty('display', 'flex', 'important');">⚙️ MENU</button>
+    </div>
+
+    <!-- Left Zone: Throttle Lever + Booster + Reverse Cut -->
+    <div class="tablet-zone tablet-zone-left">
+      <div style="font-size: 11px; font-weight: bold; color: #ffd24a; margin-bottom: 6px; font-family: monospace; letter-spacing: 1px;">THROTTLE</div>
+      <div class="tablet-throttle-track" id="tc-throttle-track">
+        <div class="tablet-throttle-handle" id="tc-throttle-handle">0%</div>
+      </div>
+      <div style="display: flex; gap: 6px; width: 100%; margin-top: 8px;">
+        <button class="tablet-btn" id="tc-btn-boost" style="flex: 1; height: 36px; border-color: #ffaa00; color: #ffaa00; font-size: 11px;">🚀 BOOST</button>
+        <button class="tablet-btn" id="tc-btn-warp" style="flex: 1; height: 36px; border-color: #b266ff; color: #cc99ff; font-size: 11px;">⚡ WARP</button>
+      </div>
+    </div>
+
+    <!-- Right Zone: Virtual Flight Stick + Dedicated Fire + Missile Launch -->
+    <div class="tablet-zone tablet-zone-right">
+      <div style="display: flex; gap: 8px; margin-bottom: 10px; width: 100%; justify-content: flex-end;">
+        <button class="tablet-btn" id="tc-btn-missile" style="width: 80px; height: 38px; border-color: #ff5566; color: #ff5566; font-size: 11px;">🚀 MSL</button>
+        <button class="tablet-btn" id="tc-btn-flare" style="width: 60px; height: 38px; border-color: #ff8833; color: #ff8833; font-size: 11px;">✨ FLR</button>
+      </div>
+      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div class="tablet-joystick-base" id="tc-stick-base">
+          <div class="tablet-joystick-stick" id="tc-stick-handle"></div>
+        </div>
+        <!-- Fire Button next to joystick -->
+        <button class="tablet-btn tablet-btn-fire" id="tc-btn-fire" style="position: absolute; right: -12px; bottom: 70px;">FIRE</button>
+      </div>
+      <div style="font-size: 11px; font-weight: bold; color: #00f0ff; margin-top: 6px; font-family: monospace; letter-spacing: 1px;">FLIGHT STICK</div>
     </div>
   </div>
 
@@ -7166,12 +7620,240 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       }
     });
 
+    // ── Tablet / Touch On-Screen Flight Controller Setup ──
+    const tabletCtrl = {
+      active: false,
+      userToggled: false,
+      stickTouchId: null,
+      stickCenter: { x: 0, y: 0 },
+      stickRadius: 60,
+      throttleTouchId: null,
+      throttleTrackTop: 0,
+      throttleTrackHeight: 160
+    };
+
+    function updateTabletCtrlVisibility() {
+      const tcEl = document.getElementById('tablet-controller');
+      if (!tcEl) return;
+      const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.novaDevice.isMobile;
+      const shouldShow = (tabletCtrl.userToggled ? tabletCtrl.active : isTouchDevice) && !renderer.xr.isPresenting;
+      tabletCtrl.active = shouldShow;
+      tcEl.style.display = shouldShow ? 'block' : 'none';
+      const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
+      if (toggleBtn) {
+        toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (shouldShow ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
+      }
+    }
+    window.novaToggleTabletCtrl = function(force) {
+      tabletCtrl.userToggled = true;
+      tabletCtrl.active = (typeof force === 'boolean') ? force : !tabletCtrl.active;
+      const tcEl = document.getElementById('tablet-controller');
+      if (tcEl) tcEl.style.display = tabletCtrl.active ? 'block' : 'none';
+      const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
+      if (toggleBtn) toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (tabletCtrl.active ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
+      showToast('Tablet Controller ' + (tabletCtrl.active ? 'ENABLED' : 'DISABLED'), 2000, '#00ffcc');
+    };
+
+    function initTabletController() {
+      const tcEl = document.getElementById('tablet-controller');
+      const stickBase = document.getElementById('tc-stick-base');
+      const stickHandle = document.getElementById('tc-stick-handle');
+      const throttleTrack = document.getElementById('tc-throttle-track');
+      const throttleHandle = document.getElementById('tc-throttle-handle');
+      const btnFire = document.getElementById('tc-btn-fire');
+      const btnBoost = document.getElementById('tc-btn-boost');
+      const btnWarp = document.getElementById('tc-btn-warp');
+      const btnMsl = document.getElementById('tc-btn-missile');
+      const btnFlr = document.getElementById('tc-btn-flare');
+      const btnRdr = document.getElementById('tc-btn-radar');
+      const btnTgt = document.getElementById('tc-btn-target');
+      const btnDmp = document.getElementById('tc-btn-damp');
+
+      if (!tcEl || !stickBase || !stickHandle) return;
+
+      // Flight Stick Touch Events
+      stickBase.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        sound.init();
+        if (tabletCtrl.stickTouchId !== null) return;
+        const touch = e.changedTouches[0];
+        tabletCtrl.stickTouchId = touch.identifier;
+        const rect = stickBase.getBoundingClientRect();
+        tabletCtrl.stickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        updateStick(touch.clientX, touch.clientY);
+      }, { passive: false });
+
+      stickBase.addEventListener('touchmove', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          if (touch.identifier === tabletCtrl.stickTouchId) {
+            updateStick(touch.clientX, touch.clientY);
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const resetStick = (e) => {
+        if (e) {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === tabletCtrl.stickTouchId) {
+              tabletCtrl.stickTouchId = null;
+              break;
+            }
+          }
+        } else {
+          tabletCtrl.stickTouchId = null;
+        }
+        if (tabletCtrl.stickTouchId === null) {
+          stickHandle.style.transform = 'translate(-50%, -50%)';
+          isGrippingStick = false;
+          stickPivot.rotation.x = 0;
+          stickPivot.rotation.z = 0;
+          stickPitchDeg = 0; stickRollDeg = 0;
+          drawHUD();
+        }
+      };
+      stickBase.addEventListener('touchend', resetStick, { passive: false });
+      stickBase.addEventListener('touchcancel', resetStick, { passive: false });
+
+      function updateStick(cx, cy) {
+        const dx = cx - tabletCtrl.stickCenter.x;
+        const dy = cy - tabletCtrl.stickCenter.y;
+        const dist = Math.hypot(dx, dy);
+        const maxR = tabletCtrl.stickRadius;
+        const clampedR = Math.min(dist, maxR);
+        const angle = Math.atan2(dy, dx);
+        const hx = Math.cos(angle) * clampedR;
+        const hy = Math.sin(angle) * clampedR;
+        stickHandle.style.transform = `translate(calc(-50% + ${hx}px), calc(-50% + ${hy}px))`;
+
+        isGrippingStick = true;
+        // Inverted flight pitch (pull back / drag down = pitch up)
+        stickPivot.rotation.x = THREE.MathUtils.clamp((hy / maxR) * 0.45, -0.45, 0.45);
+        stickPivot.rotation.z = THREE.MathUtils.clamp((-hx / maxR) * 0.45, -0.45, 0.45);
+        stickPitchDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.x);
+        stickRollDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.z);
+        drawHUD();
+      }
+
+      // Throttle Track Touch Events
+      function updateThrottleUI() {
+        if (!throttleHandle || !throttleTrack) return;
+        const pct = throttlePct;
+        const pctHeight = (1 - pct) * 122 + 19; // 19px to 141px
+        throttleHandle.style.top = `${pctHeight}px`;
+        throttleHandle.textContent = `${Math.round(pct * 100)}%`;
+      }
+      window.novaUpdateTabletThrottle = updateThrottleUI;
+
+      throttleTrack.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        sound.init();
+        const touch = e.changedTouches[0];
+        tabletCtrl.throttleTouchId = touch.identifier;
+        applyThrottleTouch(touch.clientY);
+      }, { passive: false });
+
+      throttleTrack.addEventListener('touchmove', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          if (touch.identifier === tabletCtrl.throttleTouchId) {
+            applyThrottleTouch(touch.clientY);
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const endThrottle = (e) => {
+        if (e) {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === tabletCtrl.throttleTouchId) {
+              tabletCtrl.throttleTouchId = null;
+              break;
+            }
+          }
+        } else {
+          tabletCtrl.throttleTouchId = null;
+        }
+        // Snap to nearest detent notch on touch release
+        const nearestNotch = Math.round(throttlePct * 4) / 4;
+        setThrottle(nearestNotch);
+        updateThrottleUI();
+      };
+      throttleTrack.addEventListener('touchend', endThrottle, { passive: false });
+      throttleTrack.addEventListener('touchcancel', endThrottle, { passive: false });
+
+      function applyThrottleTouch(clientY) {
+        const rect = throttleTrack.getBoundingClientRect();
+        const relY = THREE.MathUtils.clamp((clientY - rect.top) / rect.height, 0, 1);
+        const newPct = THREE.MathUtils.clamp(1 - relY, 0, 1);
+        setThrottle(newPct);
+        updateThrottleUI();
+      }
+
+      // Action Buttons Binding
+      const bindHoldButton = (btn, onDown, onUp) => {
+        if (!btn) return;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); btn.classList.add('active'); onDown(); }, { passive: false });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); }, { passive: false });
+        btn.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); }, { passive: false });
+        btn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); btn.classList.add('active'); onDown(); });
+        btn.addEventListener('mouseup', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); });
+      };
+
+      const bindTapButton = (btn, action) => {
+        if (!btn) return;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); action(); }, { passive: false });
+        btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); action(); });
+      };
+
+      // Continuous Hold Primary Fire
+      bindHoldButton(btnFire, () => {
+        if (window.NFM) window.NFM.mouseHeld = true;
+        triggerFire();
+      }, () => {
+        if (window.NFM) window.NFM.mouseHeld = false;
+      });
+
+      // Quick Actions
+      bindTapButton(btnBoost, () => {
+        triggerAfterburner();
+        sound.switchClick();
+      });
+      bindTapButton(btnWarp, () => {
+        triggerLightspeed();
+      });
+      bindTapButton(btnMsl, () => {
+        // Auto-open safety lid if closed then launch missile
+        if (typeof isMissileLidOpen !== 'undefined' && !isMissileLidOpen) {
+          toggleMissileLid();
+        }
+        fireHomingMissile();
+      });
+      bindTapButton(btnFlr, () => {
+        if (typeof deployCountermeasureFlares === 'function') deployCountermeasureFlares();
+        else showToast('FLARES DEPLOYED', 1500, '#ff8833');
+      });
+      bindTapButton(btnRdr, () => {
+        if (typeof window.novaRadarToggle === 'function') window.novaRadarToggle();
+      });
+      bindTapButton(btnTgt, () => {
+        if (typeof cycleTarget === 'function') cycleTarget();
+      });
+      bindTapButton(btnDmp, () => {
+        if (typeof toggleRotationDampeners === 'function') toggleRotationDampeners();
+      });
+    }
+
     // ── WebXR Session Startup Handlers ──
     let isStartingXR = false;
 
     const dismissModal = () => {
       const m = document.getElementById('modal-overlay');
       if (m) m.style.display = 'none';
+      updateTabletCtrlVisibility();
     };
 
     window.sound = sound;
@@ -7313,23 +7995,13 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       });
     }
 
-    // Clicking anywhere on modal overlay or modal box starts/enters the game
+    // Clicking on modal overlay background uses the user's selected/detected mode without forcing VR
     const modalOverlay = document.getElementById('modal-overlay');
     if (modalOverlay) {
       modalOverlay.addEventListener('click', (e) => {
         sound.init();
-        if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
-          navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-            if (supported) {
-              startXR('immersive-vr', false);
-            } else {
-              dismissModal();
-              showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
-            }
-          }).catch(() => {
-            dismissModal();
-            showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
-          });
+        if (typeof window.novaPlay === 'function') {
+          window.novaPlay();
         } else {
           dismissModal();
           showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
@@ -16840,6 +17512,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     window.nmFrame = nmFrame;
     (function f() { requestAnimationFrame(f); if (!renderer.xr.isPresenting) nmFrame(); })();
     nmBoot();
+    try { initTabletController(); updateTabletCtrlVisibility(); } catch (e) { console.warn('tablet controller init failed', e); }
 
     window.GAME_VERSION = GAME_VERSION;
     window.stickPivot = stickPivot;
