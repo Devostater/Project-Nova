@@ -1,46 +1,43 @@
 # AI Work Status
 
-> Read [AI_WORKFLOW.md](AI_WORKFLOW.md) before starting or taking over work.
+> Read [AI_WORKFLOW.md](AI_WORKFLOW.md) and [AI_PLAN.md](AI_PLAN.md) before starting or taking over work.
 
 ## Primary AI
 
 **Claude** is primary for Project Nova until the owner changes this.
 
-## Active task
+## Game file
 
-**None.** No AI currently owns code changes.
+The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-## Latest handoff
+**Held by:** Nobody. Claude takes it next to integrate AI Studio's panel updates and bump the version to Alpha 1.1.
 
-- **AI/tool:** Google AI Studio Build
-- **Task:** Reconcile Alpha 1.0 RC assets + `PROJECT_NOVA_CONTEXT.md` with NOVA14 controls/radar/deadzones, and wire `./VFX/` texture sheets (`NOVA_VFX`) into weapons, shields, beams, tractor corridors, and multi-stage explosions.
-- **State:** Complete (pushed to branch `aistudio/vfx-and-rc-reconcile`, based on `main` at `f85e7d4`).
-- **Branch:** `aistudio/vfx-and-rc-reconcile`
-- **Files/behavior owned:** Released (`index.html`, `public/standalone.html`, `standalone.html`, `public/VFX/*`, `PROJECT_NOVA_CONTEXT.md`, `AI_STATUS.md`).
-- **Last completed:**
-  - Synced `public/VFX/` (`lasers.jpg`, `glows and flares.jpg`, `energy shields.jpg`, `explosion VFX1.jpg`, `lightning.jpg`) so Vite and standalone builds serve all 5 VFX textures at `./VFX/`.
-  - Added the `NOVA_VFX` texture pipeline in `index.html`, `public/standalone.html`, and `standalone.html`:
-    - Crossed additive laser quad fins (`lasers.jpg`) + muzzle/tip flare sprites (`glows and flares.jpg`) on player twin wing lasers (`spawnLaserBolts`), pirate boss bolts, and NOVA14 faction projectiles (`nfFireBolt`, `nfFireMissile`).
-    - Animated energy shield dome & faction shield hit ripples (`energy shields.jpg`) on `shieldBubbleMat`, target drones, and `nfHit`.
-    - Multi-stage billboard fireballs (`explosion VFX1.jpg`), shockwave flashes (`glows and flares.jpg`), and plasma arcs (`lightning.jpg`) in `novaBoom` and `destroyPirateBoss`, plus impact flares/explosions on asteroid mining/shatter and target drones.
-    - Animated lightning UVs (`lightning.jpg`) on alien mothership/spore turret beams (`nfBeam`), tractor beam docking corridors (`novaDock.beam`), and shield-break arcs (`novaDamage`).
-  - Preserved all work from `f85e7d4` (`restore-gamepad-merge` + `codex/ai-handoff-protocol`), including `ULTRA` graphics mode (`NF_ORIG`), missile radar blips (`NH.mb`), 3D ship holo-radar toggle, joystick grab-anchored deadzones, continuous hold-to-fire spring return, centre `SHIP TELEMETRY // SYS-DATA` plate, device detection, tablet virtual flight controller, and gamepad menu navigation.
-  - Merged `PROJECT_NOVA_CONTEXT.md` from `migration/context-bootstrap`.
-- **Next step:** Owner or Claude can review/merge branch `aistudio/vfx-and-rc-reconcile` into `main` and claim the next task here.
-- **Checks:** `npm run build` (`compile_applet`) and `npm run lint` (`lint_applet`) passed with zero errors.
+## Active claims
+
+Several AIs may hold claims at once, as long as their files don't overlap. Add a row before starting; remove it in your handoff.
+
+| AI/tool | Task | Branch | Files / behavior owned | State | PR |
+|---|---|---|---|---|---|
+| Claude | Alpha 1.1 integration and test prep | `claude/alpha-1.1` | game files, `TESTING.md` | Waiting for AI Studio's panel updates on a branch | — |
+
+## Waiting for review / merge
+
+| AI/tool | Work | PR | Notes |
+|---|---|---|---|
+| — | — | — | — |
+
+## Done / handoffs
+
+Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Claude: Phase 1 foundation** (PR #4). three.js r187 vendor files so GLB models load in the web build; `ASSET_SPEC.md`, `AI_PLAN.md`, multi-claim status; `AGENTS.md` and `.gemini/` review configs. Checks: headless Chromium (models load, no 404s).
+- **Google AI Studio Build + Claude: VFX texture pack** (PR #3, merged). AI Studio wired VFX into weapons, shields, beams and explosions and reconciled Alpha 1.0 RC with NOVA14. Claude restored the dropped import map, cut clean textures into `public/fx/` (`tools/vfx_cut.py`), made explosions play one atlas frame at a time and capped explosion layers for Quest. Checks: headless Chromium. Still needs an owner test on the Quest.
+- **Claude: restore lost features** (PR #1, merged). Restored gamepad input, the tablet controller and device detection after the Alpha 1.0 RC push overwrote them. Checks: `node --check` and a headless Chromium run.
+- **Codex: AI handoff workflow** (PR #2, merged). Added `AI_WORKFLOW.md`, `AI_STATUS.md` and `CLAUDE.md`.
 
 ## How to claim work
 
-Replace the “Active task” section with the following before editing code:
-
-- **AI/tool:**
-- **Task:**
-- **State:** Active / Paused / Handoff
-- **Branch:**
-- **Files/behavior owned:**
-- **Last completed:**
-- **Next step:**
-- **Checks:**
-- **PR/commit:**
-
-When work is complete, record the outcome and PR, mark it Complete, and release file ownership. Keep the latest handoff notes so another AI can resume without guessing.
+1. Check the latest `main` and open PRs. Make sure nobody holds the files you need.
+2. Add a row to **Active claims**: AI/tool, task, branch, files, state (Active / Paused / Handoff), PR.
+3. If you need the game file and it says **Nobody**, put your name there.
+4. When you pause or finish, remove your row, release the game file if you held it, and add a short entry to **Done / handoffs** (or **Waiting for review** if a PR is open). Include the branch or PR, files changed, checks run, and the exact next step.
