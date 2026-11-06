@@ -15,7 +15,8 @@ Almost the whole game is one ~17,000-line file (`public/standalone.html`, mirror
 |---|---|---|---|
 | Game code and integration | **Claude** | `public/standalone.html`, `standalone.html`, `index.html` | — |
 | Feature modules (parallel coding) | **Any AI**, one module each | `public/modules/<feature>.js` (new files) | the game files |
-| Code review and tooling | **GPT / Codex** | PR reviews, `tools/`, `sw.js`, docs | the game files |
+| Code review | **Gemini Code Assist** (free GitHub app) | PR reviews | the game files |
+| Tooling and docs (optional) | **GPT / Codex** (only if the owner has a paid ChatGPT plan) | `tools/`, `sw.js`, docs | the game files |
 | 2D art | **Gemini / AI Studio** | `public/fx/`, `public/art/`, `Concept art/` | any code |
 | 3D models | **Tripo / Blender** (+ Claude Desktop with Blender) | `public/models/` and `manifest.json` via `optimize_nova` | any code |
 | Decisions, merges, Quest testing | **Owner** | — | — |
@@ -51,12 +52,12 @@ Until the `nova` API exists (see Phase 2), modules can only use the `window.*` g
 - **Claude:** add the `nova` module API and the `public/modules/` loader.
 - **Gemini / AI Studio:** remake the 5 VFX sheets and add missing effects to `ASSET_SPEC.md`.
 - **Tripo / Blender:** next ships and stations to spec.
-- **GPT / Codex:** review Claude's PRs; tooling (asset validator script, service-worker caching for new assets).
+- **Gemini Code Assist:** reviews every PR automatically (free). Codex is optional and needs a paid ChatGPT plan.
 
 ### Phase 3: Integration loop (repeats)
 1. An asset or module lands on its own branch.
 2. Claude wires it in and tests it in headless Chromium.
-3. GPT reviews.
+3. Gemini Code Assist reviews.
 4. The owner tests on the Quest and merges.
 
 ## Prompts for the other AIs

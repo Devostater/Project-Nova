@@ -10,7 +10,7 @@
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Nobody. The sprite-sheet fix landed on PR #3's branch; Claude takes the file next for the `nova` module API (Phase 2).
+**Held by:** Nobody. Claude takes it next to integrate AI Studio's panel updates and bump the version to Alpha 1.1.
 
 ## Active claims
 
@@ -18,18 +18,20 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
-| Claude | Phase 1 foundation: three.js vendor fix, asset spec, AI plan, multi-claim status | `claude/phase1-foundation` | `public/vendor/*`, `ASSET_SPEC.md`, `AI_PLAN.md`, `AI_STATUS.md` | Active | (this PR) |
+| Claude | Alpha 1.1 integration and test prep | `claude/alpha-1.1` | game files, `TESTING.md` | Waiting for AI Studio's panel updates on a branch | — |
 
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
-| Google AI Studio Build | VFX texture pack + Alpha 1.0 RC / NOVA14 reconcile | #3 | Claude restored the dropped import map (08d75c8) and addressed the review in 9cfd570: clean textures in `public/fx/` via `tools/vfx_cut.py`, one atlas frame per effect, capped explosion layers with a cheaper path in VR. Needs an owner test on the Quest. |
+| — | — | — | — |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
 
+- **Claude: Phase 1 foundation** (PR #4). three.js r187 vendor files so GLB models load in the web build; `ASSET_SPEC.md`, `AI_PLAN.md`, multi-claim status; `AGENTS.md` and `.gemini/` review configs. Checks: headless Chromium (models load, no 404s).
+- **Google AI Studio Build + Claude: VFX texture pack** (PR #3, merged). AI Studio wired VFX into weapons, shields, beams and explosions and reconciled Alpha 1.0 RC with NOVA14. Claude restored the dropped import map, cut clean textures into `public/fx/` (`tools/vfx_cut.py`), made explosions play one atlas frame at a time and capped explosion layers for Quest. Checks: headless Chromium. Still needs an owner test on the Quest.
 - **Claude: restore lost features** (PR #1, merged). Restored gamepad input, the tablet controller and device detection after the Alpha 1.0 RC push overwrote them. Checks: `node --check` and a headless Chromium run.
 - **Codex: AI handoff workflow** (PR #2, merged). Added `AI_WORKFLOW.md`, `AI_STATUS.md` and `CLAUDE.md`.
 
