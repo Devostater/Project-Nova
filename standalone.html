@@ -17611,14 +17611,29 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       shieldSpheres: new Map()
     };
     window.NOVA_VFX = NOVA_VFX;
+    NOVA_VFX.liveBoom = 0;                       // explosion billboards currently alive
+    const NOVA_VFX_MAX_BOOM_LAYERS = [20, 6];    // [full, cheap] cap across all explosions
+    function novaVfxCheap() {
+      try {
+        if (renderer.xr.isPresenting) return true;
+        return typeof NOPT !== 'undefined' && NOPT.o && (NOPT.o.gfx === 'low' || NOPT.o.gfx === 'mid');
+      } catch (e) { return false; }
+    }
+    // Show one cell of a cols x rows atlas (frame 0 = top-left), with texture.repeat = 1/cols, 1/rows.
+    function novaVfxAtlasFrame(tex, frame, cols, rows) {
+      const c = frame % cols, r = Math.floor(frame / cols);
+      tex.offset.set(c / cols, 1 - (r + 1) / rows);
+    }
 
     (function initNovaVfx() {
       const files = {
-        laser: './VFX/lasers.jpg',
-        flare: './VFX/glows%20and%20flares.jpg',
-        shield: './VFX/energy%20shields.jpg',
-        explosion: './VFX/explosion%20VFX1.jpg',
-        lightning: './VFX/lightning.jpg'
+        // Clean single-effect textures cut from the ./VFX/ reference sheets by tools/vfx_cut.py
+        laser: './fx/vfx_laser.png',
+        flare: './fx/vfx_flare.png',
+        spark: './fx/vfx_spark.png',
+        shield: './fx/vfx_shield.png',
+        explosion: './fx/vfx_explosion_8x8.png',   // 8x8 atlas, 56 frames
+        lightning: './fx/vfx_lightning.png'
       };
       const quad1 = new THREE.PlaneGeometry(0.42, 2.8);
       quad1.rotateX(Math.PI / 2);
@@ -17630,7 +17645,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         try {
           const t = NOVA_VFX.loader.load(url, tex => {
             tex.colorSpace = THREE.SRGBColorSpace;
-            if (k === 'shield' || k === 'lightning' || k === 'laser') {
+            if (k === 'shield' || k === 'lightning') {
               tex.wrapS = THREE.RepeatWrapping;
               tex.wrapT = THREE.RepeatWrapping;
             }
@@ -17718,7 +17733,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     function novaVfxArc(pos, col = 0x66eeff, size = 6.0, dur = 0.32) {
       try {
         const mat = new THREE.SpriteMaterial({
-          map: NOVA_VFX.tex.lightning || null,
+          map: NOVA_VFX.tex.spark || null,
           color: col,
           transparent: true,
           opacity: 0.92,
@@ -17936,17 +17951,25 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       novaBoom = function (pos, scale = 1.0) {
         _origNovaBoom(pos);
         try {
-          // 1) Initial blinding core flash (glows and flares.jpg)
+          // Cheap path in a headset or on low/mid graphics: fewer, capped additive layers
+          // (large overlapping additive billboards are expensive on Quest's mobile GPU).
+          const cheap = novaVfxCheap();
+          // 1) Initial blinding core flash
           novaVfxFlare(pos, 0xffeeaa, 28 * scale, 0.38);
-          novaVfxFlare(pos, 0xff6611, 42 * scale, 0.65);
+          if (!cheap) novaVfxFlare(pos, 0xff6611, 42 * scale, 0.65);
 
-          // 2) Multi-layered expanding fireball billboards (explosion VFX1.jpg)
+          // 2) Expanding fireball billboards, each playing the 8x8 explosion atlas
           if (NOVA_VFX.tex.explosion) {
-            const count = Math.max(4, Math.round(7 * scale));
+            const want = cheap ? (scale >= 1.5 ? 2 : 1) : Math.min(5, Math.max(2, Math.round(3 * scale)));
+            const count = Math.max(0, Math.min(want, NOVA_VFX_MAX_BOOM_LAYERS[cheap ? 1 : 0] - NOVA_VFX.liveBoom));
             for (let i = 0; i < count; i++) {
+              const ft = NOVA_VFX.tex.explosion.clone();   // shares the GPU image; own UV window
+              ft.repeat.set(1 / 8, 1 / 8);
+              novaVfxAtlasFrame(ft, 0, 8, 8);
+              NOVA_VFX.liveBoom++;
               const tint = i % 3 === 0 ? 0xffffff : (i % 3 === 1 ? 0xffaa44 : 0xff5522);
               const mat = new THREE.SpriteMaterial({
-                map: NOVA_VFX.tex.explosion,
+                map: ft,
                 color: tint,
                 transparent: true,
                 opacity: 0.95,
@@ -17969,18 +17992,20 @@ const GAME_VERSION = 'Alpha 1.0 RC';
                 d: 1.15 + Math.random() * 0.45,
                 o: sp,
                 up: k => {
+                  novaVfxAtlasFrame(ft, Math.min(55, Math.floor(k * 56)), 8, 8);
                   sp.scale.setScalar(s0 + (s1 - s0) * Math.sqrt(k));
                   mat.opacity = 0.95 * (1 - k * k);
                   mat.rotation += spin;
                   sp.position.addScaledVector(off, 0.014);
+                  if (k >= 1) { NOVA_VFX.liveBoom = Math.max(0, NOVA_VFX.liveBoom - 1); ft.dispose(); mat.dispose(); }
                 }
               });
             }
           }
 
-          // 3) Plasma lightning arcs on explosion (lightning.jpg)
+          // 3) Plasma arcs on explosion
           novaVfxArc(pos, 0xffaa44, 24 * scale, 0.48);
-          if (scale >= 1.0) novaVfxArc(pos, 0x66eeff, 30 * scale, 0.55);
+          if (scale >= 1.0 && !cheap) novaVfxArc(pos, 0x66eeff, 30 * scale, 0.55);
         } catch (e) {}
       };
       window.novaBoom = novaBoom;
@@ -17996,6 +18021,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
 
     function novaVfxTick(dt) {
       try {
+        if (novaFx.length === 0) NOVA_VFX.liveBoom = 0;   // self-heal the layer cap if FX were cleared elsewhere
         // Animate player shield dome UVs when shield is flashing
         if (shieldFlashTimer > 0 && NOVA_VFX.tex.shield) {
           NOVA_VFX.tex.shield.offset.x = (NOVA_VFX.tex.shield.offset.x + dt * 0.45) % 1;
