@@ -305,6 +305,8 @@
         document.getElementById('menu-options').style.display = v === 'opt' ? '' : 'none';
         var gh = document.getElementById('menu-github');
         if (gh) gh.style.display = v === 'github' ? '' : 'none';
+        window.novaMenuFocusIdx = 0;
+        if (typeof window.novaUpdateMenuFocus === 'function') window.novaUpdateMenuFocus();
       } catch (e) {}
     };
     window.novaOpenGitHubModal = function() {
@@ -342,6 +344,224 @@
         window.dismissModal();
       }
     };
+
+    // ── Controller / Gamepad & Keyboard Navigation for Main Menu & Options ──
+    window.novaMenuFocusIdx = 0;
+    window.novaGetVisibleMenuButtons = function() {
+      var overlay = document.getElementById('modal-overlay');
+      if (!overlay || overlay.style.display === 'none') return [];
+      var containers = ['menu-main', 'menu-options', 'menu-github'];
+      for (var i = 0; i < containers.length; i++) {
+        var c = document.getElementById(containers[i]);
+        if (c && c.style.display !== 'none') {
+          return Array.prototype.slice.call(c.querySelectorAll('button.modal-btn, a.modal-btn'));
+        }
+      }
+      return [];
+    };
+
+    window.novaUpdateMenuFocus = function() {
+      var btns = window.novaGetVisibleMenuButtons();
+      if (!btns.length) return;
+      if (window.novaMenuFocusIdx < 0) window.novaMenuFocusIdx = btns.length - 1;
+      if (window.novaMenuFocusIdx >= btns.length) window.novaMenuFocusIdx = 0;
+      document.querySelectorAll('.modal-btn').forEach(function(b) {
+        b.style.outline = '';
+        b.style.outlineOffset = '';
+        b.style.transform = '';
+      });
+      var active = btns[window.novaMenuFocusIdx];
+      if (active) {
+        active.style.outline = '3px solid #ffffff';
+        active.style.outlineOffset = '3px';
+        active.style.transform = 'scale(1.02)';
+        try { active.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+      }
+    };
+
+    window.addEventListener('DOMContentLoaded', function() {
+      setTimeout(window.novaUpdateMenuFocus, 150);
+    });
+
+    (function initMenuControllerLoop() {
+      var lastNavT = 0;
+      var prevA = false, prevB = false, prevStart = false;
+      var prevFire = false, prevMsl = false, prevBoost = false, prevTarget = false, prevRadar = false, prevDamp = false, prevWarp = false;
+
+      window.addEventListener('gamepadconnected', function(e) {
+        try {
+          var badge = document.getElementById('device-badge');
+          if (badge && badge.textContent.indexOf('Controller') === -1) {
+            badge.textContent += ' | 🎮 Controller Connected';
+          }
+          if (typeof window.showToast === 'function') {
+            window.showToast('🎮 CONTROLLER CONNECTED: ' + (e.gamepad.id || 'Gamepad').slice(0, 28), 2500, '#00ffcc');
+          }
+          window.novaUpdateMenuFocus();
+        } catch (err) {}
+      });
+
+      function pollGamepad() {
+        requestAnimationFrame(pollGamepad);
+        if (!navigator.getGamepads) return;
+        var pads = navigator.getGamepads();
+        var gp = null;
+        for (var i = 0; i < pads.length; i++) {
+          if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
+        }
+        if (!gp) return;
+
+        var now = performance.now();
+        var overlay = document.getElementById('modal-overlay');
+        var menuOpen = overlay && overlay.style.display !== 'none';
+
+        var b0 = !!(gp.buttons[0] && gp.buttons[0].pressed); // A / Cross (Select / Fire)
+        var b1 = !!(gp.buttons[1] && gp.buttons[1].pressed); // B / Circle (Back / Missiles)
+        var b2 = !!(gp.buttons[2] && gp.buttons[2].pressed); // X / Square (Target Cycle)
+        var b3 = !!(gp.buttons[3] && gp.buttons[3].pressed); // Y / Triangle (3D Radar Toggle)
+        var lb = !!(gp.buttons[4] && gp.buttons[4].pressed); // LB / L1 (Throttle Down / Dampeners)
+        var rb = !!(gp.buttons[5] && gp.buttons[5].pressed); // RB / R1 (Afterburner Boost)
+        var lt = (gp.buttons[6] && typeof gp.buttons[6].value === 'number') ? gp.buttons[6].value : 0; // LT / L2 (Throttle / Brake)
+        var rt = (gp.buttons[7] && typeof gp.buttons[7].value === 'number') ? gp.buttons[7].value : 0; // RT / R2 (Primary Fire)
+        var startBtn = !!(gp.buttons[9] && gp.buttons[9].pressed); // Start / Options (Menu Toggle)
+        var dUp = !!(gp.buttons[12] && gp.buttons[12].pressed);
+        var dDown = !!(gp.buttons[13] && gp.buttons[13].pressed);
+        var dLeft = !!(gp.buttons[14] && gp.buttons[14].pressed);
+        var dRight = !!(gp.buttons[15] && gp.buttons[15].pressed);
+        var ay = (gp.axes && gp.axes.length > 1) ? gp.axes[1] : 0;
+
+        // Start button toggles launch/options modal when in 2D/Tablet mode
+        if (startBtn && !prevStart) {
+          if (menuOpen) {
+            window.dismissModal();
+          } else if (overlay) {
+            overlay.style.setProperty('display', 'flex', 'important');
+            window.novaMenuView('main');
+          }
+        }
+        prevStart = startBtn;
+
+        if (menuOpen) {
+          // Menu navigation with D-Pad Up/Down or Left Stick Y
+          if (now - lastNavT > 200) {
+            if (dUp || ay < -0.45) {
+              window.novaMenuFocusIdx--;
+              window.novaUpdateMenuFocus();
+              if (window.sound && window.sound.beep) window.sound.beep(780, 0.04);
+              lastNavT = now;
+            } else if (dDown || ay > 0.45) {
+              window.novaMenuFocusIdx++;
+              window.novaUpdateMenuFocus();
+              if (window.sound && window.sound.beep) window.sound.beep(680, 0.04);
+              lastNavT = now;
+            }
+          }
+          // A / Cross presses the highlighted menu button
+          if (b0 && !prevA) {
+            var btns = window.novaGetVisibleMenuButtons();
+            var active = btns[window.novaMenuFocusIdx] || btns[0];
+            if (active) {
+              if (window.sound && window.sound.switchClick) window.sound.switchClick();
+              active.click();
+            }
+          }
+          // B / Circle returns to Main Menu from submenus
+          if (b1 && !prevB) {
+            var mainEl = document.getElementById('menu-main');
+            if (mainEl && mainEl.style.display === 'none') {
+              window.novaMenuView('main');
+              if (window.sound && window.sound.beep) window.sound.beep(520, 0.05);
+            }
+          }
+          prevA = b0;
+          prevB = b1;
+          return;
+        }
+
+        prevA = b0;
+        prevB = b1;
+
+        // In-Flight Standard Gamepad Controls (for Tablet / PC Bluetooth Controllers when not in WebXR)
+        var inXR = !!(window.renderer && window.renderer.xr && window.renderer.xr.isPresenting);
+        if (!inXR && window.stickPivot) {
+          var DZ = 0.16;
+          // Right stick (axes 2,3) or Left stick (axes 0,1) steers Pitch & Roll
+          var rx = (gp.axes && Math.abs(gp.axes[2] || 0) > Math.abs(gp.axes[0] || 0)) ? (gp.axes[2] || 0) : (gp.axes ? (gp.axes[0] || 0) : 0);
+          var ry = (gp.axes && Math.abs(gp.axes[3] || 0) > Math.abs(gp.axes[1] || 0)) ? (gp.axes[3] || 0) : (gp.axes ? (gp.axes[1] || 0) : 0);
+          var nx = Math.abs(rx) > DZ ? Math.sign(rx) * ((Math.abs(rx) - DZ) / (1 - DZ)) : 0;
+          var ny = Math.abs(ry) > DZ ? Math.sign(ry) * ((Math.abs(ry) - DZ) / (1 - DZ)) : 0;
+          if (nx !== 0 || ny !== 0) {
+            window.isTestingGripStick = true;
+            window.stickPivot.rotation.x = ny * 0.45;
+            window.stickPivot.rotation.z = -nx * 0.45;
+          } else if (window.isTestingGripStick) {
+            window.isTestingGripStick = false;
+            window.stickPivot.rotation.x = 0;
+            window.stickPivot.rotation.z = 0;
+          }
+
+          // D-Pad Up / Down shifts throttle gates
+          if (now - lastNavT > 240) {
+            if (dUp && typeof window.shiftThrottleGate === 'function') {
+              window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) + 1, true);
+              if (window.novaUpdateTabletThrottle) window.novaUpdateTabletThrottle();
+              lastNavT = now;
+            } else if (dDown && typeof window.shiftThrottleGate === 'function') {
+              window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) - 1, true);
+              if (window.novaUpdateTabletThrottle) window.novaUpdateTabletThrottle();
+              lastNavT = now;
+            }
+          }
+
+          // Primary Fire: RT trigger (>0.25) or A button
+          var fireNow = (rt > 0.25) || b0;
+          if (window.NFM) {
+            if (fireNow) window.NFM.padT = now;
+          } else if (fireNow && !prevFire && typeof window.triggerFire === 'function') {
+            window.triggerFire();
+          }
+          prevFire = fireNow;
+
+          // B button: Launch Homing Missile
+          if (b1 && !prevMsl && typeof window.fireHomingMissile === 'function') {
+            if (typeof window.isMissileLidOpen === 'function' && !window.isMissileLidOpen() && typeof window.toggleMissileLid === 'function') {
+              window.toggleMissileLid();
+            }
+            window.fireHomingMissile();
+          }
+          prevMsl = b1;
+
+          // X button: Cycle Target
+          if (b2 && !prevTarget && typeof window.cycleTarget === 'function') {
+            window.cycleTarget();
+          }
+          prevTarget = b2;
+
+          // Y button: Toggle 3D Radar
+          if (b3 && !prevRadar && typeof window.novaRadarToggle === 'function') {
+            window.novaRadarToggle();
+          }
+          prevRadar = b3;
+
+          // RB: Afterburner Boost, LB: Rotation Dampeners, D-Right: Warp, D-Left: Autopilot
+          if (rb && !prevBoost && typeof window.shiftThrottleGate === 'function') {
+            window.shiftThrottleGate(4, true);
+          }
+          prevBoost = rb;
+
+          if (lb && !prevDamp && typeof window.toggleRotationDampeners === 'function') {
+            window.toggleRotationDampeners();
+          }
+          prevDamp = lb;
+
+          if (dRight && !prevWarp && typeof window.triggerLightspeed === 'function') {
+            window.triggerLightspeed();
+          }
+          prevWarp = dRight;
+        }
+      }
+      requestAnimationFrame(pollGamepad);
+    })();
   </script>
   <link rel="manifest" href="./manifest.webmanifest">
   <meta name="theme-color" content="#00e5ff">
