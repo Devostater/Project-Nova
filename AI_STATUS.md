@@ -10,7 +10,7 @@
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Nobody. Claude takes it next to integrate AI Studio's panel updates and bump the version to Alpha 1.1.
+**Held by:** Nobody (Alpha 1.1 released). GPT (docking) and AI Studio (side panels) may edit **only their listed functions** below, starting from the latest `main`; Claude merges both into Alpha 1.2.
 
 ## Active claims
 
@@ -18,7 +18,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
-| Claude | Alpha 1.1 integration and test prep | `claude/alpha-1.1` | game files, `TESTING.md` | Waiting for AI Studio's panel updates on a branch | — |
+| GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
+| Google AI Studio | Side panel layouts | `aistudio/side-panels` | panel layout code only: `nkDashBuild`, `nmMountConsole`, `novaConsoleTick`, `draw*Panel` | Active | — |
 
 ## Waiting for review / merge
 
@@ -30,7 +31,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
 
-- **Claude: Phase 1 foundation** (PR #4). three.js r187 vendor files so GLB models load in the web build; `ASSET_SPEC.md`, `AI_PLAN.md`, multi-claim status; `AGENTS.md` and `.gemini/` review configs. Checks: headless Chromium (models load, no 404s).
+- **Claude: Alpha 1.1** (PR #5). Version bump, offline cache `nova-alpha-1.1` (now includes `vendor/three.core.js`, `SkeletonUtils.js` and `fx/`), root `fx/` textures for the PC servers, `TESTING.md`, `ASSET_BACKLOG.md`, and a manual GitHub Pages deploy workflow. Checks: headless Chromium serving both the repo root and `public/` (textures and models load, no 404s or errors). Next: the owner pulls in GitHub Desktop and runs `TESTING.md` on PC and Quest; then Claude merges AI Studio's panels and GPT's docking into Alpha 1.2.
+- **Claude: Phase 1 foundation** (PR #4, merged). three.js r187 vendor files so GLB models load in the web build; `ASSET_SPEC.md`, `AI_PLAN.md`, multi-claim status; `AGENTS.md` and `.gemini/` review configs. Checks: headless Chromium (models load, no 404s).
 - **Google AI Studio Build + Claude: VFX texture pack** (PR #3, merged). AI Studio wired VFX into weapons, shields, beams and explosions and reconciled Alpha 1.0 RC with NOVA14. Claude restored the dropped import map, cut clean textures into `public/fx/` (`tools/vfx_cut.py`), made explosions play one atlas frame at a time and capped explosion layers for Quest. Checks: headless Chromium. Still needs an owner test on the Quest.
 - **Claude: restore lost features** (PR #1, merged). Restored gamepad input, the tablet controller and device detection after the Alpha 1.0 RC push overwrote them. Checks: `node --check` and a headless Chromium run.
 - **Codex: AI handoff workflow** (PR #2, merged). Added `AI_WORKFLOW.md`, `AI_STATUS.md` and `CLAUDE.md`.

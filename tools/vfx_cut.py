@@ -3,7 +3,7 @@
 The source sheets are catalog images (titles, ROW/COL labels, grid lines), so the game
 can't map them directly. This script crops the cells the game uses, fades every crop to
 black at the edges (removing grid lines; the game draws these additively, so black is
-invisible) and writes power-of-two PNGs to public/fx/ following ASSET_SPEC.md.
+invisible) and writes power-of-two PNGs to public/fx/ (and fx/ for the PC servers, which serve the repo root) following ASSET_SPEC.md.
 
 Run from the repo root:  python3 tools/vfx_cut.py
 Requires Pillow (pip install pillow). Re-run whenever the source sheets change.
@@ -13,6 +13,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 SRC = os.path.join('public', 'VFX')
 OUT = os.path.join('public', 'fx')
+OUT_ROOT = 'fx'   # serve_nova.py and play_on_quest.bat serve the repo root
 
 
 def load(name):
@@ -51,11 +52,13 @@ def cell(img, x0, y0, x1, y1, inset=3):
 def save(img, name):
     img = crush(img)
     img.save(os.path.join(OUT, name), optimize=True)
+    img.save(os.path.join(OUT_ROOT, name), optimize=True)
     print('wrote', name, img.size)
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
+    os.makedirs(OUT_ROOT, exist_ok=True)
 
     # Explosion: 10x6 grid, 56 usable frames -> clean 8x8 atlas (1024 px, 128 px cells).
     ex = load('explosion VFX1.jpg')
