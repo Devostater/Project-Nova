@@ -153,7 +153,12 @@
       try {
         document.getElementById('menu-main').style.display = v === 'main' ? '' : 'none';
         document.getElementById('menu-options').style.display = v === 'opt' ? '' : 'none';
+        var gh = document.getElementById('menu-github');
+        if (gh) gh.style.display = v === 'github' ? '' : 'none';
       } catch (e) {}
+    };
+    window.novaOpenGitHubModal = function() {
+      window.novaMenuView('github');
     };
     window.novaPlay = function() {
       var done = false;
@@ -220,6 +225,7 @@
       <div id="menu-main">
         <button class="modal-btn btn-mr" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
         <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS</button>
+        <button class="modal-btn" id="btn-github-connect" style="background: rgba(46, 160, 67, 0.20); border-color: #3fb950; color: #3fb950; font-size: 14px; padding: 12px;" onclick="window.novaOpenGitHubModal(); event.stopPropagation();">🐙 GITHUB &amp; QUEST CONNECTION (PLAY &amp; COLLABORATE)</button>
         <button class="modal-btn" id="btn-download-standalone" style="background: rgba(0, 255, 170, 0.15); border-color: #00ffaa; color: #00ffaa; font-size: 14px; padding: 12px;" onclick="if(window.downloadStandaloneForClaude) window.downloadStandaloneForClaude(); event.stopPropagation();">⬇️ DOWNLOAD STANDALONE HTML (1-FILE FOR CLAUDE AI)</button>
         <button class="modal-btn" id="btn-exit" style="border-color:#885566;color:#cc8899;background:rgba(120,30,50,0.15);" onclick="window.novaExit(); event.stopPropagation();">&#10006; EXIT</button>
       </div>
@@ -232,6 +238,30 @@
       <button class="modal-btn" id="btn-tutorial-vr" style="background: rgba(255, 204, 0, 0.10); border-color: #b38f00; color: #ffcc00; font-size: 12px; padding: 9px;" onclick="window.launchTutorial(true); event.stopPropagation();">📖 RUN THE TUTORIAL IN VR INSTEAD</button>
       <button class="modal-btn" id="btn-frigate" style="background: rgba(0, 240, 255, 0.22); border-color: #00f0ff; color: #00f0ff; margin-top: 6px;" onclick="window.launchFrigate(); event.stopPropagation();">🌌 ENTER CENTRAL FRIGATE HALL &amp; 3D GALAXY MAP</button>
       <button class="modal-btn" id="btn-back" style="margin-top:6px;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK</button>
+      </div>
+
+      <!-- GitHub & Meta Quest Connect Dialog -->
+      <div id="menu-github" style="display:none; text-align: left; padding: 10px 4px;">
+        <div style="font-size: 18px; color: #3fb950; font-weight: bold; margin-bottom: 8px;">🥽 1. CONNECT &amp; PLAY ON META QUEST</div>
+        <div style="font-size: 13px; color: #a0c4df; line-height: 1.5; margin-bottom: 12px;">
+          Open the <b>Meta Quest Browser</b> on your headset and navigate to this live WebXR URL:
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+          <input type="text" id="quest-url-input" readonly value="https://ais-pre-ju7jgpdtyqtmofenwhjexo-454911322812.us-west1.run.app" style="flex: 1; background: #040d1a; border: 1px solid #00f0ff; color: #00f0ff; padding: 8px 12px; font-family: monospace; font-size: 12px; border-radius: 6px;" />
+          <button class="modal-btn" style="width: auto; margin: 0; padding: 8px 14px; font-size: 12px; border-color: #00f0ff; color: #00f0ff;" onclick="navigator.clipboard.writeText(document.getElementById('quest-url-input').value); window.showToast('Copied Quest URL!', 2000, '#00f0ff'); event.stopPropagation();">📋 COPY</button>
+        </div>
+
+        <div style="font-size: 18px; color: #58a6ff; font-weight: bold; margin-top: 14px; margin-bottom: 8px;">🐙 2. GITHUB REPOSITORY &amp; MULTI-AI COLLABORATION</div>
+        <div style="font-size: 13px; color: #a0c4df; line-height: 1.5; margin-bottom: 8px;">
+          Git is initialized on the <code>main</code> branch with complete source code &amp; standalone files. Push to your GitHub account with these commands:
+        </div>
+        <pre style="background: #020813; border: 1px solid #238636; color: #7ee787; padding: 10px; font-size: 11px; border-radius: 6px; overflow-x: auto; margin-bottom: 12px; font-family: monospace;">git remote add origin https://github.com/&lt;YOUR_USERNAME&gt;/&lt;REPO_NAME&gt;.git
+git branch -M main
+git push -u origin main</pre>
+        <div style="font-size: 12px; color: #88aacc; line-height: 1.4; margin-bottom: 14px;">
+          ✨ <b>AI Collaboration Ready</b>: Other AI models (Claude, Cursor, Copilot, ChatGPT) can directly open or edit <code>index.html</code> or <code>public/standalone.html</code>. Both files are 100% self-contained and ready to build.
+        </div>
+        <button class="modal-btn" style="margin-top: 6px; border-color: #3fb950; color: #3fb950;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK TO MENU</button>
       </div>
       <div class="modal-hint" id="menu-hint">PLAY starts Mixed Reality on Quest, or desktop mode on a computer. Options has VR, tutorial and companion.</div>
     </div>
