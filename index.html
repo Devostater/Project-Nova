@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <title>Project Nova</title>
+  <title>Project Nova — 6DOF WebXR Starfighter Simulator</title>
+  <meta name="description" content="Standalone 6DOF Newtonian WebXR space flight simulator with HOTAS cockpit controls, Proportional Navigation dogfighting AI, branching wingman comms, and tractor beam station docking." />
+  <meta property="og:title" content="Project Nova — 6DOF WebXR Starfighter Simulator" />
+  <meta property="og:description" content="Standalone 6DOF Newtonian WebXR space flight simulator with HOTAS cockpit controls, Proportional Navigation dogfighting AI, branching wingman comms, and tractor beam station docking." />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -7480,6 +7482,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           const hitMesh = cHits[0].object;
           const entry = cockpitInteractables.find(b => { let o = hitMesh; while (o) { if (b.mesh === o) return true; o = o.parent; } return false; });
           if (entry && entry.action) {
+            if (window.NFM && entry.label === 'THUMB FIRE LASER') window.NFM.mouseHeld = true;
             entry.action();
             sound.switchClick();
             return;
@@ -7547,6 +7550,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
 
     window.addEventListener('mouseup', () => {
       isMouseDown = false;
+      if (window.NFM) window.NFM.mouseHeld = false;
       if (activeDragTarget === 'stick') {
         isGrippingStick = false;
         // Spring back
@@ -10096,6 +10100,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         if (hitAsteroid) {
           // Mining hit audio & visual
           sound.miningLaserHit();
+          try { if (window.novaVfxFlare) window.novaVfxFlare(l.mesh.position, 0x00ffcc, 4.5, 0.22); } catch (e) {}
           hitAsteroid.userData.health = (hitAsteroid.userData.health || 50) - 20;
           hitAsteroid.userData.hitsTaken = (hitAsteroid.userData.hitsTaken || 0) + 1;
 
@@ -10126,6 +10131,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           // Asteroid Depleted / Shattered
           if (hitAsteroid.userData.health <= 0) {
             sound.explosion();
+            try { if (typeof novaBoom === 'function') novaBoom(hitAsteroid.position.clone(), 0.85); } catch (e) {}
             const bonusOre = Math.max(2, Math.round((hitAsteroid.userData.radius || 10) * 0.35));
             const bonusCr = bonusOre * 75;
             cargoOre += bonusOre;
@@ -10154,6 +10160,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
             if (!td.visible) continue;
             if (l.mesh.position.distanceTo(td.position) < 4.5) {
               sound.explosion();
+              try { if (typeof novaBoom === 'function') novaBoom(td.position.clone(), 0.7); } catch (e) {}
               td.visible = false;
               sound.oreCollect();
               showToast('🎯 TARGET DRONE DESTROYED! +100 PTS', 2000, '#00ff88');
@@ -10275,10 +10282,19 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         }
       }
 
-            // ── Flight Steering & Propulsion via Joystick & Throttle (Crisp Agile Starfighter Model) ──
+      // ── Flight Steering & Propulsion via Joystick & Throttle (Crisp Agile Starfighter Model) ──
       // Active Steering Determination: When pilot is gripping stick or using thumbstick
       const isActivelySteering = (isGrippingStick || isGrippingStickHand || isThumbstickSteering || Boolean(window.isTestingGripStick));
-      const isStickDeflected = (Math.abs(stickPivot.rotation.x) > 0.015 || Math.abs(stickPivot.rotation.z) > 0.015);
+      // Angular Deadzone (~3.2 deg / 0.055 rad) with smooth rescaling up to max 0.45 rad deflection
+      const STICK_ANGLE_DEADZONE = 0.055;
+      const stickAxisNorm = (rad) => {
+        const abs = Math.abs(rad);
+        if (abs <= STICK_ANGLE_DEADZONE) return 0;
+        return Math.sign(rad) * Math.min(1.0, (abs - STICK_ANGLE_DEADZONE) / (0.45 - STICK_ANGLE_DEADZONE));
+      };
+      const normPitch = stickAxisNorm(stickPivot.rotation.x);
+      const normRoll  = stickAxisNorm(stickPivot.rotation.z);
+      const isStickDeflected = (normPitch !== 0 || normRoll !== 0);
       const isSteeringNeutral = (!isActivelySteering || !isStickDeflected);
 
       // Starfighter Agile Flight Rates: Responsive, agile, comfortable star travel
@@ -10291,13 +10307,13 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       // Pitch: Inverted Y (Default): Pull back (stick.rotation.x > 0) -> Climb / Pitch UP! Push forward -> Dive / Pitch DOWN!
       // In Three.js coordinates, a negative rotation around local X pitches the nose UP towards +Y.
       const pitchFactor = isPitchInverted ? -1.0 : 1.0;
-      const pitchRate = pitchFactor * (stickPivot.rotation.x / 0.45) * pitchSpeed;
+      const pitchRate = pitchFactor * normPitch * pitchSpeed;
 
       // Turn / Yaw: Tilt Right (stick.rotation.z < 0) -> Turn RIGHT; Tilt Left -> Turn LEFT
-      const yawRate = (stickPivot.rotation.z / 0.45) * yawSpeed;
+      const yawRate = normRoll * yawSpeed;
 
       // Roll: Coordinated Banking: Tilt Right -> Bank RIGHT; Tilt Left -> Bank LEFT
-      const rollRate = (stickPivot.rotation.z / 0.45) * 0.45 * rollSpeed;
+      const rollRate = normRoll * 0.45 * rollSpeed;
 
       if (!isSteeringNeutral) {
         // Direct local attitude integration: rotates strictly around ship's CURRENT local axes (Pitch=X, Yaw=Y, Roll=Z)
@@ -11099,27 +11115,25 @@ const GAME_VERSION = 'Alpha 1.0 RC';
               if (!isGripActive || distStick > 0.165 || isHandBusyWithControls) {
                 isGrippingStickHand = false;
               } else {
-                // Deflection relative to current joystick location in cockpit
-                // Hand center has natural 2cm palm offset at stick handle
-                const handNeutralZ = 0.020;
-                const dz = localStickHand.z - handNeutralZ;
-                const dx = localStickHand.x;
+                // Deflection relative to initial hand grab anchor with generous 2.2cm deadzone
+                const dz = localStickHand.z - (typeof stickGrabAnchorZ === 'number' ? stickGrabAnchorZ : 0.020);
+                const dx = localStickHand.x - (typeof stickGrabAnchorX === 'number' ? stickGrabAnchorX : 0.0);
 
-                const DEADZONE = 0.008;
+                const DEADZONE = 0.022;
                 let targetPitch = 0.0;
                 let targetRoll = 0.0;
 
                 // Deflection along Z (Forward / Backward Pitch)
                 if (Math.abs(dz) > DEADZONE) {
                   const signZ = Math.sign(dz);
-                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.050, 1.0);
+                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.055, 1.0);
                   targetPitch = signZ * magZ * 0.45;
                 }
 
                 // Deflection along X (Left / Right Roll & Turn)
                 if (Math.abs(dx) > DEADZONE) {
                   const signX = Math.sign(dx);
-                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.050, 1.0);
+                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.055, 1.0);
                   targetRoll = -signX * magX * 0.45;
                 }
 
@@ -11417,11 +11431,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
             stickHandle.getWorldPosition(stickWorldPos);
             const distStick = cPos.distanceTo(stickWorldPos);
 
-            // Right Controller Trigger or 'A' button fires laser when holding or pointing near stick!
+            // Right Controller Trigger or 'A'/'B' button fires laser continuously while holding stick
             if (rightGamepad && rightGamepad.buttons) {
-              const isTrigger = false;   // the grip squeeze/trigger no longer fires
-              const isAButton = (rightGamepad.buttons[4] && rightGamepad.buttons[4].pressed) || (rightGamepad.buttons[5] && rightGamepad.buttons[5].pressed);
-              if ((isTrigger || isAButton) && isGrippingStickCtrl && (now - lastFireTime > 160)) {
+              const isTrigger = !!(rightGamepad.buttons[0] && rightGamepad.buttons[0].pressed);
+              const isAButton = !!(rightGamepad.buttons[4] && rightGamepad.buttons[4].pressed) || !!(rightGamepad.buttons[5] && rightGamepad.buttons[5].pressed);
+              if ((isTrigger || isAButton) && isGrippingStickCtrl) {
                 pressThumbFireButton();
               }
             }
@@ -11438,21 +11452,21 @@ const GAME_VERSION = 'Alpha 1.0 RC';
                 isGrippingStickCtrl = false;
               } else {
                 const localStickHand = stickGroup.worldToLocal(cPos.clone());
-                const dz = localStickHand.z;
-                const dx = localStickHand.x;
+                const dz = localStickHand.z - (typeof stickGrabAnchorCtrlZ === 'number' ? stickGrabAnchorCtrlZ : 0.0);
+                const dx = localStickHand.x - (typeof stickGrabAnchorCtrlX === 'number' ? stickGrabAnchorCtrlX : 0.0);
 
-                const DEADZONE = 0.008;
+                const DEADZONE = 0.022;
                 let targetPitch = 0.0;
                 let targetRoll = 0.0;
 
                 if (Math.abs(dz) > DEADZONE) {
                   const signZ = Math.sign(dz);
-                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.050, 1.0);
+                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.055, 1.0);
                   targetPitch = signZ * magZ * 0.45;
                 }
                 if (Math.abs(dx) > DEADZONE) {
                   const signX = Math.sign(dx);
-                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.050, 1.0);
+                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.055, 1.0);
                   targetRoll = -signX * magX * 0.45;
                 }
 
@@ -11620,13 +11634,16 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         }
       }
 
-      // ── Direct Thumbstick Input (Flight & Throttle without Needing 6DOF Grip) ──
+      // ── Direct Thumbstick Input (Flight & Throttle without Needing 6DOF Grip, with 0.16 Deadzone) ──
       isThumbstickSteering = false;
       if (!isGrippingStick && rightGamepad && rightGamepad.axes && rightGamepad.axes.length >= 2) {
-        const axisX = (Math.abs(rightGamepad.axes[2]) > 0.08) ? rightGamepad.axes[2] : (Math.abs(rightGamepad.axes[0]) > 0.08 ? rightGamepad.axes[0] : 0);
-        const axisY = (Math.abs(rightGamepad.axes[3]) > 0.08) ? rightGamepad.axes[3] : (Math.abs(rightGamepad.axes[1]) > 0.08 ? rightGamepad.axes[1] : 0);
+        const THUMB_DZ = 0.16;
+        const rawX = (Math.abs(rightGamepad.axes[2]) > Math.abs(rightGamepad.axes[0] || 0)) ? rightGamepad.axes[2] : (rightGamepad.axes[0] || 0);
+        const rawY = (Math.abs(rightGamepad.axes[3]) > Math.abs(rightGamepad.axes[1] || 0)) ? rightGamepad.axes[3] : (rightGamepad.axes[1] || 0);
+        const axisX = Math.abs(rawX) > THUMB_DZ ? Math.sign(rawX) * ((Math.abs(rawX) - THUMB_DZ) / (1 - THUMB_DZ)) : 0;
+        const axisY = Math.abs(rawY) > THUMB_DZ ? Math.sign(rawY) * ((Math.abs(rawY) - THUMB_DZ) / (1 - THUMB_DZ)) : 0;
 
-        if (Math.abs(axisX) > 0.08 || Math.abs(axisY) > 0.08) {
+        if (axisX !== 0 || axisY !== 0) {
           isThumbstickSteering = true;
           const targetPitch = axisY * 0.45;
           const targetRoll = -axisX * 0.45;
@@ -14185,7 +14202,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       return e;
     }
     function nmPressTick() {
-      NOP.list.forEach(it => { const p = it.e.pressTimer; it.node.position[it.axis] = it.base - (p > 0 ? Math.sin((1 - p / 0.15) * Math.PI) * it.depth : 0); });
+      NOP.list.forEach(it => {
+        if (it.e && it.e.label === 'THUMB FIRE LASER') return; // Handled continuously by nfmTick() so hold-to-fire stays depressed
+        const p = it.e.pressTimer;
+        it.node.position[it.axis] = it.base - (p > 0 ? Math.sin((1 - p / 0.15) * Math.PI) * it.depth : 0);
+      });
     }
     // flight stick: the cap on top of the lever is the fire button
     function nmWireStickFire(w) {
@@ -14193,7 +14214,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         const cap = w.getObjectByName('tripo_part_2'); const old = cockpitInteractables.find(e => e.label === 'THUMB FIRE LASER');
         if (!cap || !cap.isMesh || !old) return;
         nmRecenter(cap);
-        nmPressable(cap, 'THUMB FIRE LASER', old.action, 0.045, 'y', 0.05);
+        cap.userData.restY = cap.position.y;
+        nmPressable(cap, 'THUMB FIRE LASER', old.action, 0.048, 'y', 0.015);
         console.log('[NOVA12] stick fire button wired');
       } catch (e) { console.warn('stick fire wiring failed', e); }
     }
@@ -14701,7 +14723,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     // ── NOVA14: overhead buttons press in like the missile button, with your icon art, lit in their colour (brighter while active) ──
     const NOH = { img: new Image(), ok: false, wired: false };
     NOH.img.onload = () => { NOH.ok = true; NOH.wired = false; }; NOH.img.src = './art/oh_icons.png';
-    const NOH_MAP = { 'SHIELD BOOST': [0, '#00e5ff', 'SHIELD'], 'FLARES': [1, '#ff8833', 'FLARES'], 'DOME LIGHT': [2, '#ffee88', 'LIGHT'], 'POLARIZER': [3, '#aa88ff', 'POLAR'], 'OH AUTOPILOT': [4, '#33ff99', 'AUTOPILOT'], 'OH STEALTH': [3, '#9a7dff', 'STEALTH'], 'OH REPAIR': [5, '#33ff99', 'REPAIR'], 'OH RADAR': [2, '#00e5ff', 'RADAR'], 'AUTO-DOCK': [5, '#00f0ff', 'DOCK'] };
+    const NOH_MAP = { 'SHIELD BOOST': [0, '#00e5ff', 'SHIELD'], 'FLARES': [1, '#ff8833', 'FLARES'], 'DOME LIGHT': [2, '#ffee88', 'LIGHT'], 'POLARIZER': [3, '#aa88ff', 'POLAR'], 'OH AUTOPILOT': [4, '#33ff99', 'AUTOPILOT'], 'OH STEALTH': [3, '#9a7dff', 'STEALTH'], 'OH REPAIR': [5, '#33ff99', 'REPAIR'], 'OH RADAR': [2, '#00e5ff', 'RADAR 3D'], 'AUTO-DOCK': [5, '#00f0ff', 'DOCK'] };
     const nohTint = document.createElement('canvas'); nohTint.width = nohTint.height = 256;
     function nohPaint(it, on) {
       const m = NOH_MAP[it.label]; if (!m) return;
@@ -14742,7 +14764,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           let on = false;
           if (it.label === 'OH AUTOPILOT') on = !!isAutopilotActive;
           else if (it.label === 'OH STEALTH') on = !!(window.NF && NF.stealth);
-          else if (it.label === 'OH RADAR') on = !!NH.on;
+          else if (it.label === 'OH RADAR') on = NH.on !== false;
           else if (it.label === 'OH REPAIR') on = (window.novaKits || 0) > 0 && (window.novaHull ?? 100) < 100;
           else if (it.label === 'AUTO-DOCK') { try { on = window.ndkState === 'hold' || novaDock.state !== 'idle'; } catch (e) { } }
           else if (it.label === 'DOME LIGHT' || it.label === 'POLARIZER') on = !!it.tog;
@@ -14752,7 +14774,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         });
       }; }
     // ── NOVA13: 3D holo-radar over the centre dash screen; touch a contact to lock, touch the range tag to zoom ──
-    const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {} };
+    const NH = { g: null, on: true, models: true, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {} };
     window.NH = NH;
     const NH_COL = { hostile: 0xff3344, allied: 0x33ff88, station: 0x3fa9ff, asteroid: 0x9aa6b8, wreck: 0xffaa33 };
     function nhMat(type) { const k = NH_COL[type] !== undefined ? type : 'asteroid'; return NH.mats[k] || (NH.mats[k] = new THREE.MeshBasicMaterial({ color: NH_COL[k], toneMapped: false })); }
@@ -14808,7 +14830,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     }
     function nhTick(dt) {
       if (!NH.g) return;
-      NH.g.visible = cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen; if (!NH.g.visible) return;
+      NH.g.visible = (NH.on !== false) && cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen; if (!NH.g.visible) return;
       NH.t += dt; NH.listT -= dt;
       const range = (typeof radarZoomLevels !== 'undefined') ? radarZoomLevels[radarZoomIdx] : 600;
       if (NH.listT <= 0) { NH.listT = 0.3; try { NH.list = nmContactList(range, true).slice(0, NH.pool.length); } catch (e) { NH.list = []; } }
@@ -17228,30 +17250,76 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       });
     }, 1000);
 
-    // 2) fire modes: AUTO (hold = continuous), SINGLE, BURST 3
-    const NFM = { modes: ['AUTO', 'SINGLE', 'BURST 3'], i: 0, held: false, was: false, burst: 0, nextT: 0, padT: 0, keyHeld: false, thumb: false };
+    // 2) fire modes: AUTO (hold = continuous), SINGLE, BURST 3 — with continuous button hold & reliable spring return
+    const NFM = { modes: ['AUTO', 'SINGLE', 'BURST 3'], i: 0, held: false, was: false, burst: 0, nextT: 0, padT: 0, keyHeld: false, mouseHeld: false, thumb: false };
     try { NFM.i = Math.max(0, NFM.modes.indexOf(localStorage.getItem('novaFireMode') || 'AUTO')); } catch (e) { }
     window.NFM = NFM;
     window.novaFireModeCycle = () => { NFM.i = (NFM.i + 1) % NFM.modes.length; try { localStorage.setItem('novaFireMode', NFM.modes[NFM.i]); } catch (e) { } showToast('FIRE MODE: ' + NFM.modes[NFM.i], 1600, '#ff5566'); try { sound.switchClick(); } catch (e) { } };
-    // controller A/B while gripping used to call pressThumbFireButton every frame; it now just reports "held"
+    // controller A/B or trigger while gripping reports "held" via NFM.padT
     { const _pt = pressThumbFireButton; pressThumbFireButton = function () { NFM.padT = performance.now(); }; NFM.rawFire = _pt; }
     window.addEventListener('keydown', e => { if (e.code === 'Space' && !e._nopt) NFM.keyHeld = true; }, true);
     window.addEventListener('keyup', e => { if (e.code === 'Space') NFM.keyHeld = false; }, true);
-    function nfmShot() { lastFireTime = 0; try { NFM.rawFire(); } catch (e) { try { triggerFire(); } catch (e2) { } } }
+    window.addEventListener('mouseup', () => { NFM.mouseHeld = false; }, true);
+    window.addEventListener('blur', () => { NFM.keyHeld = false; NFM.mouseHeld = false; }, true);
+    if (thumbFireBtn && thumbFireBtn.userData) thumbFireBtn.userData.restY = 0.010;
+    function nfmShot() {
+      lastFireTime = 0;
+      try { triggerFire(); } catch (e) { }
+    }
     function nfmTick() {
       const now = performance.now();
-      // hand tracking: thumb tip on the stick's fire button while the right hand grips the stick
+      // Continuous proximity detection on all THUMB FIRE LASER meshes (cap + fallback cylinder)
+      // Works when gripping stick with thumb, poking from above with index finger, or poking with VR controller tip
       NFM.thumb = false;
+      const fireEntries = cockpitInteractables.filter(q => q && q.label === 'THUMB FIRE LASER' && q.mesh && q.mesh.isMesh);
       try {
-        if (renderer.xr.isPresenting && isGrippingStickHand) {
-          const fb = cockpitInteractables.find(q => q.label === 'THUMB FIRE LASER' && q.mesh && q.mesh.isMesh);
-          if (fb) { const bp = fb.mesh.getWorldPosition(new THREE.Vector3());
-            [h1, h2].forEach(h => { const j = h && h.joints && h.joints['thumb-tip']; if (j && j.visible !== false && j.getWorldPosition(new THREE.Vector3()).distanceTo(bp) < 0.035) NFM.thumb = true; });
-            fb.mesh.position.y = (fb.mesh.userData.y0 ?? (fb.mesh.userData.y0 = fb.mesh.position.y)) - (NFM.thumb ? 0.012 : 0);   // the cap goes down under your thumb
+        if (renderer.xr.isPresenting && fireEntries.length > 0) {
+          const fingerJoints = [];
+          [h1, h2].forEach(h => {
+            if (!h || !h.joints) return;
+            ['thumb-tip', 'index-finger-tip'].forEach(jn => {
+              const j = h.joints[jn];
+              if (j && j.visible !== false) fingerJoints.push(j.getWorldPosition(new THREE.Vector3()));
+            });
+          });
+          ['left', 'right'].forEach(s => {
+            const nh = novaHands && novaHands[s];
+            if (nh && nh.grip && nh.grip.visible && nh.tip) {
+              fingerJoints.push(nh.tip.getWorldPosition(new THREE.Vector3()));
+            }
+          });
+          const bp = new THREE.Vector3();
+          for (let i = 0; i < fireEntries.length && !NFM.thumb; i++) {
+            const m = fireEntries[i].mesh;
+            if (!novaWorldVisible(m)) continue;
+            m.getWorldPosition(bp);
+            for (let k = 0; k < fingerJoints.length; k++) {
+              if (fingerJoints[k].distanceTo(bp) < 0.046) {
+                NFM.thumb = true;
+                break;
+              }
+            }
           }
         }
       } catch (e) { }
-      const held = NFM.keyHeld || NFM.thumb || (now - NFM.padT < 120);
+
+      const held = NFM.keyHeld || NFM.mouseHeld || NFM.thumb || (now - NFM.padT < 180);
+      NFM.held = held;
+
+      // Visually depress the fire button while held and reliably spring back to restY when released
+      try {
+        fireEntries.forEach(fe => {
+          const m = fe.mesh;
+          if (!m) return;
+          if (m.userData.restY === undefined) m.userData.restY = (m === thumbFireBtn) ? 0.010 : m.position.y;
+          const targetY = m.userData.restY - (held ? (m === thumbFireBtn ? 0.007 : 0.014) : 0);
+          m.position.y = THREE.MathUtils.lerp(m.position.y, targetY, 0.65);
+        });
+        if (typeof thumbFireBtnMat !== 'undefined' && thumbFireBtnMat) {
+          thumbFireBtnMat.emissiveIntensity = held ? 2.4 : 0.95;
+        }
+      } catch (e) { }
+
       const edge = held && !NFM.was; NFM.was = held;
       const mode = NFM.modes[NFM.i];
       if (mode === 'AUTO') { if (held && now >= NFM.nextT) { NFM.nextT = now + 160; nfmShot(); } }
@@ -17289,9 +17357,17 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     { const _ex = exitLightspeed; exitLightspeed = function () { const was = isLightspeedActive; const r = _ex.apply(this, arguments); if (was && !isLightspeedActive) setTimeout(() => novaFlightRestore('warp exit'), 50); return r; }; }
     { const _ed = executeDocking; executeDocking = function () { const r = _ed.apply(this, arguments); novaFlightRestore('docked'); return r; }; }
 
-    // 4) holo-radar shows little hologram models of real ships (overhead RADAR button: models <-> dots)
-    NH.models = true; try { NH.models = localStorage.getItem('novaRadarModels') !== '0'; } catch (e) { }
-    window.novaRadarToggle = () => { NH.models = !NH.models; try { localStorage.setItem('novaRadarModels', NH.models ? '1' : '0'); } catch (e) { } showToast('HOLO-RADAR: ' + (NH.models ? '3D MODELS' : 'DOTS'), 1500, '#00e5ff'); };
+    // 4) 3D holo-radar with real 3D ship models — overhead RADAR button toggles the entire 3D radar ON/OFF
+    NH.models = true;
+    NH.on = true; try { NH.on = localStorage.getItem('novaRadarOn') !== '0'; } catch (e) { }
+    window.novaRadarToggle = (forceState) => {
+      NH.on = (typeof forceState === 'boolean') ? forceState : !NH.on;
+      NH.models = true;
+      try { localStorage.setItem('novaRadarOn', NH.on ? '1' : '0'); } catch (e) { }
+      if (NH.g) NH.g.visible = NH.on && cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen;
+      showToast('3D HOLO-RADAR: ' + (NH.on ? 'ONLINE (3D SHIPS)' : 'OFFLINE'), 1500, NH.on ? '#00e5ff' : '#ff5566');
+      try { sound.switchClick(); } catch (e) { }
+    };
     NH.minis = new Map(); NH.invis = new THREE.MeshBasicMaterial({ visible: false });
     function nhMini(c) {
       if (NH.minis.has(c.obj)) return NH.minis.get(c.obj);
@@ -17308,10 +17384,12 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       holder.add(inner); inner.scale.setScalar(0.017 / Math.max(sz.x, sz.y, sz.z, 1e-6)); holder.userData.inner = inner;
       NH.minis.set(c.obj, holder); return holder;
     }
+    NH.mb = [];
     { const _nt = nhTick; nhTick = function (dt) {
+        if (!NH.on) { if (NH.g) NH.g.visible = false; return; }
         _nt(dt);
         if (!NH.g || !NH.g.visible) return;
-        const iq = shipGroup.quaternion.clone().invert(), q = new THREE.Quaternion();
+        const iq = shipGroup.quaternion.clone().invert(), q = new THREE.Quaternion(), sp = shipGroup.position;
         NH.pool.forEach(b => {
           const c = b.userData.c; let m = b.userData.mini;
           const want = NH.models && c && c.obj && c.type !== 'asteroid' ? nhMini(c) : null;
@@ -17319,45 +17397,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           if (want && !m) { b.add(want); b.userData.mini = want; m = want; }
           if (m) { b.material = NH.invis; c.obj.getWorldQuaternion(q); m.quaternion.copy(iq).multiply(q); m.scale.setScalar(1 / Math.max(b.scale.x, 1e-3)); }
         });
-      }; }
-
-    // 5) centre dash screen: NAV (objective, heading arrow, distance, ETA, autopilot / dock / stealth / fire mode) instead of a 2D copy of the radar
-    nkDrawPlate = function () {
-      const { x, w, h } = NKS.plate; x.fillStyle = '#020a14'; x.fillRect(0, 0, w, h); x.textBaseline = 'alphabetic';
-      let pos = stationGroup.position, name = 'STATION NOVA-1', col = '#00ffcc', lab = 'OBJECTIVE';
-      try { const so = window.novaSiteObjective && window.novaSiteObjective(); if (so) { pos = so.pos; name = so.label; } } catch (e) { }
-      const lk = currentLockedTarget; if (lk && lk.targetObj) { pos = lk.targetObj.getWorldPosition(new THREE.Vector3()); name = lk.name; lab = lk.isHostile ? 'TARGET · HOSTILE' : 'TARGET'; col = lk.isHostile ? '#ff5566' : '#33ff99'; }
-      const rel = pos.clone().sub(shipGroup.position), d = rel.length(); rel.applyQuaternion(shipGroup.quaternion.clone().invert());
-      const brg = Math.atan2(rel.x, -rel.z), el = Math.atan2(rel.y, Math.hypot(rel.x, rel.z)), v = shipBody.velocity.length();
-      x.font = 'bold 24px monospace'; x.fillStyle = '#00e5ff'; x.textAlign = 'left'; x.fillText('NAV', 14, 32);
-      x.textAlign = 'right'; x.fillStyle = col; x.fillText(lab, w - 14, 32);
-      x.textAlign = 'center'; x.fillStyle = '#ffffff'; x.font = 'bold 30px monospace'; x.fillText(nkFit(x, name, w - 40), w / 2, 78);
-      // steering arrow: where to turn
-      const cx = w / 2, cy = 192, R = 70; x.strokeStyle = 'rgba(0,229,255,0.35)'; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, R, 0, 7); x.stroke();
-      x.save(); x.translate(cx, cy); x.rotate(brg); x.fillStyle = col; x.beginPath(); x.moveTo(0, -R + 6); x.lineTo(-18, -R + 40); x.lineTo(18, -R + 40); x.closePath(); x.fill(); x.restore();
-      x.fillStyle = Math.abs(brg) < 0.1 && Math.abs(el) < 0.1 ? '#33ff99' : '#9fc3d8'; x.font = 'bold 20px monospace';
-      x.fillText(Math.abs(brg) < 0.1 && Math.abs(el) < 0.1 ? 'ON TARGET' : (el > 0.1 ? 'UP ' : el < -0.1 ? 'DOWN ' : '') + Math.round(Math.abs(brg) * 57.3) + '° ' + (brg > 0 ? 'RIGHT' : 'LEFT'), cx, cy + 8);
-      x.font = 'bold 34px monospace'; x.fillStyle = '#ffd24a'; x.fillText(d < 1000 ? Math.round(d) + ' m' : (d / 1000).toFixed(1) + ' km', cx, 300);
-      x.font = '20px monospace'; x.fillStyle = '#7fb6d0'; x.fillText(v > 2 ? 'ETA ' + Math.round(d / v) + ' s  ·  ' + Math.round(v) + ' m/s' : Math.round(v) + ' m/s', cx, 328);
-      const st = [];
-      if (isAutopilotActive || novaAutoDockPending) st.push(['AUTOPILOT', '#33ff99']); if (novaDock.state !== 'idle') st.push(['DOCKING', '#00f0ff']);
-      if (window.NF && NF.stealth) st.push(['STEALTH', '#9a7dff']); st.push(['FIRE ' + NFM.modes[NFM.i], '#ff5566']);
-      x.font = 'bold 18px monospace'; st.forEach((s, i) => { x.fillStyle = s[1]; x.fillText(s[0], (i + 0.5) * w / st.length, h - 14); });
-      NKS.plate.t.needsUpdate = true;
-    };
-
-
-    // ── NOVA14: radar on/off, missile blips, fire button held down, data centre screen, ULTRA graphics (original models) ──
-    NH.on = true; try { NH.on = localStorage.getItem('novaRadarOn') !== '0'; } catch (e) { }
-    NH.models = true;
-    window.novaRadarToggle = () => { NH.on = !NH.on; try { localStorage.setItem('novaRadarOn', NH.on ? '1' : '0'); } catch (e) { } showToast('HOLO-RADAR ' + (NH.on ? 'ON' : 'OFF'), 1400, '#00e5ff'); };
-    NH.mb = [];
-    { const _nt2 = nhTick; nhTick = function (dt) {
-        if (!NH.on) { if (NH.g) NH.g.visible = false; return; }
-        _nt2(dt);
-        if (!NH.g || !NH.g.visible) return;
         // missiles: tiny flashing blips (red = coming at you, white = yours)
-        const range = (typeof radarZoomLevels !== 'undefined') ? radarZoomLevels[radarZoomIdx] : 600, R = NH.R, iq = shipGroup.quaternion.clone().invert(), sp = shipGroup.position;
+        const range = (typeof radarZoomLevels !== 'undefined') ? radarZoomLevels[radarZoomIdx] : 600, R = NH.R;
         const list = [];
         try { NF.msl.forEach(m => list.push([m.m.position, m.tgt && m.tgt.player ? 0xff2233 : 0xffaa33])); } catch (e) { }
         try { activeMissiles.forEach(m => list.push([m.group.position, 0xffffff])); } catch (e) { }
@@ -17369,35 +17410,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           b.position.copy(v); b.visible = true; b.material.color.setHex(it[1]); b.material.opacity = fl;
         });
       }; }
-    // the stick's fire cap stays down for as long as you hold fire (any input)
-    setInterval(() => {
-      try {
-        const fb = cockpitInteractables.find(q => q.label === 'THUMB FIRE LASER' && q.mesh && q.mesh.isMesh); if (!fb) return;
-        const held = NFM.keyHeld || NFM.thumb || (performance.now() - NFM.padT < 120);
-        const m = fb.mesh, u = m.userData; if (u.y0 === undefined) u.y0 = m.position.y;
-        m.position.y = u.y0 - (held ? 0.012 : 0);
-        if (m.material && m.material.emissive) { if (!u.em0) u.em0 = m.material.emissive.clone(); m.material.emissive.copy(held ? new THREE.Color(0xff2a1a) : u.em0); }
-      } catch (e) { }
-    }, 30);
-    // centre dash screen: ship data (no steering hints)
-    nkDrawPlate = function () {
-      const { x, w, h } = NKS.plate; x.fillStyle = '#020a14'; x.fillRect(0, 0, w, h); x.textBaseline = 'alphabetic';
-      const v = shipBody.velocity.length(), tp = throttlePct > 1 ? throttlePct : throttlePct * 100;
-      const hull = window.novaHull ?? 100, sh = window.novaShield ?? 100, core = (typeof NW !== 'undefined') ? NW.core : 0, cap = (typeof novaWarpCap === 'function') ? novaWarpCap() : 100;
-      x.font = 'bold 24px monospace'; x.fillStyle = '#00e5ff'; x.textAlign = 'left'; x.fillText('SHIP DATA', 14, 32);
-      x.textAlign = 'right'; x.fillStyle = '#ffd24a'; x.fillText(String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', w - 14, 32);
-      const big = (l, val, X, c) => { x.textAlign = 'center'; x.font = '18px monospace'; x.fillStyle = '#7fb6d0'; x.fillText(l, X, 68); x.font = 'bold 40px monospace'; x.fillStyle = c; x.fillText(val, X, 110); };
-      big('SPEED m/s', Math.round(v), w * 0.2, '#e9fbff'); big('THROTTLE', Math.round(tp) + '%', w * 0.5, '#00e5ff'); big('MISSILES', missileAmmo, w * 0.8, '#ffaa22');
-      const bar = (y, l, f, c) => { x.textAlign = 'left'; x.font = 'bold 18px monospace'; x.fillStyle = '#9fc3d8'; x.fillText(l, 18, y - 6); x.fillStyle = '#0d1d2b'; x.fillRect(18, y, w - 36, 18); x.fillStyle = c; x.fillRect(18, y, (w - 36) * Math.max(0, Math.min(1, f)), 18); };
-      bar(152, 'SHIELDS ' + Math.round(sh) + '%', sh / 100, '#00e5ff'); bar(198, 'HULL ' + Math.round(hull) + '%', hull / 100, hull < 35 ? '#ff3344' : '#33ff99'); bar(244, 'WARP CORE ' + Math.round(core) + '%', core / cap, '#b266ff');
-      x.font = 'bold 20px monospace'; x.textAlign = 'left'; x.fillStyle = '#e9fbff';
-      x.fillText(`FLR ${cargoFlares}  CAP ${cargoShieldCaps}  KIT ${window.novaKits || 0}  ORE ${cargoOre}t`, 18, 292);
-      let th = 0; try { th = ((NP.panels[0] && NP.panels[0].list) || []).filter(c => c.isHostile).length; } catch (e) { }
-      const st = [['FIRE ' + NFM.modes[NFM.i], '#ff5566'], [th ? th + ' HOSTILE' : 'CLEAR', th ? '#ff5566' : '#33ff99']];
-      if (isAutopilotActive || novaAutoDockPending) st.push(['AUTOPILOT', '#33ff99']); if (novaDock.state !== 'idle') st.push(['DOCKING', '#00f0ff']); if (window.NF && NF.stealth) st.push(['STEALTH', '#9a7dff']);
-      x.font = 'bold 17px monospace'; x.textAlign = 'center'; st.forEach((s, i) => { x.fillStyle = s[1]; x.fillText(s[0], (i + 0.5) * w / st.length, h - 14); });
-      NKS.plate.t.needsUpdate = true;
-    };
+
     // ULTRA graphics: faction ships load your original full-detail files (big: Quest frame rate will drop, best on PC VR / desktop)
     const NF_ORIG = {
       alien_fighter: 'Alien/Alien fighterspaceship 3d model.glb', alien_mothership: 'Alien/futuristic dragon ring 3d model alien mothership.glb', alien_carrier: 'Alien/Alien carrier ship.glb',
@@ -17414,6 +17427,618 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         return (async () => { const L = await nmGetLoader(); return new Promise(res => L.load('./' + NF_ASSETS[hit].origFile.split('/').map(encodeURIComponent).join('/'), g => res(g), undefined, () => { console.warn('[NOVA14] ULTRA: missing original', hit); _ld(slug).then(res); })); })();
       };
       console.log('[NOVA14] ULTRA graphics: original faction models');
+    }
+
+    // 5) centre dash screen: SHIP TELEMETRY & SYSTEMS DATA (replaces turn directions)
+    nkDrawPlate = function () {
+      const { x, w, h } = NKS.plate;
+      x.fillStyle = '#020a14';
+      x.fillRect(0, 0, w, h);
+      x.strokeStyle = 'rgba(0,229,255,0.35)';
+      x.lineWidth = 2;
+      x.strokeRect(4, 4, w - 8, h - 8);
+      x.textBaseline = 'alphabetic';
+
+      // Header bar
+      x.fillStyle = 'rgba(0,229,255,0.12)';
+      x.fillRect(6, 6, w - 12, 34);
+      x.font = 'bold 20px monospace';
+      x.fillStyle = '#00e5ff';
+      x.textAlign = 'left';
+      x.fillText('SHIP TELEMETRY // SYS-DATA', 14, 29);
+      let shipName = 'NOVA-1';
+      try { shipName = (novaShipDef && novaShipDef().name) ? novaShipDef().name.toUpperCase() : 'STARFIGHTER'; } catch (e) { }
+      x.textAlign = 'right';
+      x.fillStyle = '#7fb6d0';
+      x.font = 'bold 17px monospace';
+      x.fillText(nkFit(x, shipName, 175), w - 14, 29);
+
+      // Compute flight kinematics
+      const spd = shipBody ? Math.round(shipBody.velocity.length()) : 0;
+      const thr = Math.round((throttlePct || 0) * 100);
+      const eul = new THREE.Euler().setFromQuaternion(shipGroup.quaternion, 'YXZ');
+      const hdg = ((Math.round(THREE.MathUtils.radToDeg(-eul.y)) % 360) + 360) % 360;
+      const pit = Math.round(THREE.MathUtils.radToDeg(eul.x));
+      const rol = Math.round(THREE.MathUtils.radToDeg(-eul.z));
+
+      // Row 1: Flight Kinematics (Boxes)
+      const boxY = 48, boxH = 58, boxW = (w - 36) / 3;
+      const drawStatBox = (idx, label, val, sub, col) => {
+        const bx = 12 + idx * (boxW + 6);
+        x.fillStyle = 'rgba(6,22,38,0.9)';
+        x.fillRect(bx, boxY, boxW, boxH);
+        x.strokeStyle = 'rgba(0,229,255,0.28)';
+        x.lineWidth = 1.5;
+        x.strokeRect(bx, boxY, boxW, boxH);
+        x.textAlign = 'left';
+        x.fillStyle = '#7fb6d0';
+        x.font = 'bold 13px monospace';
+        x.fillText(label, bx + 8, boxY + 17);
+        x.fillStyle = col;
+        x.font = 'bold 24px monospace';
+        x.fillText(val, bx + 8, boxY + 43);
+        if (sub) {
+          x.textAlign = 'right';
+          x.fillStyle = '#9fc3d8';
+          x.font = '13px monospace';
+          x.fillText(sub, bx + boxW - 8, boxY + 17);
+        }
+      };
+      drawStatBox(0, 'VELOCITY', spd + ' m/s', isLightspeedActive ? 'WARP' : 'SUBLIGHT', '#00ffcc');
+      drawStatBox(1, 'THROTTLE', thr + '%', 'GATE ' + (currentThrottleNotch || 0) + '/4', '#ffd24a');
+      drawStatBox(2, 'ATTITUDE', String(hdg).padStart(3, '0') + '°', `P:${pit >= 0 ? '+' : ''}${pit}° R:${rol >= 0 ? '+' : ''}${rol}°`, '#00e5ff');
+
+      // Row 2: Vitals Bars (Hull, Shields, Warp Core)
+      const hull = Math.max(0, Math.min(100, Math.round(window.novaHull ?? 100)));
+      const shld = Math.max(0, Math.min(100, Math.round(window.novaShield ?? 100)));
+      let wCore = 100, wCap = 100, wReg = 1.0;
+      try { wCore = Math.round(NW.core); wCap = novaWarpCap(); wReg = novaWarpRegen(); } catch (e) { }
+      const wPct = Math.max(0, Math.min(100, Math.round((wCore / Math.max(1, wCap)) * 100)));
+
+      const drawBar = (y, label, valTxt, pct, col) => {
+        x.textAlign = 'left';
+        x.font = 'bold 16px monospace';
+        x.fillStyle = '#bfefff';
+        x.fillText(label, 14, y + 15);
+        x.fillStyle = '#081828';
+        x.fillRect(116, y, 260, 18);
+        x.fillStyle = col;
+        x.fillRect(116, y, Math.round(2.6 * pct), 18);
+        x.strokeStyle = 'rgba(0,229,255,0.4)';
+        x.strokeRect(116, y, 260, 18);
+        x.textAlign = 'right';
+        x.fillStyle = col;
+        x.fillText(valTxt, w - 14, y + 15);
+      };
+      drawBar(118, 'HULL INT', hull + '%', hull, hull > 50 ? '#33ff99' : hull > 25 ? '#ffcc00' : '#ff3344');
+      drawBar(144, 'SHIELDS', shld + '%', shld, '#00e5ff');
+      drawBar(170, 'WARP CORE', `${wCore}/${wCap} (+${wReg.toFixed(1)}/s)`, wPct, '#b266ff');
+
+      // Row 3: Ordnance, Repair & Cargo Grid
+      const ordY = 200;
+      x.fillStyle = 'rgba(6,22,38,0.85)';
+      x.fillRect(12, ordY, w - 24, 52);
+      x.strokeStyle = 'rgba(0,229,255,0.25)';
+      x.strokeRect(12, ordY, w - 24, 52);
+      x.textAlign = 'left';
+      x.font = 'bold 16px monospace';
+      const mArmed = (typeof isMissileLidOpen !== 'undefined' && isMissileLidOpen);
+      x.fillStyle = mArmed ? '#ff5566' : '#ffd24a';
+      x.fillText(`MSL: ${missileAmmo} [${mArmed ? 'ARMED' : 'SAFE'}]`, 22, ordY + 21);
+      x.fillStyle = '#ff9a3c';
+      x.fillText(`FLARES: ${typeof cargoFlares !== 'undefined' ? cargoFlares : 0}`, 215, ordY + 21);
+      x.fillStyle = '#33ff99';
+      x.fillText(`REPAIR KITS: ${window.novaKits || 0}`, 350, ordY + 21);
+
+      x.fillStyle = '#9fc3d8';
+      x.fillText(`ORE CARGO: ${typeof cargoOre !== 'undefined' ? cargoOre : 0} t`, 22, ordY + 43);
+      x.fillStyle = '#00ffcc';
+      x.fillText(`CREDITS: ${typeof bankCredits !== 'undefined' ? bankCredits : 0} CR`, 215, ordY + 43);
+      x.fillStyle = '#ff6688';
+      x.fillText(`MODE: ${NFM.modes[NFM.i]}`, 375, ordY + 43);
+
+      // Row 4: Sensor Lock & Objective Data Readout (Data Only, No Turn Directions)
+      const senY = 260;
+      x.fillStyle = 'rgba(4,16,30,0.92)';
+      x.fillRect(12, senY, w - 24, 58);
+      x.strokeStyle = 'rgba(0,229,255,0.28)';
+      x.strokeRect(12, senY, w - 24, 58);
+
+      let tName = 'STATION NOVA-1', tType = 'STATION', tCol = '#00ffcc', tPos = stationGroup.position;
+      try { const so = window.novaSiteObjective && window.novaSiteObjective(); if (so) { tPos = so.pos; tName = so.label; tType = 'WAYPOINT'; } } catch (e) { }
+      const lk = currentLockedTarget;
+      if (lk && lk.targetObj) {
+        tPos = lk.targetObj.getWorldPosition(new THREE.Vector3());
+        tName = lk.name || 'CONTACT';
+        tType = lk.isHostile ? 'HOSTILE LOCK' : ('LOCK · ' + String(lk.type || 'CONTACT').toUpperCase());
+        tCol = lk.isHostile ? '#ff5566' : '#33ff99';
+      }
+      const dist = tPos.distanceTo(shipGroup.position);
+      const distStr = dist < 1000 ? Math.round(dist) + ' m' : (dist / 1000).toFixed(2) + ' km';
+      const etaStr = spd > 2 ? Math.min(999, Math.round(dist / spd)) + ' s' : '--';
+
+      x.textAlign = 'left';
+      x.font = 'bold 15px monospace';
+      x.fillStyle = tCol;
+      x.fillText(tType, 22, senY + 21);
+      x.textAlign = 'right';
+      x.fillStyle = '#ffd24a';
+      x.fillText(`RNG: ${distStr}  |  ETA: ${etaStr}`, w - 22, senY + 21);
+
+      x.textAlign = 'left';
+      x.font = 'bold 21px monospace';
+      x.fillStyle = '#ffffff';
+      x.fillText(nkFit(x, tName, w - 190), 22, senY + 47);
+      x.textAlign = 'right';
+      x.font = '15px monospace';
+      x.fillStyle = '#7fb6d0';
+      x.fillText(`CONTACTS: ${(NH && NH.list) ? NH.list.length : 0}`, w - 22, senY + 47);
+
+      // Bottom Systems Status Strip
+      const sys = [
+        ['DAMP ' + (isRotationDampenerOn ? 'ON' : 'OFF'), isRotationDampenerOn ? '#33ff99' : '#668899'],
+        ['3D RADAR ' + (NH.on !== false ? 'ON' : 'OFF'), NH.on !== false ? '#00e5ff' : '#ff5566'],
+        ['AUTO ' + ((isAutopilotActive || novaAutoDockPending) ? 'ON' : 'OFF'), (isAutopilotActive || novaAutoDockPending) ? '#33ff99' : '#668899'],
+        ['STLTH ' + ((window.NF && NF.stealth) ? 'ON' : 'OFF'), (window.NF && NF.stealth) ? '#9a7dff' : '#668899']
+      ];
+      x.font = 'bold 16px monospace';
+      x.textAlign = 'center';
+      sys.forEach((s, i) => {
+        x.fillStyle = s[1];
+        x.fillText(s[0], (i + 0.5) * (w / sys.length), h - 14);
+      });
+
+      NKS.plate.t.needsUpdate = true;
+    };
+
+    // ════════════════════════════════════════════════════════════════
+    // ── NOVA14 VFX: Real Texture Pack (lasers, shields, explosions, flares, lightning) ──
+    // ════════════════════════════════════════════════════════════════
+    const NOVA_VFX = {
+      tex: {},
+      ready: false,
+      loader: new THREE.TextureLoader(),
+      finGeo: null,
+      shieldSpheres: new Map()
+    };
+    window.NOVA_VFX = NOVA_VFX;
+    NOVA_VFX.liveBoom = 0;                       // explosion billboards currently alive
+    const NOVA_VFX_MAX_BOOM_LAYERS = [20, 6];    // [full, cheap] cap across all explosions
+    function novaVfxCheap() {
+      try {
+        if (renderer.xr.isPresenting) return true;
+        return typeof NOPT !== 'undefined' && NOPT.o && (NOPT.o.gfx === 'low' || NOPT.o.gfx === 'mid');
+      } catch (e) { return false; }
+    }
+    // Show one cell of a cols x rows atlas (frame 0 = top-left), with texture.repeat = 1/cols, 1/rows.
+    function novaVfxAtlasFrame(tex, frame, cols, rows) {
+      const c = frame % cols, r = Math.floor(frame / cols);
+      tex.offset.set(c / cols, 1 - (r + 1) / rows);
+    }
+
+    (function initNovaVfx() {
+      const files = {
+        // Clean single-effect textures cut from the ./VFX/ reference sheets by tools/vfx_cut.py
+        laser: './fx/vfx_laser.png',
+        flare: './fx/vfx_flare.png',
+        spark: './fx/vfx_spark.png',
+        shield: './fx/vfx_shield.png',
+        explosion: './fx/vfx_explosion_8x8.png',   // 8x8 atlas, 56 frames
+        lightning: './fx/vfx_lightning.png'
+      };
+      const quad1 = new THREE.PlaneGeometry(0.42, 2.8);
+      quad1.rotateX(Math.PI / 2);
+      const quad2 = quad1.clone();
+      quad2.rotateZ(Math.PI / 2);
+      NOVA_VFX.finGeo = { q1: quad1, q2: quad2 };
+
+      Object.entries(files).forEach(([k, url]) => {
+        try {
+          const t = NOVA_VFX.loader.load(url, tex => {
+            tex.colorSpace = THREE.SRGBColorSpace;
+            if (k === 'shield' || k === 'lightning') {
+              tex.wrapS = THREE.RepeatWrapping;
+              tex.wrapT = THREE.RepeatWrapping;
+            }
+            if (k === 'shield') {
+              tex.repeat.set(3, 2);
+              try {
+                shieldBubbleMat.map = tex;
+                shieldBubbleMat.alphaMap = tex;
+                shieldBubbleMat.wireframe = false;
+                shieldBubbleMat.blending = THREE.AdditiveBlending;
+                shieldBubbleMat.color.setHex(0x44ddff);
+                shieldBubbleMat.needsUpdate = true;
+              } catch (e) {}
+              try {
+                if (typeof targetDrones !== 'undefined' && targetDrones) {
+                  targetDrones.forEach(td => {
+                    if (td.userData && td.userData.shieldRing && td.userData.shieldRing.material) {
+                      const sm = td.userData.shieldRing.material;
+                      sm.map = tex;
+                      sm.wireframe = false;
+                      sm.blending = THREE.AdditiveBlending;
+                      sm.needsUpdate = true;
+                    }
+                  });
+                }
+              } catch (e) {}
+            }
+            if (k === 'laser') {
+              try {
+                laserBoltMat.map = tex;
+                laserBoltMat.transparent = true;
+                laserBoltMat.blending = THREE.AdditiveBlending;
+                laserBoltMat.depthWrite = false;
+                laserBoltMat.color.setHex(0x55ffee);
+                laserBoltMat.needsUpdate = true;
+                novaBoltMat.map = tex;
+                novaBoltMat.transparent = true;
+                novaBoltMat.blending = THREE.AdditiveBlending;
+                novaBoltMat.depthWrite = false;
+                novaBoltMat.color.setHex(0xff4455);
+                novaBoltMat.needsUpdate = true;
+              } catch (e) {}
+            }
+          });
+          t.colorSpace = THREE.SRGBColorSpace;
+          NOVA_VFX.tex[k] = t;
+        } catch (e) { console.warn('[NOVA_VFX] texture load failed:', k, e); }
+      });
+      NOVA_VFX.ready = true;
+    })();
+
+    // Spawn an additive flare/spark sprite using glows and flares.jpg
+    function novaVfxFlare(pos, col = 0x00ffcc, size = 3.2, dur = 0.22, parent = null) {
+      try {
+        const mat = new THREE.SpriteMaterial({
+          map: NOVA_VFX.tex.flare || null,
+          color: col,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          toneMapped: false
+        });
+        const sp = new THREE.Sprite(mat);
+        sp.position.copy(pos);
+        sp.scale.setScalar(size);
+        sp.raycast = () => {};
+        const host = parent || scene;
+        host.add(sp);
+        novaFx.push({
+          t: 0,
+          d: dur,
+          o: sp,
+          up: k => {
+            sp.scale.setScalar(size * (1 + k * 0.85));
+            mat.opacity = 0.95 * (1 - k);
+          }
+        });
+        return sp;
+      } catch (e) { return null; }
+    }
+    window.novaVfxFlare = novaVfxFlare;
+
+    // Spawn an electrical lightning arc sprite using lightning.jpg
+    function novaVfxArc(pos, col = 0x66eeff, size = 6.0, dur = 0.32) {
+      try {
+        const mat = new THREE.SpriteMaterial({
+          map: NOVA_VFX.tex.spark || null,
+          color: col,
+          transparent: true,
+          opacity: 0.92,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          toneMapped: false,
+          rotation: Math.random() * Math.PI * 2
+        });
+        const sp = new THREE.Sprite(mat);
+        sp.position.copy(pos);
+        sp.scale.setScalar(size);
+        sp.raycast = () => {};
+        scene.add(sp);
+        novaFx.push({
+          t: 0,
+          d: dur,
+          o: sp,
+          up: k => {
+            mat.rotation += 0.35;
+            sp.scale.setScalar(size * (0.85 + 0.45 * Math.sin(k * Math.PI)));
+            mat.opacity = (k < 0.7 ? 0.92 : 0.92 * (1 - (k - 0.7) / 0.3)) * (0.65 + 0.35 * Math.random());
+          }
+        });
+      } catch (e) {}
+    }
+    window.novaVfxArc = novaVfxArc;
+
+    // Attach crossed laser texture fins + core flare to any projectile mesh
+    function novaVfxDressBolt(boltMesh, col = 0x00ffcc, scaleZ = 1.0) {
+      try {
+        if (!NOVA_VFX.finGeo) return;
+        const finMat = new THREE.MeshBasicMaterial({
+          map: NOVA_VFX.tex.laser || null,
+          color: col,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          toneMapped: false
+        });
+        const f1 = new THREE.Mesh(NOVA_VFX.finGeo.q1, finMat);
+        const f2 = new THREE.Mesh(NOVA_VFX.finGeo.q2, finMat);
+        f1.scale.set(1, 1, scaleZ);
+        f2.scale.set(1, 1, scaleZ);
+        f1.raycast = () => {};
+        f2.raycast = () => {};
+        boltMesh.add(f1);
+        boltMesh.add(f2);
+        if (NOVA_VFX.tex.flare) {
+          const tip = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: NOVA_VFX.tex.flare,
+            color: col,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false
+          }));
+          tip.scale.setScalar(1.35 * Math.sqrt(scaleZ));
+          tip.position.set(0, 0, -1.1 * scaleZ);
+          tip.raycast = () => {};
+          boltMesh.add(tip);
+        }
+      } catch (e) {}
+    }
+
+    // Upgrade player twin laser spawn with laser fins + muzzle flash
+    {
+      const _origSpawnLasers = spawnLaserBolts;
+      spawnLaserBolts = function () {
+        const before = activePlayerLasers.length;
+        _origSpawnLasers.apply(this, arguments);
+        for (let i = before; i < activePlayerLasers.length; i++) {
+          const b = activePlayerLasers[i];
+          if (b && b.mesh) {
+            novaVfxDressBolt(b.mesh, 0x00ffcc, 1.0);
+            novaVfxFlare(b.mesh.position, 0x00ffcc, 2.2, 0.12);
+          }
+        }
+      };
+    }
+
+    // Upgrade NOVA14 faction bolts, beams, and missiles with VFX textures
+    {
+      const _origNfFireBolt = nfFireBolt;
+      nfFireBolt = function (u, from, dir, gun) {
+        const before = NF.bolts.length;
+        _origNfFireBolt.apply(this, arguments);
+        if (NF.bolts.length > before) {
+          const b = NF.bolts[NF.bolts.length - 1];
+          if (b && b.m) {
+            novaVfxDressBolt(b.m, gun.col || 0xffaa33, 1.8);
+            if (from.distanceTo(shipGroup.position) < 650) {
+              novaVfxFlare(from, gun.col || 0xffaa33, 3.0, 0.14);
+            }
+          }
+        }
+      };
+
+      const _origNfBeam = nfBeam;
+      nfBeam = function (u, tgt, gun) {
+        const before = NF.beams.length;
+        _origNfBeam.apply(this, arguments);
+        if (NF.beams.length > before) {
+          const bm = NF.beams[NF.beams.length - 1];
+          if (bm && bm.m && NOVA_VFX.tex.lightning) {
+            const lt = NOVA_VFX.tex.lightning.clone();
+            lt.wrapS = THREE.RepeatWrapping;
+            lt.wrapT = THREE.RepeatWrapping;
+            lt.repeat.set(1, 5);
+            lt.needsUpdate = true;
+            bm.m.material.map = lt;
+            bm.m.material.side = THREE.DoubleSide;
+            bm.m.material.needsUpdate = true;
+            bm.lt = lt;
+          }
+          if (tgt && tgt.g) {
+            novaVfxFlare(tgt.g.position, gun.col || 0x88ffee, 10.0, 0.35);
+            novaVfxArc(tgt.g.position, gun.col || 0x88ffee, 9.0, 0.35);
+          }
+        }
+      };
+
+      const _origNfFireMissile = nfFireMissile;
+      nfFireMissile = function (u, tgt, m0) {
+        const before = NF.msl.length;
+        _origNfFireMissile.apply(this, arguments);
+        if (NF.msl.length > before) {
+          const ms = NF.msl[NF.msl.length - 1];
+          if (ms && ms.m && NOVA_VFX.tex.flare) {
+            const plume = new THREE.Sprite(new THREE.SpriteMaterial({
+              map: NOVA_VFX.tex.flare,
+              color: 0xff9933,
+              transparent: true,
+              opacity: 0.95,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+              toneMapped: false
+            }));
+            plume.scale.setScalar(3.2);
+            plume.position.set(0, 0, 1.8);
+            plume.raycast = () => {};
+            ms.m.add(plume);
+          }
+        }
+      };
+    }
+
+    // Upgrade shield hit ripple on faction ships & player cockpit shield dome
+    {
+      const _origNfHit = nfHit;
+      nfHit = function (u, dmg, byPlayer) {
+        if (u && u.alive && u.g) {
+          const hadShield = u.sh > 0;
+          const col = u.fac === 'alien' ? 0x66ffcc : (u.fac === 'pirate' ? 0xffaa33 : 0x55aaff);
+          if (hadShield && NOVA_VFX.tex.shield) {
+            const shMat = new THREE.MeshBasicMaterial({
+              map: NOVA_VFX.tex.shield,
+              alphaMap: NOVA_VFX.tex.shield,
+              color: col,
+              transparent: true,
+              opacity: 0.85,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+              side: THREE.DoubleSide,
+              toneMapped: false
+            });
+            const shMesh = new THREE.Mesh(new THREE.SphereGeometry(Math.max(4, (u.r || 6) * 1.15), 14, 12), shMat);
+            shMesh.position.copy(u.g.position);
+            shMesh.raycast = () => {};
+            scene.add(shMesh);
+            novaFx.push({
+              t: 0,
+              d: 0.38,
+              o: shMesh,
+              up: k => {
+                if (u.alive && u.g) shMesh.position.copy(u.g.position);
+                shMesh.rotation.y += 0.08;
+                shMesh.scale.setScalar(1.0 + k * 0.14);
+                shMat.opacity = 0.85 * (1 - k);
+              }
+            });
+          } else {
+            novaVfxFlare(u.g.position, 0xff8833, Math.max(4, (u.r || 5) * 0.9), 0.24);
+          }
+          _origNfHit.apply(this, arguments);
+          if (hadShield && u.sh <= 0 && u.alive) {
+            novaVfxArc(u.g.position, col, Math.max(7, (u.r || 6) * 1.6), 0.45);
+          }
+        } else {
+          _origNfHit.apply(this, arguments);
+        }
+      };
+
+      const _origNovaDamage = novaDamage;
+      novaDamage = function (amount) {
+        const prevShield = window.novaShield;
+        _origNovaDamage.apply(this, arguments);
+        try {
+          const fwd = new THREE.Vector3(0, 0, -1.3).applyQuaternion(shipGroup.quaternion).add(shipGroup.position);
+          if (prevShield > 0 && window.novaShield <= 0) {
+            novaVfxArc(fwd, 0x00e5ff, 3.0, 0.5);
+          } else if (prevShield <= 0) {
+            novaVfxArc(fwd, 0xff5533, 2.4, 0.35);
+          }
+        } catch (e) {}
+      };
+      window.novaDamage = novaDamage;
+    }
+
+    // Upgrade novaBoom(pos, scale) and destroyPirateBoss() with explosion VFX1.jpg, glows and flares.jpg, and lightning.jpg
+    {
+      const _origNovaBoom = novaBoom;
+      novaBoom = function (pos, scale = 1.0) {
+        _origNovaBoom(pos);
+        try {
+          // Cheap path in a headset or on low/mid graphics: fewer, capped additive layers
+          // (large overlapping additive billboards are expensive on Quest's mobile GPU).
+          const cheap = novaVfxCheap();
+          // 1) Initial blinding core flash
+          novaVfxFlare(pos, 0xffeeaa, 28 * scale, 0.38);
+          if (!cheap) novaVfxFlare(pos, 0xff6611, 42 * scale, 0.65);
+
+          // 2) Expanding fireball billboards, each playing the 8x8 explosion atlas
+          if (NOVA_VFX.tex.explosion) {
+            const want = cheap ? (scale >= 1.5 ? 2 : 1) : Math.min(5, Math.max(2, Math.round(3 * scale)));
+            const count = Math.max(0, Math.min(want, NOVA_VFX_MAX_BOOM_LAYERS[cheap ? 1 : 0] - NOVA_VFX.liveBoom));
+            for (let i = 0; i < count; i++) {
+              const ft = NOVA_VFX.tex.explosion.clone();   // shares the GPU image; own UV window
+              ft.repeat.set(1 / 8, 1 / 8);
+              novaVfxAtlasFrame(ft, 0, 8, 8);
+              NOVA_VFX.liveBoom++;
+              const tint = i % 3 === 0 ? 0xffffff : (i % 3 === 1 ? 0xffaa44 : 0xff5522);
+              const mat = new THREE.SpriteMaterial({
+                map: ft,
+                color: tint,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                toneMapped: false,
+                rotation: Math.random() * Math.PI * 2
+              });
+              const sp = new THREE.Sprite(mat);
+              const off = new THREE.Vector3((Math.random() - 0.5) * 18 * scale, (Math.random() - 0.5) * 18 * scale, (Math.random() - 0.5) * 18 * scale);
+              sp.position.copy(pos).add(off);
+              const s0 = (8 + Math.random() * 8) * scale;
+              const s1 = (28 + Math.random() * 22) * scale;
+              sp.scale.setScalar(s0);
+              sp.raycast = () => {};
+              scene.add(sp);
+              const spin = (Math.random() - 0.5) * 0.04;
+              novaFx.push({
+                t: -i * 0.045,
+                d: 1.15 + Math.random() * 0.45,
+                o: sp,
+                up: k => {
+                  novaVfxAtlasFrame(ft, Math.min(55, Math.floor(k * 56)), 8, 8);
+                  sp.scale.setScalar(s0 + (s1 - s0) * Math.sqrt(k));
+                  mat.opacity = 0.95 * (1 - k * k);
+                  mat.rotation += spin;
+                  sp.position.addScaledVector(off, 0.014);
+                  if (k >= 1) { NOVA_VFX.liveBoom = Math.max(0, NOVA_VFX.liveBoom - 1); ft.dispose(); mat.dispose(); }
+                }
+              });
+            }
+          }
+
+          // 3) Plasma arcs on explosion
+          novaVfxArc(pos, 0xffaa44, 24 * scale, 0.48);
+          if (scale >= 1.0 && !cheap) novaVfxArc(pos, 0x66eeff, 30 * scale, 0.55);
+        } catch (e) {}
+      };
+      window.novaBoom = novaBoom;
+
+      const _origDestroyPirate = destroyPirateBoss;
+      destroyPirateBoss = function () {
+        if (!isPirateDefeated && pirateBoss) {
+          try { novaBoom(pirateBoss.position.clone(), 1.8); } catch (e) {}
+        }
+        return _origDestroyPirate.apply(this, arguments);
+      };
+    }
+
+    function novaVfxTick(dt) {
+      try {
+        if (novaFx.length === 0) NOVA_VFX.liveBoom = 0;   // self-heal the layer cap if FX were cleared elsewhere
+        // Animate player shield dome UVs when shield is flashing
+        if (shieldFlashTimer > 0 && NOVA_VFX.tex.shield) {
+          NOVA_VFX.tex.shield.offset.x = (NOVA_VFX.tex.shield.offset.x + dt * 0.45) % 1;
+          NOVA_VFX.tex.shield.offset.y = (NOVA_VFX.tex.shield.offset.y + dt * 0.28) % 1;
+        }
+        // Animate active faction beam lightning UVs
+        if (window.NF && NF.beams) {
+          NF.beams.forEach(b => {
+            if (b.lt) {
+              b.lt.offset.y -= dt * 6.5;
+              b.lt.offset.x = (Math.random() - 0.5) * 0.15;
+            }
+          });
+        }
+        // Dress tractor beam with lightning texture if active
+        if (novaDock && novaDock.beam && NOVA_VFX.tex.lightning) {
+          if (!novaDock.beam.userData.vfxWoven) {
+            novaDock.beam.userData.vfxWoven = true;
+            novaDock.beam.material.map = NOVA_VFX.tex.lightning;
+            novaDock.beam.material.blending = THREE.AdditiveBlending;
+            novaDock.beam.material.opacity = 0.55;
+            novaDock.beam.material.needsUpdate = true;
+          }
+          NOVA_VFX.tex.lightning.offset.y = (NOVA_VFX.tex.lightning.offset.y - dt * 2.2) % 1;
+        }
+      } catch (e) {}
     }
 
     async function nmCockpit() {
@@ -17499,7 +18124,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       setTimeout(() => { try { console.log('[NOVA12] models in:', NM.done.join(', ')); showToast('MODELS: ' + NM.done.length + ' loaded', 2500, '#7fffd4'); } catch (e) { } }, 4000);
     }
     let nmLast = performance.now();
-    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
+    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); try { if (!isLightspeedActive) nfmTick(); } catch (e) { } nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); novaVfxTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
     window.nmFrame = nmFrame;
     (function f() { requestAnimationFrame(f); if (!renderer.xr.isPresenting) nmFrame(); })();
     nmBoot();
@@ -17686,6 +18311,24 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     window.thumbFireBtn = thumbFireBtn;
     window.lightspeedBtnGroup = lightspeedBtnGroup;
     window.hullDeckGroup = hullDeckGroup;
+    window.downloadStandaloneForClaude = async function () {
+      try {
+        const res = await fetch('./standalone.html', { cache: 'no-store' });
+        const html = await res.text();
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'standalone.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast('⬇️ DOWNLOADED standalone.html (1-File for Claude AI)', 3000, '#00ffaa');
+      } catch (e) {
+        console.error(e);
+      }
+    };
   </script>
 </body>
 </html>
