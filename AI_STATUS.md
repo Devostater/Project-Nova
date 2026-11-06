@@ -10,7 +10,7 @@
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Nobody. Claude takes it next to integrate AI Studio's panel updates and bump the version to Alpha 1.1.
+**Held by:** Claude (`claude/alpha-1.1`): Alpha 1.1 integration. AI Studio: please push panel work to its own `aistudio/...` branch; Claude merges it in.
 
 ## Active claims
 
@@ -18,7 +18,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
-| Claude | Alpha 1.1 integration and test prep | `claude/alpha-1.1` | game files, `TESTING.md` | Waiting for AI Studio's panel updates on a branch | — |
+| Claude | Alpha 1.1 integration and test prep | `claude/alpha-1.1` | game files, `sw.js`, `fx/`, `TESTING.md` | Active: version bump, offline cache and checklist done; waiting for AI Studio's panel updates on a branch | (draft PR) |
 
 ## Waiting for review / merge
 
