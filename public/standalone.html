@@ -17428,6 +17428,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       setTimeout(() => { try { console.log('[NOVA12] models in:', NM.done.join(', ')); showToast('MODELS: ' + NM.done.length + ' loaded', 2500, '#7fffd4'); } catch (e) { } }, 4000);
     }
     let nmLast = performance.now();
+    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); try { if (!isLightspeedActive) nfmTick(); } catch (e) { } nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
     window.nmFrame = nmFrame;
     (function f() { requestAnimationFrame(f); if (!renderer.xr.isPresenting) nmFrame(); })();
     nmBoot();
