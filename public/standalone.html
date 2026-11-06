@@ -94,10 +94,9 @@
 
   <!-- Immediate Synchronous Startup Script -->
   <script>
-    // Automatic HTTPS Redirect for Meta Quest 3 WebXR Support
+    // Automatic HTTPS Redirect for WebXR Support (preserves default port unless running custom dev server)
     if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      console.log('Redirecting to HTTPS:8443 for WebXR Passthrough support...');
-      window.location.replace('https://' + window.location.hostname + ':8443' + window.location.pathname + window.location.search);
+      window.location.protocol = 'https:';
     }
     window.dismissModal = function() {
       try {
@@ -149,6 +148,85 @@
     };
 
 
+    // Device & XR Capability Detection
+    window.novaDevice = {
+      isQuest: /Quest|Oculus/i.test(navigator.userAgent),
+      isMobile: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+      hasXR: false,
+      hasVR: false,
+      hasAR: false,
+      detectedMode: '2D' // 'MR', 'VR', '2D'
+    };
+
+    // Detect device capabilities asynchronously
+    (function detectDevice() {
+      if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
+        Promise.all([
+          navigator.xr.isSessionSupported('immersive-ar').catch(function() { return false; }),
+          navigator.xr.isSessionSupported('immersive-vr').catch(function() { return false; })
+        ]).then(function(results) {
+          window.novaDevice.hasAR = !!results[0];
+          window.novaDevice.hasVR = !!results[1];
+          window.novaDevice.hasXR = window.novaDevice.hasAR || window.novaDevice.hasVR;
+
+          var preferred = localStorage.getItem('novaPreferredMode');
+          if (preferred && (preferred === '2D' || (preferred === 'MR' && window.novaDevice.hasAR) || (preferred === 'VR' && window.novaDevice.hasVR))) {
+            window.novaDevice.detectedMode = preferred;
+          } else if (window.novaDevice.isQuest && window.novaDevice.hasAR) {
+            window.novaDevice.detectedMode = 'MR';
+          } else if (window.novaDevice.hasVR) {
+            window.novaDevice.detectedMode = 'VR';
+          } else {
+            window.novaDevice.detectedMode = '2D';
+          }
+          window.novaUpdatePlayButton();
+        }).catch(function() {
+          window.novaDevice.detectedMode = '2D';
+          window.novaUpdatePlayButton();
+        });
+      } else {
+        window.novaDevice.detectedMode = '2D';
+        window.novaUpdatePlayButton();
+      }
+    })();
+
+    window.novaSetPreferredMode = function(mode) {
+      window.novaDevice.detectedMode = mode;
+      try { localStorage.setItem('novaPreferredMode', mode); } catch (e) {}
+      window.novaUpdatePlayButton();
+      if (typeof window.showToast === 'function') {
+        window.showToast('Default Play Mode: ' + mode, 2000, '#00ffcc');
+      }
+    };
+
+    window.novaUpdatePlayButton = function() {
+      try {
+        var btn = document.getElementById('btn-play');
+        var hint = document.getElementById('menu-hint');
+        var badge = document.getElementById('device-badge');
+        var mode = window.novaDevice.detectedMode;
+        if (btn) {
+          if (mode === 'MR') {
+            btn.innerHTML = '&#9654; PLAY (PASSTHROUGH MR)';
+            btn.className = 'modal-btn btn-mr';
+          } else if (mode === 'VR') {
+            btn.innerHTML = '&#9654; PLAY (VR 360&deg;)';
+            btn.className = 'modal-btn btn-vr';
+          } else {
+            btn.innerHTML = '&#9654; PLAY (DESKTOP / SCREEN)';
+            btn.className = 'modal-btn btn-2d';
+          }
+        }
+        if (badge) {
+          var label = window.novaDevice.isQuest ? 'Meta Quest Detected' : (window.novaDevice.hasXR ? 'WebXR Headset Detected' : 'Standard Display (Desktop/Mobile)');
+          badge.textContent = 'Detected Device: ' + label + ' | Default: ' + mode;
+        }
+        if (hint) {
+          hint.textContent = 'Non-mandatory VR: Play directly on screen or headset. Change modes anytime in Options.';
+        }
+      } catch (e) {}
+    };
+
     window.novaMenuView = function(v) {
       try {
         document.getElementById('menu-main').style.display = v === 'main' ? '' : 'none';
@@ -161,17 +239,14 @@
       window.novaMenuView('github');
     };
     window.novaPlay = function() {
-      var done = false;
-      function go2D() { if (!done) { done = true; window.launch2D(); } }
-      try {
-        if (navigator.xr && navigator.xr.isSessionSupported) {
-          navigator.xr.isSessionSupported('immersive-ar').then(function(ar) {
-            if (ar) { done = true; window.launchMR(); return; }
-            return navigator.xr.isSessionSupported('immersive-vr').then(function(vr) { if (vr) { done = true; window.launchVR(); } else go2D(); });
-          }).catch(go2D);
-          setTimeout(go2D, 2500);
-        } else go2D();
-      } catch (e) { go2D(); }
+      var mode = window.novaDevice.detectedMode || '2D';
+      if (mode === 'MR') {
+        window.launchMR();
+      } else if (mode === 'VR') {
+        window.launchVR();
+      } else {
+        window.launch2D();
+      }
     };
     window.novaExit = function() {
       try { var ses = window.novaGetXR && window.novaGetXR(); if (ses && ses.end) ses.end(); } catch (e) {}
@@ -220,24 +295,35 @@
     <div class="modal-box">
       <div class="modal-title">🚀 PROJECT NOVA: STARFIGHTER SIM</div>
       <div class="modal-subtitle">
-        Meta Quest 3 Space Flight • Newtonian Physics • Hand Tracking HOTAS Controls • Homing Missiles &amp; Hyperspace Drive
+        6DOF Space Flight Simulator • Newtonian HOTAS Flight Model • Proportional Navigation Dogfights • Hyperspace Drive
       </div>
+      <div id="device-badge" style="font-size: 11px; color: #79c0ff; background: rgba(14, 40, 70, 0.7); border: 1px solid #1f6feb; border-radius: 4px; padding: 4px 8px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px;">
+        Detecting Display Capabilities...
+      </div>
+      <!-- Clean, focused Main Menu -->
       <div id="menu-main">
-        <button class="modal-btn btn-mr" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
-        <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS</button>
-        <button class="modal-btn" id="btn-github-connect" style="background: rgba(46, 160, 67, 0.20); border-color: #3fb950; color: #3fb950; font-size: 14px; padding: 12px;" onclick="window.novaOpenGitHubModal(); event.stopPropagation();">🐙 GITHUB &amp; QUEST CONNECTION (PLAY &amp; COLLABORATE)</button>
-        <button class="modal-btn" id="btn-download-standalone" style="background: rgba(0, 255, 170, 0.15); border-color: #00ffaa; color: #00ffaa; font-size: 14px; padding: 12px;" onclick="if(window.downloadStandaloneForClaude) window.downloadStandaloneForClaude(); event.stopPropagation();">⬇️ DOWNLOAD STANDALONE HTML (1-FILE FOR CLAUDE AI)</button>
+        <button class="modal-btn btn-2d" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
+        <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS &amp; MODES</button>
         <button class="modal-btn" id="btn-exit" style="border-color:#885566;color:#cc8899;background:rgba(120,30,50,0.15);" onclick="window.novaExit(); event.stopPropagation();">&#10006; EXIT</button>
       </div>
-      <div id="menu-options" style="display:none;">
-        <button class="modal-btn btn-mr" id="btn-mr" style="border-width: 3px; box-shadow: 0 0 25px rgba(255, 51, 170, 0.45); font-size: 18px;" onclick="window.launchMR(); event.stopPropagation();">👁️ ENTER MR (PASSTHROUGH COCKPIT) [QUEST 3]</button>
-      <button class="modal-btn btn-vr" id="btn-vr" onclick="window.launchVR(); event.stopPropagation();">🚀 ENTER VR SPACE FLIGHT (FULL 360° SPACE)</button>
-      <button class="modal-btn btn-2d" id="btn-2d" onclick="window.launch2D(); event.stopPropagation();">🎮 2D DESKTOP TEST MODE</button>
-      <button class="modal-btn" id="btn-companion" style="background: rgba(178, 102, 255, 0.18); border-color: #b266ff; color: #cc99ff;" onclick="window.novaCompanionMenu && window.novaCompanionMenu(); event.stopPropagation();">💜 CHOOSE YOUR COMPANION (NYX / MATRIX)</button>
-      <button class="modal-btn" id="btn-tutorial" style="background: rgba(255, 204, 0, 0.18); border-color: #ffcc00; color: #ffcc00;" onclick="window.launchTutorial(false); event.stopPropagation();">📖 TUTORIAL: LEARN TO FLY (GUIDED, 2D)</button>
-      <button class="modal-btn" id="btn-tutorial-vr" style="background: rgba(255, 204, 0, 0.10); border-color: #b38f00; color: #ffcc00; font-size: 12px; padding: 9px;" onclick="window.launchTutorial(true); event.stopPropagation();">📖 RUN THE TUTORIAL IN VR INSTEAD</button>
-      <button class="modal-btn" id="btn-frigate" style="background: rgba(0, 240, 255, 0.22); border-color: #00f0ff; color: #00f0ff; margin-top: 6px;" onclick="window.launchFrigate(); event.stopPropagation();">🌌 ENTER CENTRAL FRIGATE HALL &amp; 3D GALAXY MAP</button>
-      <button class="modal-btn" id="btn-back" style="margin-top:6px;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK</button>
+
+      <!-- Options & Device Setup Menu -->
+      <div id="menu-options" style="display:none; text-align: left;">
+        <div style="font-size: 14px; font-weight: bold; color: #00f0ff; margin-bottom: 8px; text-transform: uppercase;">Display &amp; Immersion Modes:</div>
+        <button class="modal-btn btn-2d" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('2D'); window.launch2D(); event.stopPropagation();">🎮 2D DESKTOP / SCREEN MODE (NO VR REQUIRED)</button>
+        <button class="modal-btn btn-mr" id="btn-mr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('MR'); window.launchMR(); event.stopPropagation();">👁️ ENTER PASSTHROUGH MR (QUEST 3 / AR)</button>
+        <button class="modal-btn btn-vr" id="btn-vr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('VR'); window.launchVR(); event.stopPropagation();">🚀 ENTER IMMERSIVE VR (FULL 360° SPACE)</button>
+
+        <div style="font-size: 14px; font-weight: bold; color: #ffcc00; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Flight Activities:</div>
+        <button class="modal-btn" id="btn-companion" style="background: rgba(178, 102, 255, 0.18); border-color: #b266ff; color: #cc99ff; padding: 10px; margin: 4px 0;" onclick="window.novaCompanionMenu && window.novaCompanionMenu(); event.stopPropagation();">💜 CHOOSE COMPANION (NYX / MATRIX)</button>
+        <button class="modal-btn" id="btn-tutorial" style="background: rgba(255, 204, 0, 0.18); border-color: #ffcc00; color: #ffcc00; padding: 10px; margin: 4px 0;" onclick="window.launchTutorial(false); event.stopPropagation();">📖 GUIDED FLIGHT TUTORIAL</button>
+        <button class="modal-btn" id="btn-frigate" style="background: rgba(0, 240, 255, 0.18); border-color: #00f0ff; color: #00f0ff; padding: 10px; margin: 4px 0;" onclick="window.launchFrigate(); event.stopPropagation();">🌌 FRIGATE HALL &amp; 3D GALAXY MAP</button>
+
+        <div style="font-size: 14px; font-weight: bold; color: #3fb950; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Developer &amp; Standalone:</div>
+        <button class="modal-btn" id="btn-github-connect" style="background: rgba(46, 160, 67, 0.20); border-color: #3fb950; color: #3fb950; font-size: 13px; padding: 10px; margin: 4px 0;" onclick="window.novaOpenGitHubModal(); event.stopPropagation();">🐙 GITHUB &amp; QUEST CONNECTION DETAILS</button>
+        <button class="modal-btn" id="btn-download-standalone" style="background: rgba(0, 255, 170, 0.15); border-color: #00ffaa; color: #00ffaa; font-size: 13px; padding: 10px; margin: 4px 0;" onclick="if(window.downloadStandaloneForClaude) window.downloadStandaloneForClaude(); event.stopPropagation();">⬇️ DOWNLOAD STANDALONE HTML (FOR CLAUDE AI)</button>
+
+        <button class="modal-btn" id="btn-back" style="margin-top: 12px; padding: 12px;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK TO MAIN MENU</button>
       </div>
 
       <!-- GitHub & Meta Quest Connect Dialog -->
@@ -7351,23 +7437,13 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       });
     }
 
-    // Clicking anywhere on modal overlay or modal box starts/enters the game
+    // Clicking on modal overlay background uses the user's selected/detected mode without forcing VR
     const modalOverlay = document.getElementById('modal-overlay');
     if (modalOverlay) {
       modalOverlay.addEventListener('click', (e) => {
         sound.init();
-        if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
-          navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-            if (supported) {
-              startXR('immersive-vr', false);
-            } else {
-              dismissModal();
-              showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
-            }
-          }).catch(() => {
-            dismissModal();
-            showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
-          });
+        if (typeof window.novaPlay === 'function') {
+          window.novaPlay();
         } else {
           dismissModal();
           showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
