@@ -1,0 +1,350 @@
+{
+  "flight_stick": {
+    "source": "Final flight stick 3d model.glb",
+    "tris_before": 44591,
+    "tris_after": 11995,
+    "decimate": "ratio 0.27",
+    "size_m": [
+      0.123,
+      0.171,
+      0.25
+    ],
+    "mb": 0.26
+  },
+  "colony": {
+    "source": "asteroid mining outpost 3d model.glb",
+    "tris_before": 47249,
+    "tris_after": 14999,
+    "decimate": "ratio 0.32",
+    "size_m": [
+      128.944,
+      142.052,
+      150.0
+    ],
+    "mb": 0.74
+  },
+  "drone": {
+    "source": "combat drone 3d model.glb",
+    "tris_before": 47466,
+    "tris_after": 6000,
+    "decimate": "ratio 0.13",
+    "size_m": [
+      3.0,
+      2.038,
+      1.331
+    ],
+    "mb": 0.26
+  },
+  "obi_cat": {
+    "source": "cyberpunk cat 3d model.glb",
+    "tris_before": 49028,
+    "tris_after": 19611,
+    "decimate": "ratio 0.40",
+    "size_m": [
+      0.295,
+      0.281,
+      0.3
+    ],
+    "mb": 1.97
+  },
+  "side_console": {
+    "source": "fighter cockpit console 3d model.glb",
+    "tris_before": 53645,
+    "tris_after": 14999,
+    "decimate": "ratio 0.28",
+    "size_m": [
+      0.5,
+      0.22,
+      0.288
+    ],
+    "mb": 0.64
+  },
+  "seat": {
+    "source": "fighter ejection seat 3d model.glb",
+    "tris_before": 58302,
+    "tris_after": 14999,
+    "decimate": "ratio 0.26",
+    "size_m": [
+      0.604,
+      0.381,
+      0.9
+    ],
+    "mb": 0.74
+  },
+  "overhead_dash": {
+    "source": "futuristic cockpit overhead dash 3d model.glb",
+    "tris_before": 47750,
+    "tris_after": 11994,
+    "decimate": "ratio 0.25",
+    "size_m": [
+      0.9,
+      0.252,
+      0.242
+    ],
+    "mb": 0.67
+  },
+  "carrier": {
+    "source": "futuristic spaceship 3d model carrier.glb",
+    "tris_before": 47009,
+    "tris_after": 17999,
+    "decimate": "ratio 0.38",
+    "size_m": [
+      87.661,
+      160.0,
+      68.641
+    ],
+    "mb": 0.85
+  },
+  "holo_panel": {
+    "source": "holographic panel 3d model.glb",
+    "tris_before": 43530,
+    "tris_after": 3999,
+    "decimate": "ratio 0.09",
+    "size_m": [
+      0.78,
+      0.028,
+      0.474
+    ],
+    "mb": 0.1
+  },
+  "asteroid_ice": {
+    "source": "ice asteroid 3d model.glb",
+    "tris_before": 49253,
+    "tris_after": 5000,
+    "decimate": "ratio 0.10",
+    "size_m": [
+      39.499,
+      40.0,
+      39.785
+    ],
+    "mb": 0.26
+  },
+  "station_nova1": {
+    "source": "ring space station 3d model.glb",
+    "tris_before": 45804,
+    "tris_after": 25000,
+    "decimate": "ratio 0.55",
+    "size_m": [
+      300.0,
+      205.889,
+      215.613
+    ],
+    "mb": 1.17
+  },
+  "asteroid_rock": {
+    "source": "rough asteroid 3d model.glb",
+    "tris_before": 47556,
+    "tris_after": 4999,
+    "decimate": "ratio 0.11",
+    "size_m": [
+      40.0,
+      38.021,
+      37.823
+    ],
+    "mb": 0.24
+  },
+  "cockpit_shell": {
+    "source": "sci-fi cockpit shell 3d model.glb",
+    "tris_before": 58548,
+    "tris_after": 25000,
+    "decimate": "ratio 0.43",
+    "size_m": [
+      0.698,
+      2.0,
+      0.585
+    ],
+    "mb": 1.05
+  },
+  "missile_base": {
+    "source": "sci-fi fighter cockpit missle button base 3d model.glb",
+    "tris_before": 57180,
+    "tris_after": 12000,
+    "decimate": "ratio 0.21",
+    "size_m": [
+      0.15,
+      0.15,
+      0.068
+    ],
+    "mb": 0.63
+  },
+  "patrol": {
+    "source": "sci-fi fighter jet 3d model patrol intercepter.glb",
+    "tris_before": 47930,
+    "tris_after": 11999,
+    "decimate": "ratio 0.25",
+    "size_m": [
+      10.831,
+      11.0,
+      2.763
+    ],
+    "mb": 0.62
+  },
+  "gunship": {
+    "source": "sci-fi gunship 3d model gunship.glb",
+    "tris_before": 48106,
+    "tris_after": 11999,
+    "decimate": "ratio 0.25",
+    "size_m": [
+      13.87,
+      20.0,
+      5.941
+    ],
+    "mb": 0.73
+  },
+  "pirate_raider": {
+    "source": "sci-fi gunship 3d model pirate raider.glb",
+    "tris_before": 48106,
+    "tris_after": 11999,
+    "decimate": "ratio 0.25",
+    "size_m": [
+      13.87,
+      20.0,
+      5.941
+    ],
+    "mb": 0.73
+  },
+  "missile_button": {
+    "source": "sci-fi missle button 3d model.glb",
+    "tris_before": 48590,
+    "tris_after": 7998,
+    "decimate": "ratio 0.16",
+    "size_m": [
+      0.12,
+      0.043,
+      0.119
+    ],
+    "mb": 0.55
+  },
+  "frigate": {
+    "source": "sci-fi ship 3d model.glb",
+    "tris_before": 46406,
+    "tris_after": 14999,
+    "decimate": "ratio 0.32",
+    "size_m": [
+      70.0,
+      69.578,
+      28.388
+    ],
+    "mb": 0.87
+  },
+  "player_ship": {
+    "source": "sci-fi starfighter 3d model player ship.glb",
+    "tris_before": 58360,
+    "tris_after": 19999,
+    "decimate": "ratio 0.34",
+    "size_m": [
+      3.808,
+      5.0,
+      1.269
+    ],
+    "mb": 0.88
+  },
+  "throttle": {
+    "source": "sci-fi throttle 3d model.glb",
+    "tris_before": 47784,
+    "tris_after": 14998,
+    "decimate": "ratio 0.31",
+    "size_m": [
+      0.3,
+      0.136,
+      0.238
+    ],
+    "mb": 1.45
+  },
+  "container": {
+    "source": "space cargo container 3d model.glb",
+    "tris_before": 44837,
+    "tris_after": 5000,
+    "decimate": "ratio 0.11",
+    "size_m": [
+      5.136,
+      10.0,
+      5.508
+    ],
+    "mb": 0.27
+  },
+  "fighter_alt": {
+    "source": "space fighter 3d model.glb",
+    "tris_before": 379054,
+    "tris_after": 15000,
+    "decimate": "ratio 0.04",
+    "size_m": [
+      4.369,
+      5.0,
+      1.151
+    ],
+    "mb": 0.83
+  },
+  "missile": {
+    "source": "space missile 3d model.glb",
+    "tris_before": 47664,
+    "tris_after": 5000,
+    "decimate": "ratio 0.10",
+    "size_m": [
+      0.778,
+      4.0,
+      0.666
+    ],
+    "mb": 0.26
+  },
+  "wreck": {
+    "source": "spacecraft hull wreck 3d model.glb",
+    "tris_before": 46960,
+    "tris_after": 11999,
+    "decimate": "ratio 0.26",
+    "size_m": [
+      171.251,
+      190.0,
+      100.794
+    ],
+    "mb": 0.62
+  },
+  "hauler": {
+    "source": "spaceship 3d model cargo hauler.glb",
+    "tris_before": 46760,
+    "tris_after": 11999,
+    "decimate": "ratio 0.26",
+    "size_m": [
+      10.886,
+      30.0,
+      7.472
+    ],
+    "mb": 0.8
+  },
+  "meridian": {
+    "source": "spaceship 3d model direlect the maridian.glb",
+    "tris_before": 57554,
+    "tris_after": 25000,
+    "decimate": "ratio 0.43",
+    "size_m": [
+      273.736,
+      520.0,
+      236.509
+    ],
+    "mb": 1.2
+  },
+  "lantern_den": {
+    "source": "steampunk ring docking 3d model smugler den.glb",
+    "tris_before": 47832,
+    "tris_after": 15000,
+    "decimate": "ratio 0.31",
+    "size_m": [
+      120.0,
+      114.422,
+      105.887
+    ],
+    "mb": 0.64
+  },
+  "thruster": {
+    "source": "thruster model.glb",
+    "tris_before": 47632,
+    "tris_after": 7985,
+    "decimate": "ratio 0.17",
+    "size_m": [
+      0.156,
+      0.2,
+      0.157
+    ],
+    "mb": 0.26
+  }
+}

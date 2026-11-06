@@ -1,8 +1,16 @@
-node_modules/
-build/
-dist/
-coverage/
+# Project Nova - keep the repo to what the game needs
+*_backup.html
+backups/
+music_src/
+tools/platform-tools/
+*.wav
+*.blend1
+Thumbs.db
+desktop.ini
 .DS_Store
-*.log
-.env*
-!.env.example
+# private HTTPS keys - never upload
+*.pem
+*.key
+# loose source models in the root (the game loads optimised copies from models/)
+/*.glb
+optimize_log.txt
