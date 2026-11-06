@@ -1,0 +1,55 @@
+# Publishes the game (the public/ folder) to GitHub Pages, so a Quest can play it from a link:
+#   https://devostater.github.io/Project-Nova/
+# One-time setup: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+# Runs on every push to main. To test another branch: Actions -> "Deploy game to GitHub Pages" ->
+# Run workflow -> pick the branch (that branch must be allowed under Settings -> Environments -> github-pages).
+name: Deploy game to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}standalone.html
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build site from public/
+        run: |
+          mkdir -p _site
+          cp -r public/. _site/
+          touch _site/.nojekyll   # serve files as-is (no Jekyll processing)
+          # Landing page: the site root opens the game
+          cat > _site/index.html <<'HTML'
+          <!doctype html>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Project Nova</title>
+          <meta http-equiv="refresh" content="0; url=./standalone.html">
+          <a href="./standalone.html">Launch Project Nova</a>
+          HTML
+          echo "Deployed commit ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}" > _site/version.txt
+          du -sh _site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
