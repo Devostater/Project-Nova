@@ -6,9 +6,10 @@ Mark each line ✅ / ❌ and note anything odd. Report back to Claude with the �
 
 ## Start
 
-- [ ] **Quest 3 (easiest, no PC needed):** in the Quest browser open **https://devostater.github.io/Project-Nova/** and bookmark it. It updates automatically after each merge to `main`; `version.txt` on the site shows which commit is live.
-- [ ] **PC:** open the same link in Chrome, or double-click `start_server.bat` for a local copy.
-- [ ] **Quest over USB (fallback):** run `tools/play_on_quest.bat`, or open `https://<PC-IP>:8443/standalone.html`.
+- [ ] **Update the local NOVA folder first:** in GitHub Desktop, **Fetch origin**, then **Pull** (on `main`, after the Alpha 1.1 PR is merged). That updates `standalone.html` and the `fx/`, `vendor/` and `models/` folders that the local server uses.
+- [ ] **PC:** double-click `start_server.bat`. Chrome opens the game.
+- [ ] **Quest 3:** run `tools/play_on_quest.bat` (USB), or open `https://<PC-IP>:8443/standalone.html` in the Quest browser while `start_server.bat` runs.
+- [ ] *(Later, optional)* GitHub Pages link **https://devostater.github.io/Project-Nova/**, once Pages is enabled and the deploy workflow is run.
 - [ ] The menu says **"Alpha 1.1"** (Options → credits) and the device line matches what you're on (Desktop / Tablet / Quest).
 - [ ] After the first load, quit and reload once. It should still start (offline cache `nova-alpha-1.1`).
 

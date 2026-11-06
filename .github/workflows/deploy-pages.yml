@@ -1,13 +1,15 @@
 # Publishes the game (the public/ folder) to GitHub Pages, so a Quest can play it from a link:
 #   https://devostater.github.io/Project-Nova/
 # One-time setup: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
-# Runs on every push to main. To test another branch: Actions -> "Deploy game to GitHub Pages" ->
+# Run it from Actions -> "Deploy game to GitHub Pages" -> Run workflow. To test another branch: Actions -> "Deploy game to GitHub Pages" ->
 # Run workflow -> pick the branch (that branch must be allowed under Settings -> Environments -> github-pages).
 name: Deploy game to GitHub Pages
 
 on:
-  push:
-    branches: [main]
+  # Manual only for now: the owner plays from the local NOVA folder (start_server.bat).
+  # To publish automatically after Pages is enabled, add back:
+  #   push:
+  #     branches: [main]
   workflow_dispatch:
 
 permissions:
