@@ -6,7 +6,7 @@ Every AI and tool that makes art for Project Nova follows this file. It keeps as
 
 | Asset | Folder | File name pattern | Example |
 |---|---|---|---|
-| VFX sprite sheets | `public/vfx/` | `vfx_<effect>_<variant>_<cols>x<rows>.png` | `vfx_explosion_large_8x8.png` |
+| VFX sprite sheets / effect textures | `public/fx/` | `vfx_<effect>_<variant>_<cols>x<rows>.png` | `vfx_explosion_large_8x8.png` |
 | UI icons, reticles, decals | `public/art/` | `<purpose>_<name>.png` | `reticle_lock.png` |
 | Textures (planets, hulls, skyboxes) | `public/art/textures/` | `tex_<subject>_<size>.jpg` or `.png` | `tex_planet_red_2048.jpg` |
 | 3D models (game-ready) | `public/models/` | `<slug>.glb`, plus `<slug>_lo.glb` for a low-detail version | `pirate_raider.glb` |
@@ -14,6 +14,8 @@ Every AI and tool that makes art for Project Nova follows this file. It keeps as
 | Music | `public/music/` | `<mood_or_track>.mp3` | `battle_market.mp3` |
 
 - Use lowercase and underscores. **No spaces** (spaces break URLs; the current `VFX/*.jpg` files are legacy names).
+- Folder names must not differ only by upper/lower case (Windows treats `VFX` and `vfx` as the same folder). That's why game-ready effects live in `public/fx/`, while the original reference sheets stay in `public/VFX/`.
+- `tools/vfx_cut.py` cuts game-ready textures out of the `public/VFX/` reference sheets. Re-run it when those sheets change; new sheets made to this spec can go straight into `public/fx/`.
 - Never overwrite an existing asset with a different design. Add a new variant name and say which one it replaces in your PR or handoff.
 
 ## VFX sprite sheets

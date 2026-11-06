@@ -10,7 +10,7 @@
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Nobody. Claude takes it next for the sprite-sheet fix (Phase 2).
+**Held by:** Nobody. The sprite-sheet fix landed on PR #3's branch; Claude takes the file next for the `nova` module API (Phase 2).
 
 ## Active claims
 
@@ -24,7 +24,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
-| Google AI Studio Build | VFX texture pack + Alpha 1.0 RC / NOVA14 reconcile | #3 | Claude restored the dropped import map (08d75c8). Open issue: effects show the whole sprite sheet instead of one frame. |
+| Google AI Studio Build | VFX texture pack + Alpha 1.0 RC / NOVA14 reconcile | #3 | Claude restored the dropped import map (08d75c8) and addressed the review in 9cfd570: clean textures in `public/fx/` via `tools/vfx_cut.py`, one atlas frame per effect, capped explosion layers with a cheaper path in VR. Needs an owner test on the Quest. |
 
 ## Done / handoffs
 
