@@ -102,9 +102,15 @@ Game-ready: under [budget from ASSET_SPEC.md] triangles, PBR materials, textures
 ```
 Then name the file to match `optimize_nova.py`, run `optimize_nova.bat`, and upload the result to `public/models/` on a branch.
 
-## Automating handoffs (options)
+## Automating handoffs
 
-Claude can trigger other AIs directly once they are connected:
-- **Codex on GitHub:** with the ChatGPT Codex GitHub integration enabled, a PR comment such as `@codex review` starts a Codex review.
-- **Gemini Code Assist on GitHub:** with the app installed, `/gemini review` on a PR starts a review.
-- **APIs:** with a Gemini API key (AI Studio), an OpenAI key or a Tripo API key saved as a network secret in the Claude environment, Claude can generate images or models, or ask GPT for a review, from its session.
+Both review AIs are connected through GitHub apps. Claude (or the owner) triggers them with a PR comment:
+
+| AI | Trigger in a PR comment | Repo config | Setup (owner, one time) |
+|---|---|---|---|
+| **Codex (GPT)** | `@codex review`, or `@codex <task>` to start a task | `AGENTS.md` | chatgpt.com/codex: connect GitHub, allow this repo, turn on Code review |
+| **Gemini Code Assist** | `/gemini review`, `/gemini summary`, or `@gemini-code-assist <question>` | `.gemini/config.yaml`, `.gemini/styleguide.md` | Install "Gemini Code Assist" from GitHub Marketplace on this repo |
+
+Gemini also reviews each new PR automatically; Codex reviews when asked, unless automatic reviews are turned on in its settings.
+
+**APIs:** the `project-nova` Claude environment has a Gemini API key (network secret on `generativelanguage.googleapis.com`). Image generation needs billing on that Google project; text calls are free-tier. An OpenAI or Tripo key could be added the same way.
