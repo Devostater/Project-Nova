@@ -1,109 +1,230 @@
 /**
- * A11 first-person control core. Requires the A4 nova API; auto-enables for ?arena=range.
- * Uses hand joints/controllers when present and keyboard/gamepad/mouse fallbacks otherwise.
+ * First-person control core for ranges and boarding.
+ * Desktop: WASD + mouse look, click/Space fire, E interact, Esc exit.
+ * Gamepad: left/right sticks, RT fire, A interact, B exit.
+ * Quest controllers: left stick move, right stick snap turn, trigger fire, A interact, B exit.
+ * Hand tracking: left fist moves, left pinch toggles the weapon, right pinch fires.
  */
 export function init(nova) {
-  const T=nova?.THREE, scene=nova?.scene, camera=nova?.camera, rig=nova?.cameraRig, renderer=nova?.renderer;
-  if(!T||!scene||!camera||!rig) return {ready:false,enable(){},disable(){}};
-  const pistol=new T.Group();
-  const gunMat=new T.MeshStandardMaterial({color:0x152535,metalness:0.82,roughness:0.28});
-  const glowMat=new T.MeshStandardMaterial({color:0x27dcff,emissive:0x087795,emissiveIntensity:1.4,metalness:0.3});
-  pistol.add(new T.Mesh(new T.BoxGeometry(0.075,0.09,0.26),gunMat));
-  const grip=new T.Mesh(new T.BoxGeometry(0.06,0.15,0.075),gunMat);grip.position.set(0,-0.1,0.065);pistol.add(grip);
-  const muzzle=new T.Mesh(new T.CylinderGeometry(0.025,0.025,0.09,12),glowMat);muzzle.rotation.x=Math.PI/2;muzzle.position.z=-0.16;pistol.add(muzzle);
+  const T=nova?.THREE,scene=nova?.scene,camera=nova?.camera,rig=nova?.cameraRig,renderer=nova?.renderer;
+  if(!T||!scene||!camera||!rig)return{ready:false,enable(){},disable(){},damage(){}};
+
+  const pistol=new T.Group();pistol.name='NOVA_FPS_PISTOL';
+  const gunMat=new T.MeshStandardMaterial({color:0x152535,metalness:.82,roughness:.28});
+  const glowMat=new T.MeshStandardMaterial({color:0x27dcff,emissive:0x087795,emissiveIntensity:1.4,metalness:.3});
+  pistol.add(new T.Mesh(new T.BoxGeometry(.075,.09,.26),gunMat));
+  const grip=new T.Mesh(new T.BoxGeometry(.06,.15,.075),gunMat);grip.position.set(0,-.1,.065);pistol.add(grip);
+  const muzzle=new T.Mesh(new T.CylinderGeometry(.025,.025,.09,12),glowMat);muzzle.rotation.x=Math.PI/2;muzzle.position.z=-.16;pistol.add(muzzle);
+  const muzzleFlash=new T.Mesh(new T.SphereGeometry(.045,8,6),new T.MeshBasicMaterial({color:0xbffcff,toneMapped:false,transparent:true,opacity:.95}));
+  muzzleFlash.position.z=-.22;muzzleFlash.visible=false;pistol.add(muzzleFlash);
   pistol.visible=false;scene.add(pistol);
-  const ray=new T.Raycaster();ray.far=36;ray.params.Line.threshold=0.08;
-  const origin=new T.Vector3(), direction=new T.Vector3(), forward=new T.Vector3(), right=new T.Vector3(), move=new T.Vector3(), up=new T.Vector3(0,1,0);
-  const thumb=new T.Vector3(), index=new T.Vector3(), mid=new T.Vector3(), wrist=new T.Vector3();
-  const down=new Set();let active=false,armed=true,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=25,comfort=true;
-  let savedP=null,savedQ=null,rightController=null,leftController=null,rightHand=null,leftHand=null,leftFist=false,leftAnchor=null;
-  const overlay=document.createElement('div');
-  Object.assign(overlay.style,{position:'fixed',inset:'0',pointerEvents:'none',zIndex:'35',opacity:'0',transition:'opacity .15s',background:'radial-gradient(transparent 48%, rgba(220,10,20,.55) 100%)'});
-  document.body.appendChild(overlay);
-  const keydown=e=>{down.add(e.code);if(active&&e.code==='Escape')disable();};
-  const keyup=e=>down.delete(e.code);
-  const onMouse=e=>{if(active&&e.button===0)fire();};
-  const onPadDown=e=>{if(!active)return;const p=e.gamepad;if(p?.buttons?.[0]?.pressed)fire();};
-  function fire(){
-    const now=performance.now();if(!active||!weaponOn||now-lastFire<180)return;lastFire=now;
-    camera.getWorldDirection(direction); camera.getWorldPosition(origin);
-    const session=renderer?.xr?.getSession?.();
-    if(session&&rightHand&&handPoint(rightHand,'index-finger-tip',index)&&handPoint(rightHand,'wrist',wrist)){origin.copy(index);direction.subVectors(index,wrist).normalize();}
-    else if(session&&rightController){rightController.getWorldPosition(origin);rightController.getWorldDirection(direction);}
-    ray.set(origin,direction.normalize());
-    const hits=ray.intersectObjects(scene.children,true);
-    for(const hit of hits){
-      let target=hit.object,depth=0;
-      while(target&&depth++<8&&!target.userData?.rangeTarget)target=target.parent;
-      if(!target)continue;
-      const data=target.userData||{};
-      if(typeof data.onHit==='function')data.onHit(25,{origin,point:hit.point});
-      else if(typeof data.health==='number'){data.health=Math.max(0,data.health-25);if(data.health===0)target.visible=false;}
-      else target.visible=false;
-      nova.emit?.('targetHit',{target,damage:25,point:hit.point});
-      return;
-    }
+
+  const tracerGeo=new T.BoxGeometry(.018,.018,1);
+  const tracerMat=new T.MeshBasicMaterial({color:0x69f5ff,toneMapped:false,transparent:true,opacity:.85,depthWrite:false,blending:T.AdditiveBlending});
+  const tracerRoot=new T.Group();tracerRoot.name='NOVA_FPS_TRACERS';scene.add(tracerRoot);
+  const tracers=Array.from({length:10},()=>{const mesh=new T.Mesh(tracerGeo,tracerMat);mesh.visible=false;tracerRoot.add(mesh);return{mesh,life:0};});
+
+  const hudCanvas=document.createElement('canvas');hudCanvas.width=1024;hudCanvas.height=512;
+  const hudTexture=new T.CanvasTexture(hudCanvas);hudTexture.colorSpace=T.SRGBColorSpace||hudTexture.colorSpace;
+  const hudMaterial=new T.MeshBasicMaterial({map:hudTexture,transparent:true,depthTest:false,depthWrite:false,toneMapped:false});
+  const hud=new T.Mesh(new T.PlaneGeometry(1.72,.86),hudMaterial);hud.name='NOVA_HELMET_HUD';hud.position.set(0,0,-1.5);hud.renderOrder=10000;hud.visible=false;camera.add(hud);
+
+  const damageOverlay=document.createElement('div');
+  Object.assign(damageOverlay.style,{position:'fixed',inset:'0',pointerEvents:'none',zIndex:'35',opacity:'0',transition:'opacity .12s',background:'radial-gradient(transparent 48%, rgba(220,10,20,.55) 100%)'});
+  document.body.appendChild(damageOverlay);
+
+  const ray=new T.Raycaster();ray.far=60;ray.params.Line.threshold=.08;
+  const origin=new T.Vector3(),direction=new T.Vector3(),forward=new T.Vector3(),right=new T.Vector3(),move=new T.Vector3(),up=new T.Vector3(0,1,0);
+  const thumb=new T.Vector3(),index=new T.Vector3(),middle=new T.Vector3(),wrist=new T.Vector3(),endPoint=new T.Vector3(),midPoint=new T.Vector3();
+  const controllerQ=new T.Quaternion();
+  const down=new Set();
+  let active=false,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=25,yaw=0,pitch=0,hudTimer=0,muzzleTimer=0;
+  let rightController=null,leftController=null,rightHand=null,leftHand=null,leftFist=false,leftAnchor=null;
+  let leftPinchHeld=false,rightPinchHeld=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false,pointerWasLocked=false;
+  let options={};
+
+  function drawHud(){
+    const c=hudCanvas.getContext('2d');c.clearRect(0,0,1024,512);
+    const hit=lastDamage>0;
+    c.strokeStyle=hit?'rgba(255,45,65,.95)':'rgba(0,229,255,.58)';c.lineWidth=8;
+    c.beginPath();c.moveTo(46,92);c.lineTo(46,40);c.lineTo(210,40);c.moveTo(814,40);c.lineTo(978,40);c.lineTo(978,92);
+    c.moveTo(46,420);c.lineTo(46,472);c.lineTo(210,472);c.moveTo(814,472);c.lineTo(978,472);c.lineTo(978,420);c.stroke();
+    c.strokeStyle=weaponOn?'#7ffcff':'#607b86';c.lineWidth=4;c.beginPath();c.arc(512,256,18,0,Math.PI*2);c.moveTo(482,256);c.lineTo(501,256);c.moveTo(523,256);c.lineTo(542,256);c.moveTo(512,226);c.lineTo(512,245);c.moveTo(512,267);c.lineTo(512,286);c.stroke();
+    c.fillStyle='rgba(3,18,28,.78)';c.fillRect(48,406,928,68);
+    c.font='bold 25px monospace';c.textAlign='left';c.fillStyle='#7ffcff';c.fillText('HELMET · '+String(options.mode||'FPS').toUpperCase(),70,438);
+    c.fillStyle=health>35?'#65ffad':'#ff596d';c.fillText('HULL '+Math.round(health)+'%',360,438);
+    c.fillStyle='#58dfff';c.fillText('SHIELD '+Math.round(shield)+'%',540,438);
+    c.fillStyle=weaponOn?'#ffcf58':'#8295a0';c.fillText(weaponOn?'ARMED':'HANDS',760,438);
+    c.font='18px monospace';c.fillStyle='#a9d8e8';c.fillText('WASD / STICKS MOVE · CLICK / RT FIRE · E / A USE · ESC / B EXIT',70,464);
+    hudTexture.needsUpdate=true;
   }
-  function setDamage(amount){
-    let n=Math.max(0,Number(amount)||0);const absorbed=Math.min(shield,n);shield-=absorbed;n-=absorbed;health=Math.max(0,health-n);
-    lastDamage=1.25; if(comfort)overlay.style.opacity='1';
-    nova.emit?.('playerDamaged',{health,shield,amount});
-    if(health===0)disable();
-  }
+
   function joint(hand,name){return hand?.getObjectByName?.(name)||null;}
   function handPoint(hand,name,out){const j=joint(hand,name);if(!j)return false;j.getWorldPosition(out);return true;}
+  function stickAxes(gamepad){const a=gamepad?.axes||[];return a.length>=4?[a[a.length-2]||0,a[a.length-1]||0]:[a[0]||0,a[1]||0];}
+  function dead(v,z=.17){return Math.abs(v)<z?0:v;}
+  function setWeaponParent(parent,hand=false){
+    if(!parent)return;
+    if(pistol.parent!==parent)parent.add(pistol);
+    pistol.position.set(hand ? .035 : .045,hand ? -.035 : -.045,hand ? -.12 : -.16);
+    pistol.rotation.set(0,Math.PI,0);
+  }
+  function aimRay(){
+    camera.getWorldPosition(origin);camera.getWorldDirection(direction);
+    if(session&&rightHand&&weaponOn&&handPoint(rightHand,'index-finger-tip',index)&&handPoint(rightHand,'wrist',wrist)){
+      origin.copy(index);direction.subVectors(index,wrist).normalize();
+    }else if(session&&rightController){
+      rightController.getWorldPosition(origin);direction.set(0,0,-1).applyQuaternion(rightController.getWorldQuaternion(controllerQ));
+    }
+    direction.normalize();ray.set(origin,direction);return ray.intersectObjects(scene.children,true);
+  }
+  function findUserData(object,key){
+    let node=object,depth=0;
+    while(node&&depth++<12){if(node.userData&&node.userData[key])return node;node=node.parent;}
+    return null;
+  }
+  function showTracer(distance){
+    const t=tracers.find(x=>x.life<=0)||tracers[0];const d=Math.max(.5,Math.min(16,distance||12));
+    endPoint.copy(origin).addScaledVector(direction,d);midPoint.copy(origin).add(endPoint).multiplyScalar(.5);
+    t.mesh.position.copy(midPoint);t.mesh.scale.set(1,1,d);t.mesh.lookAt(endPoint);t.mesh.visible=true;t.life=.07;
+  }
+  function fire(){
+    const now=performance.now();if(!active||!weaponOn||now-lastFire<160)return false;lastFire=now;
+    const hits=aimRay();let targetHit=null,hitDistance=14;
+    options.onShot?.();
+    for(const hit of hits){
+      const target=findUserData(hit.object,'rangeTarget');if(!target)continue;
+      targetHit=target;hitDistance=hit.distance;
+      const data=target.userData||{};
+      if(typeof data.onHit==='function')data.onHit(25,{origin:origin.clone(),point:hit.point.clone()});
+      else if(typeof data.health==='number'){data.health=Math.max(0,data.health-25);if(data.health===0)target.visible=false;}
+      else target.visible=false;
+      nova.emit?.('targetHit',{target,damage:25,point:hit.point});break;
+    }
+    showTracer(hitDistance);muzzleFlash.visible=true;muzzleTimer=.045;
+    nova.emit?.('fpsWeaponFired',{mode:options.mode||'fps',hit:!!targetHit});
+    return true;
+  }
+  function interact(){
+    if(!active)return false;
+    const hits=aimRay();
+    for(const hit of hits){
+      const target=findUserData(hit.object,'fpsInteract');
+      if(target){target.userData.fpsInteract();return true;}
+      if(hit.distance>3)break;
+    }
+    return options.onInteract?.()!==false;
+  }
+  function requestExit(reason='input'){
+    if(!active||exiting)return;exiting=true;
+    if(typeof options.onExit==='function')options.onExit(reason);else disable();
+    exiting=false;
+  }
+  function damage(amount){
+    let n=Math.max(0,Number(amount)||0),absorbed=Math.min(shield,n);shield-=absorbed;n-=absorbed;health=Math.max(0,health-n);
+    lastDamage=1.25;if(!renderer?.xr?.isPresenting)damageOverlay.style.opacity='1';drawHud();
+    nova.emit?.('playerDamaged',{health,shield,amount});
+    if(health===0){nova.toast?.('SUIT FAILURE · EVACUATING',1800,'#ff4359');requestExit('down');}
+  }
+  function walk(x,z,dt){
+    x=dead(x);z=dead(z);if(Math.abs(x)+Math.abs(z)<.01)return;
+    camera.getWorldDirection(forward);forward.y=0;if(forward.lengthSq()<.001)forward.set(0,0,-1);forward.normalize();
+    right.crossVectors(forward,up).normalize();move.set(0,0,0).addScaledVector(right,x).addScaledVector(forward,-z);
+    if(move.lengthSq()>1)move.normalize();rig.position.addScaledVector(move,(options.speed||3.1)*dt);
+    const b=options.bounds;if(b){rig.position.x=T.MathUtils.clamp(rig.position.x,b[0],b[1]);rig.position.z=T.MathUtils.clamp(rig.position.z,b[2],b[3]);}
+  }
+  function mouseMove(e){
+    if(!active||renderer?.xr?.isPresenting||document.pointerLockElement!==renderer.domElement)return;
+    yaw-=e.movementX*.0022;pitch=T.MathUtils.clamp(pitch-e.movementY*.0022,-1.25,1.25);
+  }
+  function pointerDown(e){
+    if(!active||renderer?.xr?.isPresenting)return;
+    if(document.pointerLockElement!==renderer.domElement){renderer.domElement.requestPointerLock?.();return;}
+    if(e.button===0)fire();if(e.button===2)interact();
+  }
+  function pointerLockChange(){
+    if(document.pointerLockElement===renderer.domElement){pointerWasLocked=true;return;}
+    if(active&&pointerWasLocked){pointerWasLocked=false;requestExit('keyboard');}
+  }
+  function keyDown(e){
+    if(!active)return;down.add(e.code);
+    if(e.code==='Escape'){e.preventDefault();requestExit('keyboard');}
+    else if(e.code==='Space'){e.preventDefault();fire();}
+    else if(e.code==='KeyE'||e.code==='Enter'){e.preventDefault();interact();}
+  }
+  function keyUp(e){down.delete(e.code);}
+  function selectStart(){if(active)fire();}
+
   function tick(dt){
     if(!active)return;const d=Math.min(.05,Math.max(0,Number(dt)||0));
-    lastDamage=Math.max(0,lastDamage-d);if(!lastDamage)overlay.style.opacity='0';
-    const session=renderer?.xr?.getSession?.();
+    lastDamage=Math.max(0,lastDamage-d);muzzleTimer=Math.max(0,muzzleTimer-d);if(!muzzleTimer)muzzleFlash.visible=false;
+    if(!lastDamage)damageOverlay.style.opacity='0';
+    for(const t of tracers){if(t.life>0){t.life-=d;if(t.life<=0)t.mesh.visible=false;}}
+    session=renderer?.xr?.getSession?.()||null;
     if(session){
-      rightController=renderer.xr.getController?.(1)||rightController;
-      leftController=renderer.xr.getController?.(0)||leftController;
-      rightHand=renderer.xr.getHand?.(1)||rightHand;leftHand=renderer.xr.getHand?.(0)||leftHand;
-      if(rightHand&&pistol.parent!==rightHand){rightHand.add(pistol);pistol.position.set(.035,-.035,-.12);pistol.rotation.set(0,Math.PI,0);}
-      const pinch=handPoint(rightHand,'thumb-tip',thumb)&&handPoint(rightHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.035;
-      if(pinch&&armed){weaponOn=!weaponOn;armed=false;} if(!pinch)armed=true;
-      const curled=handPoint(leftHand,'middle-finger-tip',mid)&&handPoint(leftHand,'wrist',wrist)&&mid.distanceTo(wrist)<.085;
-      if(curled){if(!leftFist){leftAnchor=wrist.clone();leftFist=true;}
-        const dx=wrist.x-leftAnchor.x,dz=wrist.z-leftAnchor.z;
-        if(Math.abs(dx)+Math.abs(dz)>.025){move.set(dx*3,0,dz*3);rig.position.addScaledVector(move,d);}}
-      else {leftFist=false;leftAnchor=null;}
-      const gp=rightController?.gamepad;
-      if(gp?.buttons?.[0]?.pressed)fire();
-      const lg=leftController?.gamepad,axes=lg?.axes||[];
-      if(!leftFist&&axes.length>3){const x=Math.abs(axes[2])>.16?axes[2]:0,z=Math.abs(axes[3])>.16?axes[3]:0;walk(x,z,d);}
+      const sources=[...session.inputSources],rightSource=sources.find(s=>s.handedness==='right'),leftSource=sources.find(s=>s.handedness==='left');
+      const rightIndex=sources.indexOf(rightSource),leftIndex=sources.indexOf(leftSource);
+      if(rightIndex>=0){rightController=renderer.xr.getController?.(rightIndex)||rightController;rightHand=renderer.xr.getHand?.(rightIndex)||rightHand;}
+      if(leftIndex>=0){leftController=renderer.xr.getController?.(leftIndex)||leftController;leftHand=renderer.xr.getHand?.(leftIndex)||leftHand;}
+      if(rightSource?.hand&&rightHand){setWeaponParent(rightHand,true);}
+      else if(rightController)setWeaponParent(rightController,false);
+      let mx=0,mz=0,turn=0,trigger=false,use=false,leave=false;
+      const la=stickAxes(leftSource?.gamepad),ra=stickAxes(rightSource?.gamepad);
+      mx=dead(la[0]);mz=dead(la[1]);turn=dead(ra[0],.55);
+      trigger=(rightSource?.gamepad?.buttons?.[0]?.value||0)>.45;
+      use=!!rightSource?.gamepad?.buttons?.[4]?.pressed||!!rightSource?.gamepad?.buttons?.[1]?.pressed;
+      leave=!!rightSource?.gamepad?.buttons?.[5]?.pressed;
+      if(turn){if(!snapHeld){rig.rotation.y-=Math.sign(turn)*Math.PI/6;snapHeld=true;}}else snapHeld=false;
+      walk(mx,mz,d);if(trigger)fire();if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('vr');
+      padUseHeld=use;padExitHeld=leave;
+      const leftPinch=handPoint(leftHand,'thumb-tip',thumb)&&handPoint(leftHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.034;
+      if(leftPinch&&!leftPinchHeld){weaponOn=!weaponOn;pistol.visible=weaponOn;drawHud();}leftPinchHeld=leftPinch;
+      const rightPinch=handPoint(rightHand,'thumb-tip',thumb)&&handPoint(rightHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.034;
+      if(rightPinch&&!rightPinchHeld&&weaponOn)fire();rightPinchHeld=rightPinch;
+      const curled=handPoint(leftHand,'middle-finger-tip',middle)&&handPoint(leftHand,'wrist',wrist)&&middle.distanceTo(wrist)<.085;
+      if(curled&&!leftPinch){if(!leftFist){leftAnchor=wrist.clone();leftFist=true;}const dx=wrist.x-leftAnchor.x,dz=wrist.z-leftAnchor.z;if(Math.abs(dx)+Math.abs(dz)>.025)walk(dx*4,dz*4,d);}
+      else{leftFist=false;leftAnchor=null;}
     }else{
-      const pads=navigator.getGamepads?.()||[];const pad=[...pads].find(p=>p?.connected);
+      if(pistol.parent!==camera){camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,Math.PI,0);}
       let x=(down.has('KeyD')?1:0)-(down.has('KeyA')?1:0),z=(down.has('KeyS')?1:0)-(down.has('KeyW')?1:0);
-      if(pad){x=pad.axes?.[0]||x;z=pad.axes?.[1]||z;if(pad.buttons?.[7]?.value>.45)fire();}
-      walk(x,z,d);
+      const pads=navigator.getGamepads?.()||[],pad=[...pads].find(p=>p?.connected&&p.mapping==='standard');
+      let use=false,leave=false;
+      if(pad){
+        x=Math.abs(pad.axes?.[0]||0)>.17?(pad.axes[0]||0):x;z=Math.abs(pad.axes?.[1]||0)>.17?(pad.axes[1]||0):z;
+        yaw-=dead(pad.axes?.[2]||0)*d*2.2;pitch=T.MathUtils.clamp(pitch-dead(pad.axes?.[3]||0)*d*1.8,-1.25,1.25);
+        if((pad.buttons?.[7]?.value||0)>.45)fire();use=!!pad.buttons?.[0]?.pressed;leave=!!pad.buttons?.[1]?.pressed;
+      }
+      rig.rotation.set(0,yaw,0);camera.rotation.set(pitch,0,0,"YXZ");walk(x,z,d);
+      if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('gamepad');padUseHeld=use;padExitHeld=leave;
     }
-    if(session&&weaponOn&&rightHand){
-      if(handPoint(rightHand,'thumb-tip',thumb)&&handPoint(rightHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.035)fire();
-    }
+    hudTimer-=d;if(hudTimer<=0){hudTimer=.1;drawHud();}
   }
-  function walk(x,z,d){
-    if(Math.abs(x)+Math.abs(z)<.08)return;
-    camera.getWorldDirection(forward);forward.y=0;forward.normalize();right.crossVectors(forward,up).normalize();
-    move.set(0,0,0).addScaledVector(right,x).addScaledVector(forward,-z);
-    if(move.lengthSq()>1)move.normalize();rig.position.addScaledVector(move,3.1*d);
-  }
-  function enable(){
-    if(active)return;active=true;savedP=rig.position.clone();savedQ=rig.quaternion.clone();
+
+  function enable(next={}){
+    if(active){options={...options,...next};drawHud();return true;}
+    options=next||{};active=true;exiting=false;weaponOn=true;health=100;shield=25;lastDamage=0;
+    yaw=rig.rotation.y;pitch=camera.rotation.x;hud.visible=true;pistol.visible=true;
     rightController=renderer?.xr?.getController?.(1)||null;leftController=renderer?.xr?.getController?.(0)||null;
-    pistol.visible=true;rightController?.add(pistol);pistol.position.set(.045,-.035,-.12);pistol.rotation.set(0,Math.PI,0);
-    window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('mousedown',onMouse);
-    renderer?.domElement?.addEventListener('selectstart',fire);
-    nova.toast?.('FPS CONTROLS ACTIVE · WASD / LEFT STICK · CLICK / TRIGGER FIRE',2500,'#00e5ff');
+    if(renderer?.xr?.isPresenting&&rightController)setWeaponParent(rightController,false);else{camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,Math.PI,0);}
+    window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('mousemove',mouseMove);document.addEventListener('pointerlockchange',pointerLockChange);
+    renderer.domElement.addEventListener('pointerdown',pointerDown);renderer.domElement.addEventListener('contextmenu',preventMenu);
+    rightController?.addEventListener?.('selectstart',selectStart);
+    drawHud();nova.toast?.('FPS ACTIVE · WASD/MOUSE · RT FIRE · A USE · B EXIT',2800,'#00e5ff');return true;
   }
+  function preventMenu(e){if(active)e.preventDefault();}
   function disable(){
-    if(!active)return;active=false;down.clear();pistol.visible=false;
-    if(pistol.parent!==scene)scene.add(pistol);
-    if(savedP)rig.position.copy(savedP);if(savedQ)rig.quaternion.copy(savedQ);
-    window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('mousedown',onMouse);
-    renderer?.domElement?.removeEventListener('selectstart',fire);overlay.style.opacity='0';
+    if(!active)return false;active=false;down.clear();pistol.visible=false;hud.visible=false;damageOverlay.style.opacity='0';
+    if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
+    window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
+    renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('contextmenu',preventMenu);
+    rightController?.removeEventListener?.('selectstart',selectStart);
+    for(const t of tracers){t.life=0;t.mesh.visible=false;}options={};session=null;return true;
   }
+
   const off=nova.onTick?.(tick);
-  const api={ready:true,enable,disable,damage:setDamage,get health(){return health;},get shield(){return shield;},set comfortVignette(v){comfort=!!v;}};
-  return api;
+  return{ready:true,enable,disable,fire,interact,damage,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
+    disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(tracerRoot);damageOverlay.remove();
+    tracerGeo.dispose();tracerMat.dispose();hud.geometry.dispose();hudMaterial.dispose();hudTexture.dispose();
+    pistol.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
+  }};
 }

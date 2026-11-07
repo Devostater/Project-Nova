@@ -39,6 +39,8 @@ const FILES = [
 "./fx/vfx_spark.png",
 "./fx/vfx_warp_streaks.png",
 "./fx/vfx_warp_tunnel.jpg",
+"./fx/vfx_missile_plume.jpg",
+"./fx/vfx_thruster_glow.jpg",
 "./modules/fps_core.js",
 "./modules/fps_ai.js",
 "./modules/boarding.js",
