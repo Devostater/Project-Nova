@@ -4,7 +4,7 @@
 
 ## ▶ Owner away: work from `AI_QUEUE.md`
 
-Each AI takes the next unclaimed card in its lane (A = GPT/Codex, B = Gemini, C = AI Studio), claims it under Active claims, works on its own branch and opens a draft PR. Claude's open PR: #11 (cockpit tweaks), which is waiting for the owner.
+Each AI takes the next unclaimed card in its lane (A = GPT/Codex, B = Gemini, C = AI Studio), claims it under Active claims, works on its own branch and opens a draft PR. Claude's PR #11 is merged.
 
 ## ⚠ Read first: work from the latest GitHub `main`, never an old local copy
 
@@ -18,7 +18,7 @@ On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Claude (`claude/merge-gpt-cockpit`) until the Alpha 1.3 PR merges.
+**Held by:** Nobody; Codex released the tablet HUD area in draft PR #21.
 
 ## Active claims
 
@@ -32,11 +32,13 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
-| — | — | — | — |
+| Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: tablet touch HUD visibility** ([draft PR #21](https://github.com/Devostater/Project-Nova/pull/21), branch `codex/tablet-touch-hud`). The DOM HUD overlay and version badge are hidden while tablet touch controls are active; auto device detection and manual toggle both update the state. All three game files are synchronized. How to test: on desktop compare controls off/on; on tablet enable and disable touch controls and confirm the HUD follows the state. Checks not run: browser runtime, automated, tablet, gamepad, Quest. Next: review PR #21.
 
 - **Claude: salvage drops + TRACTOR (AI_QUEUE A2)** (`claude/modules-salvage`). Faction kills drop salvage pods (fighters 25%, big ships 60% ×2, bosses 100% ×3; at most 8 in space; despawn after 120 s). Contents: salvage, credits, ore, missiles, flares, shield caps, or a **heat core** (rare; more likely from big ships; counted in `localStorage.novaHeatCores`). Pods appear as grey `salvage` contacts in the target cycle, holo-radar and COMMS list. Lock one, then **TRACTOR** (a COMMS pad that appears only when a pod is locked, or **G** on keyboard) pulls it in within 500 m. Test hooks: `novaTest.salvage()`, `.lockSalvage()`, `.salvageState()`. Built inline, not yet as a module (A4 still open). Checks: `node --check`; headless spawn → lock → tractor stows a heat core, no errors. Not checked: COMMS-list display on Quest, gamepad binding.
 - **Claude: cockpit tweaks** (`claude/cockpit-tweaks`, owner requests). The right-dash 3D radar moved inward (x 0.28 → 0.19, slightly lower and closer); right side panel scale 0.86 → 1.0 (left unchanged); the music page has 5 stations (NOVA-1 FM soundtrack with AUTO, SYNTHWAVE 88, DEEP SPACE RADIO, PIRATE RADIO, OBI'S MIX), 6 new synth tracks with per-track waveform and gain, and working touch controls on the right panel (◀/▶ station, PREV / PLAY-PAUSE / NEXT, VOL −/+, RANDOM, AUTO; the right panel had no pad hit zones, so the old music pads couldn't be pressed). Warp: 600 star streaks in a 12–80 m tube that stretch with warp and fly past per star (`novaWarpFxTick`); GPT's starfield dots were sub-pixel and moved as one block. Checks: `node --check`; headless Chromium: music API, stations, track step and volume work, the music page renders, the right panel is at 1.0, warp streaks render, no errors. Warp and radar reach not checked on Quest.
