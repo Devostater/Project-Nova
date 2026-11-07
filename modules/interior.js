@@ -31,6 +31,7 @@ export function init(api) {
     const door=new THREE.Mesh(new THREE.PlaneGeometry(2.8,3.5),new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:.35,toneMapped:false,side:THREE.DoubleSide}));
     door.rotation.y=Math.PI;door.position.set(0,1.75,5.9);door.userData.fpsInteract=()=>exit('door');root.add(door);S.door=door;
     const exitPanel=makeTextPanel('EXIT',()=> 'RETURN TO COCKPIT',3.5,.88);exitPanel.position.set(0,4.15,5.82);exitPanel.rotation.y=Math.PI;exitPanel.userData.draw();exitPanel.userData.fpsInteract=()=>exit('door');root.add(exitPanel);
+    const exitPrompt=makeTextPanel('EXIT ARENA',()=> 'CLICK / TOUCH / ESC / B TO LEAVE',2.6,.65);exitPrompt.position.set(0,1.75,5.75);exitPrompt.rotation.y=Math.PI;exitPrompt.userData.draw();exitPrompt.userData.fpsInteract=()=>exit('door');root.add(exitPrompt);
     S.sign=makeTextPanel('FIRING RANGE',()=>{const acc=S.shots?Math.round(100*S.hits/S.shots):0;return 'SCORE '+S.score+'   HITS '+S.hits+'/'+S.shots+'   '+acc+'%';});
     S.sign.position.set(0,5.2,-3);root.add(S.sign);S.sign.userData.draw();
     S.targets=[];const spots=[[-5,-10],[0,-14],[5,-10],[-4,-24],[3,-30],[-1,-42],[6,-46],[-6,-36]];
@@ -49,10 +50,13 @@ export function init(api) {
   const ARENAS={range:{build:buildRange,start:[0,0,3],bounds:[-7.4,7.4,-52,5.4],name:'FIRING RANGE'}};
   function enter(def){
     if(S.active)return true;if(typeof def==='string')def=ARENAS[def];if(!def)return false;
-    S.def=def;S.root=def.build();scene.add(S.root);S.pos.set(def.start[0],0,def.start[2]);S.score=S.shots=S.hits=0;
+    S.def=def;S.root=def.build();
+    if(!S.root){exit('load_failed');return false;}
+    scene.add(S.root);S.pos.set(def.start[0],0,def.start[2]);S.score=S.shots=S.hits=0;
     S.prevParent=cameraRig.parent;S.prevRigPos=cameraRig.position.clone();S.prevRigQ=cameraRig.quaternion.clone();
     scene.add(cameraRig);cameraRig.quaternion.identity();camera.rotation.set(0,0,0);S.active=true;S.exiting=false;
-    cameraRig.position.set(ORIGIN.x+S.pos.x,ORIGIN.y+1.65,ORIGIN.z+S.pos.z);api.setActive?.(true);
+    const floorY=renderer?.xr?.isPresenting?0:1.65;
+    cameraRig.position.set(ORIGIN.x+S.pos.x,ORIGIN.y+floorY,ORIGIN.z+S.pos.z);api.setActive?.(true);
     api.modules?.fps_core?.enable?.({mode:'RANGE',speed:3.2,bounds:[ORIGIN.x+def.bounds[0],ORIGIN.x+def.bounds[1],ORIGIN.z+def.bounds[2],ORIGIN.z+def.bounds[3]],onExit:()=>exit('input'),onShot:()=>{S.shots++;S.sign?.userData.draw?.();}});
     api.modules?.fps_ai?.start?.({origin:S.root.position});
     toast?.(def.name+': WASD/mouse or sticks. Walk through EXIT, Esc or B to leave.',4200,'#00e5ff');return true;
@@ -65,9 +69,13 @@ export function init(api) {
     toast?.('Left the range. Score '+S.score+', '+S.hits+'/'+S.shots+' hits.',3000,'#00e5ff');api.onExit?.({reason,score:S.score,hits:S.hits,shots:S.shots});S.exiting=false;return true;
   }
   function frame(dt){
-    if(!S.active||!S.root)return;
+    if(!S.active||!S.root){if(S.active)exit('root_missing');return;}
+    const floorY=renderer?.xr?.isPresenting?0:1.65;
+    if(cameraRig.position.y<ORIGIN.y+floorY-2.5||cameraRig.position.y>ORIGIN.y+floorY+10){exit('out_of_bounds');return;}
     S.pos.set(cameraRig.position.x-ORIGIN.x,0,cameraRig.position.z-ORIGIN.z);
-    const B=S.def.bounds;S.pos.x=THREE.MathUtils.clamp(S.pos.x,B[0],B[1]);S.pos.z=THREE.MathUtils.clamp(S.pos.z,B[2],B[3]);
+    const B=S.def.bounds;
+    if(S.pos.x<B[0]-6||S.pos.x>B[1]+6||S.pos.z<B[2]-8||S.pos.z>B[3]+8){exit('out_of_bounds');return;}
+    S.pos.x=THREE.MathUtils.clamp(S.pos.x,B[0],B[1]);S.pos.z=THREE.MathUtils.clamp(S.pos.z,B[2],B[3]);
     cameraRig.position.x=ORIGIN.x+S.pos.x;cameraRig.position.z=ORIGIN.z+S.pos.z;
     if(S.pos.z>5.12&&Math.abs(S.pos.x)<1.45){exit('door');return;}
     const time=performance.now()*.001;

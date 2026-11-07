@@ -45,8 +45,8 @@ export function init(nova) {
   function stop(){state.manual=false;setActive(false);}
   function loadModel(){
     const isPublic=import.meta.url.includes('/public/modules/');
-    const loaderUrl=new URL(isPublic?'../vendor/loaders/GLTFLoader.js':'../public/vendor/loaders/GLTFLoader.js',import.meta.url).href;
-    const modelUrl=new URL(isPublic?'../models/alien_attack_drone.glb':'../public/models/alien_attack_drone.glb',import.meta.url).href;
+    const loaderUrl=new URL('../vendor/loaders/GLTFLoader.js',import.meta.url).href;
+    const modelUrl=new URL('../models/alien_attack_drone.glb',import.meta.url).href;
     import(loaderUrl).then(({GLTFLoader})=>{
       if(state.disposed||!GLTFLoader)return;
       new GLTFLoader().load(modelUrl,gltf=>{

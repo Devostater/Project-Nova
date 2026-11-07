@@ -7,9 +7,9 @@ export function init(nova) {
   if(!T||!scene||!rig||!camera)return{ready:false,board(){return false;},returnToCockpit(){}};
   const root=new T.Group();root.name='NOVA_DERELICT_INTERIOR';root.visible=false;scene.add(root);
   const loader=new T.TextureLoader();
-  const floorTex=loader.load(new URL(import.meta.url.includes('/public/modules/')?'../art/textures/tex_metal_floor_1024.jpg':'../public/art/textures/tex_metal_floor_1024.jpg',import.meta.url).href);
-  const wallTex=loader.load(new URL(import.meta.url.includes('/public/modules/')?'../art/textures/tex_metal_wall_1024.jpg':'../public/art/textures/tex_metal_wall_1024.jpg',import.meta.url).href);
-  const stripeTex=loader.load(new URL(import.meta.url.includes('/public/modules/')?'../art/textures/tex_hazard_stripes_1024.jpg':'../public/art/textures/tex_hazard_stripes_1024.jpg',import.meta.url).href);
+  const floorTex=loader.load(new URL('../art/textures/tex_metal_floor_1024.jpg',import.meta.url).href);
+  const wallTex=loader.load(new URL('../art/textures/tex_metal_wall_1024.jpg',import.meta.url).href);
+  const stripeTex=loader.load(new URL('../art/textures/tex_hazard_stripes_1024.jpg',import.meta.url).href);
   for(const tex of [floorTex,wallTex,stripeTex]){tex.colorSpace=T.SRGBColorSpace||tex.colorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;}
   floorTex.repeat.set(3,8);wallTex.repeat.set(3,2);stripeTex.repeat.set(5,1);
   const floorMat=new T.MeshStandardMaterial({map:floorTex,roughness:.74,metalness:.58});

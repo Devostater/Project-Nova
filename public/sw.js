@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.7';
+const VERSION = 'nova-alpha-1.11';
 const FILES = [
 "./art/alien_planet.jpg",
 "./art/asteroid.jpg",
@@ -95,6 +95,16 @@ const FILES = [
 "./models/overhead_dash.glb",
 "./models/patrol.glb",
 "./models/pirate_fighter.glb",
+"./art/textures/tex_rock_basalt_1024.jpg",
+"./art/textures/tex_rock_basalt_n_1024.jpg",
+"./art/textures/tex_rock_iron_1024.jpg",
+"./art/textures/tex_rock_iron_n_1024.jpg",
+"./art/textures/tex_rock_carbon_1024.jpg",
+"./art/textures/tex_rock_carbon_n_1024.jpg",
+"./art/textures/tex_rock_ice_1024.jpg",
+"./art/textures/tex_rock_ice_n_1024.jpg",
+"./art/textures/tex_rock_sulfur_1024.jpg",
+"./art/textures/tex_rock_sulfur_n_1024.jpg",
 "./models/alien_missile.glb",
 "./models/pirate_missile.glb",
 "./models/cantina_bar.glb",
@@ -109,6 +119,8 @@ const FILES = [
 "./models/cargo_hauler.glb",
 "./models/clanker_station.glb",
 "./art/poster_nova1.jpg",
+"./art/textures/tex_cantina_wall.jpg",
+"./art/textures/tex_cantina_floor.jpg",
 "./models/pirate_fighter_lo.glb",
 "./models/pirate_frigate.glb",
 "./models/pirate_frigate_lo.glb",
@@ -148,13 +160,14 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
   for (const k of await caches.keys()) if (k !== VERSION) await caches.delete(k);
   self.clients.claim();
 })()));
-// network first for the page (so updates arrive), cache first for models, art and music
+// network first for code (page, modules, json) so updates always arrive; cache first for models, art and music
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url); if (e.request.method !== 'GET' || u.origin !== location.origin) return;
-  const page = u.pathname.endsWith('.html') || u.pathname.endsWith('/');
+  if (u.pathname.includes('/video/')) return; // stream cinematics straight from the network (range requests can't be cached)
+  const page = /(\.html|\.js|\.mjs|\.json|\.webmanifest|\/)$/.test(u.pathname);
   e.respondWith((async () => {
     const c = await caches.open(VERSION);
-    if (page) { try { const r = await fetch(e.request); c.put(e.request, r.clone()); return r; } catch (err) { return (await c.match(e.request, { ignoreSearch: true })) || Response.error(); } }
+    if (page) { try { const r = await fetch(e.request, { cache: 'no-cache' }); c.put(e.request, r.clone()); return r; } catch (err) { return (await c.match(e.request, { ignoreSearch: true })) || Response.error(); } }
     const hit = await c.match(e.request, { ignoreSearch: true }); if (hit) return hit;
     const r = await fetch(e.request); if (r.ok) c.put(e.request, r.clone()); return r;
   })());
