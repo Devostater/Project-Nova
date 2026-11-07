@@ -1,14 +1,23 @@
 # Matrix: Character Identity
 
-## Established (owner-confirmed)
-- **Matrix** is an AZI AI character and digital personality.
-- Matrix is also a creative-media project.
+## Established owner-described concept
+- **Matrix** is an AI character, digital personality, DJ/media persona, and envisioned assistant under **Absolute Zero Interactive (AZI)**.
+- The creator described Matrix as a **female cyberpunk operative** with a purple-and-black design direction, headphones and holographic equalizer elements.
+- The creative framing includes a lost-transmission / communications aesthetic and an operative identity.
+- Matrix has been imagined as a recognizable character for music/media content, a profile image, and potentially a future 3D model and AI assistant experience.
+
+## Recurring visual motifs (owner-described)
+- Purple/black cyberpunk styling.
+- Headphones with holographic EQ visualizations.
+- Futuristic operative equipment and transmission-themed details.
+- Industrial environments and a recurring train/intermission setting; numbered transmissions such as “Transmission 002.”
+- A **Star Landers** emblem appeared in an earlier visual brief. Do not assume it is the current approved AZI logo.
+
+## Important boundaries
+The concepts above are established **creative direction**, not a finalized model sheet or fixed character biography. Exact face, hairstyle, clothing geometry, age, voice, origin, and story relationships remain open. Historical descriptions included Quantum Drop Studios and Zero Horizon Music; **AZI is the current parent-studio name**. Do not automatically use retired branding on new assets.
 
 ## Repository observations
-Project Nova contains assets named `matrix_character.glb` and `matrix_fighter.glb`, plus older variants in the EDF asset directory and a `matrix_holo.jpg` image. These observations establish that Matrix-named assets exist in the repository. They do not establish Matrix's canonical appearance, role in the game, or relationship to Mind Space.
+Project Nova includes Matrix-named model and hologram assets. Their existence does not prove that they are the final canonical Matrix design, nor does it establish a crossover with Mind Space.
 
-## Open identity details
-No approved age, pronouns, species, physical design, biography, origin story, role, relationships, voice, boundaries, or signature mannerisms have been supplied in this reference library. Do not invent these as fact.
-
-## Generation guidance
-Preserve the name **Matrix** and the confirmed AI/digital-personality framing. Do not default to a generic chatbot, a human biography, or a specific gender or appearance. Ask for missing details when they matter; otherwise keep them open or label concepts as **Proposed**.
+## Consistency rule
+When generating art or scripts, preserve the cyberpunk operative/DJ and transmission motifs unless the creator requests a redesign. Mark all newly invented details as **Proposed**.
