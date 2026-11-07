@@ -39,6 +39,8 @@ const FILES = [
 "./fx/vfx_spark.png",
 "./fx/vfx_warp_streaks.png",
 "./fx/vfx_warp_tunnel.jpg",
+"./modules/interior.js",
+"./modules/morality.js",
 "./manifest.webmanifest",
 "./models/alien_attack_drone.glb",
 "./models/alien_attack_drone_lo.glb",

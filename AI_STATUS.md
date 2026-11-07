@@ -67,3 +67,9 @@ Newest first. Keep each entry short: what changed, the PR, checks run, and the n
 - Done: warp tunnel texture + round warp stars, pirate missile models, frigate missiles, VR combat pacing (NF_STATS scaling after the table).
 - Files: standalone.html (all 3 copies), sw.js (both), fx/vfx_warp_tunnel.jpg (both). Check run: node --check, headless load with no errors.
 - Next: owner playtests in the Quest; then A10 firing range and A13 morality meter on a new branch. Files released.
+
+## Claude — 2026-11-07 — `claude/range-morality` (A10 + A13)
+- A10: `public/modules/interior.js` (`novaInterior.enter('range')/exit()`), firing range with the Gemini metal/hazard textures, 8 swaying pop-up targets, score board, exit door. Open with `?arena=range` or the FIRING RANGE menu button. Controls: WASD/mouse/click, gamepad sticks + RT + B, Quest left-stick move, right-stick snap turn, right trigger fire, B exit. Flight is paused while inside (early return in `novaGameLoop`).
+- A13: `public/modules/morality.js` (`novaMorality.add/choice/line`), saved in localStorage, shown as a MORALITY bar in the PILOT RECORD (LOG), crew comment through `ncAnnounce`. Choices ready: `fusion_core` (return/keep/sell), `surrender`, `self_destruct`. The Cold Run beat that triggers `fusion_core` is A14.
+- Checks: node --check; headless enter range → hit → walk → exit; no errors. Not checked on Quest.
+- Next: A11 on-foot controls (right-hand gun, pinch toggle, left-fist joystick) should replace the stand-in movement in interior.js. Files released.
