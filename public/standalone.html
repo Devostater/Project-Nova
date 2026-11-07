@@ -9951,6 +9951,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const bar = (x, y, v, col) => { g.fillStyle = '#1a2a3a'; g.fillRect(x, y - 14, 180, 14); g.fillStyle = col; g.fillRect(x, y - 14, 1.8 * v, 14); };
       Object.keys(novaAff).forEach((k, i) => { const y = 142 + i * 26; g.fillStyle = '#cfefff'; g.font = '20px monospace'; g.fillText(`${NOVA_AFF_NAMES[k]}`.slice(0, 16), 28, y); bar(240, y, novaAff[k], '#ff88cc'); g.fillText(String(novaAff[k]), 430, y); });
       { const y = 142 + 5 * 26; g.fillStyle = '#ff6666'; g.font = '20px monospace'; g.fillText('PIRATE STANDING', 28, y); bar(240, y, novaPirRep, '#ff3344'); g.fillText(String(novaPirRep), 430, y); }
+      if (window.novaMorality) { const M = window.novaMorality, y = 142 + 6 * 26; g.fillStyle = M.color(); g.font = '20px monospace'; g.fillText('MORALITY', 28, y); g.fillStyle = '#1a2a3a'; g.fillRect(240, y - 14, 180, 14); g.fillStyle = M.color(); g.fillRect(330 + Math.min(0, M.value) * 0.9, y - 14, Math.abs(M.value) * 0.9, 14); g.fillStyle = '#ffffff'; g.fillRect(329, y - 16, 2, 18); g.fillStyle = M.color(); g.fillText(`${M.value > 0 ? '+' : ''}${M.value} ${M.label()}`, 430, y); }
       g.fillStyle = '#ffcc00'; g.font = 'bold 22px monospace'; g.fillText('FLIGHT RECORD \u00B7 CORSAIR LINE', 500, 116);
       g.font = '20px monospace';
       CAMPAIGN.forEach((ch, i) => {
@@ -10068,6 +10069,8 @@ const GAME_VERSION = 'Alpha 1.4';
       const now = performance.now();
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
+      // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
+      if (window.novaInteriorMod && window.novaInteriorMod.active) { try { window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } renderer.render(scene, camera); return; }
 
       // Starfield follows ship so stars are always visible to infinity
       if (starfieldGroup && shipGroup) {
@@ -17585,6 +17588,26 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     { const _nf = nmFrame; nmFrame = function () { const r = _nf.apply(this, arguments); try { nfxFrame(); } catch (e) { if (!window._nfxErr) { window._nfxErr = 1; console.error('[fx_ultra]', e); } } return r; }; window.nmFrame = nmFrame; }
     { const _nb = novaBoom; novaBoom = function (pos, scale) { const r = _nb.apply(this, arguments); try { if (NFX.fx && NFX.fx.ready && NFX.fx.tier !== 'low' && pos) NFX.fx.explosion(pos, scale || 1, 'ship'); } catch (e) { } return r; }; window.novaBoom = novaBoom; }
+    // ── A10 interiors (modules/interior.js) + A13 morality (modules/morality.js) ──
+    import('./modules/morality.js').then(m => { window.novaMorality = m.init({ toast: showToast, crew: t => { try { ncAnnounce(t); } catch (e) { } } }); })
+      .catch(e => console.warn('[morality] not loaded', e && e.message));
+    import('./modules/interior.js').then(m => {
+      window.novaInteriorMod = m.init({ THREE, scene, camera, cameraRig, renderer, shipGroup, toast: showToast,
+        sound: k => { try { if (k === 'fire') sound.laser(); else sound.miningLaserHit(); } catch (e) { } },
+        setActive: on => { cockpit.visible = !on; try { setThrottle(0); } catch (e) { } } });
+      window.novaInterior = { enter: d => window.novaInteriorMod.enter(d), exit: () => window.novaInteriorMod.exit(), state: () => window.novaInteriorMod.state() };
+      window.novaRange = () => window.novaInteriorMod.enter('range');
+      // ?arena=range: PLAY drops you straight into the range. A FIRING RANGE button sits under PLAY too.
+      const wantRange = new URLSearchParams(location.search).get('arena') === 'range';
+      const _play = window.novaPlay;
+      if (_play) window.novaPlay = function () { const r = _play.apply(this, arguments); if (wantRange || window._novaRangeNext) { window._novaRangeNext = 0; setTimeout(() => window.novaRange(), 1200); } return r; };
+      const pb = document.getElementById('btn-play');
+      if (pb && !document.getElementById('btn-range')) {
+        const rb = document.createElement('button'); rb.className = 'modal-btn'; rb.id = 'btn-range'; rb.innerHTML = '&#127919; FIRING RANGE';
+        rb.onclick = e => { e.stopPropagation(); window._novaRangeNext = 1; window.novaPlay(); };
+        pb.insertAdjacentElement('afterend', rb);
+      }
+    }).catch(e => console.warn('[interior] not loaded', e && e.message));
     window.novaTest = Object.assign(window.novaTest || {}, { salvage: (n = 3) => { const p = shipGroup.position.clone().add(new THREE.Vector3(0, 0, -60).applyQuaternion(shipGroup.quaternion)); for (let i = 0; i < n; i++) novaSalvageDrop(p, { slug: 'pirate_frigate', st: { boss: true } }); return NSV.pods.length; }, lockSalvage: () => { const t = getAllTargets().find(c => c.type === 'salvage'); currentLockedTarget = t || null; return t ? t.name + ' @ ' + Math.round(t.dist) + ' m' : null; }, salvageState: () => ({ pods: NSV.pods.map(p => p.kind), pulling: !!NSV.pulling, cores: NSV.cores, salvage: cargoSalvage, credits: bankCredits }) });
     // start new pilots on the real soundtrack
     try { if (!localStorage.getItem('novaMusicV1')) { bgmTrackIdx = BGM_TRACKS.findIndex(x => x.file); localStorage.setItem('novaMusicV1', '1'); } } catch (e) { }
