@@ -7695,6 +7695,15 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       showToast('AUTO-DOCK: autopilot to Nova-1, tractor beam takes over on arrival.', 3500, '#00f0ff');
     }
     window.novaAutoDockPress = novaAutoDockPress;
+    function novaTargetAutopilotPress() {
+      if (isAutopilotActive) { toggleAutopilot(false); return; }
+      const lk = currentLockedTarget, obj = lk && lk.targetObj;
+      if (obj && (obj === stationGroup || lk.type === 'station') && stationGroup.position.distanceTo(shipGroup.position) <= 2400) {
+        novaAutoDockPress(); return;
+      }
+      toggleAutopilot(true);
+      if (obj) showToast('AUTOPILOT: navigating to ' + lk.name, 2600, '#33ff99');
+    }
     function novaEaseBack(t) { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
     const novaConsoles = [];
     let novaAutoDockSide = null;
@@ -14162,7 +14171,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       if (NKS.ohTrim || !NOV.items.length) return;
       const map = { 'DOME LIGHT': ['MODE', '◉', '#aa88ff', () => novaCycleCockpitMode()], 'POLARIZER': null,
         'PREV TARGET': null, 'CLEAR TARGET': ['REPAIR', '✚', '#33ff99', () => window.novaUseRepairKit()],
-        'AUTO-DOCK': ['RADAR', '◎', '#00e5ff', () => window.novaRadarToggle()], 'OH HAIL': ['AUTOPILOT', '✈', '#33ff99', () => toggleAutopilot()] };   // Lighting, polarizer and stealth share MODE.
+        'AUTO-DOCK': ['RADAR', '◎', '#00e5ff', () => window.novaRadarToggle()], 'OH HAIL': ['AUTOPILOT', '✈', '#33ff99', () => novaTargetAutopilotPress()] };   // Lighting, polarizer and stealth share MODE.
       let n = 0;
       NOV.items.forEach(it => {
         if (map[it.label] === null && it.entry) {   // retire: blank plate, no longer a button
@@ -14677,7 +14686,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         npChat(x, 430, 296, 576, 5);   // latest lines; the full conversation is on the CHAT tab
       } };
     const NP_FLIGHT = { name: 'FLIGHT', c: '#b266ff', hint: 'flight modes on the pads \u00b7 WARP opens the jump map \u00b7 CREW talks to your companion',
-      pads: [{ l: 'DAMPERS', c: '#e8e8e8', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } }, { l: 'ASSIST', c: '#00e5ff', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } }, { l: 'AUTOPILOT', c: '#33ff99', fn: () => { try { toggleAutopilot(); } catch (e) { } } }, { l: 'WARP NAV', c: '#b266ff', fn: () => window.novaNavToggle() }],
+      pads: [{ l: 'DAMPERS', c: '#e8e8e8', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } }, { l: 'ASSIST', c: '#00e5ff', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } }, { l: 'AUTOPILOT', c: '#33ff99', fn: () => { try { novaTargetAutopilotPress(); } catch (e) { } } }, { l: 'WARP NAV', c: '#b266ff', fn: () => window.novaNavToggle() }],
       draw: (x, P) => {
         const v = shipBody.velocity.length(), tp = throttlePct > 1 ? throttlePct : throttlePct * 100;
         npText(x, 'VELOCITY', 20, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, Math.round(v) + ' m/s', 20, 128, 'bold 42px monospace', '#e9fbff');
@@ -14838,8 +14847,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         if (!novaConsoles[0] || !novaConsoles[1]) return;
         const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'CREW CHANNEL' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
           holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => npTab(P, 0) }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
-            { g: '☎', l: 'HAIL', c: '#00e5ff', fn: () => npHail() }, { g: '➤', l: 'WARP', c: '#b266ff', fn: () => window.novaNavToggle() },
-            { g: '⚓', l: 'DOCK', c: '#00f0ff', fn: () => { try { novaAutoDockPress(); } catch (e) { } } }, { g: '♥', l: 'CREW', c: '#ffd24a', fn: () => { try { ncTalk(); } catch (e) { } } }] });
+            { g: '➤', l: 'WARP', c: '#b266ff', fn: () => window.novaNavToggle() }, { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) }] });
         const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SHIP, NP_MUSIC, NP_OPT], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
           holo: [{ g: '\u2316', l: 'COMBAT', c: '#ff3355', fn: P => npTab(P, 0) }, { g: '\u25A6', l: 'CARGO', c: '#00ff99', fn: P => npTab(P, 1) }, { g: '\u2699', l: 'SYSTEM', c: '#ffd24a', fn: P => npTab(P, 2) },
             { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }, { g: '\u2630', l: 'OPTIONS', c: '#9fc3d8', fn: P => npTab(P, 4) }] });
