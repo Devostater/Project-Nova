@@ -7218,22 +7218,22 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // ── Pilot Seat Height & Headset Recenter Calibration ──
     function recenterPilotView() {
-      // 1. Correct current world-space headset yaw instead of replacing rig yaw with
-      // a local value. This also handles starting almost exactly 180 degrees aft.
-      cameraRig.updateMatrixWorld(true);
-      camera.updateMatrixWorld(true);
-      const headQ = camera.getWorldQuaternion(new THREE.Quaternion());
+      // Align the headset to cockpit-local -Z, regardless of the ship's world yaw.
+      // Three.js positive Y rotation points -Z toward -X, so atan2(x, -z)
+      // is the correction itself (negating it doubles the heading error).
+      cameraRig.updateWorldMatrix(true, true);
+      const headQ = cameraRig.quaternion.clone().multiply(camera.quaternion);
       const headFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(headQ);
       headFwd.y = 0;
       if (headFwd.lengthSq() > 1e-6) {
-        headFwd.normalize();
-        const headYaw = Math.atan2(headFwd.x, -headFwd.z);
-        const yawFix = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -headYaw);
+        const yawFix = new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(0, 1, 0), Math.atan2(headFwd.x, -headFwd.z)
+        );
         cameraRig.quaternion.premultiply(yawFix);
-        cameraRig.rotation.x = 0;
-        cameraRig.rotation.z = 0;
-        cameraRig.rotation.y = THREE.MathUtils.euclideanModulo(cameraRig.rotation.y + Math.PI, Math.PI * 2) - Math.PI;
-        cameraRig.updateMatrixWorld(true);
+        // Extract yaw from forward, avoiding Euler's mirrored branch past 90 degrees.
+        const rigForward = new THREE.Vector3(0, 0, -1).applyQuaternion(cameraRig.quaternion);
+        cameraRig.rotation.set(0, Math.atan2(-rigForward.x, -rigForward.z), 0);
+        cameraRig.updateWorldMatrix(true, true);
       }
 
       // 2. Anchor seated eye height relative to cockpit floor and back position
