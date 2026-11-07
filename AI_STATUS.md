@@ -27,7 +27,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| Codex | A10 Interior/arena + firing range | `codex/a10-interior-range` | `public/modules/interior.js` and root mirror | Active | — |
+
 
 ## Waiting for review / merge
 
@@ -38,6 +38,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A10 Interior/arena + firing range** ([draft PR #26](https://github.com/Devostater/Project-Nova/pull/26), branch `codex/a10-interior-range`). Added mirrored modular 16 × 30 m range, PBR metal/hazard textures, target banks, smooth WASD and XR left-stick walking, and a marked doorway exit; creates pooled/static geometry/materials at init. How to test after A4: `?arena=range`, walk and return in 2D/gamepad/Quest. Checks not run: runtime, gamepad, Quest. Integration dependency: add `interior.js` to A4 manifest after PR #24 merges. Next: A11 on a separate branch.
 
 - **Codex: tablet touch HUD visibility** ([draft PR #21](https://github.com/Devostater/Project-Nova/pull/21), branch `codex/tablet-touch-hud`). The DOM HUD overlay and version badge are hidden while tablet touch controls are active; auto device detection and manual toggle both update the state. All three game files are synchronized. How to test: on desktop compare controls off/on; on tablet enable and disable touch controls and confirm the HUD follows the state. Checks not run: browser runtime, automated, tablet, gamepad, Quest. Next: review PR #21.
 
