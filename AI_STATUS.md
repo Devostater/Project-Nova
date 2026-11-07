@@ -35,11 +35,14 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 |---|---|---|---|
 | Codex | A11 on-foot controls | [Draft PR #27](https://github.com/Devostater/Project-Nova/pull/27) | Ready for this pass to add `fps_core.js` after the main range module. |
 | Codex | A5 enemy drones | [Draft PR #29](https://github.com/Devostater/Project-Nova/pull/29) | Module mirrors are ready; integration waits for A4/A10/A11 and manifest/service-worker updates. |
+| Codex | A12 derelict boarding | [Draft PR #30](https://github.com/Devostater/Project-Nova/pull/30) | Boarding loop is ready; integration adapts core choices to PR #28 morality and wires the BOARD action. |
 | Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A12 derelict boarding** ([draft PR #30](https://github.com/Devostater/Project-Nova/pull/30), branch `codex/a12-boarding`). Adds mirrored textured corridor and fusion-core choice; BOARD validates disabled+docked nearby wreck, E/gamepad A/right XR selects take, Q/gamepad B/left XR selects leave. PR #28 supplies the existing morality API; this pass adapts take/leave to `return`/`keep` and removes the duplicate PR #31 dependency. Emits boarding lifecycle events; airlock exit restores cockpit and pose. Q8 default: disabled+docked within 20 m; query mode for testing. How to test after integration: 2D WASD/E/Q, gamepad left stick/A/B, Quest left/right controller or hand input; confirm choice, saved counts and return. Checks not run: browser runtime, 2D, gamepad, tablet, Quest, automated. Needs BOARD hook and manifest/cache entries for A12/A14 modules. Next: game-file holder wires BOARD/FLIGHT RECORD and module manifests; then A14.
 
 - **Codex: A5 enemy drones** ([draft PR #29](https://github.com/Devostater/Project-Nova/pull/29), branch `codex/a5-enemy-drones`). Adds two mirrored range drones cycling patrol → cover → shoot → retreat; firing uses pooled, slow bolts and routes player hits through `fps_core.damage`. Exposes manual `start()`/`stop()` for A12 boarding. Loads the existing ULTRA `alien_attack_drone.glb` with procedural fallback. Q7 default: keep the high-detail asset for ULTRA. How to test after integration: `?arena=range`; 2D WASD/click, gamepad left stick/right trigger, Quest aim/fire and dodge; confirm hits, retreat, and HP feedback. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. With A4/A11 now in main and A10 in PR #28, add `fps_ai.js` after interior/fps_core in both manifests and service-worker caches. Next: A12 boarding.
 
