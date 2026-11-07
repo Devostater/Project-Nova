@@ -52,13 +52,13 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| GPT/Codex | G6 cantina expansion brief | `gpt/g6-cantina-brief` | `ASSET_BACKLOG.md`, `VERTICAL_SLICE.md`, `AI_STATUS.md` | Active | draft pending |
 
 
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
+| GPT/Codex | G6 cantina expansion brief | [Draft PR #47](https://github.com/Devostater/Project-Nova/pull/47) | Tripo-ready model budgets plus 16×22 m social-space layout and acceptance targets. |
 | Gemini | Missile-plume and thruster-glow textures | [Draft PR #33](https://github.com/Devostater/Project-Nova/pull/33) | Four image files only: root and public mirrors; owner approval required before merge. |
 | GPT/Codex | FPS flow, controls and helmet HUD | [Draft PR #38](https://github.com/Devostater/Project-Nova/pull/38) | Range exit, desktop/gamepad/Quest FPS input, helmet visor HUD, boarding lifecycle and drone combat coordinates; awaiting runtime review. |
 | GPT/Codex | Territories and campaign scope plan | [Draft PR #37](https://github.com/Devostater/Project-Nova/pull/37) | Planning only; proposed factions, territory simulation, news, traffic, cinematics and full-release checklist. |
@@ -67,6 +67,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **GPT/Codex: G6 cantina expansion brief** ([draft PR #47](https://github.com/Devostater/Project-Nova/pull/47), branch `gpt/g6-cantina-brief`). Expands `ASSET_BACKLOG.md` P4 with clean filenames, real-world sizes, close/LOD triangle budgets, named collision/interaction parts, ingest order and scene budgets for the first station-social kit. Adds a 16×22×6 m layout to `VERTICAL_SLICE.md`: dock airlock, open arrival sightline, west hero bar, east crew booths, NOVA NET and crew terminals, incident floor, mezzanine, alien-pilot bartender, population/accessibility/performance rules and end-to-end acceptance. The owner-reported bar/stool/booth/glass/bottle uploads are marked for filename/scale verification. Checks: documentation structure and dimensional/performance consistency. No game/module/asset changes; no runtime testing. Next: validate uploaded prop filenames/scales, obtain the shell and terminal models first, then build the room as a separate module/integration pass.
 
 - **GPT/Codex: FPS flow, controls, combat and helmet HUD** ([draft PR #38](https://github.com/Devostater/Project-Nova/pull/38), branch `gpt/fps-flow-hud`). Repairs the range EXIT door and all exit inputs; adds pointer-lock mouse look, keyboard/gamepad/Quest controller and hand input; adds a camera-mounted helmet visor HUD; unifies range/boarding entry and return; and places pooled drone combat in the correct interior coordinate space. Root/public copies of `fps_core.js`, `interior.js`, `fps_ai.js` and `boarding.js` match with LF endings. Static review only; browser, physical gamepad, tablet and Quest runtime were not tested. Next: play `?arena=range` and `?arena=boarding` in desktop/gamepad/Quest before merge.
 
