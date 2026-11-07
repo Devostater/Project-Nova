@@ -97,7 +97,7 @@ export function init(nova) {
     if(!parent)return;
     if(pistol.parent!==parent)parent.add(pistol);
     pistol.position.set(hand ? .035 : .015,hand ? -.035 : -.035,hand ? -.12 : -.09);
-    pistol.rotation.set(0,Math.PI,0);
+    pistol.rotation.set(0,0,0);
   }
   function aimRay(){
     camera.getWorldPosition(origin);camera.getWorldDirection(direction);
@@ -267,7 +267,7 @@ export function init(nova) {
       }
       else{leftFist=false;leftAnchor=null;}
     }else{
-      if(pistol.parent!==camera){camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,Math.PI,0);}
+      if(pistol.parent!==camera){camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,0,0);}
       let x=(down.has('KeyD')?1:0)-(down.has('KeyA')?1:0),z=(down.has('KeyS')?1:0)-(down.has('KeyW')?1:0);
       const pads=navigator.getGamepads?.()||[],pad=[...pads].find(p=>p?.connected&&p.mapping==='standard')||[...pads].find(p=>p?.connected&&p.axes?.length>=2);
       let use=false,leave=false;
@@ -289,7 +289,7 @@ export function init(nova) {
     rightController=renderer?.xr?.getController?.(1)||null;leftController=renderer?.xr?.getController?.(0)||null;
     rightGrip=renderer?.xr?.getControllerGrip?.(1)||null;leftGrip=renderer?.xr?.getControllerGrip?.(0)||null;
     rightHand=renderer?.xr?.getHand?.(1)||null;leftHand=renderer?.xr?.getHand?.(0)||null;
-    if(renderer?.xr?.isPresenting&&(rightGrip||rightController))setWeaponParent(rightGrip||rightController,false);else{camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,Math.PI,0);}
+    if(renderer?.xr?.isPresenting&&(rightGrip||rightController))setWeaponParent(rightGrip||rightController,false);else{camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,0,0);}
     window.addEventListener('keydown',keyDown,true);window.addEventListener('keyup',keyUp,true);window.addEventListener('mousemove',mouseMove);document.addEventListener('pointerlockchange',pointerLockChange);
     window.addEventListener('pointerdown',pointerDown,true);window.addEventListener('contextmenu',preventMenu,true);showButtons(true);
     rightController?.addEventListener?.('selectstart',selectStart);
