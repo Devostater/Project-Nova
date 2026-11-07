@@ -7092,6 +7092,8 @@ const GAME_VERSION = 'Alpha 1.4';
         color: 0x00f0ff,
         transparent: true,
         opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
         linewidth: 2
       });
       const line = new THREE.Line(geo, mat);
@@ -7358,7 +7360,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // ── Twin Wing Laser Cannons & Projectile System ──
     const activePlayerLasers = [];
     const laserBoltGeo = new THREE.BoxGeometry(0.06, 0.06, 2.2);
-    const laserBoltMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+    const laserBoltMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
 
     function spawnLaserBolts() {
       const shipQuat = shipGroup.quaternion;
@@ -8809,7 +8811,7 @@ const GAME_VERSION = 'Alpha 1.4';
     let novaLastHit = -999, novaPirateFireT = 3.0, novaDisabled = false;
     const novaBolts = [];
     const novaBoltGeo = new THREE.BoxGeometry(0.5, 0.5, 9);
-    const novaBoltMat = new THREE.MeshBasicMaterial({ color: 0xff2244 });
+    const novaBoltMat = new THREE.MeshBasicMaterial({ color: 0xff2244, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
     function novaDamage(amount) {
       if (novaDisabled || isInsideCantina) return;
       novaLastHit = performance.now();
@@ -10297,7 +10299,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
-      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) { try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } renderer.render(scene, camera); return; }   // on foot: flight is fully off
+      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) { try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } novaHandTurnFrame(frame, now); cameraRig.updateWorldMatrix(true, true); renderer.render(scene, camera); return; }   // on foot: flight is fully off
 
       // Starfield follows ship so stars are always visible to infinity
       if (starfieldGroup && shipGroup) {
@@ -11145,6 +11147,9 @@ const GAME_VERSION = 'Alpha 1.4';
         cameraRig.position.y = (PILOT_EYE_Y - camera.position.y) + seatOffset;
       }
 
+      // XR poses are rig-local. Refresh ancestors after autopilot/tractor/warp moves
+      // before converting joints to world space (updateMatrixWorld alone uses stale parents).
+      cameraRig.updateWorldMatrix(true, true);
       // Update VR / MR Controllers and Hands (Bare hand tracking focused)
       const session = renderer.xr.getSession();
       if (session) {
@@ -11985,6 +11990,8 @@ const GAME_VERSION = 'Alpha 1.4';
         hudEl.innerText = `STICK: ${stickPitchDeg >= 0 ? '+' : ''}${stickPitchDeg.toFixed(1)}° PITCH · ${stickRollDeg >= 0 ? '+' : ''}${stickRollDeg.toFixed(1)}° ROLL | THROTTLE: ${(throttlePct * 100).toFixed(0)}% | SEAT: ${seatStr}`;
       }
 
+      novaHandTurnFrame(frame, now);
+      cameraRig.updateWorldMatrix(true, true);
       renderer.render(scene, camera);
     };
 
@@ -12054,6 +12061,68 @@ const GAME_VERSION = 'Alpha 1.4';
     });
     renderer.xr.addEventListener('sessionend', () => { novaSafeZoneActive = false; });
     // ════════════════════════════════════════════════════════════════
+    // Hand-only comfort turn: hold a left pinch with palm sideways for 350ms;
+    // release to rearm. Wrist buttons require a fresh fingertip entry, never auto-repeat.
+    const novaTurnUI = new THREE.Group();
+    cameraRig.add(novaTurnUI);
+    novaTurnUI.visible = false;
+    const novaTurnButtons = ['L', 'R'].map((label, i) => {
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#123344'; ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#aaffff'; ctx.font = 'bold 40px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, 32, 34);
+      const button = new THREE.Mesh(new THREE.PlaneGeometry(0.045, 0.045), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+      button.position.x = (i - 0.5) * 0.065; novaTurnUI.add(button); return button;
+    });
+    let novaTurnTouch = -1, novaTurnSince = 0, novaTurnDirection = 0, novaTurnLatched = false, novaTurnLast = -Infinity;
+    function novaHandTurnFrame(frame, now) {
+      novaTurnUI.visible = false;
+      const session = renderer.xr.getSession();
+      const blocked = isGrippingStickHand || isGrippingThrottleHand || isGrippingStick || isGrippingThrottle;
+      const ref = renderer.xr.getReferenceSpace();
+      const left = session && Array.from(session.inputSources).find(s => s.hand && s.handedness === 'left');
+      const right = session && Array.from(session.inputSources).find(s => s.hand && s.handedness === 'right');
+      const joint = (src, name) => {
+        const space = src && src.hand.get(name);
+        const pose = space && frame.getJointPose(space, ref);
+        return pose ? new THREE.Vector3().copy(pose.transform.position) : null;
+      };
+      if (!frame || !ref || !left || blocked) {
+        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; return;
+      }
+      const wrist = joint(left, 'wrist'), index = joint(left, 'index-finger-tip'), thumb = joint(left, 'thumb-tip');
+      const knuckle = joint(left, 'index-finger-metacarpal'), pinky = joint(left, 'pinky-finger-metacarpal');
+      if (!wrist || !index || !thumb || !knuckle || !pinky) {
+        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; return;
+      }
+      novaTurnUI.position.copy(wrist).add(new THREE.Vector3(0, 0.09, 0));
+      novaTurnUI.quaternion.copy(camera.quaternion);
+      novaTurnUI.visible = true;
+      novaTurnUI.updateWorldMatrix(true, true);
+      const otherTip = joint(right, 'index-finger-tip');
+      let touch = -1;
+      if (otherTip) {
+        const local = novaTurnUI.worldToLocal(cameraRig.localToWorld(otherTip.clone()));
+        touch = novaTurnButtons.findIndex(b => Math.abs(local.x - b.position.x) < 0.027 && Math.abs(local.y) < 0.027 && Math.abs(local.z) < 0.025);
+      }
+      const palm = new THREE.Vector3().crossVectors(knuckle.clone().sub(wrist), pinky.clone().sub(wrist)).normalize();
+      const direction = index.distanceTo(thumb) < 0.03 && Math.abs(palm.x) > 0.75 ? (palm.x > 0 ? 1 : -1) : 0;
+      if (!direction) { novaTurnSince = 0; novaTurnLatched = false; }
+      else if (direction !== novaTurnDirection) novaTurnSince = now;
+      const gesture = direction && !novaTurnLatched && now - novaTurnSince >= 350;
+      const tap = touch >= 0 && novaTurnTouch < 0;
+      if ((tap || gesture) && now - novaTurnLast > 650) {
+        const sign = tap ? (touch === 0 ? 1 : -1) : direction;
+        const headBefore = camera.position.clone().applyQuaternion(cameraRig.quaternion);
+        cameraRig.rotateY(sign * Math.PI / 6);
+        const headAfter = camera.position.clone().applyQuaternion(cameraRig.quaternion);
+        cameraRig.position.add(headBefore.sub(headAfter));
+        cameraRig.updateWorldMatrix(true, true);
+        novaTurnLast = now; novaTurnLatched = true;
+      }
+      novaTurnTouch = touch; novaTurnDirection = direction;
+    }
+
     // ── NOVA INPUT v2 (Alpha): direct XR poses -> hands, lasers, hover, trigger + poke presses ──
     // ════════════════════════════════════════════════════════════════
     const novaHands = {};
@@ -12075,7 +12144,7 @@ const GAME_VERSION = 'Alpha 1.4';
       h.grip.add(h.tip);
       h.ray = new THREE.Group();
       const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
-      h.laser = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85 }));
+      h.laser = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
       h.ray.add(h.laser);
       h.dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 10, 8), new THREE.MeshBasicMaterial({ color: col }));
       h.dot.visible = false;
