@@ -6,10 +6,9 @@
 name: Deploy game to GitHub Pages
 
 on:
-  # Manual only for now: the owner plays from the local NOVA folder (start_server.bat).
-  # To publish automatically after Pages is enabled, add back:
-  #   push:
-  #     branches: [main]
+  # Every push to main republishes, so the Quest app (a wrapper around this site) gets the new game on next launch.
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
