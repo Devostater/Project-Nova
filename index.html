@@ -405,6 +405,7 @@
           if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
         }
         if (!gp) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }
+        if (window.novaOnFoot && window.novaOnFoot()) { window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }   // on foot: fps_core reads the pad
 
         var now = performance.now();
         var overlay = document.getElementById('modal-overlay');
@@ -10086,12 +10087,14 @@ const GAME_VERSION = 'Alpha 1.4';
     let lastFrameTime = performance.now();
 
     let hasAutoRecenteredOnFirstFrame = false;
+    function novaOnFoot() { try { const f = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('fps_core'); return !!(f && f.active); } catch (e) { return false; } }
+    window.novaOnFoot = novaOnFoot;
     const novaGameLoop = (timestamp, frame) => {
       const now = performance.now();
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
-      if (window.novaInteriorMod && window.novaInteriorMod.active) { try { window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } renderer.render(scene, camera); return; }
+      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) { try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } renderer.render(scene, camera); return; }   // on foot: flight is fully off
 
       // Starfield follows ship so stars are always visible to infinity
       if (starfieldGroup && shipGroup) {
@@ -11997,7 +12000,7 @@ const GAME_VERSION = 'Alpha 1.4';
         return;
       }
       try {
-        try { novaInputFrame(frame); } catch (e) { console.error('Input v2 error:', e); }
+        if (!novaOnFoot()) { try { novaInputFrame(frame); } catch (e) { console.error('Input v2 error:', e); } }
         try { novaPointFrame(frame); } catch (e) { if (!window._npfErr) { window._npfErr = 1; console.error('Point error:', e); } }
         novaGameLoop(timestamp, frame);
       } catch (err) {
@@ -19099,7 +19102,7 @@ const GAME_VERSION = 'Alpha 1.4';
     window.novaInteriorMod = modules.get('interior.js');
     window.novaMorality = modules.get('morality.js');
     window.novaInterior = window.novaInteriorMod ? { enter: d => window.novaInteriorMod.enter(d), exit: () => window.novaInteriorMod.exit(), state: () => window.novaInteriorMod.state() } : null;
-    window.novaRange = () => window.novaInteriorMod?.enter('range');
+    window.novaRange = () => { const nm = document.getElementById('nc-modal'); if (nm) nm.style.display = 'none'; return window.novaInteriorMod?.enter('range'); };
     novaOn('fusionCoreChosen', e => { if (window.novaMorality) window.novaMorality.choice('fusion_core', e?.choice === 'take' ? 'keep' : 'return'); });
     const _novaExitLightspeed = exitLightspeed;
     exitLightspeed = function () { const wasWarp = !!isLightspeedActive; const result = _novaExitLightspeed.apply(this, arguments); if (wasWarp && !isLightspeedActive) novaEmit('warpComplete', {}); return result; };
