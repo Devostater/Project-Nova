@@ -2,6 +2,10 @@
 
 > Read [AI_WORKFLOW.md](AI_WORKFLOW.md) and [AI_PLAN.md](AI_PLAN.md) before starting or taking over work.
 
+## ▶ Owner away: work from `AI_QUEUE.md`
+
+Each AI takes the next unclaimed card in its lane (A = GPT/Codex, B = Gemini, C = AI Studio), claims it under Active claims, works on its own branch and opens a draft PR. Claude's open PR: #11 (cockpit tweaks), which is waiting for the owner.
+
 ## ⚠ Read first: work from the latest GitHub `main`, never an old local copy
 
 On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old local copy (Alpha 1.0 RC)** and pushed straight to `main`. That replaced Alpha 1.2 in that file (VFX pack, shield, gamepad and so on), and `public/standalone.html` and `index.html` were left unchanged and out of sync. Claude merged both sides as **Alpha 1.3** (branch `claude/merge-gpt-cockpit`). Before editing: pull `main`, edit **all three** game files the same way (or let Claude sync them), and use a branch and PR.
