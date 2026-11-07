@@ -27,17 +27,19 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| Codex | A13 Morality + core choice | `codex/a13-morality` | `public/modules/morality.js`, `modules/morality.js`, A13 handoff/question docs | Active | — |
 
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
+| Codex | A13 morality/core choice | [Draft PR #31](https://github.com/Devostater/Project-Nova/pull/31) | Saved morality API and take/leave core decision; waiting on A12/game-file integration. |
 | Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A13 morality + fusion-core choice** ([draft PR #31](https://github.com/Devostater/Project-Nova/pull/31), branch `codex/a13-morality`). Adds mirrored `morality.js`, persisted −100…+100 score and history, ±15 take/leave choice API, FLIGHT RECORD formatter, and generic crew-reaction event. Q9 default: ±15; avoid named dialogue pending owner text. How to test after integration: select each choice, reload and confirm score/history persists; verify heat-core count and flight-record line. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. Needs A12 choice binding, loader/cache entries and FLIGHT RECORD wiring. Next: A14 mission/end card.
 
 - **Codex: tablet touch HUD visibility** ([draft PR #21](https://github.com/Devostater/Project-Nova/pull/21), branch `codex/tablet-touch-hud`). The DOM HUD overlay and version badge are hidden while tablet touch controls are active; auto device detection and manual toggle both update the state. All three game files are synchronized. How to test: on desktop compare controls off/on; on tablet enable and disable touch controls and confirm the HUD follows the state. Checks not run: browser runtime, automated, tablet, gamepad, Quest. Next: review PR #21.
 
