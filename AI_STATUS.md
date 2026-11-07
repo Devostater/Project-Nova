@@ -12,6 +12,9 @@ The owner handed the lead back to Claude after Claude's usage reset. Claude owns
 
 **Claude, branch `claude/cold-run-pass`:** Cold Run director in the game file. Menu button ❄ COLD RUN; intro beat completes; warp → 3-fighter ambush spawns; a heat core always drops and tractoring it advances the mission; a boardable derelict hauler (cyan beacon, in targets/COMMS) appears; COMMS DOCK or V boards within 150 m; Lantern dock triggers the crew line and finishes the run; mission objective shown in LOG; morality emits `moralityChanged`. Headless: all 9 beats to the end card, no errors. Test hooks `novaTest.coldRun()`, `coldAmbushWin()`, `coldStowCore()`, `coldNearDerelict()`.
 
+**Merged 2026-11-07 (Claude):** #44 on-foot fixes (shots, flight off on foot, FIRE/USE/EXIT buttons, any PC gamepad), side panels fill the glass + big market; #48 owner models (cantina bar/booths/stools + NOVA-1 poster, pirate gunship, civilian traffic, independent cruiser, clanker yard, containers, pirate/alien missiles); #50 COMMS bigger hologram, names on, overhead DOCK, autopilot no longer docks, vertical site layout, simpler WARP card with height.
+**Next for Claude:** owner Quest playtest notes; seat_v2 fit; name the third faction (owner); review GPT #41–#43.
+
 ## GPT/Codex jobs (in order; modules/tools/docs only)
 
 Each job: own branch `gpt/<job>`, draft PR, `node --check` every module, `public/modules` = `modules`, both `sw.js` lists, handoff here.
