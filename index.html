@@ -17950,12 +17950,13 @@ const GAME_VERSION = 'Alpha 1.2';
 
     (function initNovaVfx() {
       const files = {
-        // Clean single-effect textures cut from the ./VFX/ reference sheets by tools/vfx_cut.py
+        // Game-ready textures: laser/flare/spark/explosion from Gemini sources (tools/vfx_build.py);
+        // lightning cut from the ./VFX/ sheets (tools/vfx_cut.py); shield hex generated with Gemini
         laser: './fx/vfx_laser.png',
         flare: './fx/vfx_flare.png',
         spark: './fx/vfx_spark.png',
         shield: './fx/vfx_shield_hex.png',   // seamless 1024 hex, generated with Gemini
-        explosion: './fx/vfx_explosion_8x8.png',   // 8x8 atlas, 56 frames
+        explosion: './fx/vfx_explosion_8x8.jpg',   // 8x8 atlas (2048px), 56 frames: fireball -> smoke (tools/vfx_build.py)
         lightning: './fx/vfx_lightning.png'
       };
       const quad1 = new THREE.PlaneGeometry(0.42, 2.8);
