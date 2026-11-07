@@ -18492,22 +18492,45 @@ const GAME_VERSION = 'Alpha 1.4';
         }
       } catch (e) { console.warn('[models] containers', e); }
     })();
-    // cantina: owner bar, booths, stools and the NOVA-1 poster
+    // cantina: coordinated 01-08 concept kit, composed to match the owner's NOVA-1 reference
     (async () => {
       try {
         const put = async (slug, size, pos, rotY, axis) => {
           const g = await nmLoad(slug); if (!g) return null;
           const m = g.scene.clone(true); const b = new THREE.Box3().setFromObject(m), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
           m.position.set(-c.x, -b.min.y, -c.z); const w = new THREE.Group(); w.add(m);
+          w.name = 'CANTINA_' + slug.toUpperCase();
           w.scale.setScalar(size / (axis === 'y' ? sz.y : Math.max(sz.x, sz.z))); w.position.copy(pos); w.rotation.y = rotY || 0; cantinaGroup.add(w);
           m.traverse(o => { if (o.isMesh) { o.raycast = () => { }; o.castShadow = o.receiveShadow = true; } });
           return w;
         };
-        const bar = await put('cantina_bar', 4.2, new THREE.Vector3(0, 0, -3.1), 0);
+        const warm = (x, y, z, power = 5, range = 5) => { const l = new THREE.PointLight(0xffb36b, power, range, 1.7); l.position.set(x, y, z); cantinaGroup.add(l); return l; };
+        // Hero island remains at the interaction coordinates expected by the bartender/cup module.
+        const bar = await put('cantina_01_island_bar', 4.2, new THREE.Vector3(0, 0, -3.1), 0);
         if (bar) { try { barMesh.visible = false; bottleMeshes.forEach(b => b.visible = false); } catch (e) { } }
-        [-1.35, -0.45, 0.45, 1.35].forEach((x, i) => put(i % 2 ? 'cantina_stool2' : 'cantina_stool', 0.82, new THREE.Vector3(x, 0, -1.45), i * 0.7, 'y'));
-        const booths = [[-6.5, -5, Math.PI / 4], [6.5, -5, -Math.PI / 4], [-7.5, 3.5, Math.PI / 2 + 0.3], [7.5, 3.5, -Math.PI / 2 - 0.3], [-4, -9.5, 0.2], [4, -9.5, -0.2]];
-        booths.forEach(([x, z, r]) => { put('cantina_booth', 2.5, new THREE.Vector3(x, 0, z), r); const l = new THREE.PointLight(0xffb070, 6, 5, 1.6); l.position.set(x, 2.4, z); cantinaGroup.add(l); });
+        await Promise.all([
+          put('cantina_08_drink_dispenser', 1.45, new THREE.Vector3(0, 1.08, -4.15), 0, 'y'),
+          put('cantina_02_upper_tower', 7.2, new THREE.Vector3(8.6, 0, -7.4), -0.25),
+          put('cantina_07_hanging_lamp', 0.58, new THREE.Vector3(0, 4.9, -3.1), 0, 'y')
+        ]);
+        warm(0, 4.45, -3.1, 8, 7); warm(8.6, 3.2, -7.4, 7, 8);
+
+        // Leave the entrance in the front of the C-shaped bar clear; patrons ring its sides/rear.
+        const stools = [[-2.5, -3.0, Math.PI / 2], [2.5, -3.0, -Math.PI / 2], [-1.65, -5.0, 0], [0, -5.35, 0], [1.65, -5.0, 0]];
+        await Promise.all(stools.map(([x, z, r]) => put('cantina_05_bar_stool', 0.82, new THREE.Vector3(x, 0, z), r, 'y')));
+
+        // Booths follow the window side of the concept. Each is a reusable booth/table/lamp vignette.
+        const booths = [[-7.2, -5.4, Math.PI / 2, 1], [-7.6, -0.3, Math.PI / 2, 1], [-7.2, 4.8, Math.PI / 2, 1], [6.8, 4.7, -Math.PI / 2, -1]];
+        await Promise.all(booths.flatMap(([x, z, r, toward]) => {
+          const tx = x + toward * 0.95;
+          warm(tx, 1.25, z, 4.5, 4.2);
+          return [
+            put('cantina_03_curved_booth', 2.8, new THREE.Vector3(x, 0, z), r),
+            put('cantina_04_round_table', 1.05, new THREE.Vector3(tx, 0, z), 0),
+            put('cantina_06_table_lamp', 0.38, new THREE.Vector3(tx, 0.78, z), 0, 'y'),
+            put('cantina_07_hanging_lamp', 0.48, new THREE.Vector3(tx, 4.9, z), 0, 'y')
+          ];
+        }));
         // the poster, framed on a pillar beside the bar
         const tex = new THREE.TextureLoader().load('art/poster_nova1.jpg'); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
         const frame = new THREE.Group(); frame.position.set(-4.2, 0, -4.2); frame.rotation.y = Math.PI / 4; cantinaGroup.add(frame);
@@ -18515,7 +18538,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const pic = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.35 })); pic.position.set(0, 2.25, 0.095); frame.add(pic);
         const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.04), new THREE.MeshBasicMaterial({ color: 0xff4455 })); glow.position.set(0, 1.25, 0.1); frame.add(glow);
         const pl = new THREE.PointLight(0xffe0c0, 4, 4, 1.8); pl.position.set(0, 2.4, 1.0); frame.add(pl);
-        console.log('[models] cantina furnished');
+        console.log('[models] cantina concept kit 01-08 composed');
       } catch (e) { console.warn('[models] cantina', e); }
     })();
     setInterval(() => { try { if (NOM.cont) NOM.cont.forEach(w => { w.rotation.x += w.userData.spin.x * 0.1; w.rotation.y += w.userData.spin.y * 0.1; }); novaTrafficTick(0.1); } catch (e) { } }, 100);
