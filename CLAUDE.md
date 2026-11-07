@@ -2,7 +2,7 @@
 
 Claude is the primary AI for this repository until the owner changes that.
 
-Before coding, read [AI_WORKFLOW.md](AI_WORKFLOW.md), [AI_STATUS.md](AI_STATUS.md), [AI_CONTEXT.md](AI_CONTEXT.md), and [PROJECT_INDEX.md](PROJECT_INDEX.md). Claim the task, branch, and files in `AI_STATUS.md` before editing. Work on a task-specific branch and check current GitHub changes first.
+Before coding, read [AI_WORKFLOW.md](AI_WORKFLOW.md), [AI_STATUS.md](AI_STATUS.md), [AI_QUEUE.md](AI_QUEUE.md) and [PROJECT_NOVA_CONTEXT.md](PROJECT_NOVA_CONTEXT.md). Claim the task, branch, and files in `AI_STATUS.md` before editing. Work on a task-specific branch and check current GitHub changes first.
 
 While coding, keep the claimed scope, preserve newer edits, and coordinate before touching files owned by another AI. Do not commit directly to `main` or merge a pull request unless the owner explicitly asks.
 

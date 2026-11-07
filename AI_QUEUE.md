@@ -10,7 +10,7 @@ The owner is away. Each AI takes the **next unclaimed card in its own lane**, wo
 4. **One AI per game-file area.** Claim the card in `AI_STATUS.md` (Active claims) before starting; only touch the functions the card lists. New systems go in **new module files** (`public/modules/<name>.js`, exporting `init(nova)`) whenever possible.
 5. **LF line endings** (`.gitattributes` enforces this). No whole-file rewrites.
 6. **Graphics target (owner, 2026-11-07): MAX / ULTRA quality.** It runs great at ULTRA; don't reduce model or texture detail for performance. Keep the Quest low tier working but never at the cost of ULTRA quality. Was: **Quest first:** under about 150 draw calls; no new materials or geometry per frame; textures at 1024 px or less unless the ULTRA tier.
-7. **Lore:** only the anchor is established ("Humanity is growing colder; heat and fusion cores are sought after"). Anything new is a *proposal* (`AI_CONTEXT.md`).
+7. **Lore:** only the anchor is established ("Humanity is growing colder; heat and fusion cores are sought after"). Anything new is a *proposal* (`PROJECT_NOVA_CONTEXT.md`).
 8. **Questions:** don't stop and wait; add the question to `OWNER_QUESTIONS.md` with the default you'll use, and keep going.
 9. **Finish:** a handoff in `AI_STATUS.md`: what changed, how to test it (2D, gamepad, Quest), and what wasn't tested.
 
@@ -25,7 +25,7 @@ Merge order when the owner returns: open Claude PRs first (#11), then the queue 
 | A1 | **Docking polish** | `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` only | Smooth approach, clear HUD guidance, works in 2D/VR |
 | A2 | **Salvage drops + tractor** (FPS_PLAN M1) | new `public/modules/salvage.js`; one hook line in `nfKill`; a TRACTOR cockpit button | Pods drop, show grey on radar/comms, select → TRACTOR pulls them in, cargo + heat cores |
 | A3 | **Enemy missile trails + explosion upgrade** (FPS_PLAN §6) | new `public/modules/fx_ultra.js`; uses `public/fx/*` textures; tier caps by `NOPT.o.gfx` | Missile smoke trails, shockwave ring, debris, light flash; ULTRA tier richer; Quest capped |
-| A4 | **`nova` module API + loader** (FPS_PLAN M0) | a small `window.nova` object + `<script type="module">` loader for `public/modules/*.js` | Modules load in both builds; documented in `AI_PLAN.md` |
+| A4 | **`nova` module API + loader** (FPS_PLAN M0) | a small `window.nova` object + `<script type="module">` loader for `public/modules/*.js` | Modules load in both builds; documented in `AI_WORKFLOW.md` |
 | A5 | **Enemy AI module** (FPS_PLAN M4) | `public/modules/fps_ai.js`: drone state machine against the `nova` API | Patrol → cover → shoot → retreat, testable via `?arena=range` |
 | A6 | **Morality meter** (FPS_PLAN §5) | `public/modules/morality.js` + one flight-log line | −100…+100, history list, saved |
 | A8 | **Side panels fit the cockpit mesh** (GPT, in progress) | panel placement/scale only (`npBuild`, `NP_SW/NP_SH`, panel roots) | Panels sit flush on their console screens in 2D and VR |
