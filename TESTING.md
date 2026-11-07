@@ -49,3 +49,13 @@ Note the mode, what you did, and what happened. On PC, press **F12 → Console**
 - [ ] **3D radar (right-dash position):** easy to reach with the right hand.
 - [ ] **Right panel** is bigger and readable in VR.
 - [ ] **Frame rate on Quest in a busy area** (station + fighters). Known risk: about 280 draw calls and 770k triangles per frame measured headless (budget about 150 / 300k). Note any judder.
+
+## Cold Run mission (vertical slice)
+
+- [ ] Menu → **❄ COLD RUN (MISSION)**. Control's line plays, then the objective reads "Warp to the Graveyard".
+- [ ] Warp anywhere (N → pick a site → jump). Three Corsair fighters attack. Destroy all three (missiles and lasers are slowed for VR).
+- [ ] An orange **HEAT CORE** pod drops. Lock it (COMMS / radar / cycle) and **TRACTOR** (G / COMMS / View). The objective moves on.
+- [ ] A **DERELICT: COLD HAULER** appears with a cyan beacon. Fly within 150 m, lock it, press **COMMS → DOCK** (or **V**) to board.
+- [ ] Inside: two drones. Destroy both, then at the fusion core press **E / A (take)** or **Q / B (leave)**. Morality changes.
+- [ ] Warp to **THE LANTERN**, dock, sell a heat core at the market; the crew comment. The **COLD RUN · COMPLETE** card shows time and morality.
+- [ ] LOG (pilot record) shows "COLD RUN: <objective>" while the mission runs.

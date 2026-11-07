@@ -37,6 +37,7 @@ export function init(api = {}) {
     const before = label();
     value = Math.max(-100, Math.min(100, Math.round(value + d)));
     log.push({ d, why: why || '', t: Date.now() }); save();
+    api.emit?.('moralityChanged', { score: value, delta: d, why: why || '' });
     api.toast && api.toast(`MORALITY ${d > 0 ? '+' : ''}${d}: ${why || ''}`, 2600, d >= 0 ? '#66ddff' : '#ff5544');
     if (crewLine && api.crew) setTimeout(() => api.crew(crewLine), 1400);
     if (label() !== before && api.toast) setTimeout(() => api.toast(`REPUTATION: ${label()}`, 2600, color()), 3200);
