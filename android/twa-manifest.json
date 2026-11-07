@@ -1,0 +1,55 @@
+{
+  "packageId": "com.azi.projectnova",
+  "applicationId": "0",
+  "host": "devostater.github.io",
+  "name": "Project Nova: Starfighter",
+  "launcherName": "Project Nova",
+  "display": "standalone",
+  "themeColor": "#00E5FF",
+  "themeColorDark": "#000000",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#030A14",
+  "enableNotifications": true,
+  "enableMicrophone": false,
+  "enableXRScene": false,
+  "startUrl": "/Project-Nova/standalone.html",
+  "iconUrl": "https://devostater.github.io/Project-Nova/art/icon_512.png",
+  "maskableIconUrl": "https://devostater.github.io/Project-Nova/art/icon_512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "C:\\Users\\devos\\.android\\debug.keystore",
+    "alias": "androiddebugkey"
+  },
+  "appVersionName": "1",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://devostater.github.io/Project-Nova/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "horizonPlatformSDK": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": true,
+  "horizonOSAppMode": "immersive",
+  "fullScopeUrl": "https://devostater.github.io/Project-Nova/",
+  "minSdkVersion": 23,
+  "orientation": "default",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "1"
+}

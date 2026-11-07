@@ -11,6 +11,8 @@ desktop.ini
 # private HTTPS keys - never upload
 *.pem
 *.key
+*.jks
+*.keystore
 # loose source models in the root (the game loads optimised copies from models/)
 /*.glb
 *.log
@@ -18,3 +20,10 @@ desktop.ini
 !.env.example
 # Nova local-only
 optimize_log.txt
+
+# Local Quest/Android build state and signed packages
+/android/.gradle/
+/android/**/build/
+/android/local.properties
+*.apk
+*.aab
