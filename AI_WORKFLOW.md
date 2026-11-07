@@ -62,7 +62,7 @@ Only change the primary AI or these coordination rules when the owner requests i
 
 ## AI Team Plan
 
-How the owner, Claude, GPT/Codex, Gemini/AI Studio and the 3D tools work on Project Nova together without overwriting each other. Rules: [AI_WORKFLOW.md](AI_WORKFLOW.md). Live claims: [AI_STATUS.md](AI_STATUS.md). Art rules: [ASSET_SPEC.md](ASSET_SPEC.md).
+How the owner, Claude, GPT/Codex, Gemini/AI Studio and the 3D tools work on Project Nova together without overwriting each other. Live claims: [AI_STATUS.md](AI_STATUS.md). Art rules: [ASSET_SPEC.md](ASSET_SPEC.md).
 
 ### Why lanes
 
