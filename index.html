@@ -698,6 +698,22 @@ git push -u origin main</pre>
 
   <script type="module">
     import * as THREE from 'three';
+    const NOVA_LIGHT_BLEND = {
+      blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+      blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+      blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+      transparent: true, depthWrite: false, premultipliedAlpha: true
+    };
+    function novaLightMaterial(material) { Object.assign(material, NOVA_LIGHT_BLEND); material.needsUpdate = true; }
+    function novaInitLightEffects(init, api) {
+      // FX pools allocate synchronously. Upgrade their materials once, without editing modules.
+      const existing = new Set(api.scene.children), result = init(api);
+      for (const object of api.scene.children) if (!existing.has(object)) object.traverse(o => {
+        const materials = Array.isArray(o.material) ? o.material : [o.material];
+        for (const material of materials) if (material && (material.transparent || material.blending === THREE.AdditiveBlending)) novaLightMaterial(material);
+      });
+      return result;
+    }
     import * as CANNON from 'cannon-es';
 
     // ── Version & State ──
@@ -737,6 +753,9 @@ const GAME_VERSION = 'Alpha 1.4';
     let isThumbstickSteering = false;
     let leftGamepad = null;
     let rightGamepad = null;
+    let throttleYawInput = 0;
+    const throttleHandAnchor = { x: 0, z: 0, slide: 0 };
+    const throttleCtrlAnchor = { x: 0, z: 0, slide: 0 };
     let isGrippingThrottle = false;
     let isGrippingThrottleHand = false;
     let isGrippingThrottleCtrl = false;
@@ -2820,7 +2839,7 @@ const GAME_VERSION = 'Alpha 1.4';
         flMesh.position.copy(shipWorldPos).add(offset);
         scene.add(flMesh);
         const vel = new THREE.Vector3(side * 6 + (Math.random() - 0.5) * 2, -3, 22 + Math.random() * 6).applyQuaternion(shipWorldQuat);
-        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffaa33, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); glow.scale.set(3.2, 3.2, 1); flMesh.add(glow);
+        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffaa33, transparent: true, opacity: 0.9, ...NOVA_LIGHT_BLEND, depthWrite: false })); glow.scale.set(3.2, 3.2, 1); flMesh.add(glow);
         activeFlares.push({ mesh: flMesh, vel, life: 5.5, glow });   // NOVA14: burn ~5 s and pull enemy missiles off you
       }
     });
@@ -5949,7 +5968,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, '#fff'); gr.addColorStop(0.25, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
         x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
       })(), alphaTest: 0.01,
-      transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending
+      transparent: true, opacity: 0.0, depthWrite: false, ...NOVA_LIGHT_BLEND
     });
     const hyperStars = new THREE.Points(hyperStarsGeo, hyperStarsMat);
     hyperStars.frustumCulled = false; hyperStars.visible = false;
@@ -5957,7 +5976,7 @@ const GAME_VERSION = 'Alpha 1.4';
     const warpTailGeo = new THREE.BufferGeometry();
     warpTailGeo.setAttribute('position', new THREE.BufferAttribute(warpTailPos, 3));
     warpTailGeo.setAttribute('color', new THREE.BufferAttribute(warpTailCol, 3));
-    const warpTailMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending });
+    const warpTailMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.0, depthWrite: false, ...NOVA_LIGHT_BLEND });
     const warpTails = new THREE.LineSegments(warpTailGeo, warpTailMat);
     warpTails.frustumCulled = false; warpTails.visible = false;
     shipGroup.add(warpTails);
@@ -5965,7 +5984,7 @@ const GAME_VERSION = 'Alpha 1.4';
     const warpTunnelTex = new THREE.TextureLoader().load('fx/vfx_warp_tunnel.jpg');
     warpTunnelTex.wrapS = warpTunnelTex.wrapT = THREE.RepeatWrapping; warpTunnelTex.repeat.set(3, 2);
     warpTunnelTex.colorSpace = THREE.SRGBColorSpace;
-    const warpTunnelMat = new THREE.MeshBasicMaterial({ map: warpTunnelTex, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, color: 0x9fd8ff });
+    const warpTunnelMat = new THREE.MeshBasicMaterial({ map: warpTunnelTex, side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, ...NOVA_LIGHT_BLEND, toneMapped: false, color: 0x9fd8ff });
     const warpTunnelGeo = new THREE.CylinderGeometry(60, 60, 900, 48, 1, true); warpTunnelGeo.rotateX(Math.PI / 2);
     const warpTunnel = new THREE.Mesh(warpTunnelGeo, warpTunnelMat);
     warpTunnel.position.z = -300; warpTunnel.frustumCulled = false; warpTunnel.visible = false; warpTunnel.renderOrder = -1; warpTunnel.raycast = () => { };
@@ -6275,6 +6294,8 @@ const GAME_VERSION = 'Alpha 1.4';
     stickGrabHalo.rotation.x = Math.PI / 2;
     stickGrabHalo.position.set(0, 0.095, -0.008);
     stickPivot.add(stickGrabHalo);
+    const stickGripPoint = new THREE.Object3D();
+    stickGripPoint.position.copy(stickHandle.position); stickPivot.add(stickGripPoint);
 
     // Top Hat Switch (Cyan Hat)
     const hatMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
@@ -6559,6 +6580,25 @@ const GAME_VERSION = 'Alpha 1.4';
     const throttleGrabHalo = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.055, 0.075), haloMatThrottle);
     throttleGrabHalo.position.set(0, 0.055, -0.004);
     throttleArm.add(throttleGrabHalo);
+    const throttleGripPoint = new THREE.Object3D();
+    throttleGripPoint.position.copy(throttleHandle.position); throttleArm.add(throttleGripPoint);
+    function novaFitControlGrip(model, point, halo) {
+      // Measure the visible model in its moving pivot's space, not the hidden fallback.
+      point.parent.updateWorldMatrix(true, true);
+      const inverse = point.parent.matrixWorld.clone().invert(), bounds = new THREE.Box3();
+      model.traverse(o => { if (o.isMesh && o.geometry) {
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        bounds.union(o.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, o.matrixWorld)));
+      } });
+      if (bounds.isEmpty()) return;
+      bounds.getCenter(point.position);
+      point.position.y = THREE.MathUtils.lerp(bounds.min.y, bounds.max.y, 0.62);
+      halo.position.copy(point.position); halo.visible = true;
+    }
+    function novaThrottleYaw(x, anchor) {
+      const d = x - anchor.x, dead = 0.012;
+      return Math.abs(d) < dead ? 0 : -Math.sign(d) * Math.min(1, (Math.abs(d) - dead) / 0.06);
+    }
 
     // Side Hat / Button on Throttle
     const throttleSideFireBtn = new THREE.Mesh(
@@ -6779,6 +6819,24 @@ const GAME_VERSION = 'Alpha 1.4';
     beaconCollar.rotation.x = Math.PI / 2;
     wristBeaconGroup.add(beaconCollar);
 
+    const novaPressStates = new Map();
+    let novaBeaconLast = -Infinity;
+    function novaDeliberatePress(key, inside, pinch, now) {
+      let p = novaPressStates.get(key);
+      if (!p) { p = { since: now, last: now, latched: false, inside: false }; novaPressStates.set(key, p); }
+      if (!inside || now - p.last > 120) { p.since = now; p.latched = false; p.inside = false; }
+      p.last = now;
+      if (!inside) return false;
+      if (!p.inside) p.since = now;
+      p.inside = true;
+      if (!p.latched && (pinch || now - p.since >= 250)) { p.latched = true; return true; }
+      return false;
+    }
+    function novaBeaconPress(key, inside, pinch, now) {
+      if (novaDeliberatePress(key, inside, pinch, now) && now - novaBeaconLast > 900) {
+        novaBeaconLast = now; toggleWristMenu();
+      }
+    }
     const wristToggleBtn = wristBeaconBtn; // Maintain compatibility with raycast and tests
 
     // Initial position parked to the left of the pilot (facing pilot's eyes)
@@ -7092,7 +7150,7 @@ const GAME_VERSION = 'Alpha 1.4';
         color: 0x00f0ff,
         transparent: true,
         opacity: 0.75,
-        blending: THREE.AdditiveBlending,
+        ...NOVA_LIGHT_BLEND,
         depthWrite: false,
         linewidth: 2
       });
@@ -7185,7 +7243,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (wristBeaconBtn) {
         const hits = ray.intersectObject(wristBeaconBtn, false);
         if (hits.length > 0) {
-          toggleWristMenu();
+          if (performance.now() - novaBeaconLast > 900) { novaBeaconLast = performance.now(); toggleWristMenu(); }
           return;
         }
       }
@@ -7360,7 +7418,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // ── Twin Wing Laser Cannons & Projectile System ──
     const activePlayerLasers = [];
     const laserBoltGeo = new THREE.BoxGeometry(0.06, 0.06, 2.2);
-    const laserBoltMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+    const laserBoltMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, ...NOVA_LIGHT_BLEND, transparent: true, depthWrite: false, toneMapped: false });
 
     function spawnLaserBolts() {
       const shipQuat = shipGroup.quaternion;
@@ -7482,7 +7540,7 @@ const GAME_VERSION = 'Alpha 1.4';
       pirateBoss.add(mandibleR);
 
       // Glowing Mandible Prow Edges
-      const glowEdgeMat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
+      const glowEdgeMat = new THREE.MeshBasicMaterial({ color: 0xff0033, ...NOVA_LIGHT_BLEND });
       const edgeL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 9.2), glowEdgeMat);
       edgeL.position.set(-3.8, 0, -9.5);
       pirateBoss.add(edgeL);
@@ -8573,12 +8631,25 @@ const GAME_VERSION = 'Alpha 1.4';
     let novaAutoDockPending = false;
     function novaAutoDockPress() {
       if (isInsideCantina || isDockingInProgress) return;
+      const selected = currentLockedTarget;
+      const dockable = selected && selected.targetObj && selected.targetObj.visible !== false && !selected.isHostile &&
+        (['station', 'ship', 'allied', 'carrier', 'freighter'].includes(selected.type) || selected.targetObj.userData?.dockable);
+      const destination = dockable ? selected.targetObj : stationGroup;
+      if (NDK.state !== 'idle') {
+        const same = NDK.obj === destination;
+        ndkRelease(true); if (same) return;
+      }
+      if (destination !== stationGroup) {
+        if (novaDock.state !== 'idle') novaDockClear();
+        novaAutoDockPending = false;
+        ndkBegin(destination, selected.name, selected.type); return;
+      }
       if (novaDock.state === 'approach') { novaDockTractor(); return; }
       if (novaDock.state === 'tractor') return;
-      if (NDK.state !== 'idle') { ndkRelease(true); return; }
-      const lockedObj = currentLockedTarget && currentLockedTarget.targetObj;
-      if (lockedObj && lockedObj !== stationGroup && !currentLockedTarget.isHostile) { ndkBegin(lockedObj, currentLockedTarget.name, currentLockedTarget.type); return; }
-      if (isAutopilotActive || novaAutoDockPending) { novaAutoDockPending = false; toggleAutopilot(false); return; }
+      if (novaAutoDockPending) { novaAutoDockPending = false; toggleAutopilot(false); return; }
+      if (isAutopilotActive) toggleAutopilot(false);
+      if (!dockable) currentLockedTarget = { name: 'ORBITAL STATION NOVA-1', type: 'station', targetObj: stationGroup, isHostile: false };
+      showToast('DOCK: ORBITAL STATION NOVA-1', 2600, '#00f0ff');
       const d = stationGroup.position.distanceTo(shipGroup.position);
       if (d <= 2400) { novaDockPress(); if (novaDock.state === 'approach') novaDockTractor(); return; }
       novaAutoDockPending = true;
@@ -8811,7 +8882,7 @@ const GAME_VERSION = 'Alpha 1.4';
     let novaLastHit = -999, novaPirateFireT = 3.0, novaDisabled = false;
     const novaBolts = [];
     const novaBoltGeo = new THREE.BoxGeometry(0.5, 0.5, 9);
-    const novaBoltMat = new THREE.MeshBasicMaterial({ color: 0xff2244, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false });
+    const novaBoltMat = new THREE.MeshBasicMaterial({ color: 0xff2244, ...NOVA_LIGHT_BLEND, transparent: true, depthWrite: false, toneMapped: false });
     function novaDamage(amount) {
       if (novaDisabled || isInsideCantina) return;
       novaLastHit = performance.now();
@@ -10604,13 +10675,16 @@ const GAME_VERSION = 'Alpha 1.4';
         if (abs <= STICK_ANGLE_DEADZONE) return 0;
         return Math.sign(rad) * Math.min(1.0, (abs - STICK_ANGLE_DEADZONE) / (0.45 - STICK_ANGLE_DEADZONE));
       };
-      const normPitch = stickAxisNorm(stickPivot.rotation.x);
-      const normRoll  = stickAxisNorm(stickPivot.rotation.z);
-      const isStickDeflected = (normPitch !== 0 || normRoll !== 0);
-      const isSteeringNeutral = (!isActivelySteering || !isStickDeflected);
+      const arcadeFlight = NOPT.o.flightMode !== 'advanced';
+      const flightCurve = v => arcadeFlight ? Math.sign(v) * Math.pow(Math.abs(v), 1.5) : v;
+      const normPitch = flightCurve(stickAxisNorm(stickPivot.rotation.x));
+      const normRoll = flightCurve(stickAxisNorm(stickPivot.rotation.z));
+      const normYaw = flightCurve(throttleYawInput);
+      const isStickDeflected = (normPitch !== 0 || normRoll !== 0 || normYaw !== 0);
+      const isSteeringNeutral = ((!isActivelySteering && normYaw === 0) || !isStickDeflected);
 
       // Starfighter Agile Flight Rates: Responsive, agile, comfortable star travel
-      const dampMult = isRotationDampenerOn ? 0.90 : 1.25;
+      const dampMult = arcadeFlight ? 0.90 : 1.25;
       const pitchSpeed = 1.35 * dampMult; // ~77 deg/sec full deflection
       const yawSpeed   = 1.15 * dampMult; // ~65 deg/sec full deflection
       const rollSpeed  = 1.45 * dampMult; // ~83 deg/sec full deflection
@@ -10621,13 +10695,17 @@ const GAME_VERSION = 'Alpha 1.4';
       const pitchFactor = isPitchInverted ? -1.0 : 1.0;
       const pitchRate = pitchFactor * normPitch * pitchSpeed;
 
-      // Turn / Yaw: Tilt Right (stick.rotation.z < 0) -> Turn RIGHT; Tilt Left -> Turn LEFT
-      const yawRate = normRoll * yawSpeed;
-
-      // Roll: Coordinated Banking: Tilt Right -> Bank RIGHT; Tilt Left -> Bank LEFT
-      const rollRate = normRoll * 0.45 * rollSpeed;
-
-      if (!isSteeringNeutral) {
+      // Stick X rolls; lateral throttle travel is the independent yaw rudder.
+      const yawRate = (normYaw + (arcadeFlight ? normRoll * 0.15 : 0)) * yawSpeed;
+      let rollRate = normRoll * rollSpeed;
+      if (arcadeFlight && Math.abs(normRoll) < 0.01 && !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive) {
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(shipGroup.quaternion);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(shipGroup.quaternion);
+        rollRate -= THREE.MathUtils.clamp(Math.atan2(right.y, up.y), -1, 1) * 0.7;
+      }
+      if (!arcadeFlight && shipBody) { shipBody.angularDamping = 0; shipBody.linearDamping = 0; }
+      const hasFlightRate = Math.abs(pitchRate) + Math.abs(yawRate) + Math.abs(rollRate) > 1e-5;
+      if (hasFlightRate) {
         // Direct local attitude integration: rotates strictly around ship's CURRENT local axes (Pitch=X, Yaw=Y, Roll=Z)
         const deltaEuler = new THREE.Euler(pitchRate * delta, yawRate * delta, rollRate * delta, 'YXZ');
         const deltaQuat = new THREE.Quaternion().setFromEuler(deltaEuler);
@@ -10643,9 +10721,9 @@ const GAME_VERSION = 'Alpha 1.4';
       }
 
       // ── Flight Stabilization & Auto-Stopping (Zero Random Spin / Instant Inertial Arrest) ──
-      if (isRotationDampenerOn) {
+      if (arcadeFlight && isRotationDampenerOn) {
         // 1. Angular Rotation Auto-Stop: When not actively deflecting flight stick, lock rotation to dead zero (0 rad/s)
-        if (isSteeringNeutral) {
+        if (!hasFlightRate) {
           if (shipBody) {
             shipBody.angularVelocity.set(0, 0, 0);
             if (shipBody.torque) shipBody.torque.set(0, 0, 0);
@@ -10673,11 +10751,11 @@ const GAME_VERSION = 'Alpha 1.4';
         }
       } else {
         // Dampeners OFF: Inertial zero-g drift
-        if (isSteeringNeutral && shipBody) {
-          shipBody.angularDamping = 0.80;
+        if (!hasFlightRate && shipBody) {
+          shipBody.angularDamping = arcadeFlight ? 0.80 : 0;
         }
         if (shipBody && throttlePct <= 0.05) {
-          shipBody.linearDamping = 0.20;
+          shipBody.linearDamping = arcadeFlight ? 0.20 : 0;
         }
       }
 
@@ -11150,6 +11228,8 @@ const GAME_VERSION = 'Alpha 1.4';
       // XR poses are rig-local. Refresh ancestors after autopilot/tractor/warp moves
       // before converting joints to world space (updateMatrixWorld alone uses stale parents).
       cameraRig.updateWorldMatrix(true, true);
+      throttleYawInput = 0;
+      handGroupLeft.position.set(0, 0, 0); handGroupRight.position.set(0, 0, 0);
       // Update VR / MR Controllers and Hands (Bare hand tracking focused)
       const session = renderer.xr.getSession();
       if (session) {
@@ -11313,12 +11393,8 @@ const GAME_VERSION = 'Alpha 1.4';
           if (!isLeftHand && wristToggleBtn) {
             const wristBtnWorld = new THREE.Vector3();
             wristToggleBtn.getWorldPosition(wristBtnWorld);
-            if (tipWorld.distanceTo(wristBtnWorld) < 0.10) {
-              if (now - lastFaceBtnTime > 380) {
-                lastFaceBtnTime = now;
-                toggleWristMenu();
-              }
-            }
+            const busy = isGrippingStickHand || isGrippingThrottleHand || isGrippingStick || isGrippingThrottle;
+            novaBeaconPress('hand-beacon', !busy && wristBeaconGroup.visible && tipWorld.distanceTo(wristBtnWorld) < 0.045, isPinching, now);
           }
 
           // ── Posture & Ambidextrous Control Tracking (Alpha 0.1 Proven Architecture) ──
@@ -11342,18 +11418,17 @@ const GAME_VERSION = 'Alpha 1.4';
 
           // Hand Center & Proximity
           const stickWorldPos = new THREE.Vector3();
-          stickHandle.getWorldPosition(stickWorldPos);
+          stickGripPoint.getWorldPosition(stickWorldPos);
           const stickBaseWorldPos = new THREE.Vector3();
           stickGroup.getWorldPosition(stickBaseWorldPos);
           const throttleWorldPos = new THREE.Vector3();
-          throttleHandle.getWorldPosition(throttleWorldPos);
+          throttleGripPoint.getWorldPosition(throttleWorldPos);
 
           const handCenter = wristWorld.clone().lerp(tipWorld, 0.5);
           const distStick = Math.min(
             tipWorld.distanceTo(stickWorldPos),
             handCenter.distanceTo(stickWorldPos),
-            wristWorld.distanceTo(stickWorldPos),
-            handCenter.distanceTo(stickBaseWorldPos)
+            wristWorld.distanceTo(stickWorldPos)
           );
           const distThrottle = Math.min(
             tipWorld.distanceTo(throttleWorldPos),
@@ -11386,7 +11461,7 @@ const GAME_VERSION = 'Alpha 1.4';
           // ── Flight Stick Control (RIGHT HAND ONLY - Tightened 9cm Grab Radius) ──
           if (!isLeftHand) {
             // Engage grip: MUST actively grip (isGripActive) close to stick (< 9cm, prevents accidental far grabbing)
-            const canEngageStick = (distStick < 0.13 && (isGripActive || handCenter.distanceTo(stickWorldPos) < 0.07));
+            const canEngageStick = distStick < 0.13 && isGripActive;
             if (!isGrippingStickHand && canEngageStick) {
               isGrippingStickHand = true;
               stickGrabAnchorZ = localStickHand.z;
@@ -11446,6 +11521,9 @@ const GAME_VERSION = 'Alpha 1.4';
             const canEngageThrottle = (distThrottle < 0.22 && isGripActive);
             if (!isGrippingThrottleHand && canEngageThrottle && !isHandBusyWithControls) {
               isGrippingThrottleHand = true;
+              throttleHandAnchor.x = localThrottleHand.x;
+              throttleHandAnchor.z = localThrottleHand.z;
+              throttleHandAnchor.slide = throttleSlideZ;
               sound.beep(520, 0.05);
             }
 
@@ -11468,7 +11546,8 @@ const GAME_VERSION = 'Alpha 1.4';
               } else {
                 // Direct 1-to-1 follow along the throttle rail
                 // Sticky Max Detent: when pushed forward into notch 4 territory (z <= THROTTLE_MAX_Z + 0.018), firmly lock to 100%
-                let targetZ = THREE.MathUtils.clamp(localThrottleHand.z, THROTTLE_MAX_Z, THROTTLE_MIN_Z);
+                throttleYawInput = novaThrottleYaw(localThrottleHand.x, throttleHandAnchor);
+                let targetZ = THREE.MathUtils.clamp(throttleHandAnchor.slide + localThrottleHand.z - throttleHandAnchor.z, THROTTLE_MAX_Z, THROTTLE_MIN_Z);
                 if (targetZ <= THROTTLE_MAX_Z + 0.018) {
                   targetZ = THROTTLE_MAX_Z;
                 }
@@ -11580,6 +11659,13 @@ const GAME_VERSION = 'Alpha 1.4';
           let closestBtn = null;
           let closestDist = Infinity;
           const handGripping = isLeftHand ? isGrippingThrottleHand : isGrippingStickHand;
+          if (handGripping) {
+            const anchor = isLeftHand ? throttleGripPoint : stickGripPoint;
+            const group = isLeftHand ? handGroupLeft : handGroupRight;
+            const target = cameraRig.worldToLocal(anchor.getWorldPosition(new THREE.Vector3()));
+            const trackedCenter = cameraRig.worldToLocal(handCenter.clone());
+            group.position.copy(target).sub(trackedCenter);
+          }
           for (let b = 0; b < cockpitInteractables.length && !handGripping; b++) {
             const btn = cockpitInteractables[b];
             if (!btn.mesh || !novaWorldVisible(btn.mesh)) continue;
@@ -11723,7 +11809,7 @@ const GAME_VERSION = 'Alpha 1.4';
           // ── Flight Stick (RIGHT CONTROLLER ONLY - Tightened 9cm Grab Radius) ──
           if (!cObj.isLeft) {
             const stickWorldPos = new THREE.Vector3();
-            stickHandle.getWorldPosition(stickWorldPos);
+            stickGripPoint.getWorldPosition(stickWorldPos);
             const distStick = cPos.distanceTo(stickWorldPos);
 
             // Right Controller Trigger or 'A'/'B' button fires laser continuously while holding stick
@@ -11779,11 +11865,13 @@ const GAME_VERSION = 'Alpha 1.4';
           // ── Throttle Lever (LEFT CONTROLLER ONLY - Follows Controller & Stays When Released) ──
           if (cObj.isLeft) {
             const throttleWorldPos = new THREE.Vector3();
-            throttleHandle.getWorldPosition(throttleWorldPos);
+            throttleGripPoint.getWorldPosition(throttleWorldPos);
             const distThrottle = cPos.distanceTo(throttleWorldPos);
 
             if (!isGrippingThrottleCtrl && distThrottle < 0.18 && isControllerActive) {
               isGrippingThrottleCtrl = true;
+              const anchor = throttleGroup.worldToLocal(cPos.clone());
+              throttleCtrlAnchor.x = anchor.x; throttleCtrlAnchor.z = anchor.z; throttleCtrlAnchor.slide = throttleSlideZ;
               sound.beep(520, 0.05);
             }
             if (isGrippingThrottleCtrl && isControllerActive) {
@@ -11796,7 +11884,8 @@ const GAME_VERSION = 'Alpha 1.4';
                 drawDebugWatch();
               } else {
                 const localThHand = throttleGroup.worldToLocal(cPos.clone());
-                let targetZ = THREE.MathUtils.clamp(localThHand.z, THROTTLE_MAX_Z, THROTTLE_MIN_Z);
+                throttleYawInput = novaThrottleYaw(localThHand.x, throttleCtrlAnchor);
+                let targetZ = THREE.MathUtils.clamp(throttleCtrlAnchor.slide + localThHand.z - throttleCtrlAnchor.z, THROTTLE_MAX_Z, THROTTLE_MIN_Z);
                 if (targetZ <= THROTTLE_MAX_Z + 0.018) {
                   targetZ = THROTTLE_MAX_Z;
                 }
@@ -11878,12 +11967,8 @@ const GAME_VERSION = 'Alpha 1.4';
           if (!cObj.isLeft && wristBeaconGroup) {
             const beaconWorld = new THREE.Vector3();
             wristBeaconBtn.getWorldPosition(beaconWorld);
-            if (cPos.distanceTo(beaconWorld) < 0.12) {
-              if (now - lastFaceBtnTime > 350) {
-                lastFaceBtnTime = now;
-                toggleWristMenu();
-              }
-            }
+            const busy = isGrippingStickHand || isGrippingThrottleHand || isGrippingStickCtrl || isGrippingThrottleCtrl;
+            novaBeaconPress('controller-beacon', !busy && cPos.distanceTo(beaconWorld) < 0.055, false, now);
           }
         });
 
@@ -11990,6 +12075,16 @@ const GAME_VERSION = 'Alpha 1.4';
         hudEl.innerText = `STICK: ${stickPitchDeg >= 0 ? '+' : ''}${stickPitchDeg.toFixed(1)}° PITCH · ${stickRollDeg >= 0 ? '+' : ''}${stickRollDeg.toFixed(1)}° ROLL | THROTTLE: ${(throttlePct * 100).toFixed(0)}% | SEAT: ${seatStr}`;
       }
 
+      // Input v2 renders controller gloves. Snap visuals without changing XR source poses.
+      ['left', 'right'].forEach(side => {
+        const held = side === 'left' ? isGrippingThrottleCtrl : isGrippingStickCtrl;
+        const visual = novaHands[side];
+        if (!held || !visual || !visual.grip.visible) return;
+        const anchor = side === 'left' ? throttleGripPoint : stickGripPoint;
+        visual.grip.position.copy(cameraRig.worldToLocal(anchor.getWorldPosition(new THREE.Vector3())));
+        const q = cameraRig.getWorldQuaternion(new THREE.Quaternion()).invert();
+        visual.grip.quaternion.copy(q.multiply(anchor.getWorldQuaternion(new THREE.Quaternion())));
+      });
       novaHandTurnFrame(frame, now);
       cameraRig.updateWorldMatrix(true, true);
       renderer.render(scene, camera);
@@ -12110,7 +12205,11 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!direction) { novaTurnSince = 0; novaTurnLatched = false; }
       else if (direction !== novaTurnDirection) novaTurnSince = now;
       const gesture = direction && !novaTurnLatched && now - novaTurnSince >= 350;
-      const tap = touch >= 0 && novaTurnTouch < 0;
+      const otherThumb = joint(right, 'thumb-tip');
+      const deliberatePinch = otherTip && otherThumb && otherTip.distanceTo(otherThumb) < 0.028;
+      const pressL = novaDeliberatePress('turn-L', touch === 0, deliberatePinch, now);
+      const pressR = novaDeliberatePress('turn-R', touch === 1, deliberatePinch, now);
+      const tap = pressL || pressR;
       if ((tap || gesture) && now - novaTurnLast > 650) {
         const sign = tap ? (touch === 0 ? 1 : -1) : direction;
         const headBefore = camera.position.clone().applyQuaternion(cameraRig.quaternion);
@@ -12144,7 +12243,7 @@ const GAME_VERSION = 'Alpha 1.4';
       h.grip.add(h.tip);
       h.ray = new THREE.Group();
       const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
-      h.laser = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+      h.laser = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85, ...NOVA_LIGHT_BLEND, depthWrite: false }));
       h.ray.add(h.laser);
       h.dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 10, 8), new THREE.MeshBasicMaterial({ color: col }));
       h.dot.visible = false;
@@ -14511,23 +14610,7 @@ const GAME_VERSION = 'Alpha 1.4';
       try { sound.beep(880, 0.1); showToast('DOCKING WITH ' + NDK.name + ' • AUTOMATIC APPROACH • DOCK AGAIN TO CANCEL', 3200, '#66ffee'); } catch (e) { }
     }
     function novaDockAny() {
-      try {
-        if (isInsideCantina || isDockingInProgress) return;
-        if (novaDock.state !== 'idle' || isAutopilotActive || novaAutoDockPending) { novaAutoDockPress(); return; }
-        if (NDK.state !== 'idle') { ndkRelease(true); return; }
-        const lk = currentLockedTarget;
-        let obj = lk && lk.targetObj, name = lk && lk.name, type = lk && lk.type;
-        if (lk && lk.isHostile) { showToast('Cannot dock with a hostile contact.', 2200, '#ff3344'); return; }
-        if (!obj) {
-          const n = ndkNearest();
-          if (!n) { novaAutoDockPress(); return; }
-          obj = n.obj; name = n.name; type = n.type;
-          currentLockedTarget = { name, type, targetObj: obj, dist: 0, isHostile: false };
-          try { drawRightDash(); drawMissileTargetScreen(); drawCommsPanel(); } catch (e) { }
-        }
-        if (obj === stationGroup) { novaAutoDockPress(); return; }
-        ndkBegin(obj, name, type);
-      } catch (e) { console.warn('[NOVA12] dock failed', e); }
+      novaAutoDockPress();
     }
     window.novaDockAny = novaDockAny;
     const NDK_LINES = {
@@ -14618,9 +14701,9 @@ const GAME_VERSION = 'Alpha 1.4';
         let f = m.group.userData.nkFlame;
         if (!f) {
           f = new THREE.Group(); f.position.z = 2.1; m.group.add(f); m.group.userData.nkFlame = f;
-          const add = (r, l, col, op) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, l, 12, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })); c.rotation.x = -Math.PI / 2; c.position.z = l / 2; c.raycast = () => { }; f.add(c); return c; };
+          const add = (r, l, col, op) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, l, 12, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, ...NOVA_LIGHT_BLEND, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })); c.rotation.x = -Math.PI / 2; c.position.z = l / 2; c.raycast = () => { }; f.add(c); return c; };
           add(0.16, 1.6, 0xff6a1a, 0.55); add(0.08, 0.9, 0xfff0b0, 0.9);
-          const gl = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xff8a33, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })); gl.scale.set(1.1, 1.1, 1); f.add(gl);
+          const gl = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xff8a33, transparent: true, opacity: 0.8, ...NOVA_LIGHT_BLEND, depthWrite: false })); gl.scale.set(1.1, 1.1, 1); f.add(gl);
         }
         f.scale.set(1 + Math.random() * 0.15, 1 + Math.random() * 0.15, 0.8 + Math.random() * 0.5);
       }); } catch (e) { }
@@ -14826,7 +14909,7 @@ const GAME_VERSION = 'Alpha 1.4';
         // keep the actions of the procedural buttons, then retire them
         const acts = {};
         c.btns.forEach(b => { const e = cockpitInteractables.find(x => x.mesh === b); if (e) acts[e.label] = e.action; });
-        acts['PREV TARGET'] = novaPrevTarget; acts['CLEAR TARGET'] = novaClearTarget; acts['OH HAIL'] = novaHailTarget; acts['AUTO-DOCK'] = novaDockPress;
+        acts['PREV TARGET'] = novaPrevTarget; acts['CLEAR TARGET'] = novaClearTarget; acts['OH HAIL'] = novaHailTarget; acts['AUTO-DOCK'] = novaAutoDockPress;
         c.btns.forEach(b => novaUnregister(b));
         c.g.children.forEach(ch => { if (ch !== wrap) ch.visible = false; });
         const items = [];
@@ -16654,7 +16737,7 @@ const GAME_VERSION = 'Alpha 1.4';
     NVX.glow = NVX.tl.load('fx/vfx_thruster_glow.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; });
     const NVX_PLUME_GEO = new THREE.PlaneGeometry(1, 1); NVX_PLUME_GEO.translate(0, -0.5, 0); NVX_PLUME_GEO.rotateX(-Math.PI / 2); NVX_PLUME_GEO.rotateY(Math.PI);   // top edge (nozzle) at the origin, flame runs back along +Z
     function novaPlume(len, wid, col) {
-      const mat = new THREE.MeshBasicMaterial({ map: NVX.plume, color: col || 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+      const mat = new THREE.MeshBasicMaterial({ map: NVX.plume, color: col || 0xffffff, transparent: true, ...NOVA_LIGHT_BLEND, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
       const g = new THREE.Group(); g.name = 'NOVA_PLUME';
       for (let i = 0; i < 2; i++) { const m = new THREE.Mesh(NVX_PLUME_GEO, mat); m.rotation.z = i * Math.PI / 2; m.raycast = () => { }; g.add(m); }
       g.scale.set(wid, wid, len); g.userData.base = [wid, len];
@@ -16662,7 +16745,7 @@ const GAME_VERSION = 'Alpha 1.4';
       return g;
     }
     function novaEngineGlow(size, col) {
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: NVX.glow, color: col, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: NVX.glow, color: col, transparent: true, ...NOVA_LIGHT_BLEND, depthWrite: false, toneMapped: false }));
       sp.scale.setScalar(size); sp.raycast = () => { }; sp.name = 'NOVA_ENGINE_GLOW';
       sp.onBeforeRender = () => { sp.material.opacity = 0.75 + Math.random() * 0.25; };
       return sp;
@@ -16732,7 +16815,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // ── projectiles ──
     const NF_BOLT_GEO = new THREE.BoxGeometry(0.35, 0.35, 5);
     const NF_BOLT_MAT = {};
-    const nfBoltMat = col => NF_BOLT_MAT[col] || (NF_BOLT_MAT[col] = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    const nfBoltMat = col => NF_BOLT_MAT[col] || (NF_BOLT_MAT[col] = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95, ...NOVA_LIGHT_BLEND, depthWrite: false, toneMapped: false }));
     function nfFireBolt(u, from, dir, gun) {
       const m = new THREE.Mesh(NF_BOLT_GEO, nfBoltMat(gun.col)); m.raycast = () => { };
       m.position.copy(from); m.lookAt(nfTmp.a.copy(from).add(dir)); NF.root.add(m);
@@ -16741,7 +16824,7 @@ const GAME_VERSION = 'Alpha 1.4';
     const NF_BEAM_GEO = new THREE.CylinderGeometry(0.6, 0.6, 1, 6, 1, true); NF_BEAM_GEO.rotateX(Math.PI / 2); NF_BEAM_GEO.translate(0, 0, 0.5);
     function nfBeam(u, tgt, gun) {
       const from = u.g.position, to = tgt.g.position, d = from.distanceTo(to);
-      const m = new THREE.Mesh(NF_BEAM_GEO, new THREE.MeshBasicMaterial({ color: gun.col, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+      const m = new THREE.Mesh(NF_BEAM_GEO, new THREE.MeshBasicMaterial({ color: gun.col, transparent: true, opacity: 0.9, ...NOVA_LIGHT_BLEND, depthWrite: false, toneMapped: false }));
       m.position.copy(from); m.lookAt(to); m.scale.set(1, 1, d); m.raycast = () => { }; NF.root.add(m);
       NF.beams.push({ m, t: 0, d: 0.35 });
       if (tgt.player) novaDamage(gun.dmg); else nfHit(tgt, gun.dmg);
@@ -17947,7 +18030,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // Live positions are fed every frame (homing missiles turn, so the module must not dead-reckon).
     // Quest / low tier: trails only, no extra explosion layers (the flight scene is already over the draw-call budget).
     const NFX = { fx: null, ids: new Map(), seq: 1, last: performance.now() };
-    import('./modules/fx_ultra.js').then(m => { NFX.fx = m.init({ THREE, scene, renderer }); console.log('[fx_ultra] ready, tier', NFX.fx && NFX.fx.tier); })
+    import('./modules/fx_ultra.js').then(m => { NFX.fx = novaInitLightEffects(m.init, { THREE, scene, renderer }); console.log('[fx_ultra] ready, tier', NFX.fx && NFX.fx.tier); })
       .catch(e => console.warn('[fx_ultra] not loaded', e && e.message));
     function nfxFrame() {
       const fx = NFX.fx; if (!fx || !fx.ready) return;
@@ -18762,7 +18845,7 @@ const GAME_VERSION = 'Alpha 1.4';
                 shieldBubbleMat.map = tex;
                 shieldBubbleMat.alphaMap = tex;
                 shieldBubbleMat.wireframe = false;
-                shieldBubbleMat.blending = THREE.AdditiveBlending;
+                novaLightMaterial(shieldBubbleMat);
                 shieldBubbleMat.color.setHex(0x44ddff);
                 shieldBubbleMat.needsUpdate = true;
               } catch (e) {}
@@ -18773,7 +18856,7 @@ const GAME_VERSION = 'Alpha 1.4';
                       const sm = td.userData.shieldRing.material;
                       sm.map = tex;
                       sm.wireframe = false;
-                      sm.blending = THREE.AdditiveBlending;
+                      novaLightMaterial(sm);
                       sm.needsUpdate = true;
                     }
                   });
@@ -18784,13 +18867,13 @@ const GAME_VERSION = 'Alpha 1.4';
               try {
                 laserBoltMat.map = tex;
                 laserBoltMat.transparent = true;
-                laserBoltMat.blending = THREE.AdditiveBlending;
+                novaLightMaterial(laserBoltMat);
                 laserBoltMat.depthWrite = false;
                 laserBoltMat.color.setHex(0x55ffee);
                 laserBoltMat.needsUpdate = true;
                 novaBoltMat.map = tex;
                 novaBoltMat.transparent = true;
-                novaBoltMat.blending = THREE.AdditiveBlending;
+                novaLightMaterial(novaBoltMat);
                 novaBoltMat.depthWrite = false;
                 novaBoltMat.color.setHex(0xff4455);
                 novaBoltMat.needsUpdate = true;
@@ -18812,7 +18895,7 @@ const GAME_VERSION = 'Alpha 1.4';
           color: col,
           transparent: true,
           opacity: 0.95,
-          blending: THREE.AdditiveBlending,
+          ...NOVA_LIGHT_BLEND,
           depthWrite: false,
           toneMapped: false
         });
@@ -18844,7 +18927,7 @@ const GAME_VERSION = 'Alpha 1.4';
           color: col,
           transparent: true,
           opacity: 0.92,
-          blending: THREE.AdditiveBlending,
+          ...NOVA_LIGHT_BLEND,
           depthWrite: false,
           toneMapped: false,
           rotation: Math.random() * Math.PI * 2
@@ -18877,7 +18960,7 @@ const GAME_VERSION = 'Alpha 1.4';
           color: col,
           transparent: true,
           opacity: 0.95,
-          blending: THREE.AdditiveBlending,
+          ...NOVA_LIGHT_BLEND,
           depthWrite: false,
           side: THREE.DoubleSide,
           toneMapped: false
@@ -18896,7 +18979,7 @@ const GAME_VERSION = 'Alpha 1.4';
             color: col,
             transparent: true,
             opacity: 0.9,
-            blending: THREE.AdditiveBlending,
+            ...NOVA_LIGHT_BLEND,
             depthWrite: false,
             toneMapped: false
           }));
@@ -18977,7 +19060,7 @@ const GAME_VERSION = 'Alpha 1.4';
               color: 0xff9933,
               transparent: true,
               opacity: 0.95,
-              blending: THREE.AdditiveBlending,
+              ...NOVA_LIGHT_BLEND,
               depthWrite: false,
               toneMapped: false
             }));
@@ -19018,7 +19101,7 @@ const GAME_VERSION = 'Alpha 1.4';
               color: col,
               transparent: true,
               opacity: 0.85,
-              blending: THREE.AdditiveBlending,
+              ...NOVA_LIGHT_BLEND,
               depthWrite: false,
               side: THREE.DoubleSide,
               toneMapped: false
@@ -19092,7 +19175,7 @@ const GAME_VERSION = 'Alpha 1.4';
                 color: tint,
                 transparent: true,
                 opacity: 0.95,
-                blending: THREE.AdditiveBlending,
+                ...NOVA_LIGHT_BLEND,
                 depthWrite: false,
                 toneMapped: false,
                 rotation: Math.random() * Math.PI * 2
@@ -19160,7 +19243,7 @@ const GAME_VERSION = 'Alpha 1.4';
           if (!novaDock.beam.userData.vfxWoven) {
             novaDock.beam.userData.vfxWoven = true;
             novaDock.beam.material.map = NOVA_VFX.tex.lightning;
-            novaDock.beam.material.blending = THREE.AdditiveBlending;
+            novaLightMaterial(novaDock.beam.material);
             novaDock.beam.material.opacity = 0.55;
             novaDock.beam.material.needsUpdate = true;
           }
@@ -19215,11 +19298,11 @@ const GAME_VERSION = 'Alpha 1.4';
         window.novaHands = novaHands;
         try { nhBuild(); } catch (e) { console.warn('[NOVA13] holo failed', e); }
       });
-      nmSkin(stickGroup, 'missile_lever', { tag: 'stick', hideRoot: stickGroup, parent: stickPivot, keepBelow: 0, yaw: 0, scale: 0.25, pos: [0, 0.09, 0] }).then(w => { if (w) nmWireStickFire(w); if (!w) { stickGroup.userData.nmSkin = null; nmSkin(stickGroup, 'flight_stick', { hideRoot: stickGroup, parent: stickPivot, keepBelow: 0, scale: 0.8, pos: [0, 0.1, 0], paint: true }); } });
+      nmSkin(stickGroup, 'missile_lever', { tag: 'stick', hideRoot: stickGroup, parent: stickPivot, keepBelow: 0, yaw: 0, scale: 0.25, pos: [0, 0.09, 0] }).then(w => { if (w) { nmWireStickFire(w); novaFitControlGrip(w, stickGripPoint, stickGrabHalo); } if (!w) { stickGroup.userData.nmSkin = null; nmSkin(stickGroup, 'flight_stick', { hideRoot: stickGroup, parent: stickPivot, keepBelow: 0, scale: 0.8, pos: [0, 0.1, 0], paint: true }).then(w2 => { if (w2) novaFitControlGrip(w2, stickGripPoint, stickGrabHalo); }); } });
       // throttle: new joystick handle rides the arm, new housing sits under it (old thruster model is the fallback)
       nmSkin(throttleGroup, 'throttle_stick', { hideRoot: throttleGroup, parent: throttleArm, keepBelow: 0, yaw: 0, scale: 0.2, pos: [0, -0.004, 0] }).then(w => {
-        if (!w) { throttleGroup.userData.nmSkin = null; nmSkin(throttleGroup, 'thruster', { hideRoot: throttleGroup, parent: throttleArm, keepBelow: 0, yaw: Math.PI / 2, pos: [0, 0.0725, 0], paint: true, glow: 0xff9a2a }).then(w2 => { if (w2) { ntBuildTrack(throttleGroup); nmWireThrottleAB(w2); } }); return; }
-        nmWireThrottleStick(w); w.rotation.x = 0.43; NKS.thrSlope = true;   // stand the handle square to the sloped slot
+        if (!w) { throttleGroup.userData.nmSkin = null; nmSkin(throttleGroup, 'thruster', { hideRoot: throttleGroup, parent: throttleArm, keepBelow: 0, yaw: Math.PI / 2, pos: [0, 0.0725, 0], paint: true, glow: 0xff9a2a }).then(w2 => { if (w2) { ntBuildTrack(throttleGroup); nmWireThrottleAB(w2); novaFitControlGrip(w2, throttleGripPoint, throttleGrabHalo); } }); return; }
+        nmWireThrottleStick(w); w.rotation.x = 0.43; NKS.thrSlope = true; novaFitControlGrip(w, throttleGripPoint, throttleGrabHalo);   // stand the handle square to the sloped slot
         const tb = new THREE.Group(); throttleGroup.add(tb);
         nmSkin(tb, 'throttle_base', { hide: false, keepBelow: 0, scale: 0.22, pos: [0, -0.137, 0] }).then(b => { if (!b) ntBuildTrack(throttleGroup); });
       });
@@ -19546,7 +19629,7 @@ const GAME_VERSION = 'Alpha 1.4';
           try {
             const module = await import(base + name);
             if (typeof module.init !== 'function') throw new Error('missing init(nova)');
-            const instance = await module.init(window.nova);
+            const instance = await (name === 'fx_ultra.js' ? novaInitLightEffects(module.init, window.nova) : module.init(window.nova));
             const key = name.replace(/\.js$/i, '');
             novaModuleInstances.set(name, instance ?? true);
             novaModuleInstances.set(key, instance ?? true);
