@@ -25,7 +25,7 @@ export function init(nova) {
     const shardMat = new T.MeshStandardMaterial({ color, transparent: true, depthWrite: false, roughness: 0.4 });
     const shards = new T.InstancedMesh(shardGeo, shardMat, 8); shards.visible = false;
     shards.instanceMatrix.setUsage(T.DynamicDrawUsage); shards.frustumCulled = false; root.add(shards);
-    return { mesh, material, shards, shardMat, pieces: Array.from({ length: 8 }, () => ({ p: new T.Vector3(), v: new T.Vector3(), q: new T.Quaternion() })), home: new T.Vector3(), v: new T.Vector3(), holder: null, offset: new T.Vector3(), state: 'rest', age: 0, shardAge: 0 };
+    return { mesh, material, shards, shardMat, pieces: Array.from({ length: 8 }, () => ({ p: new T.Vector3(), v: new T.Vector3(), q: new T.Quaternion() })), home: new T.Vector3(), v: new T.Vector3(), holder: null, offset: new T.Vector3(), offsetQ: new T.Quaternion(), state: 'rest', age: 0, shardAge: 0 };
   });
   const dummy = new T.Object3D();
   function surface(x, z) {
@@ -123,11 +123,12 @@ export function init(nova) {
       if (nearest) {
         nearest.holder = state; nearest.state = 'held'; state.cup = nearest;
         nearest.offset.copy(nearest.mesh.position).sub(state.p).applyQuaternion(state.q.clone().invert());
+        nearest.offsetQ.copy(state.q).invert().multiply(nearest.mesh.quaternion);
       }
     }
     if (state.cup) {
       const c = state.cup;
-      c.mesh.position.copy(c.offset).applyQuaternion(state.q).add(state.p); c.mesh.quaternion.copy(state.q);
+      c.mesh.position.copy(c.offset).applyQuaternion(state.q).add(state.p); c.mesh.quaternion.copy(state.q).multiply(c.offsetQ);
       if (!pressed) {
         const first = state.samples[0], span = time - first.t;
         const velocity = span > 0.015 ? state.p.clone().sub(first.p).divideScalar(span) : new T.Vector3();

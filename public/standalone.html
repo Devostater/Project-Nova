@@ -15642,7 +15642,7 @@ const GAME_VERSION = 'Alpha 1.4';
         for (let i = 0; i < 8; i++) hit('R SYSOPT TILE ' + (i + 1), 8 + (i % 2) * 504, 52 + Math.floor(i / 2) * 88, 496, 80, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) NP_SYSOPT.row(P, i); });
         { const mk = (lab, y, d) => { hit(lab, 892, y, 120, 170, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_CARGO && nmkNear()) { P.scroll = Math.max(0, Math.min(Math.max(0, nmkRows(nmkNear()).length - NMK_VIS), P.scroll + d)); P.scrollF = P.scroll; try { sound.switchClick(); } catch (e) { } } }); const e = cockpitInteractables[cockpitInteractables.length - 1]; (P.mkArrows = P.mkArrows || []).push(e.mesh); }; mk('R MARKET UP', 52, -1); mk('R MARKET DOWN', 234, 1); }
         hit('R SCROLL PREV', 700, 410, 150, 46, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.max(0, P.scroll - 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.max(0, P.scroll - 1); P.drawT = 0; });
-        hit('R SCROLL NEXT', 860, 410, 150, 46, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.min(NP_SYSOPT.rows().length - 8, P.scroll + 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.min(Math.max(0, nmkRows(nmkNear()).length - NMK_VIS), P.scroll + 1); P.drawT = 0; });
+        hit('R SCROLL NEXT', 860, 410, 150, 46, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.min(Math.max(0, NP_SYSOPT.rows().length - 6), P.scroll + 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.min(Math.max(0, nmkRows(nmkNear()).length - NMK_VIS), P.scroll + 1); P.drawT = 0; });
         hit('R EMERGENCY MISSILES', 430, 342, 580, 70, () => { if (P.cfg.tabs[P.tab] === NP_WPN) npEmergencyMissileResupply(); });
       }
       if (cfg.id !== 'R') for (let i = 0; i < 4; i++) hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); });
@@ -15898,15 +15898,41 @@ const GAME_VERSION = 'Alpha 1.4';
         if (sv) npText(x, new Date(sv.at).toLocaleString(), 560, 236, '18px monospace', '#7fb6d0', 450);
         npText(x, 'GRAPHICS ' + String(NOPT.o.gfx).toUpperCase() + '  ·  VOL ' + Math.round(NOPT.o.master * 100) + '%', 560, 290, 'bold 20px monospace', '#b266ff', 450);
       } };
-    const NP_SYSOPT = { name: 'SYSTEM / OPTIONS', c: '#ffd24a', hint: 'use the arrows to scroll system and options controls',
-      row: (P, i) => { const r = NP_SYSOPT.rows()[P.scroll + i]; if (r) { try { sound.switchClick(); } catch (e) { } r[2](P); } }, pads: [],
+    function npSetFlightMode(mode) {
+      if (mode !== 'arcade' && mode !== 'advanced') return;
+      if (NOPT.o.flightMode === mode) return;
+      NOPT.o.flightMode = mode; noptSave();
+      showToast('FLIGHT MODEL: ' + mode.toUpperCase(), 2200, mode === 'arcade' ? '#33ff99' : '#ffaa55');
+      const panel = NP.panels[1]; if (panel) panel.drawT = 0;
+    }
+    const NP_SYSOPT = { name: 'SYSTEM / OPTIONS', c: '#ffd24a', hint: 'choose a flight model above · arrows scroll the other controls',
+      row: (P, i) => {
+        if (i < 2) { npSetFlightMode(i === 0 ? 'arcade' : 'advanced'); return; }
+        const r = NP_SYSOPT.rows()[(P.scroll || 0) + i - 2];
+        if (r) { try { sound.switchClick(); } catch (e) { } r[2](P); }
+      }, pads: [],
       rows: () => [...NP_SHIP_ROWS, ...npOptRows()],
       draw: (x, P) => {
-        const rows = NP_SYSOPT.rows(), max = Math.max(0, rows.length - 8); P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
-        for (let i = 0; i < 8; i++) { const r = rows[P.scroll + i]; if (!r) break; const col = i % 2, row = Math.floor(i / 2), X = 8 + col * 504, Y = 52 + row * 88;
-          x.fillStyle = 'rgba(3,18,32,0.94)'; x.fillRect(X, Y, 496, 80); x.strokeStyle = r[1]; x.lineWidth = 4; x.strokeRect(X + 2, Y + 2, 492, 76);
-          x.fillStyle = r[1]; x.fillRect(X + 10, Y + 10, 8, 60); x.fillRect(X + 24, Y + 10, 5, 18); x.fillRect(X + 24, Y + 52, 5, 18);
-          npText(x, r[0], X + 46, Y + 49, 'bold 20px monospace', r[1], 430);
+        const rows = NP_SYSOPT.rows(), max = Math.max(0, rows.length - 6);
+        P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
+        npText(x, 'FLIGHT MODEL', 16, 47, 'bold 18px monospace', '#ffd24a');
+        const choices = [
+          ['ARCADE', '#33ff99', 'Auto-level, gentle curves, assisted turns.', 'arcade'],
+          ['ADVANCED', '#ffaa55', 'Full rates, independent axes, no assists.', 'advanced']
+        ];
+        for (let i = 0; i < 8; i++) {
+          const r = i < 2 ? choices[i] : rows[P.scroll + i - 2]; if (!r) break;
+          const col = i % 2, row = Math.floor(i / 2), X = 8 + col * 504, Y = 52 + row * 88;
+          const selected = i < 2 && (NOPT.o.flightMode || 'arcade') === r[3];
+          x.fillStyle = selected ? 'rgba(16,65,58,0.98)' : 'rgba(3,18,32,0.94)'; x.fillRect(X, Y, 496, 80);
+          x.strokeStyle = r[1]; x.lineWidth = selected ? 6 : 4; x.strokeRect(X + 3, Y + 3, 490, 74);
+          if (i < 2) {
+            npText(x, r[0] + (selected ? '  ✓ SELECTED' : ''), X + 20, Y + 30, 'bold 24px monospace', r[1], 455);
+            npText(x, r[2], X + 20, Y + 59, '18px monospace', '#d6eefc', 455);
+          } else {
+            x.fillStyle = r[1]; x.fillRect(X + 10, Y + 10, 8, 60);
+            npText(x, r[0], X + 46, Y + 49, 'bold 20px monospace', r[1], 430);
+          }
         }
         npText(x, '◀ PREV', 730, 432, 'bold 19px monospace', '#00e5ff'); npText(x, 'NEXT ▶', 900, 432, 'bold 19px monospace', '#00e5ff');
       } };
@@ -16459,9 +16485,10 @@ const GAME_VERSION = 'Alpha 1.4';
       ['inv', 'Inventory', 'KeyI'], ['wing', 'Drone wing', 'KeyK'], ['talk', 'Talk to companion', 'KeyC'], ['kb', 'Comms keyboard', 'KeyT'],
       ['tgt', 'Target box', 'KeyB'], ['mr', 'MR passthrough', 'KeyP'], ['reset', 'Reset controls', 'KeyR'], ['galaxy', 'Galaxy map', 'KeyG']
     ];
-    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'mid', deadzone: 0.12, keys: {} }, wait: null, resetArm: 0 };
+    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'mid', deadzone: 0.12, flightMode: 'arcade', keys: {} }, wait: null, resetArm: 0 };
     try { Object.assign(NOPT.o, JSON.parse(localStorage.getItem('novaOpts') || '{}')); } catch (e) { }
     NOPT.o.deadzone = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12));
+    NOPT.o.flightMode = NOPT.o.flightMode === 'advanced' ? 'advanced' : 'arcade';
     window.NOPT = NOPT;
     function noptSave() { try { localStorage.setItem('novaOpts', JSON.stringify(NOPT.o)); } catch (e) { } }
     const noptBind = id => NOPT.o.keys[id] || NOPT_KEYS.find(k => k[0] === id)[2];
