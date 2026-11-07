@@ -405,6 +405,7 @@
           if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
         }
         if (!gp) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }
+        if (window.novaOnFoot && window.novaOnFoot()) { window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }   // on foot: fps_core reads the pad
 
         var now = performance.now();
         var overlay = document.getElementById('modal-overlay');
@@ -10086,12 +10087,14 @@ const GAME_VERSION = 'Alpha 1.4';
     let lastFrameTime = performance.now();
 
     let hasAutoRecenteredOnFirstFrame = false;
+    function novaOnFoot() { try { const f = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('fps_core'); return !!(f && f.active); } catch (e) { return false; } }
+    window.novaOnFoot = novaOnFoot;
     const novaGameLoop = (timestamp, frame) => {
       const now = performance.now();
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
-      if (window.novaInteriorMod && window.novaInteriorMod.active) { try { window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } renderer.render(scene, camera); return; }
+      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) { try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } renderer.render(scene, camera); return; }   // on foot: flight is fully off
 
       // Starfield follows ship so stars are always visible to infinity
       if (starfieldGroup && shipGroup) {
@@ -11997,7 +12000,7 @@ const GAME_VERSION = 'Alpha 1.4';
         return;
       }
       try {
-        try { novaInputFrame(frame); } catch (e) { console.error('Input v2 error:', e); }
+        if (!novaOnFoot()) { try { novaInputFrame(frame); } catch (e) { console.error('Input v2 error:', e); } }
         try { novaPointFrame(frame); } catch (e) { if (!window._npfErr) { window._npfErr = 1; console.error('Point error:', e); } }
         novaGameLoop(timestamp, frame);
       } catch (err) {
@@ -15239,7 +15242,8 @@ const GAME_VERSION = 'Alpha 1.4';
     //   right = WEAPONS (missiles, lock, holo scan) | CARGO (manifest, resupply, sell ore)
     const NP = { panels: [], ccol: { hostile: '#ff3344', allied: '#33ff88', station: '#3fa9ff', asteroid: '#9aa6b8', wreck: '#ffaa33', wingman: '#33ff88', freighter: '#33ff88', ship: '#33ff88' } };
     window.NP = NP;
-    const NP_SW = 0.30, NP_SH = 0.133, NP_BX = [-0.151, -0.116, -0.082, -0.047, -0.015, 0.024, 0.060, 0.096, 0.144];
+    const NP_CH = 600, NP_OFF = 120, NP_DY = 0.012, NP_SW = 0.30, NP_SH = 0.30 * 600 / 1024, NP_PX = 0.30 / 1024,   // canvas matches the glass (0.325 x 0.207); old layout sits NP_OFF px below a big tab header
+    NP_BX = [-0.151, -0.116, -0.082, -0.047, -0.015, 0.024, 0.060, 0.096, 0.144];
     function npBtnTex(glyph, lab, col) {
       const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
       g.fillStyle = 'rgba(2,14,26,0.82)'; g.fillRect(6, 6, 116, 116); g.strokeStyle = col; g.lineWidth = 8; g.strokeRect(6, 6, 116, 116);
@@ -15250,24 +15254,25 @@ const GAME_VERSION = 'Alpha 1.4';
     function npFindAct(lab) { const e = cockpitInteractables.find(q => q.label === lab && !q.nk); return e ? e.action : null; }
     function npBuild(c, cfg) {
       const P = { c, cfg, tab: 0, cv: document.createElement('canvas'), list: [], scroll: 0, listT: 0, drawT: 0, holo: new THREE.Group(), holoKey: undefined, hb: [], acts: {} };
-      P.cv.width = 1024; P.cv.height = 456; P.tex = new THREE.CanvasTexture(P.cv); P.tex.anisotropy = 4;
+      P.cv.width = 1024; P.cv.height = NP_CH; P.tex = new THREE.CanvasTexture(P.cv); P.tex.anisotropy = 4;
       // keep the old cell actions, then retire the old on-screen cells
       c.btns.forEach(b => { const e = cockpitInteractables.find(q => q.mesh === b); if (e) P.acts[e.label] = e.action; b.visible = false; const i = cockpitInteractables.indexOf(e); if (i >= 0) cockpitInteractables.splice(i, 1); });
       c.root.scale.setScalar(cfg.id === 'R' ? 1.0 : 0.86);   // owner: right panel larger (left stays 0.86)
       const ry = c.rowY;
-      const scr = new THREE.Mesh(new THREE.PlaneGeometry(NP_SW, NP_SH), new THREE.MeshBasicMaterial({ map: P.tex, toneMapped: false })); scr.position.set(0, ry, 0.004); scr.renderOrder = 2; c.g.add(scr); P.scr = scr;
-      P.at = (px, py, z) => new THREE.Vector3((px / 1024 - 0.5) * NP_SW, ry + (0.5 - py / 456) * NP_SH, z === undefined ? 0.006 : z);
+      const scr = new THREE.Mesh(new THREE.PlaneGeometry(NP_SW, NP_SH), new THREE.MeshBasicMaterial({ map: P.tex, toneMapped: false })); scr.position.set(0, ry + NP_DY, 0.004); scr.renderOrder = 2; c.g.add(scr); P.scr = scr;
+      P.at = (px, py, z) => new THREE.Vector3((px / 1024 - 0.5) * NP_SW, ry + NP_DY + (0.5 - (py + NP_OFF) / NP_CH) * NP_SH, z === undefined ? 0.006 : z);
       const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
       const hit = (label, rx, ry2, rw, rh, fn) => {
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(rw / 1024 * NP_SW, rh / 456 * NP_SH), hitMat); m.position.copy(P.at(rx + rw / 2, ry2 + rh / 2)); c.g.add(m);
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(rw * NP_PX, rh * NP_PX), hitMat); m.position.copy(P.at(rx + rw / 2, ry2 + rh / 2)); c.g.add(m);
         registerCockpitButton(m, label, () => { fn(); P.drawT = 0; }, 0.012); const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
       };
-      const TW = cfg.tabs.length > 4 ? 158 : 176; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 4 + i * TW, -40, TW, 92, () => npTab(P, i)));
+      const TW = cfg.tabs.length > 4 ? 158 : 176; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 4 + i * (1016 / cfg.tabs.length), 4 - NP_OFF, 1016 / cfg.tabs.length, 160, () => npTab(P, i)));   // big header tiles
       for (let i = 0; i < 8; i++) hit(cfg.id + ' ROW ' + (i + 1), 8, 50 + i * 44, 408, 44, () => { const t = cfg.tabs[P.tab]; if (t !== NP_SYSOPT && t.row) t.row(P, i); });
       if (cfg.id === 'R') {
         for (let i = 0; i < 8; i++) hit('R SYSOPT TILE ' + (i + 1), 8 + (i % 2) * 504, 52 + Math.floor(i / 2) * 88, 496, 80, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) NP_SYSOPT.row(P, i); });
+        { const mk = (lab, y, d) => { hit(lab, 892, y, 120, 170, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_CARGO && nmkNear()) { P.scroll = Math.max(0, Math.min(Math.max(0, nmkRows(nmkNear()).length - NMK_VIS), P.scroll + d)); P.scrollF = P.scroll; try { sound.switchClick(); } catch (e) { } } }); const e = cockpitInteractables[cockpitInteractables.length - 1]; (P.mkArrows = P.mkArrows || []).push(e.mesh); }; mk('R MARKET UP', 52, -1); mk('R MARKET DOWN', 234, 1); }
         hit('R SCROLL PREV', 700, 410, 150, 46, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.max(0, P.scroll - 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.max(0, P.scroll - 1); P.drawT = 0; });
-        hit('R SCROLL NEXT', 860, 410, 150, 46, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.min(NP_SYSOPT.rows().length - 8, P.scroll + 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.min(Math.max(0, nmkRows(nmkNear()).length - 8), P.scroll + 1); P.drawT = 0; });
+        hit('R SCROLL NEXT', 860, 410, 150, 46, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.min(NP_SYSOPT.rows().length - 8, P.scroll + 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.min(Math.max(0, nmkRows(nmkNear()).length - NMK_VIS), P.scroll + 1); P.drawT = 0; });
         hit('R EMERGENCY MISSILES', 430, 342, 580, 70, () => { if (P.cfg.tabs[P.tab] === NP_WPN) npEmergencyMissileResupply(); });
       }
       if (cfg.id !== 'R') for (let i = 0; i < 4; i++) hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); });
@@ -15286,7 +15291,7 @@ const GAME_VERSION = 'Alpha 1.4';
       P.stow = false; P.k = 0; P.stowTex = [npBtnTex('\u25BC', 'HIDE', '#9fc3d8'), npBtnTex('\u25B2', 'SHOW', '#00e5ff')];
       const sb = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.03), new THREE.MeshBasicMaterial({ map: P.stowTex[0], transparent: true, depthWrite: false, toneMapped: false }));
       const hideEdgeX = cfg.id === 'R' ? -NP_SW / 2 - 0.008 : NP_SW / 2 + 0.008;
-      sb.position.set(hideEdgeX, ry + NP_SH / 2 + 0.01, 0.014); sb.renderOrder = 3; c.g.add(sb); P.sb = sb;
+      sb.position.set(hideEdgeX, ry + NP_DY + NP_SH / 2 + 0.01, 0.014); sb.renderOrder = 3; c.g.add(sb); P.sb = sb;
       registerCockpitButton(sb, cfg.id + ' HIDE PANEL', () => { P.stow = !P.stow; sb.material.map = P.stowTex[P.stow ? 1 : 0]; try { sound.switchClick(); } catch (e) { } }, 0.02);
       { const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true; }
       NP.panels.push(P); return P;
@@ -15355,22 +15360,34 @@ const GAME_VERSION = 'Alpha 1.4';
       (window.commsChatLog || []).slice(-8).forEach(it => { const words = (it.s + ': ' + it.m).split(' '); let line = ''; words.forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > W && line) { out.push([line, it.c]); line = w; } else line = t; }); if (line) out.push([line, it.c]); });
       out.slice(-n).forEach(([t, c], i) => { x.fillStyle = c || '#cfefff'; x.fillText(t, X, Y + i * 23); });
     }
+    const NP_TAB_ICON = { COMMS: '\u25C9', CHAT: '\u2709', CREW: '\u2665', FLIGHT: '\u2708', OBJECTIVE: '\u25CE', WARP: '\u27A4', COMBAT: '\u2316', CARGO: '\u25A6', MARKET: '\u25A6', SYSTEM: '\u2699', 'SYSTEM / OPTIONS': '\u2699', MUSIC: '\u266B' };
     function npDraw(P) {
       const x = P.cv.getContext('2d'), cfg = P.cfg, T = cfg.tabs[P.tab];
-      x.fillStyle = '#030a14'; x.fillRect(0, 0, 1024, 456); x.textBaseline = 'alphabetic'; x.textAlign = 'left';
-      const TW = cfg.tabs.length > 4 ? 158 : 176;
-      cfg.tabs.forEach((t, i) => {
-        const X = 8 + i * TW, on = i === P.tab;
-        x.fillStyle = on ? t.c : 'rgba(255,255,255,0.05)'; x.fillRect(X, 4, TW - 8, 40);
-        x.strokeStyle = t.c; x.lineWidth = 3; x.strokeRect(X, 4, TW - 8, 40);
-        x.textAlign = 'center'; npText(x, t.name, X + (TW - 8) / 2, 33, (TW < 170 ? 'bold 21px' : 'bold 24px') + ' monospace', on ? '#021019' : t.c, TW - 14); x.textAlign = 'left';
-      });
-      x.textAlign = 'right'; npText(x, cfg.status(P), 1014, 32, 'bold 20px monospace', '#7fb6d0'); x.textAlign = 'left';
+      x.setTransform(1, 0, 0, 1, 0, 0);
+      if (P.mkArrows) { let on = false; try { on = T === NP_CARGO && !!nmkNear(); } catch (e) { } P.mkArrows.forEach(m => { m.visible = on; }); }
+      x.fillStyle = '#030a14'; x.fillRect(0, 0, 1024, NP_CH); x.textBaseline = 'alphabetic'; x.textAlign = 'left';
+      // the existing layout, moved below the header
+      x.save(); x.translate(0, NP_OFF);
       x.fillStyle = 'rgba(0,229,255,0.35)'; x.fillRect(0, 47, 1024, 2);
       T.draw(x, P);
       if (cfg.id !== 'R') npPads(x, T.pads);
       x.fillStyle = 'rgba(0,229,255,0.35)'; x.fillRect(0, 414, 1024, 2);
-      npText(x, T.hint || '', 14, 442, '19px monospace', '#5f8aa3', 996);
+      npText(x, T.hint || '', 14, 446, '22px monospace', '#6f9ab3', 996);
+      x.restore();
+      // header: one big tile per tab (easy to hit in VR) + status
+      x.fillStyle = '#030a14'; x.fillRect(0, 0, 1024, NP_OFF + 48);
+      const n = cfg.tabs.length, W = 1016 / n;
+      cfg.tabs.forEach((t, i) => {
+        const X = 4 + i * W, on = i === P.tab;
+        x.fillStyle = on ? t.c : 'rgba(255,255,255,0.05)'; x.fillRect(X + 4, 6, W - 8, 112);
+        x.strokeStyle = t.c; x.lineWidth = on ? 6 : 3; x.strokeRect(X + 4, 6, W - 8, 112);
+        x.textAlign = 'center';
+        npText(x, NP_TAB_ICON[t.name] || '\u25A0', X + W / 2, 68, 'bold 50px sans-serif', on ? '#021019' : t.c, W - 16);
+        npText(x, t.name, X + W / 2, 108, 'bold ' + (n > 4 ? 21 : 26) + 'px monospace', on ? '#021019' : t.c, W - 16);
+        x.textAlign = 'left';
+      });
+      x.textAlign = 'left'; npText(x, T.name, 14, 150, 'bold 26px monospace', T.c || '#00e5ff', 560);
+      x.textAlign = 'right'; npText(x, cfg.status(P), 1012, 150, 'bold 24px monospace', '#9fd6ee', 440); x.textAlign = 'left';
       P.tex.needsUpdate = true;
     }
     // ── COMMS tab: everything close by, nearest first; touching one locks it (same lock as the holo-radar and weapons) ──
@@ -15687,7 +15704,7 @@ const GAME_VERSION = 'Alpha 1.4';
     const NPG = { g: null, vel: 0, ray: new THREE.Raycaster(), m: new THREE.Vector2() };
     function npPx(P, world) {
       const l = P.scr.worldToLocal(world.clone());
-      return { px: (l.x / NP_SW + 0.5) * 1024, py: (0.5 - l.y / NP_SH) * 456, z: l.z };
+      return { px: (l.x / NP_SW + 0.5) * 1024, py: (0.5 - l.y / NP_SH) * NP_CH - NP_OFF, z: l.z };   /* l.y is relative to the screen centre */
     }
     function npGestureStart(P, src, px, py) {
       const T = P.cfg.tabs[P.tab];
@@ -15710,8 +15727,8 @@ const GAME_VERSION = 'Alpha 1.4';
       } else if (T === NP_CHAT) {
         NPCH.scroll = Math.max(0, NPCH.scroll + dy / 25); G.P.drawT = 0;   // drag down = read older lines
       } else if (T === NP_CARGO && nmkNear()) {
-        G.P.scrollF = (G.P.scrollF ?? G.P.scroll) - dy / 44; const mx = Math.max(0, nmkRows(nmkNear()).length - 8);
-        G.P.scrollF = Math.max(0, Math.min(mx, G.P.scrollF)); NPG.vel = -dy / 44; const s = Math.round(G.P.scrollF); if (s !== G.P.scroll) { G.P.scroll = s; G.P.drawT = 0; }
+        G.P.scrollF = (G.P.scrollF ?? G.P.scroll) - dy / 88; const mx = Math.max(0, nmkRows(nmkNear()).length - NMK_VIS);
+        G.P.scrollF = Math.max(0, Math.min(mx, G.P.scrollF)); NPG.vel = -dy / 88; const s = Math.round(G.P.scrollF); if (s !== G.P.scroll) { G.P.scroll = s; G.P.drawT = 0; }
       } else if (T === NP_WARP) {
         G.acc += dx;
         if (Math.abs(G.acc) > 150) { npWarpStep(G.acc < 0 ? 1 : -1); G.acc = 0; }   // swipe left = next
@@ -15742,7 +15759,7 @@ const GAME_VERSION = 'Alpha 1.4';
         try { ['left', 'right'].forEach(s => { const h = novaHands[s]; if (h && h.grip && h.grip.visible && h.tip) tips.push({ id: 'c' + s, p: h.tip.getWorldPosition(new THREE.Vector3()) }); }); } catch (e) { }
         try { const ses = renderer.xr.getSession(); if (ses && Array.from(ses.inputSources || []).some(s => s.hand)) [h1, h2].forEach((h, k) => { const j = h && h.joints && h.joints['index-finger-tip']; if (j && j.visible !== false) tips.push({ id: 'h' + k, p: j.getWorldPosition(new THREE.Vector3()) }); }); } catch (e) { }
         let touching = null;
-        for (const t of tips) { for (const panel of panels) { if (!novaWorldVisible(panel.scr)) continue; const q = npPx(panel, t.p); if (q.z > -0.02 && q.z < 0.025 && q.px > 0 && q.px < 1024 && q.py > 0 && q.py < 456) { touching = { t, q, P: panel }; if (NPG.g && NPG.g.src === t.id) break; } } if (touching && NPG.g && NPG.g.src === t.id) break; }
+        for (const t of tips) { for (const panel of panels) { if (!novaWorldVisible(panel.scr)) continue; const q = npPx(panel, t.p); if (q.z > -0.02 && q.z < 0.025 && q.px > 0 && q.px < 1024 && q.py > -NP_OFF && q.py < NP_CH - NP_OFF) { touching = { t, q, P: panel }; if (NPG.g && NPG.g.src === t.id) break; } } if (touching && NPG.g && NPG.g.src === t.id) break; }
         if (NPG.g && NPG.g.src !== 'mouse') {
           const same = touching && touching.t.id === NPG.g.src;
           if (same) { npGestureMove(touching.q.px, touching.q.py); NPG.g.lost = 0; }
@@ -15758,7 +15775,7 @@ const GAME_VERSION = 'Alpha 1.4';
         P.scrollF = Math.max(0, Math.min(mx, (P.scrollF ?? P.scroll) + NPG.vel)); NPG.vel *= Math.pow(0.02, dt);
         const s = Math.round(P.scrollF); if (s !== P.scroll) { P.scroll = s; P.drawT = 0; }
       }
-      const RP = panels[1]; if (!NPG.g && RP && Math.abs(NPG.vel) > 0.01 && RP.cfg.tabs[RP.tab] === NP_CARGO && nmkNear()) { const mx = Math.max(0, nmkRows(nmkNear()).length - 8); RP.scrollF = Math.max(0, Math.min(mx, (RP.scrollF ?? RP.scroll) + NPG.vel)); NPG.vel *= Math.pow(0.02, dt); const s = Math.round(RP.scrollF); if (s !== RP.scroll) { RP.scroll = s; RP.drawT = 0; } }
+      const RP = panels[1]; if (!NPG.g && RP && Math.abs(NPG.vel) > 0.01 && RP.cfg.tabs[RP.tab] === NP_CARGO && nmkNear()) { const mx = Math.max(0, nmkRows(nmkNear()).length - NMK_VIS); RP.scrollF = Math.max(0, Math.min(mx, (RP.scrollF ?? RP.scroll) + NPG.vel)); NPG.vel *= Math.pow(0.02, dt); const s = Math.round(RP.scrollF); if (s !== RP.scroll) { RP.scroll = s; RP.drawT = 0; } }
       if (NPG.g) P.drawT = Math.min(P.drawT, 0.05);
     }
     // desktop: mouse wheel over the panel scrolls / flips, click-drag swipes
@@ -15766,14 +15783,14 @@ const GAME_VERSION = 'Alpha 1.4';
       if (renderer.xr.isPresenting) return null;
       NPG.m.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
       NPG.ray.setFromCamera(NPG.m, camera);
-      for (const P of NP.panels) { if (!P || !P.scr || !novaWorldVisible(P.scr)) continue; const h = NPG.ray.intersectObject(P.scr, false)[0]; if (h && h.uv) return { P, px: h.uv.x * 1024, py: (1 - h.uv.y) * 456 }; }
+      for (const P of NP.panels) { if (!P || !P.scr || !novaWorldVisible(P.scr)) continue; const h = NPG.ray.intersectObject(P.scr, false)[0]; if (h && h.uv) return { P, px: h.uv.x * 1024, py: (1 - h.uv.y) * NP_CH - NP_OFF }; }
       return null;
     }
     window.addEventListener('wheel', e => {
       const h = npMouseHit(e); if (!h) return;
       const T = h.P.cfg.tabs[h.P.tab];
       if (T === NP_COMMS) { const mx = Math.max(0, h.P.list.length - 8); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
-      else if (T === NP_CARGO && nmkNear()) { const mx = Math.max(0, nmkRows(nmkNear()).length - 8); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
+      else if (T === NP_CARGO && nmkNear()) { const mx = Math.max(0, nmkRows(nmkNear()).length - NMK_VIS); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
       else if (T === NP_WARP) { npWarpStep(Math.sign(e.deltaY || e.deltaX)); e.preventDefault(); }
       else if (T === NP_CHAT) { NPCH.scroll = Math.max(0, NPCH.scroll - Math.sign(e.deltaY) * 2); h.P.drawT = 0; e.preventDefault(); }
     }, { passive: false });
@@ -17260,39 +17277,48 @@ const GAME_VERSION = 'Alpha 1.4';
         const P = NP.panels[1]; if (!P || P.mkHits) return; P.mkHits = true;
         const hm = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
         for (let i = 0; i < 8; i++) {
-          const m = new THREE.Mesh(new THREE.PlaneGeometry(205 / 1024 * NP_SW, 44 / 456 * NP_SH), hm); m.position.copy(P.at(452, 52 + i * 44 + 22)); P.c.g.add(m);
+          const m = new THREE.Mesh(new THREE.PlaneGeometry(205 * NP_PX, 44 * NP_PX), hm); m.position.copy(P.at(452, 52 + i * 44 + 22)); P.c.g.add(m);
           registerCockpitButton(m, 'R BUY ' + (i + 1), () => { const T = P.cfg.tabs[P.tab]; if (T.row) T.row(P, i); P.drawT = 0; }, 0.012);
           const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
         }
       } catch (e) { }
     }, 1000);
+    const NMK_VIS = 4;   // market rows on screen (88 px each)
     function nmkRedraw() { const P = NP.panels[1]; if (P) P.drawT = 0; }
     { const _draw = NP_CARGO.draw, _row = NP_CARGO.row, _rowRect = NP_CARGO.rowRect, _pads = NP_CARGO.pads, _hint = NP_CARGO.hint;
       Object.defineProperty(NP_CARGO, 'name', { get: () => (nmkNear() ? 'MARKET' : 'CARGO'), configurable: true });
       Object.defineProperty(NP_CARGO, 'hint', { get: () => (nmkNear() ? 'touch a row to buy or sell · every station stocks different gear and pays different prices' : _hint), configurable: true });
       Object.defineProperty(NP_CARGO, 'pads', { get: () => (nmkNear() ? [] : _pads), configurable: true });
-      NP_CARGO.row = function (P, i) { const st = nmkNear(); if (!st) return _row(P, i); const r = nmkRows(st)[P.scroll + i]; if (r) { r.fn(); try { novaSave13(); drawInventoryPanel(); } catch (e) { } nmkRedraw(); } };
+      NP_CARGO.row = function (P, i) { const st = nmkNear(); if (!st) return _row(P, i); const r = nmkRows(st)[P.scroll + Math.floor(i / 2)]; if (r) { r.fn(); try { novaSave13(); drawInventoryPanel(); } catch (e) { } nmkRedraw(); } };
       NP_CARGO.draw = function (x, P) {
         const st = nmkNear(); if (!st) return _draw(x, P);
         const ic = window.NG_ICONS;
-        const all = nmkRows(st), max = Math.max(0, all.length - 8); P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
-        all.slice(P.scroll, P.scroll + 8).forEach((r, i) => {
-          const Y = 52 + i * 44; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'; x.fillRect(8, Y, 540, 42); x.fillStyle = r.c; x.fillRect(8, Y, 5, 42);
-          const k = nmkIcon(r.l);   // item art from the cargo icon sheet
-          if (ic && ic.complete && ic.naturalWidth && k >= 0) x.drawImage(ic, (k % 4) * 96, Math.floor(k / 4) * 96, 96, 96, 16, Y + 3, 36, 36);
-          npText(x, r.l, 60, Y + 28, 'bold 18px monospace', r.c, 205);
+        const all = nmkRows(st), max = Math.max(0, all.length - NMK_VIS); P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
+        all.slice(P.scroll, P.scroll + NMK_VIS).forEach((r, i) => {   // 4 big rows: large icon, name, one big BUY / SELL button
+          const Y = 52 + i * 88; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)'; x.fillRect(8, Y, 548, 84); x.fillStyle = r.c; x.fillRect(8, Y, 7, 84);
+          const k = nmkIcon(r.l);
+          x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(22, Y + 6, 72, 72); x.strokeStyle = r.c; x.lineWidth = 2; x.strokeRect(22, Y + 6, 72, 72);
+          if (ic && ic.complete && ic.naturalWidth && k >= 0) x.drawImage(ic, (k % 4) * 96, Math.floor(k / 4) * 96, 96, 96, 26, Y + 10, 64, 64);
+          npText(x, r.l, 106, Y + 38, 'bold 25px monospace', r.c, 240);
           const off = /^(FULL|MAX|none|hold empty|LVL)/.test(r.r), v = /^SELL/.test(r.l) ? 'SELL' : /^REPAIR/.test(r.l) ? 'FIX' : /^DONATE/.test(r.l) ? 'GIVE' : 'BUY';
-          const action = off ? '—' : `${v} · ${r.r}`;
-          x.fillStyle = off ? 'rgba(255,255,255,0.08)' : (v === 'SELL' ? '#00cc88' : v === 'BUY' ? '#ffcc00' : '#33ff99'); x.fillRect(350, Y + 1, 192, 40);
-          x.textAlign = 'center'; npText(x, action, 446, Y + 27, 'bold 17px monospace', off ? '#5f7d95' : '#021019', 180); x.textAlign = 'left';
+          npText(x, r.r, 106, Y + 70, '21px monospace', off ? '#5f7d95' : '#ffd24a', 240);
+          x.fillStyle = off ? 'rgba(255,255,255,0.08)' : (v === 'SELL' ? '#00cc88' : v === 'BUY' ? '#ffcc00' : '#33ff99'); x.fillRect(360, Y + 8, 188, 68);
+          x.textAlign = 'center'; npText(x, off ? '—' : v, 454, Y + 54, 'bold 34px monospace', off ? '#5f7d95' : '#021019', 176); x.textAlign = 'left';
         });
-        npText(x, st.name, 570, 88, 'bold 28px monospace', st.col, 440);
+        // big scroll buttons
+        const canUp = P.scroll > 0, canDn = P.scroll < max;
+        [[52, '\u25B2', canUp], [234, '\u25BC', canDn]].forEach(([y, g, on]) => {
+          x.fillStyle = on ? 'rgba(0,229,255,0.18)' : 'rgba(255,255,255,0.04)'; x.fillRect(892, y, 120, 170); x.strokeStyle = on ? '#00e5ff' : '#33515f'; x.lineWidth = 4; x.strokeRect(892, y, 120, 170);
+          x.textAlign = 'center'; npText(x, g, 952, y + 112, 'bold 72px sans-serif', on ? '#00e5ff' : '#33515f'); x.textAlign = 'left';
+        });
+        x.textAlign = 'center'; npText(x, `${Math.min(all.length, P.scroll + 1)}-${Math.min(all.length, P.scroll + NMK_VIS)} / ${all.length}`, 952, 432, 'bold 20px monospace', '#7fb6d0'); x.textAlign = 'left';
+        npText(x, st.name, 570, 88, 'bold 28px monospace', st.col, 310);
         x.font = '20px monospace'; x.fillStyle = '#9fc3d8'; let y = 124, line = '';
-        st.note.split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 430 && line) { x.fillText(line, 570, y); y += 26; line = w; } else line = t; }); if (line) x.fillText(line, 570, y);
-        npText(x, 'CREDITS', 570, 230, 'bold 20px monospace', '#9fc3d8'); npText(x, String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', 570, 272, 'bold 36px monospace', '#ffd24a');
-        npText(x, `ORE ${cargoOre}t · MSL ${missileAmmo} · FLR ${cargoFlares} · CAP ${cargoShieldCaps} · KIT ${window.novaKits || 0}`, 570, 316, '19px monospace', '#7fb6d0', 440);
-        npText(x, 'ORE HERE ' + nmkOrePrice(st) + ' CR/t', 570, 350, 'bold 20px monospace', st.ore >= 1.2 ? '#33ff99' : st.ore < 0.95 ? '#ff8866' : '#e9fbff');
-        npText(x, '◀ PREV', 730, 432, 'bold 19px monospace', '#00e5ff'); npText(x, 'NEXT ▶', 900, 432, 'bold 19px monospace', '#00e5ff');
+        st.note.split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 310 && line) { if (y < 200) x.fillText(line, 570, y); y += 26; line = w; } else line = t; }); if (line && y < 200) x.fillText(line, 570, y);
+        npText(x, 'CREDITS', 570, 236, 'bold 20px monospace', '#9fc3d8'); npText(x, String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', 570, 278, 'bold 34px monospace', '#ffd24a', 310);
+        npText(x, `ORE ${cargoOre}t · MSL ${missileAmmo} · FLR ${cargoFlares}`, 570, 318, '19px monospace', '#7fb6d0', 310);
+        npText(x, `CAP ${cargoShieldCaps} · KIT ${window.novaKits || 0} · CORES ${window.novaHeatCores ? window.novaHeatCores() : 0}`, 570, 344, '19px monospace', '#7fb6d0', 310);
+        npText(x, 'ORE HERE ' + nmkOrePrice(st) + ' CR/t', 570, 384, 'bold 20px monospace', st.ore >= 1.2 ? '#33ff99' : st.ore < 0.95 ? '#ff8866' : '#e9fbff', 310);
       }; }
     // arriving in range of a market pops a short notice (and the CARGO tab flips to MARKET)
     setInterval(() => { try { const st = nmkNear(); const id = st ? st.id : null; if (id !== NMK_ST._last) { NMK_ST._last = id; nmkRedraw(); if (st && !isInsideCantina) showToast(`${st.name} MARKET IN RANGE: open CARGO on the right panel.`, 2600, st.col); } } catch (e) { } }, 1000);
@@ -17522,7 +17548,7 @@ const GAME_VERSION = 'Alpha 1.4';
         NMS.built = true;
         const mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
         NMS.layout.forEach(b => {
-          const m = new THREE.Mesh(new THREE.PlaneGeometry(b.w / 1024 * NP_SW, b.h / 456 * NP_SH), mat);
+          const m = new THREE.Mesh(new THREE.PlaneGeometry(b.w * NP_PX, b.h * NP_PX), mat);
           m.position.copy(R.at(b.x + b.w / 2, b.y + b.h / 2, 0.007)); R.c.g.add(m); m.visible = false;
           registerCockpitButton(m, 'R MUSIC ' + b.id, () => { if (R.cfg.tabs[R.tab] === NP_MUSIC) { b.fn(); R.drawT = 0; } }, 0.012);
           const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
@@ -19216,7 +19242,7 @@ const GAME_VERSION = 'Alpha 1.4';
     window.novaInteriorMod = modules.get('interior.js');
     window.novaMorality = modules.get('morality.js');
     window.novaInterior = window.novaInteriorMod ? { enter: d => window.novaInteriorMod.enter(d), exit: () => window.novaInteriorMod.exit(), state: () => window.novaInteriorMod.state() } : null;
-    window.novaRange = () => window.novaInteriorMod?.enter('range');
+    window.novaRange = () => { const nm = document.getElementById('nc-modal'); if (nm) nm.style.display = 'none'; return window.novaInteriorMod?.enter('range'); };
     novaOn('fusionCoreChosen', e => { if (window.novaMorality) window.novaMorality.choice('fusion_core', e?.choice === 'take' ? 'keep' : 'return'); });
     const _novaExitLightspeed = exitLightspeed;
     exitLightspeed = function () { const wasWarp = !!isLightspeedActive; const result = _novaExitLightspeed.apply(this, arguments); if (wasWarp && !isLightspeedActive) novaEmit('warpComplete', {}); return result; };

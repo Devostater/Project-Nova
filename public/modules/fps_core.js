@@ -76,7 +76,8 @@ export function init(nova) {
     }else if(session&&rightController){
       rightController.getWorldPosition(origin);direction.set(0,0,-1).applyQuaternion(rightController.getWorldQuaternion(controllerQ));
     }
-    direction.normalize();ray.set(origin,direction);return ray.intersectObjects(scene.children,true);
+    direction.normalize();ray.set(origin,direction);ray.camera=camera;   // sprites need the camera to raycast
+    try{return ray.intersectObjects(scene.children,true);}catch(e){return [];}
   }
   function findUserData(object,key){
     let node=object,depth=0;
@@ -139,7 +140,9 @@ export function init(nova) {
   }
   function pointerDown(e){
     if(!active||renderer?.xr?.isPresenting)return;
-    if(document.pointerLockElement!==renderer.domElement){renderer.domElement.requestPointerLock?.();return;}
+    if(e.target&&e.target.closest&&e.target.closest('.nova-fps-btn,button,a,input,select,textarea,[id$="-modal"],.modal'))return;   // real buttons and dialogs keep working
+    e.preventDefault();e.stopImmediatePropagation();   // flight UI under the overlay must not react
+    if(document.pointerLockElement!==renderer.domElement&&e.pointerType==='mouse'){try{renderer.domElement.requestPointerLock?.();}catch(_){}}
     if(e.button===0)fire();if(e.button===2)interact();
   }
   function pointerLockChange(){
@@ -148,6 +151,7 @@ export function init(nova) {
   }
   function keyDown(e){
     if(!active)return;down.add(e.code);
+    if(!/^F\d+$/.test(e.code))e.stopImmediatePropagation();   // flight keys are disabled while on foot (F-keys still reach the browser)
     if(e.code==='Escape'){e.preventDefault();requestExit('keyboard');}
     else if(e.code==='Space'){e.preventDefault();fire();}
     else if(e.code==='KeyE'||e.code==='Enter'){e.preventDefault();interact();}
@@ -187,7 +191,7 @@ export function init(nova) {
     }else{
       if(pistol.parent!==camera){camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,Math.PI,0);}
       let x=(down.has('KeyD')?1:0)-(down.has('KeyA')?1:0),z=(down.has('KeyS')?1:0)-(down.has('KeyW')?1:0);
-      const pads=navigator.getGamepads?.()||[],pad=[...pads].find(p=>p?.connected&&p.mapping==='standard');
+      const pads=navigator.getGamepads?.()||[],pad=[...pads].find(p=>p?.connected&&p.mapping==='standard')||[...pads].find(p=>p?.connected&&p.axes?.length>=2);
       let use=false,leave=false;
       if(pad){
         x=Math.abs(pad.axes?.[0]||0)>.17?(pad.axes[0]||0):x;z=Math.abs(pad.axes?.[1]||0)>.17?(pad.axes[1]||0):z;
@@ -206,17 +210,32 @@ export function init(nova) {
     yaw=rig.rotation.y;pitch=camera.rotation.x;hud.visible=true;pistol.visible=true;
     rightController=renderer?.xr?.getController?.(1)||null;leftController=renderer?.xr?.getController?.(0)||null;
     if(renderer?.xr?.isPresenting&&rightController)setWeaponParent(rightController,false);else{camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,Math.PI,0);}
-    window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('mousemove',mouseMove);document.addEventListener('pointerlockchange',pointerLockChange);
-    renderer.domElement.addEventListener('pointerdown',pointerDown);renderer.domElement.addEventListener('contextmenu',preventMenu);
+    window.addEventListener('keydown',keyDown,true);window.addEventListener('keyup',keyUp,true);window.addEventListener('mousemove',mouseMove);document.addEventListener('pointerlockchange',pointerLockChange);
+    window.addEventListener('pointerdown',pointerDown,true);window.addEventListener('contextmenu',preventMenu,true);showButtons(true);
     rightController?.addEventListener?.('selectstart',selectStart);
     drawHud();nova.toast?.('FPS ACTIVE · WASD/MOUSE · RT FIRE · A USE · B EXIT',2800,'#00e5ff');return true;
+  }
+  // on-screen FIRE / USE / EXIT buttons (mouse, touch and tablet; hidden in VR)
+  let btnBar=null;
+  function showButtons(on){
+    if(on&&!btnBar){
+      btnBar=document.createElement('div');btnBar.id='nova-fps-buttons';
+      btnBar.style.cssText='position:fixed;right:18px;bottom:18px;z-index:2147483000;display:flex;gap:14px;align-items:flex-end;font:bold 18px monospace;user-select:none;touch-action:none';
+      const mk=(label,col,size,fn)=>{const b=document.createElement('button');b.className='nova-fps-btn';b.textContent=label;
+        b.style.cssText=`width:${size}px;height:${size}px;border-radius:50%;border:3px solid ${col};background:rgba(4,18,28,.72);color:${col};font:inherit;cursor:pointer;box-shadow:0 0 18px ${col}55`;
+        let rep=null;const start=e=>{e.preventDefault();e.stopPropagation();fn();if(label==='FIRE'){clearInterval(rep);rep=setInterval(fn,180);}};const stop=()=>{clearInterval(rep);rep=null;};
+        b.addEventListener('pointerdown',start);b.addEventListener('pointerup',stop);b.addEventListener('pointerleave',stop);b.addEventListener('pointercancel',stop);btnBar.appendChild(b);return b;};
+      mk('EXIT','#ff6b7d',64,()=>requestExit('button'));mk('USE','#ffd166',78,()=>interact());mk('FIRE','#00e5ff',118,()=>fire());
+      document.body.appendChild(btnBar);
+    }
+    if(btnBar)btnBar.style.display=on&&!renderer?.xr?.isPresenting?'flex':'none';
   }
   function preventMenu(e){if(active)e.preventDefault();}
   function disable(){
     if(!active)return false;active=false;down.clear();pistol.visible=false;hud.visible=false;damageOverlay.style.opacity='0';
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
-    window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
-    renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('contextmenu',preventMenu);
+    window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
+    window.removeEventListener('pointerdown',pointerDown,true);window.removeEventListener('contextmenu',preventMenu,true);
     rightController?.removeEventListener?.('selectstart',selectStart);
     for(const t of tracers){t.life=0;t.mesh.visible=false;}options={};session=null;return true;
   }
