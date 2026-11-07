@@ -157,9 +157,10 @@ export function init(nova) {
     for(const t of tracers){if(t.life>0){t.life-=d;if(t.life<=0)t.mesh.visible=false;}}
     session=renderer?.xr?.getSession?.()||null;
     if(session){
-      rightController=renderer.xr.getController?.(1)||rightController;leftController=renderer.xr.getController?.(0)||leftController;
-      rightHand=renderer.xr.getHand?.(1)||rightHand;leftHand=renderer.xr.getHand?.(0)||leftHand;
       const sources=[...session.inputSources],rightSource=sources.find(s=>s.handedness==='right'),leftSource=sources.find(s=>s.handedness==='left');
+      const rightIndex=sources.indexOf(rightSource),leftIndex=sources.indexOf(leftSource);
+      if(rightIndex>=0){rightController=renderer.xr.getController?.(rightIndex)||rightController;rightHand=renderer.xr.getHand?.(rightIndex)||rightHand;}
+      if(leftIndex>=0){leftController=renderer.xr.getController?.(leftIndex)||leftController;leftHand=renderer.xr.getHand?.(leftIndex)||leftHand;}
       if(rightSource?.hand&&rightHand){setWeaponParent(rightHand,true);}
       else if(rightController)setWeaponParent(rightController,false);
       let mx=0,mz=0,turn=0,trigger=false,use=false,leave=false;
