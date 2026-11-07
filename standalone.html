@@ -390,7 +390,7 @@
       var lastNavT = 0;
       var prevA = false, prevB = false, prevStart = false;
       var prevFire = false, prevMsl = false, prevBoost = false, prevTarget = false, prevRadar = false, prevDamp = false, prevWarp = false, prevAutopilot = false, prevThrottleDown = false;
-      window.novaDesktopFlightPad = window.novaDesktopFlightPad || { connected: false, pitch: 0, roll: 0 };
+      window.novaDesktopFlightPad = window.novaDesktopFlightPad || { connected: false, pitch: 0, roll: 0, yaw: 0 };
 
       window.addEventListener('gamepadconnected', function(e) {
         try {
@@ -407,14 +407,14 @@
 
       function pollGamepad() {
         requestAnimationFrame(pollGamepad);
-        if (!navigator.getGamepads) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }
+        if (!navigator.getGamepads) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; window.novaDesktopFlightPad.yaw = 0; return; }
         var pads = navigator.getGamepads();
         var gp = null;
         for (var i = 0; i < pads.length; i++) {
           if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
         }
-        if (!gp) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }
-        if (window.novaOnFoot && window.novaOnFoot()) { window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }   // on foot: fps_core reads the pad
+        if (!gp) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; window.novaDesktopFlightPad.yaw = 0; return; }
+        if (window.novaOnFoot && window.novaOnFoot()) { window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; window.novaDesktopFlightPad.yaw = 0; return; }   // on foot: fps_core reads the pad
 
         var now = performance.now();
         var overlay = document.getElementById('modal-overlay');
@@ -447,7 +447,7 @@
         prevStart = startBtn;
 
         if (menuOpen) {
-          window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0;
+          window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; window.novaDesktopFlightPad.yaw = 0;
           // Menu navigation with D-Pad Up/Down or Left Stick Y
           if (now - lastNavT > 200) {
             if (dUp || ay < -0.45) {
@@ -490,16 +490,21 @@
         // In-Flight Standard Gamepad Controls (for Tablet / PC Bluetooth Controllers when not in WebXR)
         var inXR = !!(window.renderer && window.renderer.xr && window.renderer.xr.isPresenting);
         window.novaDesktopFlightPad.connected = !inXR;
-        if (inXR) { window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; }
+        if (inXR) { window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; window.novaDesktopFlightPad.yaw = 0; }
         if (!inXR) {
           var DZ = 0.16;
-          // Right stick (axes 2,3) or Left stick (axes 0,1) steers Pitch & Roll
-          var rx = (gp.axes && Math.abs(gp.axes[2] || 0) > Math.abs(gp.axes[0] || 0)) ? (gp.axes[2] || 0) : (gp.axes ? (gp.axes[0] || 0) : 0);
-          var ry = (gp.axes && Math.abs(gp.axes[3] || 0) > Math.abs(gp.axes[1] || 0)) ? (gp.axes[3] || 0) : (gp.axes ? (gp.axes[1] || 0) : 0);
+          // Four-axis pads: right stick is pitch/roll and left X is independent yaw.
+          // Two-axis pads retain the original pitch/roll fallback; Q/E remain available for yaw.
+          var hasRightStick = !!(gp.axes && gp.axes.length >= 4);
+          var rx = gp.axes ? (hasRightStick ? (gp.axes[2] || 0) : (gp.axes[0] || 0)) : 0;
+          var ry = gp.axes ? (hasRightStick ? (gp.axes[3] || 0) : (gp.axes[1] || 0)) : 0;
+          var yx = gp.axes && hasRightStick ? (gp.axes[0] || 0) : 0;
           var nx = Math.abs(rx) > DZ ? Math.sign(rx) * ((Math.abs(rx) - DZ) / (1 - DZ)) : 0;
           var ny = Math.abs(ry) > DZ ? Math.sign(ry) * ((Math.abs(ry) - DZ) / (1 - DZ)) : 0;
+          var yawX = Math.abs(yx) > DZ ? Math.sign(yx) * ((Math.abs(yx) - DZ) / (1 - DZ)) : 0;
           window.novaDesktopFlightPad.pitch = ny * 0.45;
           window.novaDesktopFlightPad.roll = -nx * 0.45;
+          window.novaDesktopFlightPad.yaw = -yawX;
 
           // D-Pad Up / Down shifts throttle gates
           if (now - lastNavT > 240) {
@@ -764,6 +769,7 @@ const GAME_VERSION = 'Alpha 1.4';
     let leftGamepad = null;
     let rightGamepad = null;
     let throttleYawInput = 0;
+    const advancedAngularRate = new THREE.Vector3(); // local pitch/yaw/roll inertia for unassisted flight
     const throttleHandAnchor = { x: 0, z: 0, slide: 0 };
     const throttleCtrlAnchor = { x: 0, z: 0, slide: 0 };
     let isGrippingThrottle = false;
@@ -4976,7 +4982,7 @@ const GAME_VERSION = 'Alpha 1.4';
       bigRedBtnMat
     );
     bigRedBtn.position.set(0, 0.030, 0.005);
-    bigRedBtn.visible = NOVA_TOUCH_DEVICE;
+    bigRedBtn.visible = true; // physical cockpit control must remain ray/poke-visible in WebXR
     missileConsole.add(bigRedBtn);
 
     registerCockpitButton(bigRedBtn, 'FIRE MISSILE', () => {
@@ -10494,17 +10500,21 @@ const GAME_VERSION = 'Alpha 1.4';
       }
 
       // Continuous Desktop Keyboard Flight Controls (Arrow Keys, W/S throttle, Space fire)
-      if (!renderer.xr.isPresenting && (!window.isInsideCantina || !window.isInsideCantina())) {
-        let kPitch = 0, kRoll = 0;
+      if (!renderer.xr.isPresenting && (!window.isInsideCantina || !window.isInsideCantina()) && !novaOnFoot()) {
+        let kPitch = 0, kRoll = 0, kYaw = 0;
         if (activeKeys['ArrowDown']) kPitch += 0.40; // Pull stick back (climb)
         if (activeKeys['ArrowUp']) kPitch -= 0.40;   // Push stick forward (dive)
         if (activeKeys['ArrowRight']) kRoll -= 0.40; // Bank right
         if (activeKeys['ArrowLeft']) kRoll += 0.40;  // Bank left
+        if (activeKeys['KeyQ']) kYaw += 1.0;          // RCS yaw left
+        if (activeKeys['KeyE']) kYaw -= 1.0;          // RCS yaw right
         const desktopPad = window.novaDesktopFlightPad;
         if (desktopPad && desktopPad.connected && !renderer.xr.isPresenting) {
           if (kPitch === 0) kPitch = desktopPad.pitch;
           if (kRoll === 0) kRoll = desktopPad.roll;
+          if (kYaw === 0) kYaw = desktopPad.yaw || 0;
         }
+        throttleYawInput = THREE.MathUtils.clamp(kYaw, -1, 1);
 
         if (kPitch !== 0 || kRoll !== 0) {
           stickPivot.rotation.x = THREE.MathUtils.lerp(stickPivot.rotation.x, kPitch, 12 * delta);
@@ -10769,11 +10779,24 @@ const GAME_VERSION = 'Alpha 1.4';
       // Pitch: Inverted Y (Default): Pull back (stick.rotation.x > 0) -> Climb / Pitch UP! Push forward -> Dive / Pitch DOWN!
       // In Three.js coordinates, a negative rotation around local X pitches the nose UP towards +Y.
       const pitchFactor = isPitchInverted ? -1.0 : 1.0;
-      const pitchRate = pitchFactor * normPitch * pitchSpeed;
-
-      // Stick X rolls; lateral throttle travel is the independent yaw rudder.
-      const yawRate = (normYaw + (arcadeFlight ? normRoll * 0.15 : 0)) * yawSpeed;
-      let rollRate = normRoll * rollSpeed;
+      let pitchRate, yawRate, rollRate;
+      if (arcadeFlight) {
+        advancedAngularRate.set(0, 0, 0);
+        pitchRate = pitchFactor * normPitch * pitchSpeed;
+        yawRate = (normYaw + normRoll * 0.15) * yawSpeed;
+        rollRate = normRoll * rollSpeed;
+      } else {
+        // ADVANCED inputs command rotational thrusters (angular acceleration), not assisted target rates.
+        // Releasing the controls preserves rotation; counter-input arrests it.
+        const manual = !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive && !novaOnFoot();
+        if (!manual) advancedAngularRate.set(0, 0, 0);
+        else {
+          advancedAngularRate.x = THREE.MathUtils.clamp(advancedAngularRate.x + pitchFactor * normPitch * 3.2 * delta, -pitchSpeed, pitchSpeed);
+          advancedAngularRate.y = THREE.MathUtils.clamp(advancedAngularRate.y + normYaw * 2.8 * delta, -yawSpeed, yawSpeed);
+          advancedAngularRate.z = THREE.MathUtils.clamp(advancedAngularRate.z + normRoll * 3.6 * delta, -rollSpeed, rollSpeed);
+        }
+        pitchRate = advancedAngularRate.x; yawRate = advancedAngularRate.y; rollRate = advancedAngularRate.z;
+      }
       if (arcadeFlight && Math.abs(normRoll) < 0.01 && !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive) {
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(shipGroup.quaternion);
         const up = new THREE.Vector3(0, 1, 0).applyQuaternion(shipGroup.quaternion);
@@ -10915,7 +10938,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
       // Sync Three.js shipGroup with Cannon physics body (Zero Spin on Release)
       shipGroup.position.copy(shipBody.position);
-      if (isSteeringNeutral) {
+      if (isSteeringNeutral && arcadeFlight) {
         if (shipBody) {
           shipBody.angularVelocity.set(0, 0, 0);
           if (shipBody.torque) shipBody.torque.set(0, 0, 0);
@@ -11805,8 +11828,8 @@ const GAME_VERSION = 'Alpha 1.4';
                 leftGamepad = gp;
                 if (gp.buttons) {
                   isC1GripPressed = (gp.buttons[1] && gp.buttons[1].pressed) || (gp.buttons[0] && gp.buttons[0].pressed);
-                  // Meta Quest Left Controller Menu Button (Button index 4, or 5/6)
-                  const menuBtn = (gp.buttons[4] && gp.buttons[4].pressed) || (gp.buttons[5] && gp.buttons[5].pressed);
+                  // Quest X/Y are indices 4/5; do not mistake them for the system/menu control.
+                  const menuBtn = !!(gp.buttons[6] && gp.buttons[6].pressed);
                   if (menuBtn && now - lastFaceBtnTime > 600) {
                     lastFaceBtnTime = now;
                     exitImmersiveMode();
@@ -11865,12 +11888,15 @@ const GAME_VERSION = 'Alpha 1.4';
             if (inside && !window[k]) novaRadarTouch(loc.x / (2 * hw) + 0.5, loc.y / (2 * hh) + 0.5);
             window[k] = inside;
           }
-          // B / Y button leaves the cantina
+          // Quest face buttons: left Y arms missiles; right B launches. In the cantina either exits.
           {
             const gpx = cObj.isLeft ? leftGamepad : rightGamepad;
             const bNow = !!(gpx && gpx.buttons && gpx.buttons[5] && gpx.buttons[5].pressed);
             const kk = cObj.isLeft ? '_novaYPrev' : '_novaBPrev';
-            if (bNow && !window[kk] && isInsideCantina) exitCantina();
+            if (bNow && !window[kk]) {
+              if (isInsideCantina) exitCantina();
+              else if (!novaOnFoot()) { if (cObj.isLeft) toggleMissileLid(); else fireHomingMissile(); }
+            }
             window[kk] = bNow;
           }
           // Left X button = afterburner (works while holding the throttle)
@@ -11888,10 +11914,10 @@ const GAME_VERSION = 'Alpha 1.4';
             stickGripPoint.getWorldPosition(stickWorldPos);
             const distStick = cPos.distanceTo(stickWorldPos);
 
-            // Right Controller Trigger or 'A'/'B' button fires laser continuously while holding stick
+            // Right trigger or A fires lasers while holding the stick; B is reserved for missiles.
             if (rightGamepad && rightGamepad.buttons) {
               const isTrigger = !!(rightGamepad.buttons[0] && rightGamepad.buttons[0].pressed);
-              const isAButton = !!(rightGamepad.buttons[4] && rightGamepad.buttons[4].pressed) || !!(rightGamepad.buttons[5] && rightGamepad.buttons[5].pressed);
+              const isAButton = !!(rightGamepad.buttons[4] && rightGamepad.buttons[4].pressed);
               if ((isTrigger || isAButton) && isGrippingStickCtrl) {
                 pressThumbFireButton();
               }
@@ -12111,8 +12137,8 @@ const GAME_VERSION = 'Alpha 1.4';
         }
       }
 
-      // Left thumbstick: Notched throttle shifter (Full access to Notch 0, 1, 2, 3, 4) & Lateral RCS Strafe
-      if (!isGrippingThrottle && leftGamepad && leftGamepad.axes && leftGamepad.axes.length >= 2) {
+      // Left thumbstick: notched throttle plus yaw in ADVANCED (Arcade retains lateral RCS strafe).
+      if (!isGrippingThrottle && !isGrippingThrottleHand && !isGrippingThrottleCtrl && leftGamepad && leftGamepad.axes && leftGamepad.axes.length >= 2) {
         const dz = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12));
         const shape = v => Math.abs(v) <= dz ? 0 : Math.sign(v) * (Math.abs(v) - dz) / (1 - dz);
         const rawT = (Math.abs(leftGamepad.axes[3]) > dz) ? leftGamepad.axes[3] : (Math.abs(leftGamepad.axes[1]) > dz ? leftGamepad.axes[1] : 0);
@@ -12126,10 +12152,12 @@ const GAME_VERSION = 'Alpha 1.4';
           }
         }
 
-        // Lateral RCS Strafe Thrusters (Avoid Asteroids & Obstacles with ease)
+        // ADVANCED uses the lateral throttle/thumbstick axis as independent yaw; Arcade keeps the comfort strafe.
         const rawStrafe = (Math.abs(leftGamepad.axes[2]) > dz) ? leftGamepad.axes[2] : (Math.abs(leftGamepad.axes[0]) > dz ? leftGamepad.axes[0] : 0);
         const strafeAxisX = shape(rawStrafe);
-        if (Math.abs(strafeAxisX) > 0.15 && shipBody) {
+        if (NOPT.o.flightMode === 'advanced') {
+          throttleYawInput = -strafeAxisX;
+        } else if (Math.abs(strafeAxisX) > 0.15 && shipBody) {
           const strafeForce = strafeAxisX * 45000;
           const localStrafe = new THREE.Vector3(strafeForce, 0, 0).applyQuaternion(shipGroup.quaternion);
           shipBody.applyForce(new CANNON.Vec3(localStrafe.x, localStrafe.y, localStrafe.z), shipBody.position);
@@ -14892,7 +14920,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const dc = bd.getCenter(new THREE.Vector3());
         w.position.x -= dc.x; w.position.z -= dc.z; w.position.y += 0.012 - bp.min.y;
         bigRedBtn.visible = false; if (novaMsl.ring) novaMsl.ring.visible = false;
-        dome.visible = NOVA_TOUCH_DEVICE;
+        dome.visible = true; // VR controllers/hands need a visible raycast target
         nmPressable(dome, 'FIRE MISSILE', old.action, 0.07, 'z', 0.03);
         console.log('[NOVA12] missile button model wired');
       } catch (e) { console.warn('missile button wiring failed', e); }
@@ -18654,6 +18682,7 @@ const GAME_VERSION = 'Alpha 1.4';
         shipBody.angularDamping = isRotationDampenerOn ? 0.98 : 0.08;
         shipBody.linearDamping = isFlightAssistOn ? 0.45 : 0.02;
         isThumbstickSteering = false;
+        advancedAngularRate.set(0, 0, 0);
         try { stickPivot.rotation.set(0, 0, 0); stickPitchDeg = 0; stickRollDeg = 0; } catch (e) { }
         console.log('[NOVA14] flight controls restored', why || '');
       } catch (e) { }
