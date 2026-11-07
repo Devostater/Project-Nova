@@ -36,6 +36,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
+| GPT/Codex | FPS flow, controls and helmet HUD | `gpt/fps-flow-hud` | `modules/interior.js`, `fps_core.js`, `fps_ai.js`, `boarding.js` and public mirrors; `AI_STATUS.md` | Active | — |
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
 | GPT/Codex | Module integration + touch controls | `gpt/integrate-modules` | Three game files, manifests, service workers, module wiring, AI_STATUS | Active | [Draft PR #35](https://github.com/Devostater/Project-Nova/pull/35) |
 
