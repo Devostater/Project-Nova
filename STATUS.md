@@ -8,6 +8,14 @@ Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. D
 - **Quest app:** `com.azi.projectnova` 1.0.3 is a launcher that opens the live game in the full Quest Browser. Build it with `powershell -File tools\build_install_quest.ps1`.
 - **Live build:** `7f7d257` (2026-11-07). Everything below is merged into `main` and deployed; none of it has been playtested on the Quest yet.
 
+## Handoff (2026-11-07, end of Claude session): Claude is OFF, nothing scheduled
+
+**Merged today by Claude (PRs):** #39 fixed main (module tick crash), #40 Cold Run end to end, #44 on-foot fixes + side panels fill glass + big market, #48 owner models (cantina furniture/poster, gunship, civ traffic, cruiser, clanker yard, containers, faction missiles), #50 COMMS hologram / names on / overhead DOCK / vertical sites / simpler WARP, #52 asteroid boost, #53 cantina room rebuild + plan, #54 playtest fixes (gun, right panel 1.22, SYS/OPT tall tiles, big BACK/NEXT, autopilot stand-off, DOCK needs target, intro video path, PLAY INTRO on menu + watch).
+
+**Open for GPT (next):** `OWNER_FEATURES.md` → "Playtest 2026-11-07" items 5 (ADVANCED flight yaw thrust) and 6 (missiles in VR). Then its own open PRs #41–#47, #49 one at a time on current `main` (they predate the one-game-file clean-up: rebase, edit `standalone.html` only).
+**Owner:** playtest on Quest (intro video, cantina, autopilot, DOCK, range gun); answer: third-faction name, bartender, seat_v2.
+**Whoever leads next** updates this section first.
+
 ## Handoff (2026-11-07): who did what, and what's next
 | AI | Done and merged | Open / next | Working copy |
 |---|---|---|---|
