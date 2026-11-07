@@ -18910,7 +18910,7 @@ const GAME_VERSION = 'Alpha 1.4';
     };
 
     // ── A4: shared module API and deterministic module loader ──
-    const novaTickHandlers = new Set();
+    const novaTickHandlers = window.__novaTickHandlers = new Set();   // also on window: nmFrame can run before this line executes
     const novaEventHandlers = new Map();
     const novaModuleInstances = new Map();
     function novaOnTick(handler) {
@@ -18934,7 +18934,8 @@ const GAME_VERSION = 'Alpha 1.4';
       return handlers.size;
     }
     function novaRunTicks(dt) {
-      for (const handler of novaTickHandlers) {
+      const set = window.__novaTickHandlers; if (!set) return;
+      for (const handler of set) {
         try { handler(dt); } catch (error) { console.error('[NOVA module tick]', error); }
       }
     }
