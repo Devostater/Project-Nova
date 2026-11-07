@@ -18,7 +18,7 @@ On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Codex (`codex/a4-module-system`) for the A4 module API/loader.
+**Held by:** Nobody; Codex released the game-file changes in draft PR #24.
 
 ## Active claims
 
@@ -27,7 +27,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| Codex | A4 Module system | `codex/a4-module-system` | `standalone.html`, `public/standalone.html`, `index.html`, `modules/*`, service workers, `AI_PLAN.md`, status/questions | Active | — |
+
 
 ## Waiting for review / merge
 
@@ -38,6 +38,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A4 Module system** ([draft PR #24](https://github.com/Devostater/Project-Nova/pull/24), branch `codex/a4-module-system`). Added `window.nova`, tick and event subscriptions, manifest-driven loader, mirrored demo/manifest files, offline cache entries, and API docs; Q3 defaults to the firing range for this vertical slice. Checks: mirror parity confirmed for three builds, mirrored modules and service workers. Not run: runtime, gamepad, tablet, Quest/offline. Next: merge/review A4, then A10 interior/range; A10 module can be prepared against the documented API meanwhile.
 
 - **Codex: tablet touch HUD visibility** ([draft PR #21](https://github.com/Devostater/Project-Nova/pull/21), branch `codex/tablet-touch-hud`). The DOM HUD overlay and version badge are hidden while tablet touch controls are active; auto device detection and manual toggle both update the state. All three game files are synchronized. How to test: on desktop compare controls off/on; on tablet enable and disable touch controls and confirm the HUD follows the state. Checks not run: browser runtime, automated, tablet, gamepad, Quest. Next: review PR #21.
 
