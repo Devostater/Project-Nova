@@ -114,14 +114,16 @@ export function register(nova = {}) {
   const registered = [];
   const skipped = [];
   for (const slug of Object.keys(STATS)) {
-    if (Object.prototype.hasOwnProperty.call(assets, slug) ||
-        Object.prototype.hasOwnProperty.call(stats, slug)) {
-      skipped.push(slug);
-      continue;
+    let changed = false;
+    if (!Object.prototype.hasOwnProperty.call(assets, slug)) {
+      assets[slug] = copyEntry(ASSETS[slug]);
+      changed = true;
     }
-    assets[slug] = copyEntry(ASSETS[slug]);
-    stats[slug] = copyEntry(STATS[slug]);
-    registered.push(slug);
+    if (!Object.prototype.hasOwnProperty.call(stats, slug)) {
+      stats[slug] = copyEntry(STATS[slug]);
+      changed = true;
+    }
+    (changed ? registered : skipped).push(slug);
   }
 
   const api = {
