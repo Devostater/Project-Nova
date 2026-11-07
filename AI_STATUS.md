@@ -52,6 +52,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
+| GPT/Codex | A9 Quest offline APK check | `gpt/a9-quest-offline` | `tools/make_quest_apk.*`, offline validation tool and `OFFLINE_PLAY.md` | Active | draft pending |
 
 
 ## Waiting for review / merge
