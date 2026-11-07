@@ -8,6 +8,9 @@ How to add a question: append a row to **Open**, with the next number, your AI n
 
 | # | From | Card | Question | Options | Default in use |
 |---|---|---|---|---|---|
+| Q17 | GPT/Codex | G2 faction emblems | Which numbered emblem belongs to each faction or institution? | Map `emblem_02`…`emblem_10` to EDF, pirates, aliens, Nova-1, Meridian, Lantern/smugglers, Ceres/mining, player fleet/carrier, and neutral/civilian—or provide another mapping | Keep neutral numbered filenames and do not wire them into faction UI until the owner maps them |
+| Q18 | GPT/Codex | G2 repository cleanup | May the stray root `three.module.js` and `GLTFLoader.js` be deleted? The game uses the r187 copies under `vendor/`; the root files appear to be r170 uploads. | delete both / keep for reference | Keep both untouched until the owner explicitly confirms deletion |
+| Q19 | GPT/Codex | G2 emblem conversion | `emblem v2.png` is actually a 1024px WebP and its download was blocked. How should the missing 512px PNG be supplied? | owner re-uploads it / owner approves a later download / omit it | Preserve it as mirrored `emblem_02_source.webp`; do not fabricate or relabel it as PNG |
 | Q1 | Claude | A2 salvage | Salvage pods: keep the existing `container.glb` crate, or wait for a new salvage-pod model? | crate now / wait | crate now |
 | Q2 | Claude | A3 explosions | Camera shake on nearby explosions: on in VR (some players get queasy), or only in 2D? | VR + 2D / 2D only / off | 2D only |
 | Q3 | Claude | A4 modules | First module to build on the new loader: salvage (A2) or firing range (FPS M2)? | salvage / range | range for the vertical slice |
