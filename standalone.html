@@ -5401,10 +5401,106 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // 1. Cantina Architecture: Floor, Walls, Ceiling, Neon Trim
     const floorGeo = new THREE.CylinderGeometry(18, 18, 0.12, 64);
+    const floorTexCanvas = document.createElement('canvas');
+    floorTexCanvas.width = 1024;
+    floorTexCanvas.height = 1024;
+    const floorTexCtx = floorTexCanvas.getContext('2d');
+    if (floorTexCtx) {
+      // Base dark deck plate fill
+      floorTexCtx.fillStyle = '#0a1420';
+      floorTexCtx.fillRect(0, 0, 1024, 1024);
+
+      // Sci-fi square panel grid with bevelled edges & rivets
+      const panelSize = 128;
+      for (let y = 0; y < 1024; y += panelSize) {
+        for (let x = 0; x < 1024; x += panelSize) {
+          // Plate inner tone variation
+          const shade = ((x + y) / panelSize) % 2 === 0 ? '#0d1928' : '#0b1623';
+          floorTexCtx.fillStyle = shade;
+          floorTexCtx.fillRect(x + 2, y + 2, panelSize - 4, panelSize - 4);
+
+          // Subtle panel bevel / highlight line
+          floorTexCtx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+          floorTexCtx.lineWidth = 1;
+          floorTexCtx.strokeRect(x + 4, y + 4, panelSize - 8, panelSize - 8);
+
+          // Deep seam groove
+          floorTexCtx.strokeStyle = '#04080e';
+          floorTexCtx.lineWidth = 3;
+          floorTexCtx.strokeRect(x, y, panelSize, panelSize);
+
+          // Corner mounting rivets
+          floorTexCtx.fillStyle = '#162332';
+          const rivetOffsets = [[10, 10], [panelSize - 10, 10], [10, panelSize - 10], [panelSize - 10, panelSize - 10]];
+          for (let r = 0; r < rivetOffsets.length; r++) {
+            floorTexCtx.beginPath();
+            floorTexCtx.arc(x + rivetOffsets[r][0], y + rivetOffsets[r][1], 2, 0, Math.PI * 2);
+            floorTexCtx.fill();
+          }
+        }
+      }
+
+      // Faint cyan glow circuitry / conduit lines fitting station neon trim
+      floorTexCtx.shadowColor = '#00f0ff';
+      floorTexCtx.shadowBlur = 8;
+      floorTexCtx.strokeStyle = 'rgba(0, 240, 255, 0.38)';
+      floorTexCtx.lineWidth = 2;
+      for (let y = 0; y <= 1024; y += 256) {
+        floorTexCtx.beginPath();
+        floorTexCtx.moveTo(0, y);
+        floorTexCtx.lineTo(1024, y);
+        floorTexCtx.stroke();
+      }
+      for (let x = 0; x <= 1024; x += 256) {
+        floorTexCtx.beginPath();
+        floorTexCtx.moveTo(x, 0);
+        floorTexCtx.lineTo(x, 1024);
+        floorTexCtx.stroke();
+      }
+      // Glowing conduit nexus nodes
+      floorTexCtx.fillStyle = 'rgba(0, 240, 255, 0.7)';
+      for (let y = 0; y <= 1024; y += 256) {
+        for (let x = 0; x <= 1024; x += 256) {
+          floorTexCtx.beginPath();
+          floorTexCtx.arc(x, y, 4, 0, Math.PI * 2);
+          floorTexCtx.fill();
+        }
+      }
+      floorTexCtx.shadowBlur = 0;
+
+      // Subtle scratches and deck wear noise
+      floorTexCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      floorTexCtx.lineWidth = 1;
+      let scratchRng = 1337;
+      function nextScratch() {
+        scratchRng = (scratchRng * 1664525 + 1013904223) >>> 0;
+        return scratchRng / 4294967296;
+      }
+      for (let i = 0; i < 180; i++) {
+        const sx = nextScratch() * 1024;
+        const sy = nextScratch() * 1024;
+        const slen = 6 + nextScratch() * 22;
+        const sang = nextScratch() * Math.PI * 2;
+        floorTexCtx.beginPath();
+        floorTexCtx.moveTo(sx, sy);
+        floorTexCtx.lineTo(sx + Math.cos(sang) * slen, sy + Math.sin(sang) * slen);
+        floorTexCtx.stroke();
+      }
+    }
+
+    const floorTexture = new THREE.CanvasTexture(floorTexCanvas);
+    floorTexture.wrapS = THREE.RepeatWrapping;
+    floorTexture.wrapT = THREE.RepeatWrapping;
+    floorTexture.repeat.set(6, 6);
+    floorTexture.colorSpace = THREE.SRGBColorSpace;
+    const maxAniso = renderer?.capabilities?.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 4;
+    floorTexture.anisotropy = Math.min(4, maxAniso);
+
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x0a1420,
+      map: floorTexture,
       metalness: 0.85,
-      roughness: 0.25
+      roughness: 0.35,
+      roughnessMap: floorTexture
     });
     cantinaFloorMesh = new THREE.Mesh(floorGeo, floorMat);
     cantinaFloorMesh.position.y = -0.06;
