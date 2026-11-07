@@ -16350,10 +16350,17 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     { const U = NOVA_UPGRADES.find(u => u.k === 'repair'); if (U) { U.name = 'OBI CO-PILOT'; U.desc = 'Obi rides your dash, auto-repairs hull'; } }
     const nmkHasObi = () => novaUp.repair > 0;
     { const _ot = novaObiTick; novaObiTick = function (delta) {
+        if (!nmkHasObi()) {
+          novaObi.visible = false;
+          if (novaJohnObi) { novaJohnObi.visible = true; novaObiAnim(novaJohnObi, delta, performance.now() * 0.001 + 1.3); }
+          return;
+        }
         _ot(delta);
-        if (!nmkHasObi()) novaObi.visible = false;
-        if (novaJohnObi) novaJohnObi.visible = !nmkHasObi();
+        if (novaJohnObi) novaJohnObi.visible = !!isInsideCantina;
       }; }
+    if (!nmkHasObi()) novaObi.visible = false;
+    { const _say = novaCompSay; novaCompSay = function (who, text) { if (String(who).toLowerCase() === 'obi' && !nmkHasObi()) who = 'valkyrie'; return _say(who, text); }; }
+    { const _ask = novaCompAsk; novaCompAsk = function (who, forceId) { if (String(who).toLowerCase() === 'obi' && !nmkHasObi()) who = 'valkyrie'; return _ask(who, forceId); }; }
     { const _oh = novaObiHelp; novaObiHelp = function (msg) { if (!nmkHasObi()) { try { novaChatLog('SHIP AI', msg, '#9fc3d8'); } catch (e) { } return; } return _oh(msg); }; }
     // the Nova-1 shipwright board: upgrades sold elsewhere say where
     { const _db = novaDrawBoards; novaDrawBoards = function () {
