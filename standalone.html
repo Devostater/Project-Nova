@@ -18271,9 +18271,10 @@ const GAME_VERSION = 'Alpha 1.4';
       try {
         const g = await nmLoad('clanker_station'); if (!g) return;
         const st = g.scene.clone(true); const b = new THREE.Box3().setFromObject(st), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
-        st.position.sub(c); const w = new THREE.Group(); w.add(st); w.scale.setScalar(160 / Math.max(sz.x, sz.y, sz.z)); w.name = 'CLANKER_YARD';
+        const targetSize = 64, modelRoot = new THREE.Group(), w = new THREE.Group();
+        st.position.sub(c); modelRoot.add(st); modelRoot.scale.setScalar(targetSize / Math.max(sz.x, sz.y, sz.z)); w.add(modelRoot); w.name = 'CLANKER_YARD';
         w.position.copy(NS_POS.graveyard).add(new THREE.Vector3(420, 60, -260)); w.rotation.y = 0.6; scene.add(w);
-        const lab = nwLabel('CLANKER YARD', '#ffaa55', 200, 50); lab.position.y = 120; w.add(lab);
+        const lab = nwLabel('CLANKER YARD', '#ffaa55', 72, 18); lab.position.y = 48; w.add(lab);
         st.traverse(o => { if (o.isMesh) o.raycast = () => { }; });
         NOM.clanker = w;
       } catch (e) { console.warn('[models] clanker yard', e); }
