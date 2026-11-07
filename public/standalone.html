@@ -17530,6 +17530,30 @@ const GAME_VERSION = 'Alpha 1.4';
       for (const g of pads) if (g && g.connected && g.mapping === 'standard' && g.buttons[8] && g.buttons[8].pressed) down = true;
       if (down && !NSV.gpPrev && cockpit.visible) novaTractorPress(); NSV.gpPrev = down; } catch (e) { } }, 60);
     setInterval(() => { try { nsvTick(0.05); } catch (e) { if (!window._nsvErr) { window._nsvErr = 1; console.error('[salvage]', e); } } }, 50);
+
+    // ── A3 effects module (Codex: public/modules/fx_ultra.js): missile trails + richer explosions ──
+    // Live positions are fed every frame (homing missiles turn, so the module must not dead-reckon).
+    // Quest / low tier: trails only, no extra explosion layers (the flight scene is already over the draw-call budget).
+    const NFX = { fx: null, ids: new Map(), seq: 1, last: performance.now() };
+    import('./modules/fx_ultra.js').then(m => { NFX.fx = m.init({ THREE, scene, renderer }); console.log('[fx_ultra] ready, tier', NFX.fx && NFX.fx.tier); })
+      .catch(e => console.warn('[fx_ultra] not loaded', e && e.message));
+    function nfxFrame() {
+      const fx = NFX.fx; if (!fx || !fx.ready) return;
+      const now = performance.now(), dt = Math.min(0.05, (now - NFX.last) / 1000); NFX.last = now; if (dt <= 0) return;
+      const live = new Set();
+      const feed = (key, pos) => {
+        let r = NFX.ids.get(key);
+        if (!r) { r = { id: NFX.seq++, last: pos.clone(), v: new THREE.Vector3() }; NFX.ids.set(key, r); }
+        r.v.copy(pos).sub(r.last).multiplyScalar(1 / dt); r.last.copy(pos);
+        fx.missileStart(r.id, pos, r.v); live.add(key);
+      };
+      try { NF.msl.forEach(ms => { if (ms && ms.m) feed(ms, ms.m.getWorldPosition(new THREE.Vector3())); }); } catch (e) { }
+      try { activeMissiles.forEach(mm => { if (mm && mm.group) feed(mm, mm.group.getWorldPosition(new THREE.Vector3())); }); } catch (e) { }
+      for (const [key, r] of NFX.ids) if (!live.has(key)) { fx.missileStop(r.id); if (fx.tier !== 'low') fx.explosion(r.last, 0.5, 'missile'); NFX.ids.delete(key); }
+      fx.tick(dt);
+    }
+    { const _nf = nmFrame; nmFrame = function () { const r = _nf.apply(this, arguments); try { nfxFrame(); } catch (e) { if (!window._nfxErr) { window._nfxErr = 1; console.error('[fx_ultra]', e); } } return r; }; window.nmFrame = nmFrame; }
+    { const _nb = novaBoom; novaBoom = function (pos, scale) { const r = _nb.apply(this, arguments); try { if (NFX.fx && NFX.fx.ready && NFX.fx.tier !== 'low' && pos) NFX.fx.explosion(pos, scale || 1, 'ship'); } catch (e) { } return r; }; window.novaBoom = novaBoom; }
     window.novaTest = Object.assign(window.novaTest || {}, { salvage: (n = 3) => { const p = shipGroup.position.clone().add(new THREE.Vector3(0, 0, -60).applyQuaternion(shipGroup.quaternion)); for (let i = 0; i < n; i++) novaSalvageDrop(p, { slug: 'pirate_frigate', st: { boss: true } }); return NSV.pods.length; }, lockSalvage: () => { const t = getAllTargets().find(c => c.type === 'salvage'); currentLockedTarget = t || null; return t ? t.name + ' @ ' + Math.round(t.dist) + ' m' : null; }, salvageState: () => ({ pods: NSV.pods.map(p => p.kind), pulling: !!NSV.pulling, cores: NSV.cores, salvage: cargoSalvage, credits: bankCredits }) });
     // start new pilots on the real soundtrack
     try { if (!localStorage.getItem('novaMusicV1')) { bgmTrackIdx = BGM_TRACKS.findIndex(x => x.file); localStorage.setItem('novaMusicV1', '1'); } } catch (e) { }
