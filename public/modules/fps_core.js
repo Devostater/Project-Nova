@@ -35,7 +35,7 @@ export function init(nova) {
 
   const ray=new T.Raycaster();ray.far=60;ray.params.Line.threshold=.08;
   const origin=new T.Vector3(),direction=new T.Vector3(),forward=new T.Vector3(),right=new T.Vector3(),move=new T.Vector3(),up=new T.Vector3(0,1,0);
-  const thumb=new T.Vector3(),index=new T.Vector3(),middle=new T.Vector3(),wrist=new T.Vector3(),endPoint=new T.Vector3(),midPoint=new T.Vector3();
+  const thumb=new T.Vector3(),index=new T.Vector3(),middle=new T.Vector3(),wrist=new T.Vector3(),endPoint=new T.Vector3(),midPoint=new T.Vector3();\n  const controllerQ=new T.Quaternion();
   const down=new Set();
   let active=false,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=25,yaw=0,pitch=0,hudTimer=0,muzzleTimer=0;
   let rightController=null,leftController=null,rightHand=null,leftHand=null,leftFist=false,leftAnchor=null;
@@ -65,7 +65,7 @@ export function init(nova) {
   function setWeaponParent(parent,hand=false){
     if(!parent)return;
     if(pistol.parent!==parent)parent.add(pistol);
-    pistol.position.set(hand?.035:.045,hand?-.035:-.045,hand?-.12:-.16);
+    pistol.position.set(hand ? .035 : .045,hand ? -.035 : -.045,hand ? -.12 : -.16);
     pistol.rotation.set(0,Math.PI,0);
   }
   function aimRay(){
@@ -73,7 +73,7 @@ export function init(nova) {
     if(session&&rightHand&&weaponOn&&handPoint(rightHand,'index-finger-tip',index)&&handPoint(rightHand,'wrist',wrist)){
       origin.copy(index);direction.subVectors(index,wrist).normalize();
     }else if(session&&rightController){
-      rightController.getWorldPosition(origin);rightController.getWorldDirection(direction);
+      rightController.getWorldPosition(origin);direction.set(0,0,-1).applyQuaternion(rightController.getWorldQuaternion(controllerQ));
     }
     direction.normalize();ray.set(origin,direction);return ray.intersectObjects(scene.children,true);
   }
