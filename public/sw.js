@@ -14,6 +14,7 @@ const FILES = [
 "./art/emblems/emblem_08.png",
 "./art/emblems/emblem_09.png",
 "./art/emblems/emblem_10.png",
+"./art/emblems/manifest.json",
 "./art/icon_192.png",
 "./art/icon_512.png",
 "./art/keyart.jpg",
