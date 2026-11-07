@@ -38,6 +38,7 @@ const FILES = [
 "./fx/vfx_shield_hex.png",
 "./fx/vfx_spark.png",
 "./fx/vfx_warp_streaks.png",
+"./fx/vfx_warp_tunnel.jpg",
 "./manifest.webmanifest",
 "./models/alien_attack_drone.glb",
 "./models/alien_attack_drone_lo.glb",
