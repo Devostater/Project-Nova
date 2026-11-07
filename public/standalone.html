@@ -17334,13 +17334,14 @@ const GAME_VERSION = 'Alpha 1.3';
     ].forEach(t => BGM_TRACKS.push(t));
     NMUS.count = BGM_TRACKS.length;
     const NMS_STATIONS = [
-      { name: 'NOVA-1 FM', sub: 'soundtrack · AUTO follows the action', c: '#00e5ff', has: t => !!t.file },
-      { name: 'SYNTHWAVE 88', sub: 'retro synth classics', c: '#ff66cc', has: t => !t.file && !t.obi && !t.station },
-      { name: 'DEEP SPACE RADIO', sub: 'slow ambient for long hauls', c: '#7fa8ff', has: t => t.station === 'deep' },
-      { name: 'PIRATE RADIO', sub: 'fast and loud, off the black market', c: '#ff5544', has: t => t.station === 'pirate' },
-      { name: "OBI'S MIX", sub: 'Obi dances to these', c: '#ffd24a', has: t => !!t.obi }
+      { name: 'NOVA-1 FM', logo: 'nova', sub: 'soundtrack · AUTO follows the action', c: '#00e5ff', has: t => !!t.file },
+      { name: 'SYNTHWAVE 88', logo: 'synth', sub: 'retro synth classics', c: '#ff66cc', has: t => !t.file && !t.obi && !t.station },
+      { name: 'DEEP SPACE RADIO', logo: 'deep', sub: 'slow ambient for long hauls', c: '#7fa8ff', has: t => t.station === 'deep' },
+      { name: 'PIRATE RADIO', logo: 'pirate', sub: 'fast and loud, off the black market', c: '#ff5544', has: t => t.station === 'pirate' },
+      { name: "OBI'S MIX", logo: 'obi', sub: 'Obi dances to these', c: '#ffd24a', has: t => !!t.obi }
     ];
-    const NMS = { st: 0, btns: [], built: false };
+    const NMS = { st: 0, btns: [], built: false, img: {} };
+    const nmsLogo = k => { if (!NMS.img[k]) { const im = new Image(); im.src = './art/station_' + k + '.jpg'; NMS.img[k] = im; } return NMS.img[k]; };
     const nmsList = st => BGM_TRACKS.map((t, i) => ({ t, i })).filter(o => NMS_STATIONS[st].has(o.t));
     const nmsStationOf = idx => { const t = BGM_TRACKS[idx], k = NMS_STATIONS.findIndex(st => t && st.has(t)); return k < 0 ? 0 : k; };
     try { NMS.st = nmsStationOf(bgmTrackIdx); } catch (e) { }
@@ -17392,9 +17393,10 @@ const GAME_VERSION = 'Alpha 1.3';
       x.textAlign = 'left';
       // now playing
       npText(x, isBgmPlaying ? 'NOW PLAYING' : 'PAUSED', 430, 160, 'bold 17px monospace', '#9fc3d8');
-      npText(x, cur.name, 430, 190, 'bold 25px monospace', S.c, 580);
+      npText(x, cur.name, 430, 190, 'bold 25px monospace', S.c, 460);
       npText(x, (cur.file ? 'soundtrack' : cur.bpm + ' bpm') + ' \u00b7 volume ' + Math.round(nmsLevel() * 100) + '%' + (NRM.auto ? ' \u00b7 AUTO' : ''), 430, 216, '17px monospace', '#7fb6d0', 580);
-      if (isBgmPlaying) for (let i = 0; i < 29; i++) { const hgt = 6 + Math.abs(Math.sin(NKS.t * (3 + i % 5) + i)) * 44; x.fillStyle = S.c; x.globalAlpha = 0.75; x.fillRect(430 + i * 20, 280 - hgt, 12, hgt); x.globalAlpha = 1; }
+      try { const im = nmsLogo(S.logo); if (im.complete && im.naturalWidth) x.drawImage(im, 900, 130, 110, 110); } catch (e) { }
+      if (isBgmPlaying) for (let i = 0; i < 23; i++) { const hgt = 6 + Math.abs(Math.sin(NKS.t * (3 + i % 5) + i)) * 44; x.fillStyle = S.c; x.globalAlpha = 0.75; x.fillRect(430 + i * 20, 280 - hgt, 12, hgt); x.globalAlpha = 1; }
       // buttons
       NMS.layout.forEach(b => {
         const lit = (b.id === 'AUTO' && NRM.auto) || (b.id === 'PLAY' && isBgmPlaying);
