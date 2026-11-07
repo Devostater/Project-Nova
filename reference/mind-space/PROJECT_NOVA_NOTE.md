@@ -7,6 +7,9 @@
 - The repository contains spaceflight and cockpit assets, music files, and assets named for Matrix, including `models/matrix_character.glb`, `models/matrix_fighter.glb`, and corresponding entries under `public/models`.
 - Recent repository history includes changes to controller/gamepad input and flight controls.
 
+## Established (owner-confirmed)
+- **2026-11-07:** "Humanity is growing colder. Heat cores and fusion cores are sought after across the system." This is the setting anchor for Project Nova's salvage, boarding and economy (see `FPS_PLAN.md`). Why the system is cooling, and who hunts the cores, is still open.
+
 ## Relationship to Mind Space
 **Open question:** The owner identified Mind Space as an AZI game-development property, but has not explicitly stated that Project Nova is Mind Space, a prototype of it, or a separate property. Keep the names distinct until confirmed.
 
