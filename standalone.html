@@ -5299,81 +5299,26 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     let isLightspeedActive = false;
     let lightspeedStreaksGroup = null;
 
-    // ── Hyperspace Warp Drive: White Star Streaks & Deep Blue Starry Backdrop ──
-    const warpStreakCount = 1000;
-    const warpStreakGeo = new THREE.BufferGeometry();
-    const warpStreakPos = new Float32Array(warpStreakCount * 6);
-    for (let i = 0; i < warpStreakCount; i++) {
-      const wx = (Math.random() - 0.5) * 85;
-      const wy = (Math.random() - 0.5) * 65;
-      const wz = -Math.random() * 220;
-      warpStreakPos[i * 6] = wx;
-      warpStreakPos[i * 6 + 1] = wy;
-      warpStreakPos[i * 6 + 2] = wz;
-      warpStreakPos[i * 6 + 3] = wx;
-      warpStreakPos[i * 6 + 4] = wy;
-      warpStreakPos[i * 6 + 5] = wz - 18;
-    }
-    warpStreakGeo.setAttribute('position', new THREE.BufferAttribute(warpStreakPos, 3));
-    // Brilliant White Warp Star Streaks
-    const warpStreakMat = new THREE.LineBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.0
-    });
-    const warpStreakLines = new THREE.LineSegments(warpStreakGeo, warpStreakMat);
-    shipGroup.add(warpStreakLines);
-
-    // Deep Blue Cosmic Hyperspace Backdrop Shell
-    const hyperBackdropMat = new THREE.MeshBasicMaterial({
-      color: 0x021235,
-      side: THREE.BackSide,
-      transparent: true,
-      opacity: 0.0
-    });
-    const hyperspaceBackdrop = new THREE.Mesh(new THREE.SphereGeometry(150, 24, 24), hyperBackdropMat);
-    shipGroup.add(hyperspaceBackdrop);
-
-    // Shimmering White/Blue Hyperspace Star Field (Shooting past the player with fast and slow layers)
-    const hyperStarsCount = 1400;
+    // ── Warp visuals: a clean moving starfield, with no streak or tunnel geometry ──
+    const hyperStarsCount = 2200;
     const hyperStarsGeo = new THREE.BufferGeometry();
     const hyperStarsPos = new Float32Array(hyperStarsCount * 3);
     const hyperStarsSpeed = new Float32Array(hyperStarsCount);
     for (let i = 0; i < hyperStarsCount; i++) {
-      // Cylinder / tunnel around the starfighter flight axis
-      const rad = 2.5 + Math.random() * 55.0;
-      const ang = Math.random() * Math.PI * 2.0;
-      hyperStarsPos[i * 3] = Math.cos(ang) * rad;
-      hyperStarsPos[i * 3 + 1] = Math.sin(ang) * rad;
-      hyperStarsPos[i * 3 + 2] = -Math.random() * 320.0;
-      // Multi-tier velocities: 35% slow cruising stars (70-110 m/s), 65% blazing fast warp streaks (220-340 m/s)
-      hyperStarsSpeed[i] = (i % 3 === 0) ? (70 + Math.random() * 40) : (220 + Math.random() * 120);
+      hyperStarsPos[i * 3] = (Math.random() - 0.5) * 180;
+      hyperStarsPos[i * 3 + 1] = (Math.random() - 0.5) * 140;
+      hyperStarsPos[i * 3 + 2] = -Math.random() * 360;
+      hyperStarsSpeed[i] = 35 + Math.random() * 70;
     }
     hyperStarsGeo.setAttribute('position', new THREE.BufferAttribute(hyperStarsPos, 3));
     const hyperStarsMat = new THREE.PointsMaterial({
       color: 0x99ddff,
-      size: 0.42,
+      size: 0.30,
       transparent: true,
       opacity: 0.0
     });
     const hyperStars = new THREE.Points(hyperStarsGeo, hyperStarsMat);
     shipGroup.add(hyperStars);
-
-    // Relativistic Warped Image Effect Lens (Relativistic Doppler Tunnel on Warp Exit/Enter)
-    const warpLensGeo = new THREE.RingGeometry(0.02, 0.45, 36);
-    const warpLensMat = new THREE.MeshBasicMaterial({
-      color: 0x00d5ff,
-      transparent: true,
-      opacity: 0.0,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      wireframe: true
-    });
-    const warpLensMesh = new THREE.Mesh(warpLensGeo, warpLensMat);
-    // Parent directly to camera at Z = -0.32m (locked to view, blending with space VFX)
-    warpLensMesh.position.set(0, 0, -0.32);
-    camera.add(warpLensMesh);
 
     // Lightspeed State, Fade Alpha & 5s Cooldown
     let lastLightspeedToggleTime = -10000;
@@ -5407,7 +5352,6 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           shipBody.velocity.set(0, 0, 0);
           if (shipBody.force) shipBody.force.set(0, 0, 0);
         }
-        if (warpStreakLines) warpStreakLines.position.z = 0;
         if (hyperStars) hyperStars.position.z = 0;
       } catch (errTrigger) {
         console.error('triggerLightspeed error:', errTrigger);
@@ -9786,17 +9730,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
             }
           }
 
-          // Fade in hyperspace backdrop & white warp streaks
+          // Fade in the starfield only; warp has no line, streak or tunnel layer.
           warpTransitionAlpha = Math.min(warpTransitionAlpha + 2.8 * delta, 1.0);
-          if (warpStreakLines) {
-            warpStreakLines.rotation.z += 0.08 * delta;
-            warpStreakLines.position.z += 260.0 * delta;
-            if (warpStreakLines.position.z > 220.0) warpStreakLines.position.z = -220.0;
-          }
           if (hyperStars) {
-            hyperStars.rotation.z += 0.04 * delta;
-            hyperStars.position.z += 190.0 * delta;
-            if (hyperStars.position.z > 220.0) hyperStars.position.z = -220.0;
+            hyperStars.position.z += 48.0 * delta;
+            if (hyperStars.position.z > 50.0) hyperStars.position.z = -360.0;
           }
 
           // Smoothly return from lightspeed if throttle drops below 50% or after 9s run
@@ -9818,19 +9756,6 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         }
       }
 
-      // Update Warped Image Effect Lens
-      if (warpLensMesh) {
-        if (warpTransitionAlpha > 0.005) {
-          warpLensMesh.visible = true;
-          warpLensMesh.material.opacity = warpTransitionAlpha * 0.70;
-          const lensScale = 0.5 + warpTransitionAlpha * 0.9;
-          warpLensMesh.scale.set(lensScale, lensScale, 1);
-          warpLensMesh.rotation.z += (1.2 + (1.0 - warpTransitionAlpha) * 3.0) * delta;
-        } else {
-          warpLensMesh.visible = false;
-        }
-      }
-
       // Update Interactive 3D Holographic Radar Blips
       if (typeof update3DRadarBlips === 'function') {
         update3DRadarBlips();
@@ -9847,8 +9772,6 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       }
 
       // Update Hyperspace Fade Opacity & Level View Visibility
-      warpStreakMat.opacity = warpTransitionAlpha * 0.95;
-      hyperBackdropMat.opacity = warpTransitionAlpha * 0.95;
       hyperStarsMat.opacity = warpTransitionAlpha * 0.90;
 
       // Remove level view (asteroids & station) during lightspeed!
@@ -14534,7 +14457,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     })();
     function ngTick() {
       if (NG.sky && scene.background && scene.background.isColor) scene.background = NG.sky;
-      try { warpLensMesh.visible = false; } catch (e) { }   // camera-locked warp tunnel lines removed    // passthrough off puts a flat colour back
+      // Warp visuals are rendered by the ship-local starfield only.
       if (NG.brs.length) { const cp = camera.getWorldPosition(new THREE.Vector3());
         NG.brs.forEach(q => { q.m.material.color.copy(q.br.material.color); if (!q.br.visible) return; const d = q.br.position.distanceTo(cp), s = q.br.scale.x || 1; q.m.scale.setScalar(Math.min(1, (d * 0.05) / s)); }); }   // lock marker: fixed ~4 deg size
     }
