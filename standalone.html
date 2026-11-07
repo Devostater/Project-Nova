@@ -5643,6 +5643,49 @@ const GAME_VERSION = 'Alpha 1.4';
     airlockSignMesh.rotation.y = -0.55 - Math.PI;
     cantinaGroup.add(airlockSignMesh);
 
+
+    // ── Cantina rebuild (owner, 2026-11-07): new room from the owner's panel-wall and grate-floor textures; old procedural room removed ──
+    const NCAN = { room: new THREE.Group() };
+    (function novaCantinaRoom() {
+      const TL = new THREE.TextureLoader(), an = renderer.capabilities.getMaxAnisotropy();
+      const T = (f, rx, ry) => { const t = TL.load(f); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = an; return t; };
+      const S = 36, H = 6.5, R = NCAN.room; R.name = 'CANTINA_ROOM'; cantinaGroup.add(R);
+      const floorM = new THREE.MeshStandardMaterial({ map: T('art/textures/tex_cantina_floor.jpg', 12, 6.5), roughness: 0.55, metalness: 0.75 });
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(S, S), floorM); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; R.add(floor);
+      const wallM = () => new THREE.MeshStandardMaterial({ map: T('art/textures/tex_cantina_wall.jpg', S / (H * 1.79), 1), roughness: 0.5, metalness: 0.7 });
+      const wall = (w, x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, H), wallM()); m.material.map.repeat.set(w / (H * 1.79), 1); m.position.set(x, H / 2, z); m.rotation.y = ry; m.receiveShadow = true; R.add(m); return m; };
+      wall(S, 0, -S / 2, 0); wall(S, -S / 2, 0, Math.PI / 2); wall(S, S / 2, 0, -Math.PI / 2);
+      // front wall with a wide observation window onto the docking bay
+      const WW = 14, WH = 3.2, WB = 1.4;
+      wall((S - WW) / 2, -(S + WW) / 4, S / 2, Math.PI); wall((S - WW) / 2, (S + WW) / 4, S / 2, Math.PI);
+      const lintel = new THREE.Mesh(new THREE.PlaneGeometry(WW, H - WB - WH), wallM()); lintel.material.map.repeat.set(WW / (H * 1.79), (H - WB - WH) / H); lintel.position.set(0, WB + WH + (H - WB - WH) / 2, S / 2); lintel.rotation.y = Math.PI; R.add(lintel);
+      const sill = new THREE.Mesh(new THREE.PlaneGeometry(WW, WB), wallM()); sill.material.map.repeat.set(WW / (H * 1.79), WB / H); sill.position.set(0, WB / 2, S / 2); sill.rotation.y = Math.PI; R.add(sill);
+      const glass = new THREE.Mesh(new THREE.PlaneGeometry(WW, WH), new THREE.MeshPhysicalMaterial({ color: 0x0a2a3a, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.1, transmission: 0.6 })); glass.position.set(0, WB + WH / 2, S / 2 - 0.02); glass.rotation.y = Math.PI; R.add(glass);
+      const frameM = new THREE.MeshStandardMaterial({ color: 0x1a2128, metalness: 0.9, roughness: 0.3, emissive: 0x00a8c0, emissiveIntensity: 0.25 });
+      [[WW + 0.3, 0.18, 0, WB], [WW + 0.3, 0.18, 0, WB + WH], [0.18, WH, -WW / 2, WB + WH / 2], [0.18, WH, WW / 2, WB + WH / 2]].forEach(([w, h, x, y]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.25), frameM); b.position.set(x, y, S / 2 - 0.1); R.add(b); });
+      // ceiling: darker panels + light strips
+      const ceil = new THREE.Mesh(new THREE.PlaneGeometry(S, S), new THREE.MeshStandardMaterial({ map: T('art/textures/tex_cantina_wall.jpg', 6, 10), color: 0x555c66, roughness: 0.7, metalness: 0.6 })); ceil.rotation.x = Math.PI / 2; ceil.position.y = H; R.add(ceil);
+      const stripM = new THREE.MeshBasicMaterial({ color: 0xffd6a0, toneMapped: false });
+      for (let z = -14; z <= 14; z += 7) { const st = new THREE.Mesh(new THREE.BoxGeometry(26, 0.06, 0.35), stripM); st.position.set(0, H - 0.05, z); R.add(st); if (z % 14 === 0) { const l = new THREE.PointLight(0xffd2a0, 30, 22, 1.5); l.position.set(0, H - 0.6, z); R.add(l); } }
+      // neon trims along the base of the walls, and corner pillars
+      const neon = c => new THREE.MeshBasicMaterial({ color: c, toneMapped: false });
+      [[S, 0, -S / 2 + 0.05, 0, 0xff3399], [S, -S / 2 + 0.05, 0, Math.PI / 2, 0x00e5ff], [S, S / 2 - 0.05, 0, Math.PI / 2, 0x00e5ff]].forEach(([w, x, z, ry, c]) => { const n = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, 0.05), neon(c)); n.position.set(x, 0.12, z); n.rotation.y = ry; R.add(n); const n2 = n.clone(); n2.position.y = H - 0.3; R.add(n2); });
+      const pilM = new THREE.MeshStandardMaterial({ map: T('art/textures/tex_cantina_wall.jpg', 0.3, 1), roughness: 0.5, metalness: 0.8 });
+      [[-1, -1], [1, -1], [-1, 1], [1, 1], [-0.45, -1], [0.45, -1]].forEach(([a, b]) => { const pl = new THREE.Mesh(new THREE.BoxGeometry(0.9, H, 0.9), pilM); pl.position.set(a * (S / 2 - 0.45), H / 2, b * (S / 2 - 0.45)); R.add(pl); });
+      R.add(new THREE.HemisphereLight(0x9fb8cc, 0x2a1e14, 0.6));
+      R.traverse(o => { if (o.isMesh) o.raycast = () => { }; });
+    })();
+    // the old procedural room stays hidden; the new room follows the MR passthrough rule
+    function novaCantinaRoomSync() {
+      try {
+        [cantinaFloorMesh, cantinaCeilingMesh, cantinaWallsGroup, cantinaFloorBorder, barBannerMesh].forEach(o => { if (o) o.visible = false; });
+        const mr = window.isPassthroughActive || (renderer.xr.isPresenting && window.xrSessionType === 'immersive-ar');
+        NCAN.room.visible = !mr;
+      } catch (e) { }
+    }
+    { const _ec = enterCantina; enterCantina = function () { const r = _ec.apply(this, arguments); novaCantinaRoomSync(); try { NCAN.stationWas = stationGroup.visible; stationGroup.visible = false; } catch (e) { } return r; }; }   // the station hull cuts through the room
+    { const _xc = exitCantina; exitCantina = function () { try { stationGroup.visible = NCAN.stationWas !== false; } catch (e) { } return _xc.apply(this, arguments); }; }
+    novaCantinaRoomSync();
     // Mode Functions: Enter & Exit Cantina, Passthrough Living Room
     function enterCantina() {
       isInsideCantina = true;

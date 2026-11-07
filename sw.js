@@ -119,6 +119,8 @@ const FILES = [
 "./models/cargo_hauler.glb",
 "./models/clanker_station.glb",
 "./art/poster_nova1.jpg",
+"./art/textures/tex_cantina_wall.jpg",
+"./art/textures/tex_cantina_floor.jpg",
 "./models/pirate_fighter_lo.glb",
 "./models/pirate_frigate.glb",
 "./models/pirate_frigate_lo.glb",
