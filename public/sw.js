@@ -102,6 +102,7 @@ const FILES = [
 "./models/thruster.glb",
 "./models/vr_hands.glb",
 "./models/wreck.glb",
+"./modules/fx_ultra.js",
 "./music/battle_market.mp3",
 "./music/space_caravan.mp3",
 "./music/voyager.mp3",
