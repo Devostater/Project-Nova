@@ -14888,7 +14888,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       if (!NP.panels.length) {
         if (!novaConsoles[0] || !novaConsoles[1]) return;
         const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_CREW_TAB, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'CREW CHANNEL' : T === NP_CREW_TAB ? 'CREW / FLEET' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
-          holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_COMMS)) }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
+          holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => { if (P.cfg.tabs[P.tab] === NP_COMMS) npOpenTargetChat(P); else npTab(P, P.cfg.tabs.indexOf(NP_COMMS)); } }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
             { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CREW_TAB)) }, { g: '✈', l: 'FLIGHT', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_FLIGHT)) },
             { g: '◎', l: 'OBJECTIVE', c: '#ffcc00', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_OBJ)) }, { g: '➤', l: 'WARP', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_WARP)) }] });
         const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SYSOPT, NP_MUSIC], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
@@ -15085,8 +15085,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     window.addEventListener('mousemove', e => { if (!NPG.g || NPG.g.src !== 'mouse') return; const h = npMouseHit(e); if (h) npGestureMove(h.px, h.py); }, true);
     window.addEventListener('mouseup', e => { if (NPG.g && NPG.g.src === 'mouse') npGestureEnd(); }, true);
     // ── NOVA14: CHAT tab on the left panel. Character chats, story choices and hails land here instead of a pop-up in front of you ──
-    const NPCH = { choice: null, scroll: 0, unread: 0, seen: 0 };
-    const NP_CHAT = { name: 'CHAT', c: '#ff88cc', hint: 'crew channel only · swipe for older messages · choices appear on the pads',
+    const NPCH = { choice: null, scroll: 0, unread: 0, seen: 0, target: null };
+    const NP_CHAT = { name: 'CHAT', c: '#ff88cc', get hint() { return NPCH.target ? 'contact channel · TALK or QUICK sends to ' + NPCH.target.name : 'crew channel only · swipe for older messages · choices appear on the pads'; },
       get pads() {
         if (NPCH.choice && novaChoiceOpen) return NPCH.choice.opts.slice(0, 4).map((o, i) => ({ l: String(o.label).slice(0, 11), c: o.col || '#00e5ff', fn: () => { novaChoicePick(i); NPCH.choice = null; } }));
         return [{ l: 'TALK', c: '#33ff99', fn: () => { try { novaKeyboardToggle(npCrewEnt(), true); } catch (e) { } } }, { l: 'QUICK', c: '#ffd24a', fn: () => { try { novaChatQuickPrompt(npCrewEnt()); } catch (e) { } } }, { l: 'CREW', c: '#ff88cc', fn: () => { try { ncTalk(); } catch (e) { } } }];
@@ -15094,6 +15094,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       draw: (x, P) => {
         NPCH.unread = 0; NPCH.seen = npCrewLog().length;
         let top = 56;
+        if (NPCH.target) { npText(x, 'CONTACT CHANNEL  ·  ' + NPCH.target.name, 18, 52, 'bold 22px monospace', '#00e5ff', 980); top = 78; }
         if (NPCH.choice && novaChoiceOpen) {   // the open question / offer, with its answers on the pads below
           x.fillStyle = 'rgba(255,204,0,0.10)'; x.fillRect(8, 54, 1008, 112); x.strokeStyle = '#ffcc00'; x.lineWidth = 3; x.strokeRect(8, 54, 1008, 112);
           npText(x, NPCH.choice.title, 22, 86, 'bold 26px monospace', '#ffcc00', 980);
@@ -15146,8 +15147,15 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       } };
     // crew only: your companion, wingmen, Obi, John and you (stations, sensors and strangers stay on COMMS)
     const NP_CREW_RE = /^(YOU|NYX|MATRIX|VALKYRIE|OBI|JOHN|KIP)/i;
-    function npCrewLog() { let d = null; try { d = ncD(); } catch (e) { } return (window.commsChatLog || []).filter(it => NP_CREW_RE.test(String(it.s)) || (d && it.s === d.call)); }
-    function npCrewEnt() { let d = null; try { d = ncD(); } catch (e) { } const c = d ? d.call : 'VALKYRIE-7'; return { name: c, callsign: c, isHostile: false }; }
+    function npCrewLog() { let d = null; try { d = ncD(); } catch (e) { } return (window.commsChatLog || []).filter(it => NPCH.target ? (it.s === 'YOU' || it.s === NPCH.target.callsign) : (NP_CREW_RE.test(String(it.s)) || (d && it.s === d.call))); }
+    function npCrewEnt() { if (NPCH.target) return NPCH.target; let d = null; try { d = ncD(); } catch (e) { } const c = d ? d.call : 'VALKYRIE-7'; return { name: c, callsign: c, isHostile: false }; }
+    function npOpenTargetChat(P) {
+      const lk = currentLockedTarget;
+      if (!lk || !lk.targetObj) { showToast('Select a contact in COMMS first.', 2000, '#ffaa00'); return; }
+      if (!npCanTalk(lk)) { showToast(lk.name + ' has no comms transponder.', 2200, '#ffaa00'); return; }
+      NPCH.target = Object.assign(npEnt(lk), { targetObj: lk.targetObj }); NPCH.scroll = 0;
+      npTab(P, P.cfg.tabs.indexOf(NP_CHAT)); P.drawT = 0;
+    }
     // story choices / offers / hails: on the CHAT tab while flying (the cantina keeps the floating card, there is no panel there)
     { const _nc = novaChoice; novaChoice = function (title, text, opts) {
         const P = NP.panels[0];
