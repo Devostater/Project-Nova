@@ -751,7 +751,7 @@ const GAME_VERSION = 'Alpha 1.4';
     let cargoOre = 18;
     let cargoFlares = 4;
     let cargoShieldCaps = 2;
-    let cargoSalvage = 1;
+    let cargoSalvage = (() => { try { const v = parseInt(localStorage.getItem('novaCargoSalvage'), 10); return isNaN(v) ? 1 : v; } catch (e) { return 1; } })();
     let missileAmmo = novaMslCap();
     let isMissileArmed = false;
     const IS_TEST_BENCH = false; // Test dialogue menu hidden in standalone game!
@@ -9135,9 +9135,10 @@ const GAME_VERSION = 'Alpha 1.4';
     const novaUp = Object.assign({ shields: 0, warheads: 0, rack: 0, repair: 0, mining: 0, propulsion: 0 }, NV13.up || {});
     let novaXP = NV13.xp || 0;
     if (typeof NV13.cr === 'number') bankCredits = NV13.cr;
+    if (typeof NV13.salv === 'number') { cargoSalvage = NV13.salv; try { localStorage.setItem('novaCargoSalvage', String(cargoSalvage)); } catch (e) {} }
     let novaSaveT = 0, novaPirAgg = 0, novaLastHitT = 0, novaLastPiratePos = null, novaHunt = null, novaContract = null;
     let novaOrePrice = 120, novaOrePriceT = 45, novaOreSeen = cargoOre, novaOreAcc = 0;
-    function novaSave13() { try { localStorage.setItem('novaV13', JSON.stringify({ aff: novaAff, pir: novaPirRep, story: novaStory, up: novaUp, xp: novaXP, cr: bankCredits })); } catch (e) {} }
+    function novaSave13() { try { localStorage.setItem('novaV13', JSON.stringify({ aff: novaAff, pir: novaPirRep, story: novaStory, up: novaUp, xp: novaXP, cr: bankCredits, salv: cargoSalvage })); } catch (e) {} }
     const NOVA_AFF_NAMES = { valkyrie: 'VALKYRIE-7', convoy: 'STARLIFTER-7', station: 'NOVA-1 CONTROL', vega: 'NYX', john: 'JOHN & OBI' };
     function novaAffAdd(k, d, why, silent) {
       if (!(k in novaAff) || !d) return;
@@ -16104,7 +16105,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     // ═══ NOVA13: save / load (3 slots). Saves every nova* setting plus the live ship state ═══
     function nsvLive() {
-      return { bankCredits, cargoOre, missileAmmo, cargoFlares, cargoShieldCaps, cargoSalvage, campaignChapter, campaignProgress, activeMissionIdx,
+      return { bankCredits, cargoOre, missileAmmo, cargoFlares, cargoShieldCaps, cargoSalvage, heatCores: (typeof NSV !== 'undefined' ? (NSV.cores || 0) : 0), campaignChapter, campaignProgress, activeMissionIdx,
         core: (typeof NW !== 'undefined' ? NW.core : null), hull: window.novaHull, shield: window.novaShield, where: nsvWhere(), ...nsvPose() };
     }
     function nsvPose() {   // ship position and facing (only out in open space; in the cantina or another sector you go back to Nova-1)
@@ -16143,7 +16144,9 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!L) return;
       const set = (k, f) => { if (L[k] !== undefined && L[k] !== null) try { f(L[k]); } catch (e) { } };
       set('bankCredits', v => bankCredits = v); set('cargoOre', v => cargoOre = v); set('missileAmmo', v => missileAmmo = v); set('cargoFlares', v => cargoFlares = v);
-      set('cargoShieldCaps', v => cargoShieldCaps = v); set('cargoSalvage', v => cargoSalvage = v); set('campaignChapter', v => campaignChapter = v); set('campaignProgress', v => campaignProgress = v);
+      set('cargoShieldCaps', v => cargoShieldCaps = v); set('cargoSalvage', v => { cargoSalvage = v; try { localStorage.setItem('novaCargoSalvage', String(v)); } catch (e) {} });
+      set('heatCores', v => { if (typeof NSV !== 'undefined') NSV.cores = v; try { localStorage.setItem('novaHeatCores', String(v)); } catch (e) {} });
+      set('campaignChapter', v => campaignChapter = v); set('campaignProgress', v => campaignProgress = v);
       set('activeMissionIdx', v => activeMissionIdx = v); set('core', v => { NW.core = v; }); set('hull', v => { window.novaHull = v; }); set('shield', v => { window.novaShield = v; });
       setTimeout(() => showToast('SAVE LOADED', 2500, '#33ff99'), 1500);
       if (L.pos) {   // wait until the player is flying (PLAY resets the ship), then put it back where it was saved
@@ -17351,7 +17354,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const cr = cargoOre * p; bankCredits += cr; showToast(`SOLD ${cargoOre}t ORE TO ${st.name} @ ${p}  +${cr} CR`, 3000, '#00ff88'); cargoOre = 0; novaOreSeen = 0; try { sound.tradeCash(); } catch (e) { } } });
       if (st.salv) R.push({ l: `SELL SALVAGE x${cargoSalvage}`, r: cargoSalvage ? '+' + st.salv + ' cr ea' : 'none', c: '#dd88ff', fn: () => {
         if (cargoSalvage <= 0) { showToast('No salvage aboard. Try the Graveyard.', 1800, '#ffaa00'); return; }
-        cargoSalvage--; bankCredits += st.salv; showToast(`SALVAGE SOLD  +${st.salv} CR`, 2200, '#dd88ff'); try { sound.tradeCash(); } catch (e) { } } });
+        cargoSalvage--; try { localStorage.setItem('novaCargoSalvage', String(cargoSalvage)); novaSave13(); } catch (e) {} bankCredits += st.salv; showToast(`SALVAGE SOLD  +${st.salv} CR`, 2200, '#dd88ff'); try { sound.tradeCash(); } catch (e) { } } });
       { const hc = window.novaHeatCores ? window.novaHeatCores() : 0, hp = st.salv ? 3200 : 2400;   // heat cores: the system's most wanted cargo
         R.push({ l: `SELL HEAT CORE x${hc}`, r: hc ? '+' + hp + ' cr ea' : 'none', c: '#ff9a3c', fn: () => {
           if (!(window.novaHeatCoreSpend && window.novaHeatCoreSpend(1))) { showToast('No heat cores aboard. Tractor them from big wrecks.', 2000, '#ffaa00'); return; }
@@ -17711,7 +17714,7 @@ const GAME_VERSION = 'Alpha 1.4';
       else if (k === 'flare') { cargoFlares += 2; msg = '+2 FLARES'; }
       else if (k === 'cap') { cargoShieldCaps += 1; msg = '+1 SHIELD CAP'; }
       else if (k === 'core') { NSV.cores = (NSV.cores || 0) + 1; try { localStorage.setItem('novaHeatCores', String(NSV.cores)); } catch (e) { } msg = '+1 HEAT CORE (' + NSV.cores + ')'; }
-      else { cargoSalvage += 1; msg = '+1 SALVAGE'; }
+      else { cargoSalvage += 1; try { localStorage.setItem('novaCargoSalvage', String(cargoSalvage)); novaSave13(); } catch (e) { } msg = '+1 SALVAGE'; }
       try { showToast('TRACTORED IN: ' + msg, 2400, k === 'core' ? '#ff9a3c' : '#00ff99'); sound.lockTone(); drawInventoryPanel(); drawRightDash(); } catch (e) { }
     }
     try { NSV.cores = parseInt(localStorage.getItem('novaHeatCores') || '0', 10) || 0; } catch (e) { NSV.cores = 0; }
@@ -17972,6 +17975,12 @@ const GAME_VERSION = 'Alpha 1.4';
           else showToast('SELL A HEAT CORE at the market to finish the run', 3000, '#ffaa55');
         }, 2500);
       });
+      if (m && m.active && m.progress && m.progress.cursor > 0) {
+        const cur = ncrCur();
+        if (cur === 'distress') ncrSpawnDerelict();
+        else if (cur === 'graveyard') NSITE.unlock.graveyard = true;
+        else if (cur === 'return') NSITE.unlock.lantern = true;
+      }
       return true;
     }
     (function ncrWait(n) { if (ncrWire()) return; if (n < 120) setTimeout(() => ncrWait(n + 1), 500); })(0);
