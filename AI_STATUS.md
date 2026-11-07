@@ -52,6 +52,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
+| GPT/Codex | G5 NOVA NET | `gpt/g5-nova-net` | `modules/novanet.js`, public mirror, manifests, service workers, docs | Active | draft pending |
 
 
 ## Waiting for review / merge
