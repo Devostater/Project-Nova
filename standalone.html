@@ -13446,6 +13446,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       const dist = o => { o.getWorldPosition(tmp); return tmp.distanceTo(sp); };
       const key = [], minor = [];
       const add = (list, name, type, obj, host) => { if (obj && obj.visible !== false) list.push({ name, type, obj, isHostile: !!host }); };
+      add(key, 'CYGNUS PRIME', 'planet', planetGroup);
       add(key, 'ORBITAL STATION NOVA-1', 'station', stationGroup);
       add(key, 'VALKYRIE-7', 'allied', valkyrieGroup);
       if (pirateBoss && !isPirateDefeated && pirateBoss.visible) add(key, 'PIRATE RAIDER', 'hostile', pirateBoss, true);
@@ -14245,9 +14246,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         });
       }; }
     // ── NOVA13: 3D holo-radar over the centre dash screen; touch a contact to lock, touch the range tag to zoom ──
-    const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {}, home: null, moved: false };
+    const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {}, home: null, moved: false, names: false, labelAbove: false };
     window.NH = NH;
-    const NH_COL = { hostile: 0xff3344, allied: 0x33ff88, station: 0x3fa9ff, asteroid: 0x9aa6b8, wreck: 0xffaa33 };
+    const NH_COL = { hostile: 0xff3344, allied: 0x33ff88, station: 0x3fa9ff, planet: 0x66ddff, asteroid: 0x9aa6b8, wreck: 0xffaa33 };
     function nhMat(type) { const k = NH_COL[type] !== undefined ? type : 'asteroid'; return NH.mats[k] || (NH.mats[k] = new THREE.MeshBasicMaterial({ color: NH_COL[k], toneMapped: false })); }
     function nhLabel(range) {
       const x = NH.lctx; x.clearRect(0, 0, 256, 64);
@@ -14284,6 +14285,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       const stalkMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.45, depthWrite: false, toneMapped: false });
       for (let i = 0; i < 24; i++) {
         const b = new THREE.Mesh(bg, nhMat('asteroid')); b.visible = false; b.add(new THREE.Mesh(hg, hitMat));
+        const nc = document.createElement('canvas'); nc.width = 256; nc.height = 48; const nx = nc.getContext('2d');
+        nx.fillStyle = 'rgba(2,18,32,0.78)'; nx.fillRect(0, 0, 256, 48); nx.strokeStyle = '#55eaff'; nx.lineWidth = 2; nx.strokeRect(1, 1, 254, 46);
+        const nt = new THREE.CanvasTexture(nc); const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: nt, transparent: true, depthWrite: false, toneMapped: false })); tag.scale.set(0.048, 0.009, 1); tag.visible = false; b.add(tag); b.userData.nameTag = tag; b.userData.nameCanvas = nc; b.userData.nameCtx = nx; b.userData.nameTex = nt; b.userData.lastName = '';
         const st = new THREE.Mesh(stg, stalkMat); st.visible = false; st.raycast = () => { }; g.add(st);
         b.userData.stalk = st; g.add(b); NH.pool.push(b);
         registerCockpitButton(b, 'HOLO CONTACT', () => { if (b.userData.c) novaHoloSelect(b.userData.c); }, 0.02);
@@ -14335,6 +14339,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         c.obj.getWorldPosition(tmp); tmp.sub(sp).applyQuaternion(iq).multiplyScalar(R / range);
         const L = tmp.length(); if (L > R * 0.96) tmp.multiplyScalar(R * 0.96 / L);
         b.position.copy(tmp); b.visible = true; b.userData.c = c; b.material = nhMat(c.type);
+        const tag = b.userData.nameTag; tag.visible = NH.names;
+        if (NH.names) { tag.position.set(0, NH.labelAbove ? 0.013 : -0.013, 0); if (b.userData.lastName !== c.name) { const tx = b.userData.nameCtx; tx.clearRect(0, 0, 256, 48); tx.fillStyle = 'rgba(2,18,32,0.82)'; tx.fillRect(0, 0, 256, 48); tx.strokeStyle = '#' + nhMat(c.type).color.getHexString(); tx.lineWidth = 2; tx.strokeRect(1, 1, 254, 46); tx.fillStyle = '#e6fbff'; tx.font = 'bold 24px monospace'; tx.textAlign = 'center'; tx.textBaseline = 'middle'; tx.fillText(c.name.slice(0, 20), 128, 24); b.userData.nameTex.needsUpdate = true; b.userData.lastName = c.name; } }
         st.visible = Math.abs(tmp.y) > 0.002; st.position.set(tmp.x, tmp.y / 2, tmp.z); st.scale.y = Math.max(0.001, Math.abs(tmp.y));
         const sel = !!(currentLockedTarget && currentLockedTarget.targetObj === c.obj);
         b.scale.setScalar(sel ? 1.6 : (c.type === 'asteroid' ? 0.7 : 1.0));
@@ -14775,7 +14781,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       ['SEAT UP', '#00e5ff', () => adjustSeat(0.02)], ['SEAT DOWN', '#00e5ff', () => adjustSeat(-0.02)],
       ['LAUNCH DRONE WING', '#ff6644', () => novaWingLaunch()], ['SITUATION REPORT', '#33ff99', () => { const a = npFindAct('SITUATION REPORT'); if (a) a(); }],
       ['STORY INTRO', '#b266ff', () => nkIntroStart(true)], ['QUEST LOG', '#ffcc00', () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); }],
-      ['3D RADAR: UPPER RIGHT', '#00e5ff', () => novaRadarPositionToggle()]];
+      ['3D RADAR: UPPER RIGHT', '#00e5ff', () => novaRadarPositionToggle()],
+      ['RADAR NAMES: OFF', '#66ddff', () => { NH.names = !NH.names; NP_SHIP_ROWS[7][0] = 'RADAR NAMES: ' + (NH.names ? 'ON' : 'OFF'); }],
+      ['LABELS: BELOW', '#66ddff', () => { NH.labelAbove = !NH.labelAbove; NP_SHIP_ROWS[8][0] = 'LABELS: ' + (NH.labelAbove ? 'ABOVE' : 'BELOW'); }]];
     // OPTIONS tab (after MUSIC): view mode, recenter, save / load, volume, graphics, exit
     const npOptRows = () => [
       [(typeof passthroughActive !== 'undefined' && passthroughActive) ? 'SWITCH TO FULL VR' : 'SWITCH TO MIXED REALITY', '#ff66cc', () => togglePassthrough()],
