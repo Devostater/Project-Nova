@@ -104,7 +104,7 @@ export function init(nova) {
   on('fusionCoreChosen',e=>{state.stats.coreChoice=e?.choice||'';state.stats.morality=Number(nova.morality?.score)||0;completeBeat('choice',{choice:state.stats.coreChoice});});
   on('dockedAtLantern',()=>{state.returned=true;maybeReturn();});
   on('coreSold',()=>{state.stats.sold++;state.sold=true;maybeReturn();});
-  on('crewReaction',()=>{state.crewReaction=true;maybeReturn();});
+  on('crewReaction',e=>{if(e?.phase==='lantern'){state.crewReaction=true;maybeReturn();}});
   function maybeReturn(){if(state.cursor===7&&state.returned&&state.sold&&state.crewReaction)completeBeat('return',{sold:state.stats.sold});}
   on('moralityChanged',e=>{state.stats.morality=Number(e?.score)||0;persist();});
   function tick(dt){

@@ -11,14 +11,14 @@
 
 ## Authority
 
-- **Claude is the primary AI** for Project Nova until the owner changes this setting.
+- **GPT/Codex is the current lead** under the owner’s 2026-11-07 handoff; the owner retains final authority.
 - The owner has final authority.
 - Claude coordinates priorities and integration. Other AIs may inspect, plan, review, or work on clearly separate tasks, but must respect active ownership below.
 - These rules apply to every AI tool, not only Claude.
 
 ## Before changing code
 
-1. Read this file, [AI_STATUS.md](AI_STATUS.md), [PROJECT_NOVA_CONTEXT.md](PROJECT_NOVA_CONTEXT.md), and [PROJECT_NOVA_CONTEXT.md](PROJECT_NOVA_CONTEXT.md).
+1. Read this file, [AI_STATUS.md](AI_STATUS.md), [AI_QUEUE.md](AI_QUEUE.md), and [PROJECT_NOVA_CONTEXT.md](PROJECT_NOVA_CONTEXT.md).
 2. Check the latest `main` and any relevant open branches or pull requests before editing. Do not assume the status file is current if newer GitHub activity exists.
 3. If another AI has an active task on overlapping files or behavior, do not edit those files. Ask the owner or coordinate a handoff first.
 4. Claim the task in `AI_STATUS.md`: identify the AI/tool, task, branch, scope, and files it expects to touch. Keep the claim concise.
@@ -134,7 +134,7 @@ Paste these to start each AI. Fill in the bracketed parts.
 **GPT / Codex: review**
 ```
 You're working on github.com/Devostater/Project-Nova. Claude is the primary AI.
-Read AI_WORKFLOW.md, AI_WORKFLOW.md, AI_STATUS.md, PROJECT_NOVA_CONTEXT.md and ASSET_SPEC.md on main first.
+Read AI_WORKFLOW.md, AI_STATUS.md, AI_QUEUE.md, PROJECT_NOVA_CONTEXT.md and ASSET_SPEC.md on main first.
 Your lane: code review and tooling. Don't edit public/standalone.html, standalone.html or
 index.html unless AI_STATUS.md shows them free and you claim them first.
 Task: review pull request #[N]. Look for bugs, VR/Quest performance problems, and anything that
@@ -143,7 +143,7 @@ breaks gamepad, tablet, 2D or VR modes. Comment on the PR; don't push to its bra
 
 **GPT / Codex: feature module (parallel coding)**
 ```
-You're working on github.com/Devostater/Project-Nova. Read AI_WORKFLOW.md, AI_WORKFLOW.md and AI_STATUS.md first.
+You're working on github.com/Devostater/Project-Nova. Read AI_WORKFLOW.md, AI_STATUS.md and AI_QUEUE.md first.
 Claim this task in AI_STATUS.md, then work on branch codex/[feature].
 Task: [feature]. Write it ONLY as a new file public/modules/[feature].js that exports init(nova).
 Do not edit the game files. In your PR, give the one line Claude should add to load it,

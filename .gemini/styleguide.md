@@ -1,6 +1,6 @@
 # Project Nova review guide (Gemini Code Assist)
 
-Project Nova is a WebXR space-flight sim (three.js r187) that runs in 2D, on tablets, with gamepads, and in VR on Meta Quest 3. Several AIs work on it; the rules are in `AI_WORKFLOW.md`, `AI_WORKFLOW.md` and `AI_STATUS.md`. **Claude** is the primary AI and the owner has final say.
+Project Nova is a WebXR space-flight sim (three.js r187) that runs in 2D, on tablets, with gamepads, and in VR on Meta Quest 3. Several AIs work on it; the rules are in `AI_WORKFLOW.md` and `AI_STATUS.md`. **GPT/Codex is the current lead** and the owner has final say.
 
 When reviewing, prioritise:
 1. **Lost work:** whole-file overwrites, removed features (gamepad input, tablet controller, device detection, tutorial), drift between `standalone.html` and `public/standalone.html` (which must be identical), or `index.html` differing from them by more than the import map. A missing `<script type="importmap">` in `standalone.html` breaks the offline/Quest build.

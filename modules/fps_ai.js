@@ -105,7 +105,6 @@ export function init(nova) {
     }
   }
   const off=nova.onTick?.(tick);
-  if(inRange())start();
   return{ready:true,start,stop,get active(){return state.active;},get kills(){return state.kills;},dispose(){
     state.disposed=true;stop();off?.();scene.remove(root);scene.remove(boltsRoot);
     droneGeo.dispose();lensGeo.dispose();coverGeo.dispose();boltGeo.dispose();armorMat.dispose();lensMat.dispose();coverMat.dispose();boltMat.dispose();
