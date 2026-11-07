@@ -5746,26 +5746,56 @@ const GAME_VERSION = 'Alpha 1.3';
     let isLightspeedActive = false;
     let lightspeedStreaksGroup = null;
 
-    // ── Warp visuals: a clean moving starfield, with no streak or tunnel geometry ──
-    const hyperStarsCount = 2200;
+    // ── Warp effect: star streaks flying past in a tube 12–80 m around the ship ──
+    // (never inside the cockpit, so they can't draw over the consoles; the cockpit hides those behind it)
+    const hyperStarsCount = 600;
     const hyperStarsGeo = new THREE.BufferGeometry();
     const hyperStarsPos = new Float32Array(hyperStarsCount * 3);
     const hyperStarsSpeed = new Float32Array(hyperStarsCount);
+    const warpTailPos = new Float32Array(hyperStarsCount * 6);
+    const warpTailCol = new Float32Array(hyperStarsCount * 6);
+    function novaWarpSeed(i, zFar) {
+      const r = 12 + Math.pow(Math.random(), 0.6) * 68, ang = Math.random() * Math.PI * 2;
+      hyperStarsPos[i * 3] = Math.cos(ang) * r;
+      hyperStarsPos[i * 3 + 1] = Math.sin(ang) * r;
+      hyperStarsPos[i * 3 + 2] = zFar ? -420 - Math.random() * 60 : 20 - Math.random() * 440;
+      hyperStarsSpeed[i] = 160 + Math.random() * 260;
+    }
     for (let i = 0; i < hyperStarsCount; i++) {
-      hyperStarsPos[i * 3] = (Math.random() - 0.5) * 180;
-      hyperStarsPos[i * 3 + 1] = (Math.random() - 0.5) * 140;
-      hyperStarsPos[i * 3 + 2] = -Math.random() * 360;
-      hyperStarsSpeed[i] = 35 + Math.random() * 70;
+      novaWarpSeed(i, false);
+      const w = 0.75 + Math.random() * 0.25;   // head: white-blue, tail: fades to black (additive = invisible)
+      warpTailCol.set([0.80 * w, 0.92 * w, 1.0 * w, 0.0, 0.03, 0.10], i * 6);
     }
     hyperStarsGeo.setAttribute('position', new THREE.BufferAttribute(hyperStarsPos, 3));
     const hyperStarsMat = new THREE.PointsMaterial({
-      color: 0x99ddff,
-      size: 0.30,
-      transparent: true,
-      opacity: 0.0
+      color: 0xe6f6ff, size: 0.9, sizeAttenuation: true,
+      transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending
     });
     const hyperStars = new THREE.Points(hyperStarsGeo, hyperStarsMat);
+    hyperStars.frustumCulled = false; hyperStars.visible = false;
     shipGroup.add(hyperStars);
+    const warpTailGeo = new THREE.BufferGeometry();
+    warpTailGeo.setAttribute('position', new THREE.BufferAttribute(warpTailPos, 3));
+    warpTailGeo.setAttribute('color', new THREE.BufferAttribute(warpTailCol, 3));
+    const warpTailMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending });
+    const warpTails = new THREE.LineSegments(warpTailGeo, warpTailMat);
+    warpTails.frustumCulled = false; warpTails.visible = false;
+    shipGroup.add(warpTails);
+    function novaWarpFxTick(dt) {
+      const a = warpTransitionAlpha;
+      const on = a > 0.002; hyperStars.visible = on; warpTails.visible = on; if (!on) return;
+      const flow = 0.25 + 0.75 * a, stretch = 3 + a * a * 52;   // streaks stretch as the jump spools up
+      for (let i = 0; i < hyperStarsCount; i++) {
+        let z = hyperStarsPos[i * 3 + 2] + hyperStarsSpeed[i] * flow * dt;
+        if (z > 25) { novaWarpSeed(i, true); z = hyperStarsPos[i * 3 + 2]; }
+        hyperStarsPos[i * 3 + 2] = z;
+        const x = hyperStarsPos[i * 3], y = hyperStarsPos[i * 3 + 1], L = stretch * hyperStarsSpeed[i] / 300;
+        warpTailPos[i * 6] = x; warpTailPos[i * 6 + 1] = y; warpTailPos[i * 6 + 2] = z;
+        warpTailPos[i * 6 + 3] = x; warpTailPos[i * 6 + 4] = y; warpTailPos[i * 6 + 5] = z - L;
+      }
+      hyperStarsGeo.attributes.position.needsUpdate = true;
+      warpTailGeo.attributes.position.needsUpdate = true;
+    }
 
     // Lightspeed State, Fade Alpha & 5s Cooldown
     let lastLightspeedToggleTime = -10000;
@@ -10231,10 +10261,10 @@ const GAME_VERSION = 'Alpha 1.3';
           const bassNote = trk.bass[bgmStep % trk.bass.length];
 
           // Melody synth pulse
-          sound.playBgmNote(melNote, stepInterval * 0.85, 'sawtooth', bgmVolume);
+          sound.playBgmNote(melNote, stepInterval * 0.85, trk.wave || 'sawtooth', bgmVolume * (trk.gain || 1));
           // Sub-bass foundation
           if (bgmStep % 2 === 0) {
-            sound.playBgmNote(bassNote, stepInterval * 1.5, 'triangle', bgmVolume * 1.3);
+            sound.playBgmNote(bassNote, stepInterval * 1.5, trk.bassWave || 'triangle', bgmVolume * 1.3 * (trk.gain || 1));
           }
         }
       }
@@ -10413,10 +10443,7 @@ const GAME_VERSION = 'Alpha 1.3';
 
           // Fade in the starfield only; warp has no line, streak or tunnel layer.
           warpTransitionAlpha = Math.min(warpTransitionAlpha + 2.8 * delta, 1.0);
-          if (hyperStars) {
-            hyperStars.position.z += 48.0 * delta;
-            if (hyperStars.position.z > 50.0) hyperStars.position.z = -360.0;
-          }
+          // star streaks move per star in novaWarpFxTick (below)
 
           // Smoothly return from lightspeed if throttle drops below 50% or after 9s run
           if (throttlePct < 0.50) { // warp only ends when the pilot cuts throttle or presses lightspeed again
@@ -10454,6 +10481,8 @@ const GAME_VERSION = 'Alpha 1.3';
 
       // Update Hyperspace Fade Opacity & Level View Visibility
       hyperStarsMat.opacity = warpTransitionAlpha * 0.90;
+      warpTailMat.opacity = warpTransitionAlpha * 0.85;
+      try { novaWarpFxTick(delta); } catch (e) { if (!window._warpFxErr) { window._warpFxErr = 1; console.error('[warp fx]', e); } }
 
       // Remove level view (asteroids & station) during lightspeed!
       if (warpTransitionAlpha > 0.35) {
@@ -14927,8 +14956,8 @@ const GAME_VERSION = 'Alpha 1.3';
         if (!NH.g) return;
         if (!NH.moved) {
           cockpit.attach(NH.g);
-          NH.g.position.set(0.28, 0.73, -0.24); // raise 5 inches and bring the dash radar closer to the pilot
-          NH.g.rotation.set(0, Math.atan2(-0.28, 0.24), 0);
+          NH.g.position.set(0.19, 0.71, -0.22); // owner: scooted inward from x 0.28 so the right hand reaches it easily
+          NH.g.rotation.set(0, Math.atan2(-0.19, 0.22), 0);
           NH.g.scale.setScalar(0.82);
           NH.moved = true;
         } else {
@@ -15166,7 +15195,7 @@ const GAME_VERSION = 'Alpha 1.3';
       P.cv.width = 1024; P.cv.height = 456; P.tex = new THREE.CanvasTexture(P.cv); P.tex.anisotropy = 4;
       // keep the old cell actions, then retire the old on-screen cells
       c.btns.forEach(b => { const e = cockpitInteractables.find(q => q.mesh === b); if (e) P.acts[e.label] = e.action; b.visible = false; const i = cockpitInteractables.indexOf(e); if (i >= 0) cockpitInteractables.splice(i, 1); });
-      c.root.scale.setScalar(0.86);   // keep both side panels at the same scale
+      c.root.scale.setScalar(cfg.id === 'R' ? 1.0 : 0.86);   // owner: right panel larger (left stays 0.86)
       const ry = c.rowY;
       const scr = new THREE.Mesh(new THREE.PlaneGeometry(NP_SW, NP_SH), new THREE.MeshBasicMaterial({ map: P.tex, toneMapped: false })); scr.position.set(0, ry, 0.004); scr.renderOrder = 2; c.g.add(scr); P.scr = scr;
       P.at = (px, py, z) => new THREE.Vector3((px / 1024 - 0.5) * NP_SW, ry + (0.5 - py / 456) * NP_SH, z === undefined ? 0.006 : z);
@@ -17285,6 +17314,106 @@ const GAME_VERSION = 'Alpha 1.3';
     // picking a track by hand stops the auto-ambience until you pick a real track again
     { const _row = NP_MUSIC.row; NP_MUSIC.row = function (P, i) { const r = _row(P, i); try { NRM.auto = !!BGM_TRACKS[i] && !!BGM_TRACKS[i].file && i === BGM_TRACKS.findIndex(x => x.file); } catch (e) { } return r; }; }
     NP_MUSIC.hint = 'the first real track (VOYAGER) follows the action: cantina, flight, combat · touch any other track to pin it';
+    // ── MUSIC: stations + full touch controls (owner request) ──
+    [
+      { name: 'COLD SUN', bpm: 60, wave: 'sine', gain: 1.5, notes: [196.0, 233.1, 261.6, 233.1, 196.0, 174.6, 155.6, 174.6], bass: [49.0, 49.0, 38.9, 43.7], station: 'deep' },
+      { name: 'NEBULA DRIFT', bpm: 70, wave: 'triangle', gain: 1.3, notes: [220.0, 261.6, 329.6, 392.0, 329.6, 261.6, 246.9, 196.0], bass: [55.0, 55.0, 49.0, 41.2], station: 'deep' },
+      { name: 'DARK MATTER', bpm: 56, wave: 'sine', gain: 1.5, notes: [146.8, 174.6, 220.0, 174.6, 146.8, 130.8, 110.0, 130.8], bass: [36.7, 36.7, 32.7, 27.5], station: 'deep' },
+      { name: 'CORSAIR RUN', bpm: 150, wave: 'square', gain: 0.55, notes: [196.0, 233.1, 261.6, 293.7, 261.6, 233.1, 196.0, 174.6], bass: [49.0, 49.0, 43.7, 58.3], station: 'pirate' },
+      { name: 'BLACK MARKET BOUNCE', bpm: 124, wave: 'square', gain: 0.55, notes: [261.6, 311.1, 349.2, 392.0, 349.2, 311.1, 261.6, 233.1], bass: [65.4, 65.4, 58.3, 77.8], station: 'pirate' },
+      { name: 'BOARDING PARTY', bpm: 160, wave: 'sawtooth', gain: 0.8, notes: [164.8, 196.0, 220.0, 246.9, 220.0, 196.0, 164.8, 146.8], bass: [41.2, 41.2, 36.7, 49.0], station: 'pirate' }
+    ].forEach(t => BGM_TRACKS.push(t));
+    NMUS.count = BGM_TRACKS.length;
+    const NMS_STATIONS = [
+      { name: 'NOVA-1 FM', sub: 'soundtrack · AUTO follows the action', c: '#00e5ff', has: t => !!t.file },
+      { name: 'SYNTHWAVE 88', sub: 'retro synth classics', c: '#ff66cc', has: t => !t.file && !t.obi && !t.station },
+      { name: 'DEEP SPACE RADIO', sub: 'slow ambient for long hauls', c: '#7fa8ff', has: t => t.station === 'deep' },
+      { name: 'PIRATE RADIO', sub: 'fast and loud, off the black market', c: '#ff5544', has: t => t.station === 'pirate' },
+      { name: "OBI'S MIX", sub: 'Obi dances to these', c: '#ffd24a', has: t => !!t.obi }
+    ];
+    const NMS = { st: 0, btns: [], built: false };
+    const nmsList = st => BGM_TRACKS.map((t, i) => ({ t, i })).filter(o => NMS_STATIONS[st].has(o.t));
+    const nmsStationOf = idx => { const t = BGM_TRACKS[idx], k = NMS_STATIONS.findIndex(st => t && st.has(t)); return k < 0 ? 0 : k; };
+    try { NMS.st = nmsStationOf(bgmTrackIdx); } catch (e) { }
+    const nmsLevel = () => { try { return NOPT.o.music ?? 0.4; } catch (e) { return 0.4; } };
+    function nmsPlay(idx, auto) {
+      try { sound.init(); } catch (e) { }
+      bgmTrackIdx = idx; bgmStep = 0; isBgmPlaying = true; NRM.auto = !!auto; NMS.st = nmsStationOf(idx);
+      try { updateBgmDisplay(); } catch (e) { }
+      showToast('\u266B ' + NMS_STATIONS[NMS.st].name + ' \u00b7 ' + BGM_TRACKS[idx].name, 1800, NMS_STATIONS[NMS.st].c);
+    }
+    function nmsStation(dir) { NMS.st = (NMS.st + dir + NMS_STATIONS.length) % NMS_STATIONS.length; const L = nmsList(NMS.st); if (L.length) nmsPlay(L[0].i, NMS.st === 0); }
+    function nmsStep(dir) { const L = nmsList(NMS.st); if (!L.length) return; let k = L.findIndex(o => o.i === bgmTrackIdx); k = (k + dir + L.length) % L.length; nmsPlay(L[k].i, false); }
+    function nmsVol(d) {
+      try { NOPT.o.music = Math.max(0, Math.min(1, Math.round((nmsLevel() + d) * 10) / 10)); noptSave(); } catch (e) { }
+      bgmVolume = 0.2 * nmsLevel(); try { noptApplyAudio(); } catch (e) { }
+      showToast('MUSIC VOLUME ' + Math.round(nmsLevel() * 100) + '%', 1200, '#ffd24a');
+    }
+    NMS.layout = [
+      { id: 'STATION PREV', x: 430, y: 58, w: 130, h: 56, l: () => '\u25C0 STN', fn: () => nmsStation(-1) },
+      { id: 'STATION NEXT', x: 880, y: 58, w: 130, h: 56, l: () => 'STN \u25B6', fn: () => nmsStation(1) },
+      { id: 'PREV', x: 430, y: 290, w: 186, h: 66, l: () => '\u23EE PREV', fn: () => nmsStep(-1) },
+      { id: 'PLAY', x: 627, y: 290, w: 186, h: 66, l: () => isBgmPlaying ? '\u275A\u275A PAUSE' : '\u25B6 PLAY', fn: () => { try { toggleBgm(); } catch (e) { } } },
+      { id: 'NEXT', x: 824, y: 290, w: 186, h: 66, l: () => 'NEXT \u23ED', fn: () => nmsStep(1) },
+      { id: 'VOL DOWN', x: 430, y: 366, w: 137, h: 66, l: () => 'VOL \u2212', fn: () => nmsVol(-0.1) },
+      { id: 'VOL UP', x: 577, y: 366, w: 137, h: 66, l: () => 'VOL +', fn: () => nmsVol(0.1) },
+      { id: 'RANDOM', x: 724, y: 366, w: 137, h: 66, l: () => 'RANDOM', fn: () => { const L = nmsList(NMS.st); if (L.length) nmsPlay(L[Math.floor(Math.random() * L.length)].i, false); } },
+      { id: 'AUTO', x: 871, y: 366, w: 139, h: 66, l: () => 'AUTO ' + (NRM.auto ? 'ON' : 'OFF'), fn: () => {
+        NRM.auto = !NRM.auto; if (NRM.auto) { const L = nmsList(0); if (L.length) nmsPlay(L[0].i, true); }
+        showToast('AUTO MUSIC ' + (NRM.auto ? 'ON: follows cantina / flight / combat' : 'OFF'), 1800, '#00e5ff'); } }
+    ];
+    NP_MUSIC.hint = 'pick a station \u00b7 touch a track on the left \u00b7 controls on the right';
+    NP_MUSIC.pads = [];
+    NP_MUSIC.row = (P, i) => { const L = nmsList(NMS.st); if (i < L.length) nmsPlay(L[i].i, NMS.st === 0 && i === 0); };
+    NP_MUSIC.draw = (x, P) => {
+      const S = NMS_STATIONS[NMS.st], L = nmsList(NMS.st), cur = BGM_TRACKS[bgmTrackIdx] || { name: '-' };
+      L.slice(0, 8).forEach((o, i) => {
+        const Y = 52 + i * 44, on = o.i === bgmTrackIdx;
+        x.fillStyle = on ? 'rgba(255,102,204,0.22)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(8, Y, 392, 42);
+        if (on) { x.strokeStyle = S.c; x.lineWidth = 3; x.strokeRect(8, Y, 392, 42); }
+        npText(x, (on && isBgmPlaying ? '\u25B6 ' : '  ') + o.t.name.replace("OBI'S FAVORITE: ", ''), 18, Y + 29, 'bold 20px monospace', on ? '#ffffff' : '#ffb3e6', 290);
+        x.textAlign = 'right'; npText(x, o.t.file ? '\u266A track' : o.t.bpm + ' bpm', 394, Y + 29, '17px monospace', '#9fc3d8'); x.textAlign = 'left';
+      });
+      // station header
+      x.fillStyle = 'rgba(10,24,40,0.9)'; x.fillRect(566, 58, 308, 56); x.strokeStyle = S.c; x.lineWidth = 2; x.strokeRect(566, 58, 308, 56);
+      x.textAlign = 'center';
+      npText(x, S.name, 720, 84, 'bold 24px monospace', S.c, 296);
+      npText(x, S.sub, 720, 106, '14px monospace', '#9fc3d8', 296);
+      NMS_STATIONS.forEach((st, i) => { x.fillStyle = i === NMS.st ? st.c : 'rgba(159,195,216,0.35)'; x.beginPath(); x.arc(720 - (NMS_STATIONS.length - 1) * 11 + i * 22, 128, i === NMS.st ? 6 : 4, 0, Math.PI * 2); x.fill(); });
+      x.textAlign = 'left';
+      // now playing
+      npText(x, isBgmPlaying ? 'NOW PLAYING' : 'PAUSED', 430, 160, 'bold 17px monospace', '#9fc3d8');
+      npText(x, cur.name, 430, 190, 'bold 25px monospace', S.c, 580);
+      npText(x, (cur.file ? 'soundtrack' : cur.bpm + ' bpm') + ' \u00b7 volume ' + Math.round(nmsLevel() * 100) + '%' + (NRM.auto ? ' \u00b7 AUTO' : ''), 430, 216, '17px monospace', '#7fb6d0', 580);
+      if (isBgmPlaying) for (let i = 0; i < 29; i++) { const hgt = 6 + Math.abs(Math.sin(NKS.t * (3 + i % 5) + i)) * 44; x.fillStyle = S.c; x.globalAlpha = 0.75; x.fillRect(430 + i * 20, 280 - hgt, 12, hgt); x.globalAlpha = 1; }
+      // buttons
+      NMS.layout.forEach(b => {
+        const lit = (b.id === 'AUTO' && NRM.auto) || (b.id === 'PLAY' && isBgmPlaying);
+        x.fillStyle = lit ? 'rgba(0,229,255,0.22)' : 'rgba(15,36,54,0.92)'; x.fillRect(b.x, b.y, b.w, b.h);
+        x.strokeStyle = b.id.startsWith('STATION') ? S.c : '#ff66cc'; x.lineWidth = 3; x.strokeRect(b.x + 1.5, b.y + 1.5, b.w - 3, b.h - 3);
+        x.textAlign = 'center'; npText(x, b.l(), b.x + b.w / 2, b.y + b.h / 2 + 8, 'bold 21px monospace', '#ffffff', b.w - 12); x.textAlign = 'left';
+      });
+    };
+    function nmsSync() {
+      const R = NP.panels.find(p => p.cfg && p.cfg.id === 'R'); if (!R) return;
+      if (!NMS.built) {
+        NMS.built = true;
+        const mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+        NMS.layout.forEach(b => {
+          const m = new THREE.Mesh(new THREE.PlaneGeometry(b.w / 1024 * NP_SW, b.h / 456 * NP_SH), mat);
+          m.position.copy(R.at(b.x + b.w / 2, b.y + b.h / 2, 0.007)); R.c.g.add(m); m.visible = false;
+          registerCockpitButton(m, 'R MUSIC ' + b.id, () => { if (R.cfg.tabs[R.tab] === NP_MUSIC) { b.fn(); R.drawT = 0; } }, 0.012);
+          const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
+          NMS.btns.push(m);
+        });
+      }
+      const on = R.cfg.tabs[R.tab] === NP_MUSIC;
+      NMS.btns.forEach(m => { m.visible = on; });
+      // overlapping right-panel hit zones from other tabs stay out of the way while MUSIC is open
+      cockpitInteractables.forEach(e => { if (e.label && e.mesh && /^R (SYSOPT TILE|EMERGENCY MISSILES|SCROLL)/.test(e.label)) e.mesh.visible = !on; });
+    }
+    { const _npt = npTick; npTick = function (dt) { _npt(dt); try { nmsSync(); } catch (e) { if (!window._nmsErr) { window._nmsErr = 1; console.error('[music]', e); } } }; }
+    window.novaMusic = { stations: NMS_STATIONS, station: d => nmsStation(d), step: d => nmsStep(d), vol: d => nmsVol(d), state: () => ({ st: NMS.st, idx: bgmTrackIdx, playing: isBgmPlaying, auto: NRM.auto, n: BGM_TRACKS.length }) };
     // start new pilots on the real soundtrack
     try { if (!localStorage.getItem('novaMusicV1')) { bgmTrackIdx = BGM_TRACKS.findIndex(x => x.file); localStorage.setItem('novaMusicV1', '1'); } } catch (e) { }
 
