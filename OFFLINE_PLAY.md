@@ -1,34 +1,126 @@
 # Play Project Nova offline on Quest
 
-The game is already an installable web app (PWA): `public/manifest.webmanifest` + `public/sw.js` precaches **112 files / ~87 MB** (everything except the optional ULTRA original-detail ships in `Alien/ EDF/ Pirate/`). After **one full online load from an HTTPS address**, it runs with no internet.
+Project Nova is a Progressive Web App. Its service worker precaches the root/public game bundle after a successful HTTPS load, so the same installed build can start without a network connection. The APK is a signed Meta Quest PWA wrapper around the hosted site; it does **not** embed the entire game in the APK.
 
-> Why not straight from the PC? The Quest only installs and caches web apps from a trusted HTTPS site. The PC server's self-signed `https://<PC-IP>:8443` works for playing but not for installing or offline use.
+Meta's current packaging path uses `@meta-quest/bubblewrap-cli`, not the older `ovr-platform-util create-pwa` command.
 
-## Step 1: host it once (pick one)
+## Prerequisites
 
-**A. Cloudflare Pages (free; keeps the repo private). Recommended.**
-1. Go to dash.cloudflare.com → **Workers & Pages → Create → Pages → Connect to Git**, then pick `Devostater/Project-Nova`.
-2. Build settings: **Framework: None**, **Build command:** *(leave empty)*, **Output directory:** `public`.
-3. Deploy. You get `https://project-nova-xxx.pages.dev`, which updates on every merge to `main`.
+- Node.js 18 or newer.
+- A public HTTPS deployment whose web root is this repository's `public/` directory.
+- A Meta Quest in Developer Mode.
+- Android Platform Tools (`adb`) for sideloading.
+- A Java/Android signing setup accepted by Bubblewrap. Keep signing keys and passwords outside this repository.
+- For store distribution, create the app in the Meta Horizon Developer Dashboard. A local sideload test does not publish anything.
 
-**B. GitHub Pages** (needs a public repo or GitHub Pro): Settings → Pages → Source: **GitHub Actions**, then Actions → **Deploy game to GitHub Pages** → Run workflow. The address is `https://devostater.github.io/Project-Nova/`.
+Official references:
 
-## Step 2: install on the Quest
+- [Meta: Package a PWA](https://developers.meta.com/vr/documentation/web/pwa-packaging/)
+- [Meta: Progressive Web Apps](https://developers.meta.com/vr/documentation/web/pwa-overview/)
+- [Android: adb](https://developer.android.com/tools/adb)
 
-**Easiest:** in the Quest Browser open `<your-url>/standalone.html`, wait until the toast **MODELS: N loaded** appears (everything is cached by then), then use the browser menu **⋮ → Install app** (or Add to Library). Launch it from your Library from then on, online or offline.
+## 1. Audit the offline bundle
 
-**With your Meta SDK (sideloaded APK, shows in the Library like a store app):**
-1. Have `ovr-platform-util` (Meta Quest Platform Utility) and the Android SDK installed.
-2. Run `tools\make_quest_apk.bat <your-url>`. It writes `ProjectNova.apk`.
-3. Sideload: `adb install -r ProjectNova.apk` (or drag it into SideQuest / the Meta Quest Developer Hub).
-4. Open it once while online so the service worker caches the game; after that it works offline.
+From PowerShell at the repository root:
 
-## Updating
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/check_offline_cache.ps1
+```
 
-New versions arrive on the next online launch (the page is network-first; assets are cache-first). Each release bumps the cache name in `sw.js` (`nova-alpha-x.y`), so old files are replaced.
+The audit verifies that:
 
-## Troubleshooting
+- both service workers list the same files;
+- every listed file exists in its matching root/public tree;
+- neither cache list contains duplicates;
+- both web manifests are valid JSON with a name, start URL and icons.
 
-- **Old version still showing:** open it online and reload once.
-- **Offline shows nothing:** the first load didn't finish. Open online and wait for "MODELS: N loaded".
-- **ULTRA graphics offline:** the original-detail ships aren't precached (about 93 MB); use LOW–HIGH offline.
+Run this before every APK build and after adding a model, module, texture, audio file or video intended to work offline.
+
+## 2. Deploy the PWA over HTTPS
+
+Choose one:
+
+- **Cloudflare Pages:** framework None, no build command, output directory `public`.
+- **GitHub Pages:** use the repository's Pages workflow and its generated HTTPS URL.
+
+Confirm these URLs load before packaging:
+
+```text
+https://YOUR-HOST/manifest.webmanifest
+https://YOUR-HOST/standalone.html
+https://YOUR-HOST/sw.js
+```
+
+Service workers require a secure context. A normal public deployment must use HTTPS.
+
+## 3. Build the Quest APK
+
+Run:
+
+```powershell
+tools\make_quest_apk.bat https://YOUR-HOST
+```
+
+Or call the PowerShell entry point directly:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/make_quest_apk.ps1 `
+  -SiteUrl https://YOUR-HOST
+```
+
+The script:
+
+1. checks Node/npx and the hosted manifest, game and service worker;
+2. initializes a Meta Quest Bubblewrap project with the pinned CLI version;
+3. applies Meta's current Quest Gradle compatibility adjustments (target SDK 32 and `mavenCentral()`);
+4. performs the signed build;
+5. copies the result to `dist/ProjectNova-Quest.apk`.
+
+Bubblewrap may prompt for signing information. Do not commit the generated `.build/` project, keystore, passwords or APK.
+
+To rebuild the generated working directory:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/make_quest_apk.ps1 `
+  -SiteUrl https://YOUR-HOST -Force
+```
+
+To build and immediately install on the connected Quest:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/make_quest_apk.ps1 `
+  -SiteUrl https://YOUR-HOST -Force -Install
+```
+
+Or install manually:
+
+```powershell
+adb install -r dist/ProjectNova-Quest.apk
+```
+
+## 4. Prime and test offline operation
+
+1. Connect the Quest to Wi-Fi.
+2. Launch the installed Project Nova APK.
+3. Wait for the game and model-loaded indicator to finish. Visit the firing range once if it is part of the build being tested.
+4. Exit the app completely.
+5. Disable Wi-Fi on the Quest or use an isolated router profile.
+6. Relaunch the APK.
+7. Verify cockpit load, saved progress, flight, cached audio/textures/models, range entry/exit and return to cockpit.
+8. Re-enable Wi-Fi and launch once more to confirm update recovery.
+
+Record the tested commit, cache version, Quest model and Horizon OS version in the PR handoff. A desktop browser's Offline checkbox is useful but does not replace the headset test.
+
+## Browser-only installation
+
+Packaging is optional. In Quest Browser, open `https://YOUR-HOST/standalone.html`, allow the first load to finish, then use the browser's install/add-to-library action if available. The same offline priming requirement applies.
+
+## Updating and troubleshooting
+
+- **Old version:** launch online and reload so the new service worker/cache version activates.
+- **Blank offline launch:** the first load or cache installation did not complete. Reconnect, clear the site/app data, launch again and wait for loading to finish.
+- **Build cannot find Bubblewrap:** confirm Node 18+ and that `npx` is on PATH.
+- **Gradle/SDK error:** install the Android SDK components requested by Bubblewrap, then rebuild with `-Force`.
+- **Signing error:** reuse the same protected keystore for updates; changing the key prevents an in-place APK update.
+- **Multiple adb devices:** specify the Quest with `adb -s SERIAL install -r dist/ProjectNova-Quest.apk`.
+- **A newly added asset is missing offline:** add it to both `sw.js` FILES lists and rerun `tools/check_offline_cache.ps1`.
