@@ -13,7 +13,7 @@ export function init(nova) {
   const lensMat=new T.MeshStandardMaterial({color:0x26dcff,emissive:0x087d9b,emissiveIntensity:1.8,metalness:.3});
   const coverMat=new T.MeshStandardMaterial({color:0x26394a,metalness:.78,roughness:.48});
   const boltMat=new T.MeshBasicMaterial({color:0xff4d84});
-  const forward=new T.Vector3(),aim=new T.Vector3(),delta=new T.Vector3(),cameraPos=new T.Vector3(),boltStart=new T.Vector3(),coverPoint=new T.Vector3();
+  const forward=new T.Vector3(),aim=new T.Vector3(),delta=new T.Vector3(),cameraPos=new T.Vector3(),cameraLocal=new T.Vector3(),boltStart=new T.Vector3(),coverPoint=new T.Vector3();
   const coverPositions=[new T.Vector3(-3.25,0,-10),new T.Vector3(3.25,0,-10)];
   const covers=[];
   for(const x of [-3.25,3.25]){const m=new T.Mesh(coverGeo,coverMat);m.position.set(x,.68,-10);m.visible=false;root.add(m);covers.push(m);}
@@ -27,18 +27,21 @@ export function init(nova) {
     return{group,hp:100,state:'patrol',timer:1.2+i*1.4,fireTimer:2.2+i*.8,home:group.position.clone(),waypoint:new T.Vector3(i===0?-1.8:1.8,2.15,-8-i*4),cover:i,flash:0,dead:false};
   });
   const state={active:false,manual:false,disposed:false,kills:0};
-  const inRange=()=>new URLSearchParams(location.search).get('arena')==='range'||!!nova.modules?.interior?.active;
+  const inRange=()=>!!nova.modules?.interior?.active;
   function setActive(v){
     state.active=!!v;root.visible=state.active;boltsRoot.visible=state.active;
     for(const c of covers)c.visible=state.active;
     if(state.active){for(const d of drones)d.group.visible=!d.dead;nova.toast?.('SECURITY DRONES · DODGE THE SLOW BOLTS',2300,'#ff5b91');}
     else for(const b of bolts){b.active=false;b.mesh.visible=false;}
   }
-  function activate(){
+  function activate(options={}){
+    const origin=options.origin||nova.modules?.interior?.origin;
+    if(origin){root.position.copy(origin);boltsRoot.position.copy(origin);}else{root.position.set(0,0,0);boltsRoot.position.set(0,0,0);}
+    root.updateMatrixWorld(true);boltsRoot.updateMatrixWorld(true);
     for(const d of drones)if(d.dead){d.dead=false;d.hp=100;d.group.userData.hp=100;d.group.visible=true;d.group.position.copy(d.home);d.state='patrol';d.timer=1;}
     setActive(true);
   }
-  function start(){state.manual=true;activate();}
+  function start(options={}){state.manual=true;activate(options);}
   function stop(){state.manual=false;setActive(false);}
   function loadModel(){
     const isPublic=import.meta.url.includes('/public/modules/');
@@ -57,7 +60,7 @@ export function init(nova) {
   loadModel();
   function fire(d){
     const b=bolts.find(x=>!x.active);if(!b)return;
-    camera.getWorldPosition(cameraPos);aim.copy(cameraPos).addScaledVector(forward,.2);
+    camera.getWorldPosition(cameraPos);aim.copy(cameraPos);root.worldToLocal(aim);
     boltStart.copy(d.group.position);boltStart.y+=.1;
     b.mesh.position.copy(boltStart);b.velocity.subVectors(aim,boltStart).normalize().multiplyScalar(4.8);
     b.mesh.visible=true;b.active=true;b.life=4.2;
@@ -78,9 +81,9 @@ export function init(nova) {
   }
   function tick(dt){
     const should=state.manual||inRange();
-    if(should&&!state.active)activate();else if(!should&&state.active)setActive(false);
+    if(should&&!state.active)activate({origin:nova.modules?.interior?.origin});else if(!should&&state.active)setActive(false);
     if(!state.active)return;
-    const step=Math.min(.05,Math.max(0,Number(dt)||0));camera.getWorldPosition(cameraPos);camera.getWorldDirection(forward);
+    const step=Math.min(.05,Math.max(0,Number(dt)||0));camera.getWorldPosition(cameraPos);cameraLocal.copy(cameraPos);boltsRoot.worldToLocal(cameraLocal);
     for(const d of drones){
       if(d.dead)continue;
       d.timer-=step;d.fireTimer-=step;
@@ -101,7 +104,7 @@ export function init(nova) {
       if(!b.active)continue;
       b.life-=step;b.mesh.position.addScaledVector(b.velocity,step);
       if(b.life<=0){b.active=false;b.mesh.visible=false;continue;}
-      if(b.mesh.position.distanceTo(cameraPos)<.42){b.active=false;b.mesh.visible=false;nova.modules?.fps_core?.damage?.(11);}
+      if(b.mesh.position.distanceTo(cameraLocal)<.42){b.active=false;b.mesh.visible=false;nova.modules?.fps_core?.damage?.(11);}
     }
   }
   const off=nova.onTick?.(tick);
