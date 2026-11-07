@@ -2,6 +2,24 @@
 
 > Read [AI_WORKFLOW.md](AI_WORKFLOW.md) and [AI_PLAN.md](AI_PLAN.md) before starting or taking over work.
 
+## ⏸ HANDOFF: Claude paused (2026-11-07, out of usage)
+
+**Open PRs, in merge order (all clean, no CI):**
+1. **#7 `claude/alpha-1.2`**: Alpha 1.2. AI Studio side panels (merged from the uploaded file), Gemini VFX pack (`tools/vfx_build.py`, `art_src/gemini/`), Gemini shield hex, Codex #9 integrated (laser impacts, flight-log wording, clean `sky.jpg`), `.gitattributes` (LF), warp streak lines removed, holo-radar made see-through. **Contains #6 and #9.** Tested headless only; needs an owner Quest run of `TESTING.md`.
+2. **#6 `claude/shield-hex`**: contained in #7; it closes when #7 merges.
+3. **#9 `codex/skybox-laser-story`**: already integrated into #7 with LF endings. **Close it without merging** (its CRLF rewrite would conflict).
+4. **#8 `claude/fps-plan`**: docs only. `FPS_PLAN.md` with the owner's decisions; lore anchor in `reference/mind-space/PROJECT_NOVA_NOTE.md`.
+
+**In progress, not started in code: holo-radar position toggle (owner decision).**
+- Positions: **LEFT** (default, on the left console by the throttle) and **HIGH** (top of the dash under the canopy, never over a screen). Save as `NOPT.o.radarPos` with `noptSave()`.
+- Where: `nhBuild()` sets `NH.g.position` (currently `nkC(0, 0.412, -0.153) + NKS.n*0.10 + (0, 0.02, 0)` when `NK.on`; centre telemetry screen). Add `nhPlace(mode)` and call it on build and on toggle. Measure the throttle and left console positions in cockpit space first (`throttleGroup`, `novaConsoles[0].g`), and screenshot from the pilot camera.
+- Toggle in options: (a) the main-menu `#menu-options` DOM button; (b) the in-cockpit SYSTEM tab (`npSysCards`, `NP_SYS`). That grid has 6 cards plus music on row hits 6/7, and only 8 row hits exist (`npBuild` loop `i < 8`). Plan: raise the loop to `i < 9`; in the default rect use `hasRow && i < 8` so other tabs are unaffected; make `NP_SYS.rowRect(8)` a full-width 4th row; shrink cards to H 48 / step 52 (they must end above the pads at y 330); route `row(P, 8)` to the new card.
+- Keep `standalone.html` == `public/standalone.html`; `index.html` = the same file without the import map. Run `node --check` on the module, then a headless test.
+
+**Next (after #7 merges):** FPS plan **M0** (`nova` module API + loader, `novaInterior`), then **M1** salvage (greyed salvage targets on radar and comms, TRACTOR button, heat cores).
+
+**Still waiting:** GPT's docking update (it pushed laser and skybox work instead, #9). The Gemini key in the `project-nova` environment works (Tier 1); image generation costs about 1.5k tokens per image.
+
 ## Primary AI
 
 **Claude** is primary for Project Nova until the owner changes this.
@@ -10,7 +28,7 @@
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Claude (`claude/alpha-1.2`): Alpha 1.2 integration (panels done; VFX and GPT docking next). GPT (docking) and AI Studio (side panels) may edit **only their listed functions** below, starting from the latest `main`; Claude merges both into Alpha 1.2.
+**Held by:** Nobody. Claude paused (out of usage) and released the game files; see the handoff below.
 
 ## Active claims
 
