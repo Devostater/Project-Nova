@@ -14559,7 +14559,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       // HIDE / SHOW: drops the whole panel down and out toward the wall, clear of the view
       P.stow = false; P.k = 0; P.stowTex = [npBtnTex('\u25BC', 'HIDE', '#9fc3d8'), npBtnTex('\u25B2', 'SHOW', '#00e5ff')];
       const sb = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.03), new THREE.MeshBasicMaterial({ map: P.stowTex[0], transparent: true, depthWrite: false, toneMapped: false }));
-      sb.position.set(NP_SW / 2 + 0.008, ry + NP_SH / 2 + 0.01, 0.014); sb.renderOrder = 3; c.g.add(sb); P.sb = sb;
+      const hideEdgeX = cfg.id === 'R' ? -NP_SW / 2 - 0.008 : NP_SW / 2 + 0.008;
+      sb.position.set(hideEdgeX, ry + NP_SH / 2 + 0.01, 0.014); sb.renderOrder = 3; c.g.add(sb); P.sb = sb;
       registerCockpitButton(sb, cfg.id + ' HIDE PANEL', () => { P.stow = !P.stow; sb.material.map = P.stowTex[P.stow ? 1 : 0]; try { sound.switchClick(); } catch (e) { } }, 0.02);
       { const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true; }
       NP.panels.push(P); return P;
