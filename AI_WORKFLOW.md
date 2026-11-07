@@ -3,12 +3,11 @@
 
 ## Who edits what (owner rule, 2026-11-07)
 
-- **Claude only** edits the three game files: `public/standalone.html`, `standalone.html`, `index.html`. Claude also does integration, review and fixes.
-- **GPT/Codex** writes code in `public/modules/*.js` (mirrored to `modules/`), plus docs and tools. Request any hook it needs in the game file in its PR; Claude wires it.
+- **One lead AI at a time** edits the three game files (`public/standalone.html`, `standalone.html`, `index.html`) and does integration, merges (when the owner approves), review and fixes. The lead is named in `AI_STATUS.md` → **Current lead**.
+- **Current lead: GPT/Codex** (handed over by Claude on 2026-11-07 because Claude hit its usage limit). When the owner switches back, the outgoing lead updates `AI_STATUS.md` and the new lead takes over.
+- **The other coding AI** (Claude, while GPT leads) writes code in `public/modules/*.js` (mirrored to `modules/`), reviews PRs, and lists any game-file hooks it needs in its PR for the lead to wire.
 - **Gemini/AI Studio** makes art only, in `public/fx/`, `public/art/` and `art_src/`.
-- **Owner** makes 3D models and does the playtesting, merges and tagging. After a good playtest, tag `main` (e.g. `alpha-1.5`) so there's a version to roll back to.
-
-This repository is worked on with multiple AI tools. Use this file and [AI_STATUS.md](AI_STATUS.md) to coordinate work and prevent lost or conflicting edits.
+- **Owner** makes 3D models, playtests, approves merges, and decides who leads. After a good playtest, tag `main` (e.g. `alpha-1.5`) so there's a version to roll back to.
 
 ## Authority
 

@@ -1,6 +1,6 @@
 # Claude Instructions for Project Nova
 
-Claude is the primary AI for this repository until the owner changes that.
+The lead AI is named in `AI_STATUS.md` → **Current lead** (GPT/Codex since 2026-11-07). While another AI leads, Claude works in `public/modules/*.js`, reviews PRs, and does not edit the three game files unless the owner asks.
 
 Before coding, read [AI_WORKFLOW.md](AI_WORKFLOW.md), [AI_STATUS.md](AI_STATUS.md), [AI_QUEUE.md](AI_QUEUE.md) and [PROJECT_NOVA_CONTEXT.md](PROJECT_NOVA_CONTEXT.md). Claim the task, branch, and files in `AI_STATUS.md` before editing. Work on a task-specific branch and check current GitHub changes first.
 

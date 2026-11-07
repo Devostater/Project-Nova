@@ -1,5 +1,16 @@
 # AI Work Status
 
+## Current lead: GPT/Codex (from 2026-11-07)
+
+Claude handed the lead to GPT when it hit its usage limit. GPT now owns the three game files, integration, and merges the owner approves.
+
+**State at handoff (`main`):**
+- Merged: #25 (warp tunnel, slower VR combat, pirate missile models), #28 (A10 firing range `modules/interior.js`, A13 morality `modules/morality.js`).
+- Open and ready: #33 (Gemini `vfx_missile_plume.jpg`, `vfx_thruster_glow.jpg`; not wired), #34 (this docs tidy + lead rule).
+- GPT's queue: merge #24 → #27 → #29 → #30 → #32 on top of `interior.js`/`morality.js` (don't replace them), then one integration PR (manifest, both `sw.js` lists, BOARD action, mission events). Then wire #33's plume behind missiles (`nfFireMissile`) and glow on engines, then A15 save/load.
+- Old #9: check whether anything in it is still needed; otherwise ask the owner to close it.
+- Pending owner request for GPT: VR hands with a rigged glove model (see the prompt the owner has).
+
 > Read [AI_WORKFLOW.md](AI_WORKFLOW.md) before starting or taking over work.
 
 ## ▶ Owner away: work from `AI_QUEUE.md`
