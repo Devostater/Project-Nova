@@ -1,4 +1,4 @@
-# Alpha 1.1 Test Checklist
+# Alpha 1.4 Demo Test Checklist
 
 Alpha 1.1 bundles today's work: restored gamepad/tablet/device detection, GLB models loading in the web build, the VFX texture pack (clean atlas explosions, lasers, shields, beams), and AI Studio's panel updates.
 
@@ -39,3 +39,13 @@ Mark each line ✅ / ❌ and note anything odd. Report back to Claude with the �
 ## If something fails
 
 Note the mode, what you did, and what happened. On PC, press **F12 → Console** and copy any red errors. On the Quest, a photo of the screen is fine.
+
+## New in Alpha 1.3–1.4 (demo)
+
+- [ ] **Salvage:** destroy a pirate or alien ship. Sometimes grey **SALVAGE** pods drop. Lock one (COMMS list, radar, or target cycle), then **TRACTOR** (COMMS button, **G** on keyboard, or the gamepad **View/Back** button) within 500 m. The pod is pulled in and its contents are added.
+- [ ] **Heat cores:** orange-glowing pods. They show in **CARGO → HEAT CORES** and sell at any market (SELL HEAT CORE).
+- [ ] **Music (right panel → MUSIC):** ◀/▶ stations, the station logo shows, PREV/PLAY/NEXT, VOL −/+, RANDOM, and AUTO (soundtrack follows cantina/flight/combat).
+- [ ] **Warp:** star streaks fly past outside the canopy (never through the cockpit).
+- [ ] **3D radar (right-dash position):** easy to reach with the right hand.
+- [ ] **Right panel** is bigger and readable in VR.
+- [ ] **Frame rate on Quest in a busy area** (station + fighters). Known risk: about 280 draw calls and 770k triangles per frame measured headless (budget about 150 / 300k). Note any judder.
