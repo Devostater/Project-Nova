@@ -9162,8 +9162,8 @@ const GAME_VERSION = 'Alpha 1.4';
       const st = commsStations[selectedStationIdx];
       return { name: st.name, callsign: st.callsign, isHostile: false };
     }
-    function novaChatLog(s, m, c) {
-      window.commsChatLog.push({ s, m, c });
+    function novaChatLog(s, m, c, to) {
+      window.commsChatLog.push({ s, m, c, to: to || null });
       if (window.commsChatLog.length > 40) window.commsChatLog.shift();
       drawCommsPanel();
     }
@@ -9213,7 +9213,7 @@ const GAME_VERSION = 'Alpha 1.4';
       ent = ent || novaSelectedEntity();
       try { ent = novaCompanionRoute(ent); } catch (e) {}
       const per = novaPersonaFor(ent);
-      novaChatLog('YOU', text, '#ffffff');
+      novaChatLog('YOU', text, '#ffffff', per ? per.call : (ent && (ent.callsign || ent.name)));
       lastOutgoingMsg = `PILOT: "${text}"`;
       if (sound && sound.commsChirp) sound.commsChirp();
       if (!per) { setTimeout(() => novaChatLog(ent ? (ent.callsign || ent.name) : 'STATIC', '...static... (hostile contacts do not answer)', '#ff3344'), 500); return; }
@@ -9240,14 +9240,15 @@ const GAME_VERSION = 'Alpha 1.4';
     // ── In-cockpit touch keyboard for comms chat (opens from HAIL / TALK) ──
     const novaKb = new THREE.Group();
     cockpit.add(novaKb);
-    const NOVA_KB_HOME = new THREE.Vector3(0, 0.50, -0.34);
-    novaKb.position.set(0, -50, 0);
-    novaKb.rotation.x = -0.75;
-    novaKb.scale.setScalar(1.22);
+    const NOVA_KB_HOME = new THREE.Vector3(-0.18, 0.30, -0.28);
+    novaKb.position.copy(NOVA_KB_HOME);
+    novaKb.rotation.x = -0.58;
+    novaKb.scale.setScalar(0.78);
+    novaKb.visible = false;
     let novaKbEnt = null;
-    const kbRows = [['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L','?'], ['Z','X','C','V','B','N','M',',','.','!'], ['QUICK','SPACE','DEL','SEND','CLOSE']];
+    const kbRows = [['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L','?'], ['Z','X','C','V','B','N','M',',','.','!'], ['SPACE','DEL','SEND','CLOSE']];
     const kbPitch = 0.034, kbTop = 0.05;
-    const kbBack = new THREE.Mesh(new THREE.BoxGeometry(0.39, 0.224, 0.008), new THREE.MeshStandardMaterial({ color: 0x07121c, metalness: 0.8, roughness: 0.4, emissive: 0x002233, emissiveIntensity: 0.5 }));
+    const kbBack = new THREE.Mesh(new THREE.BoxGeometry(0.39, 0.224, 0.008), new THREE.MeshBasicMaterial({ color: 0x06304a, transparent: true, opacity: 0.38, depthWrite: false }));
     kbBack.position.set(0, -0.004, -0.006);
     novaKb.add(kbBack);
     const kbTxtCanvas = document.createElement('canvas'); kbTxtCanvas.width = 1024; kbTxtCanvas.height = 64;
@@ -9264,13 +9265,13 @@ const GAME_VERSION = 'Alpha 1.4';
       g.fillText(`> ${t}${Math.floor(performance.now() / 500) % 2 ? '_' : ' '}`, 10, 44);
       g.fillStyle = '#5588aa'; g.font = '22px monospace'; g.textAlign = 'right'; g.fillText(`TO: ${who}`.slice(0, 30), 1014, 26);
       kbTxtTex.needsUpdate = true;
+      try { const P = NP.panels[0]; if (P && P.cfg.tabs[P.tab] === NP_CHAT) P.drawT = 0; } catch (e) { }
     }
     function novaKbKey(k) {
       if (!isCommsKeyboardOpen) return;
       if (k === 'SPACE') commsTextInput += ' ';
       else if (k === 'DEL') commsTextInput = commsTextInput.slice(0, -1);
       else if (k === 'CLOSE') { novaKeyboardToggle(null, false); return; }
-      else if (k === 'QUICK') { novaChatQuickPrompt(novaKbEnt); return; }
       else if (k === 'SEND') { const t = commsTextInput.trim(); commsTextInput = ''; if (t) novaChatSend(novaKbEnt, t); }
       else if (commsTextInput.length < 120) commsTextInput += k.toLowerCase();
       if (sound && sound.beep) sound.beep(1400, 0.02);
@@ -9298,8 +9299,15 @@ const GAME_VERSION = 'Alpha 1.4';
       isCommsKeyboardOpen = (force !== undefined) ? force : !isCommsKeyboardOpen;
       if (ent) novaKbEnt = ent;
       if (!novaKbEnt) novaKbEnt = novaSelectedEntity();
-      novaKb.position.copy(isCommsKeyboardOpen ? NOVA_KB_HOME : new THREE.Vector3(0, -50, 0));
-      if (isCommsKeyboardOpen) { commsTextInput = ''; novaKbDrawText(); showToast('COMMS KEYBOARD OPEN - type, then SEND. QUICK = ready-made line.', 2500, '#00f0ff'); }
+      if (isCommsKeyboardOpen) {
+        const P = window.NP && NP.panels && NP.panels[0];
+        if (P && P.c && P.c.g) {
+          if (novaKb.parent !== P.c.g) P.c.g.attach(novaKb);
+          novaKb.position.copy(P.at(512, 420, 0.075)); novaKb.position.y -= 0.085;
+        } else { if (novaKb.parent !== cockpit) cockpit.attach(novaKb); novaKb.position.copy(NOVA_KB_HOME); }
+        novaKb.rotation.set(-0.58, 0, 0); novaKb.scale.setScalar(0.78); novaKb.visible = true;
+        novaKbDrawText(); showToast('MESSAGE KEYBOARD OPEN', 1400, '#00f0ff');
+      } else novaKb.visible = false;
       if (sound && sound.beep) sound.beep(isCommsKeyboardOpen ? 1000 : 600, 0.05);
     }
     window.novaKeyboardToggle = novaKeyboardToggle;
@@ -16325,38 +16333,85 @@ const GAME_VERSION = 'Alpha 1.4';
     window.addEventListener('mousemove', e => { if (!NPG.g || NPG.g.src !== 'mouse') return; const h = npMouseHit(e); if (h) npGestureMove(h.px, h.py); }, true);
     window.addEventListener('mouseup', e => { if (NPG.g && NPG.g.src === 'mouse') npGestureEnd(); }, true);
     // ── NOVA14: CHAT tab on the left panel. Character chats, story choices and hails land here instead of a pop-up in front of you ──
-    const NPCH = { choice: null, scroll: 0, unread: 0, seen: 0, target: null };
-    const NP_CHAT = { name: 'CHAT', c: '#ff88cc', get hint() { return NPCH.target ? 'contact channel · TALK or QUICK sends to ' + NPCH.target.name : 'crew channel only · swipe for older messages · choices appear on the pads'; },
+    const NPCH = { choice: null, scroll: 0, contactScroll: 0, unread: 0, seen: 0, target: null,
+      saved: (() => { try { const a = JSON.parse(localStorage.getItem('novaMessageContacts') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } })() };
+    function npChatContacts() {
+      const out = [], seen = new Set(), add = c => { const call = String(c.callsign || c.call || c.name || '').trim(); if (!call || seen.has(call)) return; seen.add(call); out.push({ name: c.name || call, callsign: call, color: c.color || '#00e5ff', isHostile: false }); };
+      NOVA_PERSONAS.forEach(add); NPCH.saved.forEach(add); return out;
+    }
+    function npChatSave(ent) {
+      if (!ent || ent.isHostile) return;
+      const call = String(ent.callsign || ent.name || '').trim(); if (!call || NOVA_PERSONAS.some(p => p.call === call) || NPCH.saved.some(c => c.callsign === call)) return;
+      NPCH.saved.push({ name: ent.name || call, callsign: call, color: ent.color || '#00e5ff' });
+      try { localStorage.setItem('novaMessageContacts', JSON.stringify(NPCH.saved.slice(-24))); } catch (e) { }
+    }
+    function npChatSelect(c) {
+      if (!c) return; NPCH.target = c; NPCH.scroll = 0;
+      novaKbEnt = c; const P = NP.panels[0]; if (P) P.drawT = 0;
+    }
+    const NP_CHAT = { name: 'CHAT', c: '#ff88cc', get hint() { return 'tap a saved contact · tap the message bar to type · swipe either column to scroll'; },
       get pads() {
         if (NPCH.choice && novaChoiceOpen) return NPCH.choice.opts.slice(0, 4).map((o, i) => ({ l: String(o.label).slice(0, 11), c: o.col || '#00e5ff', fn: () => { novaChoicePick(i); NPCH.choice = null; } }));
-        return [{ l: 'TALK', c: '#33ff99', fn: () => { try { novaKeyboardToggle(npCrewEnt(), true); } catch (e) { } } }, { l: 'QUICK', c: '#ffd24a', fn: () => { try { novaChatQuickPrompt(npCrewEnt()); } catch (e) { } } }, { l: 'CREW', c: '#ff88cc', fn: () => { try { ncTalk(); } catch (e) { } } }];
+        return [];
       },
       draw: (x, P) => {
+        const contacts = npChatContacts(); if (!NPCH.target && contacts.length) NPCH.target = contacts[0];
         NPCH.unread = 0; NPCH.seen = npCrewLog().length;
-        let top = 56;
-        if (NPCH.target) { npText(x, 'CONTACT CHANNEL  ·  ' + NPCH.target.name, 18, 52, 'bold 22px monospace', '#00e5ff', 980); top = 78; }
-        if (NPCH.choice && novaChoiceOpen) {   // the open question / offer, with its answers on the pads below
-          x.fillStyle = 'rgba(255,204,0,0.10)'; x.fillRect(8, 54, 1008, 112); x.strokeStyle = '#ffcc00'; x.lineWidth = 3; x.strokeRect(8, 54, 1008, 112);
-          npText(x, NPCH.choice.title, 22, 86, 'bold 26px monospace', '#ffcc00', 980);
-          x.font = '21px sans-serif'; x.fillStyle = '#e8f6ff'; let y = 116, line = '';
-          String(NPCH.choice.text).split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 980 && line) { if (y < 166) x.fillText(line, 22, y); y += 24; line = w; } else line = t; });
-          if (line && y < 166) x.fillText(line, 22, y);
-          npText(x, '▼ answer on the pads below', 1010 - 300, 86, 'bold 18px monospace', '#ffd24a');
-          top = 176;
-        }
-        // chat history, newest at the bottom; swipe to read back
-        x.font = '21px monospace'; const out = [];
-        npCrewLog().forEach(it => {
-          const words = (it.s + ': ' + it.m).split(' '); let line = '';
-          words.forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 990 && line) { out.push([line, it.c, it.s]); line = '   ' + w; } else line = t; });
-          if (line) out.push([line, it.c, it.s]);
+        // Saved contacts: phone-style rail on the left, six large rows at a time.
+        const visibleContacts = 6, cMax = Math.max(0, contacts.length - visibleContacts);
+        NPCH.contactScroll = Math.max(0, Math.min(cMax, Math.round(NPCH.contactScroll || 0)));
+        x.fillStyle = 'rgba(5,20,34,0.92)'; x.fillRect(8, 54, 304, 354);
+        x.strokeStyle = 'rgba(255,136,204,0.45)'; x.lineWidth = 2; x.strokeRect(8, 54, 304, 354);
+        npText(x, 'MESSAGES', 20, 78, 'bold 20px monospace', '#ff88cc');
+        contacts.slice(NPCH.contactScroll, NPCH.contactScroll + visibleContacts).forEach((c, i) => {
+          const Y = 88 + i * 51, on = NPCH.target && NPCH.target.callsign === c.callsign;
+          x.fillStyle = on ? 'rgba(255,136,204,0.20)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(12, Y, 296, 48);
+          x.fillStyle = c.color; x.beginPath(); x.arc(35, Y + 24, 14, 0, Math.PI * 2); x.fill();
+          x.fillStyle = '#021019'; x.font = 'bold 16px monospace'; x.textAlign = 'center'; x.fillText((c.name || c.callsign).charAt(0).toUpperCase(), 35, Y + 30); x.textAlign = 'left';
+          npText(x, c.name, 58, Y + 20, 'bold 18px monospace', on ? '#ffffff' : '#cfefff', 238);
+          const last = [...(window.commsChatLog || [])].reverse().find(m => m.s === c.callsign || (m.s === 'YOU' && (!m.to || m.to === c.callsign)));
+          npText(x, last ? String(last.m).replace(/\s+/g, ' ') : c.callsign, 58, Y + 40, '15px monospace', last ? '#7fa5ba' : c.color, 238);
         });
-        const rows = Math.floor((352 - top) / 25);
-        NPCH.scroll = Math.max(0, Math.min(NPCH.scroll, Math.max(0, out.length - rows)));
-        const start = Math.max(0, out.length - rows - Math.round(NPCH.scroll));
-        out.slice(start, start + rows).forEach(([t, c], i) => { x.fillStyle = c || '#cfefff'; x.fillText(t, 16, top + 20 + i * 25); });
-        if (!out.length) npText(x, 'No crew messages yet. TALK types to your crew, CREW opens a conversation.', 16, top + 30, '21px monospace', '#5f8aa3', 990);
-        if (NPCH.scroll > 0) npText(x, '▼ ' + Math.round(NPCH.scroll) + ' newer lines below', 760, top + 14, 'bold 16px monospace', '#ffd24a');
+        if (cMax) npText(x, `${NPCH.contactScroll + 1}-${Math.min(contacts.length, NPCH.contactScroll + visibleContacts)} / ${contacts.length}`, 206, 78, 'bold 15px monospace', '#7fa5ba', 96);
+        x.fillStyle = 'rgba(255,136,204,0.38)'; x.fillRect(320, 54, 2, 354);
+
+        const who = NPCH.target || { name: 'NO CONTACT', callsign: '', color: '#7fa5ba' };
+        npText(x, who.name, 340, 79, 'bold 25px monospace', who.color || '#ff88cc', 650);
+        npText(x, who.callsign, 340, 99, '15px monospace', '#7fa5ba', 650);
+        if (NPCH.choice && novaChoiceOpen) {   // the open question / offer, with its answers on the pads below
+          x.fillStyle = 'rgba(255,204,0,0.10)'; x.fillRect(334, 110, 674, 224); x.strokeStyle = '#ffcc00'; x.lineWidth = 3; x.strokeRect(334, 110, 674, 224);
+          npText(x, NPCH.choice.title, 350, 142, 'bold 24px monospace', '#ffcc00', 640);
+          x.font = '19px sans-serif'; x.fillStyle = '#e8f6ff'; let y = 174, line = '';
+          String(NPCH.choice.text).split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 630 && line) { if (y < 310) x.fillText(line, 350, y); y += 23; line = w; } else line = t; });
+          if (line && y < 310) x.fillText(line, 350, y);
+          npText(x, 'CHOOSE A REPLY BELOW', 750, 326, 'bold 17px monospace', '#ffd24a', 240);
+          return;
+        }
+
+        // Conversation bubbles, newest at the bottom. The right column scrolls independently.
+        const messages = npCrewLog(), top = 108, bottom = 342, left = 334, right = 1008, maxW = 480;
+        x.save(); x.beginPath(); x.rect(left, top, right - left, bottom - top); x.clip();
+        let y = bottom + Math.max(0, NPCH.scroll) * 25;
+        x.font = '18px monospace';
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const m = messages[i], mine = m.s === 'YOU', lines = [], words = String(m.m).split(' '); let line = '';
+          words.forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > maxW - 30 && line) { lines.push(line); line = w; } else line = t; }); if (line) lines.push(line);
+          const bw = Math.min(maxW, Math.max(150, ...lines.map(t => x.measureText(t).width + 30))), bh = 22 + lines.length * 21;
+          y -= bh + 8; const bx = mine ? right - bw : left + 8;
+          if (y < bottom && y + bh > top) {
+            x.fillStyle = mine ? 'rgba(75,110,255,0.42)' : 'rgba(22,55,72,0.92)'; x.fillRect(bx, y, bw, bh);
+            x.strokeStyle = mine ? '#7799ff' : (m.c || who.color || '#ff88cc'); x.lineWidth = 2; x.strokeRect(bx, y, bw, bh);
+            x.fillStyle = mine ? '#dfe7ff' : '#ffffff'; lines.forEach((t, li) => x.fillText(t, bx + 15, y + 25 + li * 21));
+          }
+          if (y < top - 300) break;
+        }
+        x.restore();
+        if (!messages.length) npText(x, 'Start a secure message.', 360, 205, '22px monospace', '#5f8aa3', 600);
+
+        // One phone-style composer: text field and SEND. Tapping the field opens the keyboard.
+        x.fillStyle = 'rgba(4,18,30,0.96)'; x.fillRect(334, 352, 514, 56); x.strokeStyle = isCommsKeyboardOpen ? '#00e5ff' : '#55778b'; x.lineWidth = 3; x.strokeRect(334, 352, 514, 56);
+        npText(x, commsTextInput || 'Tap to write a message…', 350, 388, '20px monospace', commsTextInput ? '#ffffff' : '#6f91a5', 480);
+        x.fillStyle = '#33ff99'; x.fillRect(860, 352, 148, 56); x.textAlign = 'center'; npText(x, 'SEND', 934, 389, 'bold 23px monospace', '#021019'); x.textAlign = 'left';
       } };
     const NCT = { colors: ['#00e5ff', '#b266ff', '#33ff88', '#ff8844', '#ff66aa'], emblems: ['✦', '◆', '◈', '⬡'], color: 0, emblem: 0 };
     try { const s = JSON.parse(localStorage.getItem('novaCrewStyle') || '{}'); NCT.color = Math.max(0, Math.min(NCT.colors.length - 1, s.color | 0)); NCT.emblem = Math.max(0, Math.min(NCT.emblems.length - 1, s.emblem | 0)); } catch (e) { }
@@ -16387,13 +16442,13 @@ const GAME_VERSION = 'Alpha 1.4';
       } };
     // crew only: your companion, wingmen, Obi, John and you (stations, sensors and strangers stay on COMMS)
     const NP_CREW_RE = /^(YOU|NYX|MATRIX|VALKYRIE|OBI|JOHN|KIP)/i;
-    function npCrewLog() { let d = null; try { d = ncD(); } catch (e) { } return (window.commsChatLog || []).filter(it => NPCH.target ? (it.s === 'YOU' || it.s === NPCH.target.callsign) : (NP_CREW_RE.test(String(it.s)) || (d && it.s === d.call))); }
+    function npCrewLog() { let d = null; try { d = ncD(); } catch (e) { } return (window.commsChatLog || []).filter(it => NPCH.target ? (it.s === NPCH.target.callsign || (it.s === 'YOU' && (!it.to || it.to === NPCH.target.callsign))) : (NP_CREW_RE.test(String(it.s)) || (d && it.s === d.call))); }
     function npCrewEnt() { if (NPCH.target) return NPCH.target; let d = null; try { d = ncD(); } catch (e) { } const c = d ? d.call : 'VALKYRIE-7'; return { name: c, callsign: c, isHostile: false }; }
     function npOpenTargetChat(P) {
       const lk = currentLockedTarget;
       if (!lk || !lk.targetObj) { showToast('Select a contact in COMMS first.', 2000, '#ffaa00'); return; }
       if (!npCanTalk(lk)) { showToast(lk.name + ' has no comms transponder.', 2200, '#ffaa00'); return; }
-      NPCH.target = Object.assign(npEnt(lk), { targetObj: lk.targetObj }); NPCH.scroll = 0;
+      NPCH.target = Object.assign(npEnt(lk), { targetObj: lk.targetObj }); npChatSave(NPCH.target); NPCH.scroll = 0;
       npTab(P, P.cfg.tabs.indexOf(NP_CHAT)); P.drawT = 0;
     }
     // story choices / offers / hails: on the CHAT tab while flying (the cantina keeps the floating card, there is no panel there)
