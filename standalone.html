@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <title>Project Nova</title>
+  <title>Project Nova — 6DOF WebXR Starfighter Simulator</title>
+  <meta name="description" content="Standalone 6DOF Newtonian WebXR space flight simulator with HOTAS cockpit controls, Proportional Navigation dogfighting AI, branching wingman comms, and tractor beam station docking." />
+  <meta property="og:title" content="Project Nova — 6DOF WebXR Starfighter Simulator" />
+  <meta property="og:description" content="Standalone 6DOF Newtonian WebXR space flight simulator with HOTAS cockpit controls, Proportional Navigation dogfighting AI, branching wingman comms, and tractor beam station docking." />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -79,6 +81,78 @@
     .modal-hint {
       font-size: 13px; color: #00ffaa; margin-top: 16px; opacity: 0.9;
     }
+
+    /* Tablet Virtual Flight Controller Styles */
+    #tablet-controller {
+      position: absolute; inset: 0; pointer-events: none; z-index: 40;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none;
+      display: none;
+    }
+    .tablet-zone {
+      position: absolute; pointer-events: auto;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    }
+    .tablet-zone-left {
+      left: 18px; bottom: 22px; width: 180px; height: 260px;
+    }
+    .tablet-zone-right {
+      right: 18px; bottom: 22px; width: 220px; height: 260px;
+    }
+    .tablet-zone-top {
+      top: 14px; right: 18px; display: flex; flex-direction: row; gap: 8px; pointer-events: auto;
+    }
+    .tablet-joystick-base {
+      width: 140px; height: 140px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, rgba(4, 18, 32, 0.75) 70%, rgba(0, 240, 255, 0.4) 100%);
+      border: 2px solid rgba(0, 240, 255, 0.55);
+      position: relative; box-shadow: 0 0 18px rgba(0, 240, 255, 0.25);
+    }
+    .tablet-joystick-stick {
+      width: 54px; height: 54px; border-radius: 50%;
+      background: radial-gradient(circle, #00f0ff 0%, #0088aa 80%);
+      box-shadow: 0 0 14px #00f0ff; border: 2px solid #ffffff;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .tablet-throttle-track {
+      width: 50px; height: 160px; background: rgba(5, 18, 30, 0.85);
+      border: 2px solid rgba(255, 204, 0, 0.5); border-radius: 25px;
+      position: relative; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 14px rgba(255, 204, 0, 0.2);
+    }
+    .tablet-throttle-handle {
+      width: 68px; height: 38px; border-radius: 8px;
+      background: linear-gradient(180deg, #ffd24a 0%, #d48800 100%);
+      border: 2px solid #ffffff; box-shadow: 0 0 12px #ffd24a;
+      position: absolute; left: 50%; transform: translate(-50%, -50%);
+      pointer-events: none; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 900; color: #040c16; font-family: monospace;
+    }
+    .tablet-btn {
+      pointer-events: auto;
+      background: rgba(8, 24, 40, 0.88); border: 2px solid; border-radius: 8px;
+      color: #fff; font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold;
+      text-transform: uppercase; cursor: pointer; transition: transform 0.08s, filter 0.08s;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: none;
+    }
+    .tablet-btn:active, .tablet-btn.active {
+      transform: scale(0.94); filter: brightness(1.4);
+    }
+    .tablet-btn-fire {
+      width: 90px; height: 90px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 68, 85, 0.35) 0%, rgba(200, 20, 40, 0.85) 80%);
+      border-color: #ff3344; box-shadow: 0 0 20px rgba(255, 51, 68, 0.45);
+      font-size: 15px; letter-spacing: 1px; color: #fff;
+    }
+    .tablet-btn-fire:active, .tablet-btn-fire.active {
+      background: #ff3344; box-shadow: 0 0 30px #ff3344; color: #000;
+    }
+    .tablet-btn-pill {
+      padding: 8px 14px; font-size: 12px; border-radius: 6px;
+      background: rgba(4, 16, 28, 0.85);
+    }
   </style>
 
   <script type="importmap">
@@ -92,10 +166,9 @@
 
   <!-- Immediate Synchronous Startup Script -->
   <script>
-    // Automatic HTTPS Redirect for Meta Quest 3 WebXR Support
+    // Automatic HTTPS Redirect for WebXR Support (preserves default port unless running custom dev server)
     if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      console.log('Redirecting to HTTPS:8443 for WebXR Passthrough support...');
-      window.location.replace('https://' + window.location.hostname + ':8443' + window.location.pathname + window.location.search);
+      window.location.protocol = 'https:';
     }
     window.dismissModal = function() {
       try {
@@ -147,24 +220,107 @@
     };
 
 
+    // Device & XR Capability Detection
+    window.novaDevice = {
+      isQuest: /Quest|Oculus/i.test(navigator.userAgent),
+      isMobile: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+      hasXR: false,
+      hasVR: false,
+      hasAR: false,
+      detectedMode: '2D' // 'MR', 'VR', '2D'
+    };
+
+    // Detect device capabilities asynchronously
+    (function detectDevice() {
+      if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
+        Promise.all([
+          navigator.xr.isSessionSupported('immersive-ar').catch(function() { return false; }),
+          navigator.xr.isSessionSupported('immersive-vr').catch(function() { return false; })
+        ]).then(function(results) {
+          window.novaDevice.hasAR = !!results[0];
+          window.novaDevice.hasVR = !!results[1];
+          window.novaDevice.hasXR = window.novaDevice.hasAR || window.novaDevice.hasVR;
+
+          var preferred = localStorage.getItem('novaPreferredMode');
+          if (preferred && (preferred === '2D' || (preferred === 'MR' && window.novaDevice.hasAR) || (preferred === 'VR' && window.novaDevice.hasVR))) {
+            window.novaDevice.detectedMode = preferred;
+          } else if (window.novaDevice.isQuest && window.novaDevice.hasAR) {
+            window.novaDevice.detectedMode = 'MR';
+          } else if (window.novaDevice.hasVR) {
+            window.novaDevice.detectedMode = 'VR';
+          } else {
+            window.novaDevice.detectedMode = '2D';
+          }
+          window.novaUpdatePlayButton();
+        }).catch(function() {
+          window.novaDevice.detectedMode = '2D';
+          window.novaUpdatePlayButton();
+        });
+      } else {
+        window.novaDevice.detectedMode = '2D';
+        window.novaUpdatePlayButton();
+      }
+    })();
+
+    window.novaSetPreferredMode = function(mode) {
+      window.novaDevice.detectedMode = mode;
+      try { localStorage.setItem('novaPreferredMode', mode); } catch (e) {}
+      window.novaUpdatePlayButton();
+      if (typeof window.showToast === 'function') {
+        window.showToast('Default Play Mode: ' + mode, 2000, '#00ffcc');
+      }
+    };
+
+    window.novaUpdatePlayButton = function() {
+      try {
+        var btn = document.getElementById('btn-play');
+        var hint = document.getElementById('menu-hint');
+        var badge = document.getElementById('device-badge');
+        var mode = window.novaDevice.detectedMode;
+        if (btn) {
+          if (mode === 'MR') {
+            btn.innerHTML = '&#9654; PLAY (PASSTHROUGH MR)';
+            btn.className = 'modal-btn btn-mr';
+          } else if (mode === 'VR') {
+            btn.innerHTML = '&#9654; PLAY (VR 360&deg;)';
+            btn.className = 'modal-btn btn-vr';
+          } else {
+            btn.innerHTML = '&#9654; PLAY (DESKTOP / SCREEN)';
+            btn.className = 'modal-btn btn-2d';
+          }
+        }
+        if (badge) {
+          var label = window.novaDevice.isQuest ? 'Meta Quest Detected' : (window.novaDevice.hasXR ? 'WebXR Headset Detected' : 'Standard Display (Desktop/Mobile)');
+          badge.textContent = 'Detected Device: ' + label + ' | Default: ' + mode;
+        }
+        if (hint) {
+          hint.textContent = 'Non-mandatory VR: Play directly on screen or headset. Change modes anytime in Options.';
+        }
+      } catch (e) {}
+    };
+
     window.novaMenuView = function(v) {
       try {
         document.getElementById('menu-main').style.display = v === 'main' ? '' : 'none';
         document.getElementById('menu-options').style.display = v === 'opt' ? '' : 'none';
+        var gh = document.getElementById('menu-github');
+        if (gh) gh.style.display = v === 'github' ? '' : 'none';
+        window.novaMenuFocusIdx = 0;
+        if (typeof window.novaUpdateMenuFocus === 'function') window.novaUpdateMenuFocus();
       } catch (e) {}
     };
+    window.novaOpenGitHubModal = function() {
+      window.novaMenuView('github');
+    };
     window.novaPlay = function() {
-      var done = false;
-      function go2D() { if (!done) { done = true; window.launch2D(); } }
-      try {
-        if (navigator.xr && navigator.xr.isSessionSupported) {
-          navigator.xr.isSessionSupported('immersive-ar').then(function(ar) {
-            if (ar) { done = true; window.launchMR(); return; }
-            return navigator.xr.isSessionSupported('immersive-vr').then(function(vr) { if (vr) { done = true; window.launchVR(); } else go2D(); });
-          }).catch(go2D);
-          setTimeout(go2D, 2500);
-        } else go2D();
-      } catch (e) { go2D(); }
+      var mode = window.novaDevice.detectedMode || '2D';
+      if (mode === 'MR') {
+        window.launchMR();
+      } else if (mode === 'VR') {
+        window.launchVR();
+      } else {
+        window.launch2D();
+      }
     };
     window.novaExit = function() {
       try { var ses = window.novaGetXR && window.novaGetXR(); if (ses && ses.end) ses.end(); } catch (e) {}
@@ -188,6 +344,224 @@
         window.dismissModal();
       }
     };
+
+    // ── Controller / Gamepad & Keyboard Navigation for Main Menu & Options ──
+    window.novaMenuFocusIdx = 0;
+    window.novaGetVisibleMenuButtons = function() {
+      var overlay = document.getElementById('modal-overlay');
+      if (!overlay || overlay.style.display === 'none') return [];
+      var containers = ['menu-main', 'menu-options', 'menu-github'];
+      for (var i = 0; i < containers.length; i++) {
+        var c = document.getElementById(containers[i]);
+        if (c && c.style.display !== 'none') {
+          return Array.prototype.slice.call(c.querySelectorAll('button.modal-btn, a.modal-btn'));
+        }
+      }
+      return [];
+    };
+
+    window.novaUpdateMenuFocus = function() {
+      var btns = window.novaGetVisibleMenuButtons();
+      if (!btns.length) return;
+      if (window.novaMenuFocusIdx < 0) window.novaMenuFocusIdx = btns.length - 1;
+      if (window.novaMenuFocusIdx >= btns.length) window.novaMenuFocusIdx = 0;
+      document.querySelectorAll('.modal-btn').forEach(function(b) {
+        b.style.outline = '';
+        b.style.outlineOffset = '';
+        b.style.transform = '';
+      });
+      var active = btns[window.novaMenuFocusIdx];
+      if (active) {
+        active.style.outline = '3px solid #ffffff';
+        active.style.outlineOffset = '3px';
+        active.style.transform = 'scale(1.02)';
+        try { active.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+      }
+    };
+
+    window.addEventListener('DOMContentLoaded', function() {
+      setTimeout(window.novaUpdateMenuFocus, 150);
+    });
+
+    (function initMenuControllerLoop() {
+      var lastNavT = 0;
+      var prevA = false, prevB = false, prevStart = false;
+      var prevFire = false, prevMsl = false, prevBoost = false, prevTarget = false, prevRadar = false, prevDamp = false, prevWarp = false;
+
+      window.addEventListener('gamepadconnected', function(e) {
+        try {
+          var badge = document.getElementById('device-badge');
+          if (badge && badge.textContent.indexOf('Controller') === -1) {
+            badge.textContent += ' | 🎮 Controller Connected';
+          }
+          if (typeof window.showToast === 'function') {
+            window.showToast('🎮 CONTROLLER CONNECTED: ' + (e.gamepad.id || 'Gamepad').slice(0, 28), 2500, '#00ffcc');
+          }
+          window.novaUpdateMenuFocus();
+        } catch (err) {}
+      });
+
+      function pollGamepad() {
+        requestAnimationFrame(pollGamepad);
+        if (!navigator.getGamepads) return;
+        var pads = navigator.getGamepads();
+        var gp = null;
+        for (var i = 0; i < pads.length; i++) {
+          if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
+        }
+        if (!gp) return;
+
+        var now = performance.now();
+        var overlay = document.getElementById('modal-overlay');
+        var menuOpen = overlay && overlay.style.display !== 'none';
+
+        var b0 = !!(gp.buttons[0] && gp.buttons[0].pressed); // A / Cross (Select / Fire)
+        var b1 = !!(gp.buttons[1] && gp.buttons[1].pressed); // B / Circle (Back / Missiles)
+        var b2 = !!(gp.buttons[2] && gp.buttons[2].pressed); // X / Square (Target Cycle)
+        var b3 = !!(gp.buttons[3] && gp.buttons[3].pressed); // Y / Triangle (3D Radar Toggle)
+        var lb = !!(gp.buttons[4] && gp.buttons[4].pressed); // LB / L1 (Throttle Down / Dampeners)
+        var rb = !!(gp.buttons[5] && gp.buttons[5].pressed); // RB / R1 (Afterburner Boost)
+        var lt = (gp.buttons[6] && typeof gp.buttons[6].value === 'number') ? gp.buttons[6].value : 0; // LT / L2 (Throttle / Brake)
+        var rt = (gp.buttons[7] && typeof gp.buttons[7].value === 'number') ? gp.buttons[7].value : 0; // RT / R2 (Primary Fire)
+        var startBtn = !!(gp.buttons[9] && gp.buttons[9].pressed); // Start / Options (Menu Toggle)
+        var dUp = !!(gp.buttons[12] && gp.buttons[12].pressed);
+        var dDown = !!(gp.buttons[13] && gp.buttons[13].pressed);
+        var dLeft = !!(gp.buttons[14] && gp.buttons[14].pressed);
+        var dRight = !!(gp.buttons[15] && gp.buttons[15].pressed);
+        var ay = (gp.axes && gp.axes.length > 1) ? gp.axes[1] : 0;
+
+        // Start button toggles launch/options modal when in 2D/Tablet mode
+        if (startBtn && !prevStart) {
+          if (menuOpen) {
+            window.dismissModal();
+          } else if (overlay) {
+            overlay.style.setProperty('display', 'flex', 'important');
+            window.novaMenuView('main');
+          }
+        }
+        prevStart = startBtn;
+
+        if (menuOpen) {
+          // Menu navigation with D-Pad Up/Down or Left Stick Y
+          if (now - lastNavT > 200) {
+            if (dUp || ay < -0.45) {
+              window.novaMenuFocusIdx--;
+              window.novaUpdateMenuFocus();
+              if (window.sound && window.sound.beep) window.sound.beep(780, 0.04);
+              lastNavT = now;
+            } else if (dDown || ay > 0.45) {
+              window.novaMenuFocusIdx++;
+              window.novaUpdateMenuFocus();
+              if (window.sound && window.sound.beep) window.sound.beep(680, 0.04);
+              lastNavT = now;
+            }
+          }
+          // A / Cross presses the highlighted menu button
+          if (b0 && !prevA) {
+            var btns = window.novaGetVisibleMenuButtons();
+            var active = btns[window.novaMenuFocusIdx] || btns[0];
+            if (active) {
+              if (window.sound && window.sound.switchClick) window.sound.switchClick();
+              active.click();
+            }
+          }
+          // B / Circle returns to Main Menu from submenus
+          if (b1 && !prevB) {
+            var mainEl = document.getElementById('menu-main');
+            if (mainEl && mainEl.style.display === 'none') {
+              window.novaMenuView('main');
+              if (window.sound && window.sound.beep) window.sound.beep(520, 0.05);
+            }
+          }
+          prevA = b0;
+          prevB = b1;
+          return;
+        }
+
+        prevA = b0;
+        prevB = b1;
+
+        // In-Flight Standard Gamepad Controls (for Tablet / PC Bluetooth Controllers when not in WebXR)
+        var inXR = !!(window.renderer && window.renderer.xr && window.renderer.xr.isPresenting);
+        if (!inXR && window.stickPivot) {
+          var DZ = 0.16;
+          // Right stick (axes 2,3) or Left stick (axes 0,1) steers Pitch & Roll
+          var rx = (gp.axes && Math.abs(gp.axes[2] || 0) > Math.abs(gp.axes[0] || 0)) ? (gp.axes[2] || 0) : (gp.axes ? (gp.axes[0] || 0) : 0);
+          var ry = (gp.axes && Math.abs(gp.axes[3] || 0) > Math.abs(gp.axes[1] || 0)) ? (gp.axes[3] || 0) : (gp.axes ? (gp.axes[1] || 0) : 0);
+          var nx = Math.abs(rx) > DZ ? Math.sign(rx) * ((Math.abs(rx) - DZ) / (1 - DZ)) : 0;
+          var ny = Math.abs(ry) > DZ ? Math.sign(ry) * ((Math.abs(ry) - DZ) / (1 - DZ)) : 0;
+          if (nx !== 0 || ny !== 0) {
+            window.isTestingGripStick = true;
+            window.stickPivot.rotation.x = ny * 0.45;
+            window.stickPivot.rotation.z = -nx * 0.45;
+          } else if (window.isTestingGripStick) {
+            window.isTestingGripStick = false;
+            window.stickPivot.rotation.x = 0;
+            window.stickPivot.rotation.z = 0;
+          }
+
+          // D-Pad Up / Down shifts throttle gates
+          if (now - lastNavT > 240) {
+            if (dUp && typeof window.shiftThrottleGate === 'function') {
+              window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) + 1, true);
+              if (window.novaUpdateTabletThrottle) window.novaUpdateTabletThrottle();
+              lastNavT = now;
+            } else if (dDown && typeof window.shiftThrottleGate === 'function') {
+              window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) - 1, true);
+              if (window.novaUpdateTabletThrottle) window.novaUpdateTabletThrottle();
+              lastNavT = now;
+            }
+          }
+
+          // Primary Fire: RT trigger (>0.25) or A button
+          var fireNow = (rt > 0.25) || b0;
+          if (window.NFM) {
+            if (fireNow) window.NFM.padT = now;
+          } else if (fireNow && !prevFire && typeof window.triggerFire === 'function') {
+            window.triggerFire();
+          }
+          prevFire = fireNow;
+
+          // B button: Launch Homing Missile
+          if (b1 && !prevMsl && typeof window.fireHomingMissile === 'function') {
+            if (typeof window.isMissileLidOpen === 'function' && !window.isMissileLidOpen() && typeof window.toggleMissileLid === 'function') {
+              window.toggleMissileLid();
+            }
+            window.fireHomingMissile();
+          }
+          prevMsl = b1;
+
+          // X button: Cycle Target
+          if (b2 && !prevTarget && typeof window.cycleTarget === 'function') {
+            window.cycleTarget();
+          }
+          prevTarget = b2;
+
+          // Y button: Toggle 3D Radar
+          if (b3 && !prevRadar && typeof window.novaRadarToggle === 'function') {
+            window.novaRadarToggle();
+          }
+          prevRadar = b3;
+
+          // RB: Afterburner Boost, LB: Rotation Dampeners, D-Right: Warp, D-Left: Autopilot
+          if (rb && !prevBoost && typeof window.shiftThrottleGate === 'function') {
+            window.shiftThrottleGate(4, true);
+          }
+          prevBoost = rb;
+
+          if (lb && !prevDamp && typeof window.toggleRotationDampeners === 'function') {
+            window.toggleRotationDampeners();
+          }
+          prevDamp = lb;
+
+          if (dRight && !prevWarp && typeof window.triggerLightspeed === 'function') {
+            window.triggerLightspeed();
+          }
+          prevWarp = dRight;
+        }
+      }
+      requestAnimationFrame(pollGamepad);
+    })();
   </script>
   <link rel="manifest" href="./manifest.webmanifest">
   <meta name="theme-color" content="#00e5ff">
@@ -205,7 +579,7 @@
     <div id="hud-controls">STICK: +0.0° PITCH · +0.0° ROLL | THROTTLE: 0% | SEAT: +5cm</div>
   </div>
 
-  <div id="version-badge">Alpha 1.0 RC · STARFIGHTER SIMULATOR</div>
+  <div id="version-badge">Alpha 1.3 · STARFIGHTER SIMULATOR</div>
   <div id="status-toast"></div>
 
   <!-- Launch Modal -->
@@ -213,24 +587,106 @@
     <div class="modal-box">
       <div class="modal-title">🚀 PROJECT NOVA: STARFIGHTER SIM</div>
       <div class="modal-subtitle">
-        Meta Quest 3 Space Flight • Newtonian Physics • Hand Tracking HOTAS Controls • Homing Missiles &amp; Hyperspace Drive
+        6DOF Space Flight Simulator • Newtonian HOTAS Flight Model • Proportional Navigation Dogfights • Hyperspace Drive
       </div>
+      <div id="device-badge" style="font-size: 11px; color: #79c0ff; background: rgba(14, 40, 70, 0.7); border: 1px solid #1f6feb; border-radius: 4px; padding: 4px 8px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px;">
+        Detecting Display Capabilities...
+      </div>
+      <!-- Clean, focused Main Menu -->
       <div id="menu-main">
-        <button class="modal-btn btn-mr" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
-        <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS</button>
+        <button class="modal-btn btn-2d" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
+        <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS &amp; MODES</button>
         <button class="modal-btn" id="btn-exit" style="border-color:#885566;color:#cc8899;background:rgba(120,30,50,0.15);" onclick="window.novaExit(); event.stopPropagation();">&#10006; EXIT</button>
       </div>
-      <div id="menu-options" style="display:none;">
-        <button class="modal-btn btn-mr" id="btn-mr" style="border-width: 3px; box-shadow: 0 0 25px rgba(255, 51, 170, 0.45); font-size: 18px;" onclick="window.launchMR(); event.stopPropagation();">👁️ ENTER MR (PASSTHROUGH COCKPIT) [QUEST 3]</button>
-      <button class="modal-btn btn-vr" id="btn-vr" onclick="window.launchVR(); event.stopPropagation();">🚀 ENTER VR SPACE FLIGHT (FULL 360° SPACE)</button>
-      <button class="modal-btn btn-2d" id="btn-2d" onclick="window.launch2D(); event.stopPropagation();">🎮 2D DESKTOP TEST MODE</button>
-      <button class="modal-btn" id="btn-companion" style="background: rgba(178, 102, 255, 0.18); border-color: #b266ff; color: #cc99ff;" onclick="window.novaCompanionMenu && window.novaCompanionMenu(); event.stopPropagation();">💜 CHOOSE YOUR COMPANION (NYX / MATRIX)</button>
-      <button class="modal-btn" id="btn-tutorial" style="background: rgba(255, 204, 0, 0.18); border-color: #ffcc00; color: #ffcc00;" onclick="window.launchTutorial(false); event.stopPropagation();">📖 TUTORIAL: LEARN TO FLY (GUIDED, 2D)</button>
-      <button class="modal-btn" id="btn-tutorial-vr" style="background: rgba(255, 204, 0, 0.10); border-color: #b38f00; color: #ffcc00; font-size: 12px; padding: 9px;" onclick="window.launchTutorial(true); event.stopPropagation();">📖 RUN THE TUTORIAL IN VR INSTEAD</button>
-      <button class="modal-btn" id="btn-frigate" style="background: rgba(0, 240, 255, 0.22); border-color: #00f0ff; color: #00f0ff; margin-top: 6px;" onclick="window.launchFrigate(); event.stopPropagation();">🌌 ENTER CENTRAL FRIGATE HALL &amp; 3D GALAXY MAP</button>
-      <button class="modal-btn" id="btn-back" style="margin-top:6px;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK</button>
+
+      <!-- Options & Device Setup Menu -->
+      <div id="menu-options" style="display:none; text-align: left;">
+        <div style="font-size: 14px; font-weight: bold; color: #00f0ff; margin-bottom: 8px; text-transform: uppercase;">Display &amp; Immersion Modes:</div>
+        <button class="modal-btn btn-2d" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('2D'); window.launch2D(); event.stopPropagation();">🎮 2D DESKTOP / SCREEN MODE (NO VR REQUIRED)</button>
+        <button class="modal-btn btn-mr" id="btn-mr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('MR'); window.launchMR(); event.stopPropagation();">👁️ ENTER PASSTHROUGH MR (QUEST 3 / AR)</button>
+        <button class="modal-btn btn-vr" id="btn-vr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('VR'); window.launchVR(); event.stopPropagation();">🚀 ENTER IMMERSIVE VR (FULL 360° SPACE)</button>
+
+        <div style="font-size: 14px; font-weight: bold; color: #00ffcc; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Tablet / Touch Controls:</div>
+        <button class="modal-btn" id="btn-toggle-touch-ctrl" style="background: rgba(0, 255, 204, 0.15); border-color: #00ffcc; color: #00ffcc; padding: 10px; margin: 4px 0;" onclick="window.novaToggleTabletCtrl(); event.stopPropagation();">📱 TABLET CONTROLLER: ON / OFF</button>
+
+        <div style="font-size: 14px; font-weight: bold; color: #ffcc00; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Flight Activities:</div>
+        <button class="modal-btn" id="btn-companion" style="background: rgba(178, 102, 255, 0.18); border-color: #b266ff; color: #cc99ff; padding: 10px; margin: 4px 0;" onclick="window.novaCompanionMenu && window.novaCompanionMenu(); event.stopPropagation();">💜 CHOOSE COMPANION (NYX / MATRIX)</button>
+        <button class="modal-btn" id="btn-tutorial" style="background: rgba(255, 204, 0, 0.18); border-color: #ffcc00; color: #ffcc00; padding: 10px; margin: 4px 0;" onclick="window.launchTutorial(false); event.stopPropagation();">📖 GUIDED FLIGHT TUTORIAL</button>
+        <button class="modal-btn" id="btn-frigate" style="background: rgba(0, 240, 255, 0.18); border-color: #00f0ff; color: #00f0ff; padding: 10px; margin: 4px 0;" onclick="window.launchFrigate(); event.stopPropagation();">🌌 FRIGATE HALL &amp; 3D GALAXY MAP</button>
+
+        <div style="font-size: 14px; font-weight: bold; color: #3fb950; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Developer &amp; Standalone:</div>
+        <button class="modal-btn" id="btn-github-connect" style="background: rgba(46, 160, 67, 0.20); border-color: #3fb950; color: #3fb950; font-size: 13px; padding: 10px; margin: 4px 0;" onclick="window.novaOpenGitHubModal(); event.stopPropagation();">🐙 GITHUB &amp; QUEST CONNECTION DETAILS</button>
+        <button class="modal-btn" id="btn-download-standalone" style="background: rgba(0, 255, 170, 0.15); border-color: #00ffaa; color: #00ffaa; font-size: 13px; padding: 10px; margin: 4px 0;" onclick="if(window.downloadStandaloneForClaude) window.downloadStandaloneForClaude(); event.stopPropagation();">⬇️ DOWNLOAD STANDALONE HTML (FOR CLAUDE AI)</button>
+
+        <button class="modal-btn" id="btn-back" style="margin-top: 12px; padding: 12px;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK TO MAIN MENU</button>
+      </div>
+
+      <!-- GitHub & Meta Quest Connect Dialog -->
+      <div id="menu-github" style="display:none; text-align: left; padding: 10px 4px;">
+        <div style="font-size: 18px; color: #3fb950; font-weight: bold; margin-bottom: 8px;">🥽 1. CONNECT &amp; PLAY ON META QUEST</div>
+        <div style="font-size: 13px; color: #a0c4df; line-height: 1.5; margin-bottom: 12px;">
+          Open the <b>Meta Quest Browser</b> on your headset and navigate to this live WebXR URL:
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+          <input type="text" id="quest-url-input" readonly value="https://ais-pre-ju7jgpdtyqtmofenwhjexo-454911322812.us-west1.run.app" style="flex: 1; background: #040d1a; border: 1px solid #00f0ff; color: #00f0ff; padding: 8px 12px; font-family: monospace; font-size: 12px; border-radius: 6px;" />
+          <button class="modal-btn" style="width: auto; margin: 0; padding: 8px 14px; font-size: 12px; border-color: #00f0ff; color: #00f0ff;" onclick="navigator.clipboard.writeText(document.getElementById('quest-url-input').value); window.showToast('Copied Quest URL!', 2000, '#00f0ff'); event.stopPropagation();">📋 COPY</button>
+        </div>
+
+        <div style="font-size: 18px; color: #58a6ff; font-weight: bold; margin-top: 14px; margin-bottom: 8px;">🐙 2. GITHUB REPOSITORY: Devostater/Project-Nova</div>
+        <div style="font-size: 13px; color: #a0c4df; line-height: 1.5; margin-bottom: 8px;">
+          Origin remote is configured to <code>https://github.com/Devostater/Project-Nova.git</code>.
+        </div>
+        <pre style="background: #020813; border: 1px solid #238636; color: #7ee787; padding: 10px; font-size: 11px; border-radius: 6px; overflow-x: auto; margin-bottom: 12px; font-family: monospace;">git remote add origin https://github.com/Devostater/Project-Nova.git
+git branch -M main
+git push -u origin main</pre>
+        <div style="margin-bottom: 12px;">
+          <a href="./project-nova-git.tar.gz" download="project-nova-git.tar.gz" class="modal-btn" style="text-decoration: none; text-align: center; background: rgba(88, 166, 255, 0.18); border-color: #58a6ff; color: #79c0ff; font-size: 13px; padding: 10px; margin: 0;" onclick="event.stopPropagation();">📦 DOWNLOAD FULL REPO ARCHIVE (WITH .GIT &amp; HISTORY)</a>
+        </div>
+        <div style="font-size: 12px; color: #88aacc; line-height: 1.4; margin-bottom: 14px;">
+          ✨ <b>AI Collaboration Ready</b>: Other AI models (Claude, Cursor, Copilot, ChatGPT) can directly open or edit <code>index.html</code> or <code>public/standalone.html</code>. Both files are 100% self-contained and ready to build.
+        </div>
+        <button class="modal-btn" style="margin-top: 6px; border-color: #3fb950; color: #3fb950;" onclick="window.novaMenuView('main'); event.stopPropagation();">&larr; BACK TO MENU</button>
       </div>
       <div class="modal-hint" id="menu-hint">PLAY starts Mixed Reality on Quest, or desktop mode on a computer. Options has VR, tutorial and companion.</div>
+    </div>
+  </div>
+
+  <!-- Tablet / Touch On-Screen Flight Controller Overlay -->
+  <div id="tablet-controller">
+    <!-- Top Quick Action Strip -->
+    <div class="tablet-zone-top">
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-radar" style="border-color: #00e5ff; color: #00e5ff;">📡 RADAR</button>
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-target" style="border-color: #33ff99; color: #33ff99;">🎯 TARGET</button>
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-damp" style="border-color: #ffd24a; color: #ffd24a;">⚖️ DAMP</button>
+      <button class="tablet-btn tablet-btn-pill" id="tc-btn-options" style="border-color: #88aacc; color: #88aacc;" onclick="window.novaMenuView('opt'); document.getElementById('modal-overlay').style.setProperty('display', 'flex', 'important');">⚙️ MENU</button>
+    </div>
+
+    <!-- Left Zone: Throttle Lever + Booster + Reverse Cut -->
+    <div class="tablet-zone tablet-zone-left">
+      <div style="font-size: 11px; font-weight: bold; color: #ffd24a; margin-bottom: 6px; font-family: monospace; letter-spacing: 1px;">THROTTLE</div>
+      <div class="tablet-throttle-track" id="tc-throttle-track">
+        <div class="tablet-throttle-handle" id="tc-throttle-handle">0%</div>
+      </div>
+      <div style="display: flex; gap: 6px; width: 100%; margin-top: 8px;">
+        <button class="tablet-btn" id="tc-btn-boost" style="flex: 1; height: 36px; border-color: #ffaa00; color: #ffaa00; font-size: 11px;">🚀 BOOST</button>
+        <button class="tablet-btn" id="tc-btn-warp" style="flex: 1; height: 36px; border-color: #b266ff; color: #cc99ff; font-size: 11px;">⚡ WARP</button>
+      </div>
+    </div>
+
+    <!-- Right Zone: Virtual Flight Stick + Dedicated Fire + Missile Launch -->
+    <div class="tablet-zone tablet-zone-right">
+      <div style="display: flex; gap: 8px; margin-bottom: 10px; width: 100%; justify-content: flex-end;">
+        <button class="tablet-btn" id="tc-btn-missile" style="width: 80px; height: 38px; border-color: #ff5566; color: #ff5566; font-size: 11px;">🚀 MSL</button>
+        <button class="tablet-btn" id="tc-btn-flare" style="width: 60px; height: 38px; border-color: #ff8833; color: #ff8833; font-size: 11px;">✨ FLR</button>
+      </div>
+      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div class="tablet-joystick-base" id="tc-stick-base">
+          <div class="tablet-joystick-stick" id="tc-stick-handle"></div>
+        </div>
+        <!-- Fire Button next to joystick -->
+        <button class="tablet-btn tablet-btn-fire" id="tc-btn-fire" style="position: absolute; right: -12px; bottom: 70px;">FIRE</button>
+      </div>
+      <div style="font-size: 11px; font-weight: bold; color: #00f0ff; margin-top: 6px; font-family: monospace; letter-spacing: 1px;">FLIGHT STICK</div>
     </div>
   </div>
 
@@ -257,7 +713,7 @@
 
         let pirateBoss = null;
     let pirateBossSpawned = false;
-const GAME_VERSION = 'Alpha 1.0 RC';
+const GAME_VERSION = 'Alpha 1.3';
     let passthroughActive = false;
     let seatOffset = 0.12; // Elevated command default (+12cm)
     let throttlePct = 0;
@@ -7004,6 +7460,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           const hitMesh = cHits[0].object;
           const entry = cockpitInteractables.find(b => { let o = hitMesh; while (o) { if (b.mesh === o) return true; o = o.parent; } return false; });
           if (entry && entry.action) {
+            if (window.NFM && entry.label === 'THUMB FIRE LASER') window.NFM.mouseHeld = true;
             entry.action();
             sound.switchClick();
             return;
@@ -7071,6 +7528,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
 
     window.addEventListener('mouseup', () => {
       isMouseDown = false;
+      if (window.NFM) window.NFM.mouseHeld = false;
       if (activeDragTarget === 'stick') {
         isGrippingStick = false;
         // Spring back
@@ -7135,12 +7593,240 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       }
     });
 
+    // ── Tablet / Touch On-Screen Flight Controller Setup ──
+    const tabletCtrl = {
+      active: false,
+      userToggled: false,
+      stickTouchId: null,
+      stickCenter: { x: 0, y: 0 },
+      stickRadius: 60,
+      throttleTouchId: null,
+      throttleTrackTop: 0,
+      throttleTrackHeight: 160
+    };
+
+    function updateTabletCtrlVisibility() {
+      const tcEl = document.getElementById('tablet-controller');
+      if (!tcEl) return;
+      const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.novaDevice.isMobile;
+      const shouldShow = (tabletCtrl.userToggled ? tabletCtrl.active : isTouchDevice) && !renderer.xr.isPresenting;
+      tabletCtrl.active = shouldShow;
+      tcEl.style.display = shouldShow ? 'block' : 'none';
+      const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
+      if (toggleBtn) {
+        toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (shouldShow ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
+      }
+    }
+    window.novaToggleTabletCtrl = function(force) {
+      tabletCtrl.userToggled = true;
+      tabletCtrl.active = (typeof force === 'boolean') ? force : !tabletCtrl.active;
+      const tcEl = document.getElementById('tablet-controller');
+      if (tcEl) tcEl.style.display = tabletCtrl.active ? 'block' : 'none';
+      const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
+      if (toggleBtn) toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (tabletCtrl.active ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
+      showToast('Tablet Controller ' + (tabletCtrl.active ? 'ENABLED' : 'DISABLED'), 2000, '#00ffcc');
+    };
+
+    function initTabletController() {
+      const tcEl = document.getElementById('tablet-controller');
+      const stickBase = document.getElementById('tc-stick-base');
+      const stickHandle = document.getElementById('tc-stick-handle');
+      const throttleTrack = document.getElementById('tc-throttle-track');
+      const throttleHandle = document.getElementById('tc-throttle-handle');
+      const btnFire = document.getElementById('tc-btn-fire');
+      const btnBoost = document.getElementById('tc-btn-boost');
+      const btnWarp = document.getElementById('tc-btn-warp');
+      const btnMsl = document.getElementById('tc-btn-missile');
+      const btnFlr = document.getElementById('tc-btn-flare');
+      const btnRdr = document.getElementById('tc-btn-radar');
+      const btnTgt = document.getElementById('tc-btn-target');
+      const btnDmp = document.getElementById('tc-btn-damp');
+
+      if (!tcEl || !stickBase || !stickHandle) return;
+
+      // Flight Stick Touch Events
+      stickBase.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        sound.init();
+        if (tabletCtrl.stickTouchId !== null) return;
+        const touch = e.changedTouches[0];
+        tabletCtrl.stickTouchId = touch.identifier;
+        const rect = stickBase.getBoundingClientRect();
+        tabletCtrl.stickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        updateStick(touch.clientX, touch.clientY);
+      }, { passive: false });
+
+      stickBase.addEventListener('touchmove', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          if (touch.identifier === tabletCtrl.stickTouchId) {
+            updateStick(touch.clientX, touch.clientY);
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const resetStick = (e) => {
+        if (e) {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === tabletCtrl.stickTouchId) {
+              tabletCtrl.stickTouchId = null;
+              break;
+            }
+          }
+        } else {
+          tabletCtrl.stickTouchId = null;
+        }
+        if (tabletCtrl.stickTouchId === null) {
+          stickHandle.style.transform = 'translate(-50%, -50%)';
+          isGrippingStick = false;
+          stickPivot.rotation.x = 0;
+          stickPivot.rotation.z = 0;
+          stickPitchDeg = 0; stickRollDeg = 0;
+          drawHUD();
+        }
+      };
+      stickBase.addEventListener('touchend', resetStick, { passive: false });
+      stickBase.addEventListener('touchcancel', resetStick, { passive: false });
+
+      function updateStick(cx, cy) {
+        const dx = cx - tabletCtrl.stickCenter.x;
+        const dy = cy - tabletCtrl.stickCenter.y;
+        const dist = Math.hypot(dx, dy);
+        const maxR = tabletCtrl.stickRadius;
+        const clampedR = Math.min(dist, maxR);
+        const angle = Math.atan2(dy, dx);
+        const hx = Math.cos(angle) * clampedR;
+        const hy = Math.sin(angle) * clampedR;
+        stickHandle.style.transform = `translate(calc(-50% + ${hx}px), calc(-50% + ${hy}px))`;
+
+        isGrippingStick = true;
+        // Inverted flight pitch (pull back / drag down = pitch up)
+        stickPivot.rotation.x = THREE.MathUtils.clamp((hy / maxR) * 0.45, -0.45, 0.45);
+        stickPivot.rotation.z = THREE.MathUtils.clamp((-hx / maxR) * 0.45, -0.45, 0.45);
+        stickPitchDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.x);
+        stickRollDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.z);
+        drawHUD();
+      }
+
+      // Throttle Track Touch Events
+      function updateThrottleUI() {
+        if (!throttleHandle || !throttleTrack) return;
+        const pct = throttlePct;
+        const pctHeight = (1 - pct) * 122 + 19; // 19px to 141px
+        throttleHandle.style.top = `${pctHeight}px`;
+        throttleHandle.textContent = `${Math.round(pct * 100)}%`;
+      }
+      window.novaUpdateTabletThrottle = updateThrottleUI;
+
+      throttleTrack.addEventListener('touchstart', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        sound.init();
+        const touch = e.changedTouches[0];
+        tabletCtrl.throttleTouchId = touch.identifier;
+        applyThrottleTouch(touch.clientY);
+      }, { passive: false });
+
+      throttleTrack.addEventListener('touchmove', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          if (touch.identifier === tabletCtrl.throttleTouchId) {
+            applyThrottleTouch(touch.clientY);
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const endThrottle = (e) => {
+        if (e) {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === tabletCtrl.throttleTouchId) {
+              tabletCtrl.throttleTouchId = null;
+              break;
+            }
+          }
+        } else {
+          tabletCtrl.throttleTouchId = null;
+        }
+        // Snap to nearest detent notch on touch release
+        const nearestNotch = Math.round(throttlePct * 4) / 4;
+        setThrottle(nearestNotch);
+        updateThrottleUI();
+      };
+      throttleTrack.addEventListener('touchend', endThrottle, { passive: false });
+      throttleTrack.addEventListener('touchcancel', endThrottle, { passive: false });
+
+      function applyThrottleTouch(clientY) {
+        const rect = throttleTrack.getBoundingClientRect();
+        const relY = THREE.MathUtils.clamp((clientY - rect.top) / rect.height, 0, 1);
+        const newPct = THREE.MathUtils.clamp(1 - relY, 0, 1);
+        setThrottle(newPct);
+        updateThrottleUI();
+      }
+
+      // Action Buttons Binding
+      const bindHoldButton = (btn, onDown, onUp) => {
+        if (!btn) return;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); btn.classList.add('active'); onDown(); }, { passive: false });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); }, { passive: false });
+        btn.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); }, { passive: false });
+        btn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); btn.classList.add('active'); onDown(); });
+        btn.addEventListener('mouseup', (e) => { e.preventDefault(); e.stopPropagation(); btn.classList.remove('active'); onUp(); });
+      };
+
+      const bindTapButton = (btn, action) => {
+        if (!btn) return;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); action(); }, { passive: false });
+        btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); sound.init(); action(); });
+      };
+
+      // Continuous Hold Primary Fire
+      bindHoldButton(btnFire, () => {
+        if (window.NFM) window.NFM.mouseHeld = true;
+        triggerFire();
+      }, () => {
+        if (window.NFM) window.NFM.mouseHeld = false;
+      });
+
+      // Quick Actions
+      bindTapButton(btnBoost, () => {
+        triggerAfterburner();
+        sound.switchClick();
+      });
+      bindTapButton(btnWarp, () => {
+        triggerLightspeed();
+      });
+      bindTapButton(btnMsl, () => {
+        // Auto-open safety lid if closed then launch missile
+        if (typeof isMissileLidOpen !== 'undefined' && !isMissileLidOpen) {
+          toggleMissileLid();
+        }
+        fireHomingMissile();
+      });
+      bindTapButton(btnFlr, () => {
+        if (typeof deployCountermeasureFlares === 'function') deployCountermeasureFlares();
+        else showToast('FLARES DEPLOYED', 1500, '#ff8833');
+      });
+      bindTapButton(btnRdr, () => {
+        if (typeof window.novaRadarToggle === 'function') window.novaRadarToggle();
+      });
+      bindTapButton(btnTgt, () => {
+        if (typeof cycleTarget === 'function') cycleTarget();
+      });
+      bindTapButton(btnDmp, () => {
+        if (typeof toggleRotationDampeners === 'function') toggleRotationDampeners();
+      });
+    }
+
     // ── WebXR Session Startup Handlers ──
     let isStartingXR = false;
 
     const dismissModal = () => {
       const m = document.getElementById('modal-overlay');
       if (m) m.style.display = 'none';
+      updateTabletCtrlVisibility();
     };
 
     window.sound = sound;
@@ -7282,23 +7968,13 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       });
     }
 
-    // Clicking anywhere on modal overlay or modal box starts/enters the game
+    // Clicking on modal overlay background uses the user's selected/detected mode without forcing VR
     const modalOverlay = document.getElementById('modal-overlay');
     if (modalOverlay) {
       modalOverlay.addEventListener('click', (e) => {
         sound.init();
-        if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
-          navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-            if (supported) {
-              startXR('immersive-vr', false);
-            } else {
-              dismissModal();
-              showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
-            }
-          }).catch(() => {
-            dismissModal();
-            showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
-          });
+        if (typeof window.novaPlay === 'function') {
+          window.novaPlay();
         } else {
           dismissModal();
           showToast('🎮 2D Desktop Mode Active', 2500, '#00ccff');
@@ -8139,11 +8815,12 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     const NOVA_KB_HOME = new THREE.Vector3(0, 0.50, -0.34);
     novaKb.position.set(0, -50, 0);
     novaKb.rotation.x = -0.75;
+    novaKb.scale.setScalar(1.22);
     let novaKbEnt = null;
     const kbRows = [['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L','?'], ['Z','X','C','V','B','N','M',',','.','!'], ['QUICK','SPACE','DEL','SEND','CLOSE']];
     const kbPitch = 0.034, kbTop = 0.05;
-    const kbBack = new THREE.Mesh(new THREE.BoxGeometry(0.37, 0.20, 0.008), new THREE.MeshStandardMaterial({ color: 0x07121c, metalness: 0.8, roughness: 0.4, emissive: 0x002233, emissiveIntensity: 0.5 }));
-    kbBack.position.set(0, 0.005, -0.006);
+    const kbBack = new THREE.Mesh(new THREE.BoxGeometry(0.39, 0.224, 0.008), new THREE.MeshStandardMaterial({ color: 0x07121c, metalness: 0.8, roughness: 0.4, emissive: 0x002233, emissiveIntensity: 0.5 }));
+    kbBack.position.set(0, -0.004, -0.006);
     novaKb.add(kbBack);
     const kbTxtCanvas = document.createElement('canvas'); kbTxtCanvas.width = 1024; kbTxtCanvas.height = 64;
     const kbTxtTex = new THREE.CanvasTexture(kbTxtCanvas);
@@ -8173,19 +8850,20 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     }
     kbRows.forEach((row, ri) => {
       const wide = ri === 3;
-      const w = wide ? 0.066 : 0.030;
-      const step = wide ? 0.072 : kbPitch;
+      const w = wide ? 0.072 : 0.030;
+      const h = wide ? 0.044 : 0.028;
+      const step = wide ? 0.076 : kbPitch;
       row.forEach((k, ci) => {
-        const c = document.createElement('canvas'); c.width = wide ? 192 : 96; c.height = 96;
+        const c = document.createElement('canvas'); c.width = wide ? 224 : 96; c.height = wide ? 128 : 96;
         const g = c.getContext('2d');
-        g.fillStyle = k === 'SEND' ? '#003a22' : (k === 'CLOSE' ? '#3a0a10' : '#0a2232'); g.fillRect(0, 0, c.width, 96);
-        g.strokeStyle = '#00e5ff'; g.lineWidth = 6; g.strokeRect(3, 3, c.width - 6, 90);
+        g.fillStyle = k === 'SEND' ? '#003a22' : (k === 'CLOSE' ? '#3a0a10' : '#0a2232'); g.fillRect(0, 0, c.width, c.height);
+        g.strokeStyle = '#00e5ff'; g.lineWidth = wide ? 8 : 6; g.strokeRect(3, 3, c.width - 6, c.height - 6);
         g.fillStyle = k === 'SEND' ? '#00ff88' : (k === 'CLOSE' ? '#ff5566' : '#cfefff');
-        g.font = `bold ${wide ? 36 : 50}px monospace`; g.textAlign = 'center'; g.fillText(k, c.width / 2, 64);
-        const key = new THREE.Mesh(new THREE.BoxGeometry(w, 0.028, 0.008), [null, null, null, null, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }), null].map(m => m || new THREE.MeshBasicMaterial({ color: 0x0a2232 })));
-        key.position.set((ci - (row.length - 1) / 2) * step, kbTop - ri * kbPitch, 0.004);
+        g.font = `bold ${wide ? 46 : 50}px monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k, c.width / 2, c.height / 2 + 2);
+        const key = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.008), [null, null, null, null, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }), null].map(m => m || new THREE.MeshBasicMaterial({ color: 0x0a2232 })));
+        key.position.set((ci - (row.length - 1) / 2) * step, kbTop - ri * kbPitch - (wide ? 0.008 : 0), 0.004);
         novaKb.add(key);
-        registerCockpitButton(key, 'KEY ' + k, () => novaKbKey(k), 0.018);
+        registerCockpitButton(key, 'KEY ' + k, () => novaKbKey(k), wide ? 0.038 : 0.020);
       });
     });
     function novaKeyboardToggle(ent, force) {
@@ -8213,23 +8891,23 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     // ── CAMPAIGN & STORY: "The Corsair Line" ──
     // ════════════════════════════════════════════════════════════════
     const CAMPAIGN = [
-      { title: 'CH 1: FIRST LIGHT', mission: 1, objective: 'Mine 5 tons of titanium ore.', hint: 'Fire lasers at the gray asteroids around you.',
+      { title: 'CH 1: FIRST LIGHT', mission: 1, objective: 'Prospect the local field: bring in 5 t of titanium.', hint: 'The gray asteroids read titanium-rich. Open fire to sample the field.',
         type: 'mine', goal: 5, reward: 1500, speaker: 'STATION NOVA-1', pitch: 0.95,
         intro: 'Welcome to Nova-1, pilot. Every fighter here earns its fuel. Mine five tons of titanium from the field.',
         outro: 'Ore received. Not bad for a rookie. Stand by for convoy duty.' },
-      { title: 'CH 2: IRON CONVOY', mission: 0, objective: 'Fly escort within 300 m of Starlifter-7 for 45 seconds.', hint: 'Follow the freighter marker on the canopy compass.',
+      { title: 'CH 2: IRON CONVOY', mission: 0, objective: 'Hold within 300 m of Starlifter-7 for 45 seconds.', hint: 'Keep the freighter on your canopy compass and stay close.',
         type: 'escort', goal: 45, reward: 2500, speaker: 'STARLIFTER-7', pitch: 0.9,
         intro: 'Nova Lead, this is Bo Harlan on Starlifter-7. Somebody has been shadowing my route. Could use an escort.',
         outro: 'Convoy clear. Thanks, Nova. But my scanners caught a pirate transponder. Talk to Valkyrie.' },
-      { title: 'CH 3: SHADOW SIGNAL', mission: 0, objective: 'Dock at Station Nova-1 to debrief.', hint: 'Fly close to the station and press DOCK on comms, or engage autopilot.',
+      { title: 'CH 3: SHADOW SIGNAL', mission: 0, objective: 'Return to Nova-1 and dock for the transponder debrief.', hint: 'Request docking clearance on comms, or engage autopilot near the station.',
         type: 'dock', goal: 1, reward: 1000, speaker: 'VALKYRIE-7', pitch: 1.15,
         intro: 'That transponder belongs to the Corsair, Nova. We need a full briefing. Head to Nova-1 and dock.',
         outro: 'Intel confirmed: the Corsair raids ships that exit lightspeed. Next time you jump, be ready.' },
-      { title: 'CH 4: THE CORSAIR LINE', mission: 2, objective: 'Make a lightspeed jump and destroy the Corsair raider.', hint: 'Press WARP, pick a destination, then press NEXT TARGET until the red contact is locked.',
+      { title: 'CH 4: THE CORSAIR LINE', mission: 2, objective: 'Jump the lane. Find and destroy the Corsair raider.', hint: 'Plot a WARP destination, then cycle contacts until the hostile is locked.',
         type: 'pirate', goal: 1, reward: 8000, speaker: 'FLEET RELAY', pitch: 1.3,
         intro: 'ADA-9 here. Corsair ambush probability after your next lightspeed exit: 100 percent. Arm missiles.',
         outro: 'Corsair destroyed. The shipping lanes are open again. Well flown, Nova Lead.' },
-      { title: 'EPILOGUE: OPEN SKIES', mission: 1, objective: 'Free flight. Mine, trade, explore and chat with your crew.', hint: 'Pirates are rare now, but stay sharp after jumps.',
+      { title: 'EPILOGUE: OPEN SKIES', mission: 1, objective: 'Open flight: mine, trade, explore, and fly with your crew.', hint: 'The lanes are quieter. Keep a watch after every jump.',
         type: 'free', goal: 0, reward: 0, speaker: 'VALKYRIE-7', pitch: 1.15,
         intro: 'The sector is ours, Nova. Drinks at the cantina are on me.', outro: '' }
     ];
@@ -8365,12 +9043,12 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       const tex = new THREE.CanvasTexture(c);
       g.add(new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.163), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })));
       const btns = [0, 1, 2].map(i => {
-        const bc = document.createElement('canvas'); bc.width = 384; bc.height = 112;
+        const bc = document.createElement('canvas'); bc.width = 416; bc.height = 128;
         const bt = new THREE.CanvasTexture(bc);
         const side = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.5 });
-        const m = new THREE.Mesh(new THREE.BoxGeometry(0.135, 0.04, 0.016), [side, side, side, side, new THREE.MeshBasicMaterial({ map: bt }), side]);
-        m.position.set(0, -0.11, 0.008); g.add(m);
-        registerCockpitButton(m, 'CHOICE ' + (i + 1), () => novaChoicePick(i), 0.035);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.156, 0.056, 0.016), [side, side, side, side, new THREE.MeshBasicMaterial({ map: bt }), side]);
+        m.position.set(0, -0.118, 0.008); g.add(m);
+        registerCockpitButton(m, 'CHOICE ' + (i + 1), () => novaChoicePick(i), 0.055);
         return { m, bc, bt, side };
       });
       return { g, c, tex, btns, opts: null };
@@ -8392,12 +9070,12 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         const o = opts[i];
         b.m.visible = !!o;
         if (!o) return;
-        b.m.position.x = (i - (n - 1) / 2) * 0.148;
+        b.m.position.x = (i - (n - 1) / 2) * 0.168;
         const bg = b.bc.getContext('2d');
-        bg.fillStyle = '#0a1a26'; bg.fillRect(0, 0, 384, 112);
-        bg.strokeStyle = o.col || '#00e5ff'; bg.lineWidth = 8; bg.strokeRect(4, 4, 376, 104);
-        bg.fillStyle = o.col || '#00e5ff'; bg.font = 'bold 32px monospace'; bg.textAlign = 'center'; bg.textBaseline = 'middle';
-        bg.fillText(o.label, 192, 58);
+        bg.fillStyle = '#0a1a26'; bg.fillRect(0, 0, 416, 128);
+        bg.strokeStyle = o.col || '#00e5ff'; bg.lineWidth = 8; bg.strokeRect(4, 4, 408, 120);
+        bg.fillStyle = o.col || '#00e5ff'; bg.font = 'bold 36px monospace'; bg.textAlign = 'center'; bg.textBaseline = 'middle';
+        bg.fillText(o.label, 208, 66);
         b.bt.needsUpdate = true;
         b.side.color.set(o.col || '#00e5ff'); b.side.emissive.set(o.col || '#00e5ff');
       });
@@ -9219,11 +9897,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       g.fillStyle = '#ffcc00'; g.font = 'bold 26px monospace'; g.fillText(`LEVEL ${L}  \u00B7  XP ${novaXP}/${nx}`, 560, 46);
       g.fillStyle = '#cfefff'; g.font = '22px monospace';
       g.fillText(`${novaPilot.name} \u00B7 ${novaRank()} \u00B7 ${novaShipDef().short} \u00B7 ${bankCredits} CR \u00B7 KILLS ${novaPilot.kills} \u00B7 ORE ${novaPilot.ore}t \u00B7 MISSILES ${missileAmmo}/${novaMslCap()}`.slice(0, 84), 28, 80);
-      g.fillStyle = '#ff88cc'; g.font = 'bold 22px monospace'; g.fillText('FRIENDS \u2665', 28, 116);
+      g.fillStyle = '#ff88cc'; g.font = 'bold 22px monospace'; g.fillText('CREW & CONTACTS', 28, 116);
       const bar = (x, y, v, col) => { g.fillStyle = '#1a2a3a'; g.fillRect(x, y - 14, 180, 14); g.fillStyle = col; g.fillRect(x, y - 14, 1.8 * v, 14); };
       Object.keys(novaAff).forEach((k, i) => { const y = 142 + i * 26; g.fillStyle = '#cfefff'; g.font = '20px monospace'; g.fillText(`${NOVA_AFF_NAMES[k]}`.slice(0, 16), 28, y); bar(240, y, novaAff[k], '#ff88cc'); g.fillText(String(novaAff[k]), 430, y); });
       { const y = 142 + 5 * 26; g.fillStyle = '#ff6666'; g.font = '20px monospace'; g.fillText('PIRATE STANDING', 28, y); bar(240, y, novaPirRep, '#ff3344'); g.fillText(String(novaPirRep), 430, y); }
-      g.fillStyle = '#ffcc00'; g.font = 'bold 22px monospace'; g.fillText('STORY \u00B7 THE CORSAIR LINE', 500, 116);
+      g.fillStyle = '#ffcc00'; g.font = 'bold 22px monospace'; g.fillText('FLIGHT RECORD \u00B7 CORSAIR LINE', 500, 116);
       g.font = '20px monospace';
       CAMPAIGN.forEach((ch, i) => {
         const done = i < campaignChapter, cur = i === campaignChapter;
@@ -9236,7 +9914,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       if (cur) { g.fillText(`OBJECTIVE: ${cur.objective}`.slice(0, 92), 28, 318); g.fillText(`HINT: ${cur.hint}`.slice(0, 92), 28, 344); }
       g.fillStyle = '#ffaa00'; g.font = 'bold 22px monospace'; g.fillText('CONTRACT', 28, 384);
       g.font = '20px monospace'; g.fillStyle = '#ffe0a0';
-      g.fillText(novaContract ? `${novaContract.title} \u00B7 ${Math.floor(novaContract.prog)}/${novaContract.goal} \u00B7 pays ${novaContract.pay} CR` : 'None. Pick one from the cantina CONTRACT BOARD or accept a comms offer.', 160, 384);
+       g.fillText(novaContract ? `${novaContract.title} \u00B7 ${Math.floor(novaContract.prog)}/${novaContract.goal} \u00B7 pays ${novaContract.pay} CR` : 'No active contract. Check the cantina board or await a comms offer.', 160, 384);
       if (novaMayday) { g.fillStyle = '#ff3344'; g.fillText(`MAYDAY: reach Starlifter-7 in ${Math.ceil(novaMayday.t)} s`, 160, 410); }
       g.fillStyle = '#ffee88'; g.font = 'bold 22px monospace'; g.fillText('CODE OF THE NOVA', 28, 446);
       g.font = '20px monospace';
@@ -9447,6 +10125,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         if (hitAsteroid) {
           // Mining hit audio & visual
           sound.miningLaserHit();
+          try { if (window.novaVfxFlare) window.novaVfxFlare(l.mesh.position, 0x00ffcc, 4.5, 0.22); } catch (e) {}
           hitAsteroid.userData.health = (hitAsteroid.userData.health || 50) - 20;
           hitAsteroid.userData.hitsTaken = (hitAsteroid.userData.hitsTaken || 0) + 1;
 
@@ -9477,6 +10156,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           // Asteroid Depleted / Shattered
           if (hitAsteroid.userData.health <= 0) {
             sound.explosion();
+            try { if (typeof novaBoom === 'function') novaBoom(hitAsteroid.position.clone(), 0.85); } catch (e) {}
             const bonusOre = Math.max(2, Math.round((hitAsteroid.userData.radius || 10) * 0.35));
             const bonusCr = bonusOre * 75;
             cargoOre += bonusOre;
@@ -9505,6 +10185,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
             if (!td.visible) continue;
             if (l.mesh.position.distanceTo(td.position) < 4.5) {
               sound.explosion();
+              try { if (typeof novaBoom === 'function') novaBoom(td.position.clone(), 0.7); } catch (e) {}
               td.visible = false;
               sound.oreCollect();
               showToast('🎯 TARGET DRONE DESTROYED! +100 PTS', 2000, '#00ff88');
@@ -9626,10 +10307,19 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         }
       }
 
-            // ── Flight Steering & Propulsion via Joystick & Throttle (Crisp Agile Starfighter Model) ──
+      // ── Flight Steering & Propulsion via Joystick & Throttle (Crisp Agile Starfighter Model) ──
       // Active Steering Determination: When pilot is gripping stick or using thumbstick
       const isActivelySteering = (isGrippingStick || isGrippingStickHand || isThumbstickSteering || Boolean(window.isTestingGripStick));
-      const isStickDeflected = (Math.abs(stickPivot.rotation.x) > 0.015 || Math.abs(stickPivot.rotation.z) > 0.015);
+      // Angular Deadzone (~3.2 deg / 0.055 rad) with smooth rescaling up to max 0.45 rad deflection
+      const STICK_ANGLE_DEADZONE = 0.055;
+      const stickAxisNorm = (rad) => {
+        const abs = Math.abs(rad);
+        if (abs <= STICK_ANGLE_DEADZONE) return 0;
+        return Math.sign(rad) * Math.min(1.0, (abs - STICK_ANGLE_DEADZONE) / (0.45 - STICK_ANGLE_DEADZONE));
+      };
+      const normPitch = stickAxisNorm(stickPivot.rotation.x);
+      const normRoll  = stickAxisNorm(stickPivot.rotation.z);
+      const isStickDeflected = (normPitch !== 0 || normRoll !== 0);
       const isSteeringNeutral = (!isActivelySteering || !isStickDeflected);
 
       // Starfighter Agile Flight Rates: Responsive, agile, comfortable star travel
@@ -9642,13 +10332,13 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       // Pitch: Inverted Y (Default): Pull back (stick.rotation.x > 0) -> Climb / Pitch UP! Push forward -> Dive / Pitch DOWN!
       // In Three.js coordinates, a negative rotation around local X pitches the nose UP towards +Y.
       const pitchFactor = isPitchInverted ? -1.0 : 1.0;
-      const pitchRate = pitchFactor * (stickPivot.rotation.x / 0.45) * pitchSpeed;
+      const pitchRate = pitchFactor * normPitch * pitchSpeed;
 
       // Turn / Yaw: Tilt Right (stick.rotation.z < 0) -> Turn RIGHT; Tilt Left -> Turn LEFT
-      const yawRate = (stickPivot.rotation.z / 0.45) * yawSpeed;
+      const yawRate = normRoll * yawSpeed;
 
       // Roll: Coordinated Banking: Tilt Right -> Bank RIGHT; Tilt Left -> Bank LEFT
-      const rollRate = (stickPivot.rotation.z / 0.45) * 0.45 * rollSpeed;
+      const rollRate = normRoll * 0.45 * rollSpeed;
 
       if (!isSteeringNeutral) {
         // Direct local attitude integration: rotates strictly around ship's CURRENT local axes (Pitch=X, Yaw=Y, Roll=Z)
@@ -10429,11 +11119,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
               if (!isGripActive || distStick > 0.165 || isHandBusyWithControls) {
                 isGrippingStickHand = false;
               } else {
-                // Deflection relative to current joystick location in cockpit
-                // Hand center has natural 2cm palm offset at stick handle
-                const handNeutralZ = 0.020;
-                const dz = localStickHand.z - handNeutralZ;
-                const dx = localStickHand.x;
+                // Deflection relative to initial hand grab anchor with generous 2.2cm deadzone
+                const dz = localStickHand.z - (typeof stickGrabAnchorZ === 'number' ? stickGrabAnchorZ : 0.020);
+                const dx = localStickHand.x - (typeof stickGrabAnchorX === 'number' ? stickGrabAnchorX : 0.0);
 
                 const DEADZONE = 0.012;
                 let targetPitch = 0.0;
@@ -10442,14 +11130,14 @@ const GAME_VERSION = 'Alpha 1.0 RC';
                 // Deflection along Z (Forward / Backward Pitch)
                 if (Math.abs(dz) > DEADZONE) {
                   const signZ = Math.sign(dz);
-                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.050, 1.0);
+                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.055, 1.0);
                   targetPitch = signZ * magZ * 0.45;
                 }
 
                 // Deflection along X (Left / Right Roll & Turn)
                 if (Math.abs(dx) > DEADZONE) {
                   const signX = Math.sign(dx);
-                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.050, 1.0);
+                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.055, 1.0);
                   targetRoll = -signX * magX * 0.45;
                 }
 
@@ -10747,11 +11435,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
             stickHandle.getWorldPosition(stickWorldPos);
             const distStick = cPos.distanceTo(stickWorldPos);
 
-            // Right Controller Trigger or 'A' button fires laser when holding or pointing near stick!
+            // Right Controller Trigger or 'A'/'B' button fires laser continuously while holding stick
             if (rightGamepad && rightGamepad.buttons) {
-              const isTrigger = false;   // the grip squeeze/trigger no longer fires
-              const isAButton = (rightGamepad.buttons[4] && rightGamepad.buttons[4].pressed) || (rightGamepad.buttons[5] && rightGamepad.buttons[5].pressed);
-              if ((isTrigger || isAButton) && isGrippingStickCtrl && (now - lastFireTime > 160)) {
+              const isTrigger = !!(rightGamepad.buttons[0] && rightGamepad.buttons[0].pressed);
+              const isAButton = !!(rightGamepad.buttons[4] && rightGamepad.buttons[4].pressed) || !!(rightGamepad.buttons[5] && rightGamepad.buttons[5].pressed);
+              if ((isTrigger || isAButton) && isGrippingStickCtrl) {
                 pressThumbFireButton();
               }
             }
@@ -10768,21 +11456,21 @@ const GAME_VERSION = 'Alpha 1.0 RC';
                 isGrippingStickCtrl = false;
               } else {
                 const localStickHand = stickGroup.worldToLocal(cPos.clone());
-                const dz = localStickHand.z;
-                const dx = localStickHand.x;
+                const dz = localStickHand.z - (typeof stickGrabAnchorCtrlZ === 'number' ? stickGrabAnchorCtrlZ : 0.0);
+                const dx = localStickHand.x - (typeof stickGrabAnchorCtrlX === 'number' ? stickGrabAnchorCtrlX : 0.0);
 
-                const DEADZONE = 0.008;
+                const DEADZONE = 0.022;
                 let targetPitch = 0.0;
                 let targetRoll = 0.0;
 
                 if (Math.abs(dz) > DEADZONE) {
                   const signZ = Math.sign(dz);
-                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.050, 1.0);
+                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.055, 1.0);
                   targetPitch = signZ * magZ * 0.45;
                 }
                 if (Math.abs(dx) > DEADZONE) {
                   const signX = Math.sign(dx);
-                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.050, 1.0);
+                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.055, 1.0);
                   targetRoll = -signX * magX * 0.45;
                 }
 
@@ -10950,7 +11638,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         }
       }
 
-      // ── Direct Thumbstick Input (Flight & Throttle without Needing 6DOF Grip) ──
+      // ── Direct Thumbstick Input (Flight & Throttle without Needing 6DOF Grip, with 0.16 Deadzone) ──
       isThumbstickSteering = false;
       if (!isGrippingStick && rightGamepad && rightGamepad.axes && rightGamepad.axes.length >= 2) {
         const dz = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12));
@@ -13604,7 +14292,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       return e;
     }
     function nmPressTick() {
-      NOP.list.forEach(it => { const p = it.e.pressTimer; it.node.position[it.axis] = it.base - (p > 0 ? Math.sin((1 - p / 0.15) * Math.PI) * it.depth : 0); });
+      NOP.list.forEach(it => {
+        if (it.e && it.e.label === 'THUMB FIRE LASER') return; // Handled continuously by nfmTick() so hold-to-fire stays depressed
+        const p = it.e.pressTimer;
+        it.node.position[it.axis] = it.base - (p > 0 ? Math.sin((1 - p / 0.15) * Math.PI) * it.depth : 0);
+      });
     }
     // flight stick: the cap on top of the lever is the fire button
     function nmWireStickFire(w) {
@@ -13612,7 +14304,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         const cap = w.getObjectByName('tripo_part_2'); const old = cockpitInteractables.find(e => e.label === 'THUMB FIRE LASER');
         if (!cap || !cap.isMesh || !old) return;
         nmRecenter(cap);
-        nmPressable(cap, 'THUMB FIRE LASER', old.action, 0.045, 'y', 0.05);
+        cap.userData.restY = cap.position.y;
+        nmPressable(cap, 'THUMB FIRE LASER', old.action, 0.048, 'y', 0.015);
         console.log('[NOVA12] stick fire button wired');
       } catch (e) { console.warn('stick fire wiring failed', e); }
     }
@@ -13718,8 +14411,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         const rx = flat(xs, 0.005);
         if (!rx || (rx.b - rx.a) * 0.005 < 0.05) { console.warn('[NOVA12] console', c.title, ': no flat screen found, keeping procedural face'); return false; }
         const screenW = (rx.b - rx.a) * 0.005;
-        const k = THREE.MathUtils.clamp((c.fieldW + 0.03) / screenW, 0.5, 2.2);
+        const k = THREE.MathUtils.clamp((c.fieldW + 0.045) / screenW, 0.5, 2.4);
         wrap.scale.multiplyScalar(k);
+        wrap.scale.y *= 1.10;
         // 3) height + depth of the screen -> position
         f = sample(); const ys2 = []; for (let n = 0; n <= 200; n++) ys2.push(f(0, 0.3 - n * YS));
         const ry = flat(ys2, 0.005);
@@ -14164,7 +14858,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           let on = false;
           if (it.label === 'OH AUTOPILOT') on = !!isAutopilotActive;
           else if (it.label === 'OH STEALTH') on = !!(window.NF && NF.stealth);
-          else if (it.label === 'OH RADAR') on = !!NH.on;
+          else if (it.label === 'OH RADAR') on = NH.on !== false;
           else if (it.label === 'OH REPAIR') on = (window.novaKits || 0) > 0 && (window.novaHull ?? 100) < 100;
           else if (it.label === 'AUTO-DOCK') { try { on = window.ndkState === 'hold' || novaDock.state !== 'idle'; } catch (e) { } }
           else if (it.label === 'OH MODE') on = lightMode !== 0;
@@ -14192,15 +14886,15 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       cockpit.add(g);
       NH.home = { position: g.position.clone(), quaternion: g.quaternion.clone(), scale: g.scale.clone() };
       const add = (geo, col, op, wire) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, wireframe: !!wire, toneMapped: false })); m.raycast = () => { }; g.add(m); return m; };
-      add(new THREE.SphereGeometry(R, 20, 10), 0x00d8ff, 0.09, true);
-      add(new THREE.CircleGeometry(R, 48), 0x0088ff, 0.06).rotation.x = -Math.PI / 2;
-      [1 / 3, 2 / 3, 1].forEach(f => { add(new THREE.RingGeometry(R * f - 0.0007, R * f + 0.0007, 64), 0x00e5ff, 0.6).rotation.x = -Math.PI / 2; });
-      const fw = add(new THREE.PlaneGeometry(0.0014, R), 0x00e5ff, 0.6); fw.rotation.x = -Math.PI / 2; fw.position.z = -R / 2;
+      add(new THREE.SphereGeometry(R, 20, 10), 0x00d8ff, 0.045, true);   // fainter: see the console through it
+      add(new THREE.CircleGeometry(R, 48), 0x0088ff, 0.025).rotation.x = -Math.PI / 2;
+      [1 / 3, 2 / 3, 1].forEach(f => { add(new THREE.RingGeometry(R * f - 0.0007, R * f + 0.0007, 64), 0x00e5ff, 0.32).rotation.x = -Math.PI / 2; });
+      const fw = add(new THREE.PlaneGeometry(0.0014, R), 0x00e5ff, 0.32); fw.rotation.x = -Math.PI / 2; fw.position.z = -R / 2;
       const own = add(new THREE.ConeGeometry(0.0055, 0.016, 8), 0x9ff6ff, 0.95); own.rotation.x = -Math.PI / 2;
       NH.sweep = new THREE.Group(); g.add(NH.sweep);
-      const sw = new THREE.Mesh(new THREE.PlaneGeometry(0.0018, R), new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }));
+      const sw = new THREE.Mesh(new THREE.PlaneGeometry(0.0018, R), new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.38, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }));
       sw.rotation.x = -Math.PI / 2; sw.position.z = -R / 2; sw.raycast = () => { }; NH.sweep.add(sw);
-      if (NK.on) {     // emitter cone from the dash screen up into the sphere
+      if (NK.on && NH.cone) {     // emitter cone from the dash screen up into the sphere (off by default: it covered the console)
         const from = nkC(0, 0.412, -0.153).sub(g.position), v = from.clone().negate(), L = v.length();
         const cone = add(new THREE.CylinderGeometry(R * 0.7, 0.03, L * 0.82, 24, 1, true), 0x00c8ff, 0.045);
         cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().normalize()); cone.position.copy(from).addScaledVector(v, 0.5 * 0.82);
@@ -14210,7 +14904,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       NH.ring.rotation.x = -Math.PI / 2; NH.ring.raycast = () => { }; NH.ring.visible = false; g.add(NH.ring);
       const bg = new THREE.SphereGeometry(0.0052, 10, 8), hg = new THREE.SphereGeometry(0.012, 8, 6), stg = new THREE.CylinderGeometry(0.0006, 0.0006, 1, 4);
       const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-      const stalkMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.45, depthWrite: false, toneMapped: false });
+      const stalkMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.3, depthWrite: false, toneMapped: false });
       for (let i = 0; i < 24; i++) {
         const b = new THREE.Mesh(bg, nhMat('asteroid')); b.visible = false; b.add(new THREE.Mesh(hg, hitMat));
         const nc = document.createElement('canvas'); nc.width = 256; nc.height = 48; const nx = nc.getContext('2d');
@@ -14259,7 +14953,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     }
     function nhTick(dt) {
       if (!NH.g) return;
-      NH.g.visible = cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen; if (!NH.g.visible) return;
+      NH.g.visible = (NH.on !== false) && cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen; if (!NH.g.visible) return;
       NH.t += dt; NH.listT -= dt;
       const range = (typeof radarZoomLevels !== 'undefined') ? radarZoomLevels[radarZoomIdx] : 600;
       if (NH.listT <= 0) { NH.listT = 0.3; try { NH.list = nmContactList(range, true).slice(0, NH.pool.length); } catch (e) { NH.list = []; } }
@@ -16433,7 +17127,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       } catch (e) { }
     }, 1000);
     function nmkRedraw() { const P = NP.panels[1]; if (P) P.drawT = 0; }
-    { const _draw = NP_CARGO.draw, _row = NP_CARGO.row, _pads = NP_CARGO.pads, _hint = NP_CARGO.hint;
+    { const _draw = NP_CARGO.draw, _row = NP_CARGO.row, _rowRect = NP_CARGO.rowRect, _pads = NP_CARGO.pads, _hint = NP_CARGO.hint;
       Object.defineProperty(NP_CARGO, 'name', { get: () => (nmkNear() ? 'MARKET' : 'CARGO'), configurable: true });
       Object.defineProperty(NP_CARGO, 'hint', { get: () => (nmkNear() ? 'touch a row to buy or sell · every station stocks different gear and pays different prices' : _hint), configurable: true });
       Object.defineProperty(NP_CARGO, 'pads', { get: () => (nmkNear() ? [] : _pads), configurable: true });
@@ -16737,7 +17431,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         { k: 'OPEN SKIES', t: rift === 'contact' ? 'The ring is quiet. It listens.' : rift ? 'The rift is closed.' : 'The lanes are open.', b: ['Convoys run again. The colonies have power. Nova-1 sleeps easy.', 'And everyone on the station knows the name Nova Lead.'] },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(0, 4) },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(4).concat([kept]) },
-        { k: 'PROJECT NOVA', t: 'Alpha 1.0', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
+        { k: 'PROJECT NOVA', t: 'Alpha 1.3', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
         { k: 'CREDITS', t: 'Ships, cockpit and crew', b: ['3D models generated for Project Nova (Tripo), optimised for Quest.', 'Faction fleets: Mind Space, the Corsair Line, the EDF.', 'Obi the cat-bot, Nyx, Valkyrie-7, John, Kip, Mother Kestrel, ADA-9.'] },
         { k: 'CREDITS', t: 'Music and art', b: ['Music: ScifiMusicPack (Fab), tracks Voyager, Space Caravan, Battle in the Market.', 'Sky, planets, icons and key art generated for Project Nova.'] },
         { k: 'THANK YOU FOR FLYING', t: 'The sector is yours.', b: ['Free flight continues: contracts, bounties, markets, the reef and the rift.', 'Fly safe, Nova Lead.'], last: true }
@@ -16803,30 +17497,76 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       });
     }, 1000);
 
-    // 2) fire modes: AUTO (hold = continuous), SINGLE, BURST 3
-    const NFM = { modes: ['AUTO', 'SINGLE', 'BURST 3'], i: 0, held: false, was: false, burst: 0, nextT: 0, padT: 0, keyHeld: false, thumb: false };
+    // 2) fire modes: AUTO (hold = continuous), SINGLE, BURST 3 — with continuous button hold & reliable spring return
+    const NFM = { modes: ['AUTO', 'SINGLE', 'BURST 3'], i: 0, held: false, was: false, burst: 0, nextT: 0, padT: 0, keyHeld: false, mouseHeld: false, thumb: false };
     try { NFM.i = Math.max(0, NFM.modes.indexOf(localStorage.getItem('novaFireMode') || 'AUTO')); } catch (e) { }
     window.NFM = NFM;
     window.novaFireModeCycle = () => { NFM.i = (NFM.i + 1) % NFM.modes.length; try { localStorage.setItem('novaFireMode', NFM.modes[NFM.i]); } catch (e) { } showToast('FIRE MODE: ' + NFM.modes[NFM.i], 1600, '#ff5566'); try { sound.switchClick(); } catch (e) { } };
-    // controller A/B while gripping used to call pressThumbFireButton every frame; it now just reports "held"
+    // controller A/B or trigger while gripping reports "held" via NFM.padT
     { const _pt = pressThumbFireButton; pressThumbFireButton = function () { NFM.padT = performance.now(); }; NFM.rawFire = _pt; }
     window.addEventListener('keydown', e => { if (e.code === 'Space' && !e._nopt) NFM.keyHeld = true; }, true);
     window.addEventListener('keyup', e => { if (e.code === 'Space') NFM.keyHeld = false; }, true);
-    function nfmShot() { lastFireTime = 0; try { NFM.rawFire(); } catch (e) { try { triggerFire(); } catch (e2) { } } }
+    window.addEventListener('mouseup', () => { NFM.mouseHeld = false; }, true);
+    window.addEventListener('blur', () => { NFM.keyHeld = false; NFM.mouseHeld = false; }, true);
+    if (thumbFireBtn && thumbFireBtn.userData) thumbFireBtn.userData.restY = 0.010;
+    function nfmShot() {
+      lastFireTime = 0;
+      try { triggerFire(); } catch (e) { }
+    }
     function nfmTick() {
       const now = performance.now();
-      // hand tracking: thumb tip on the stick's fire button while the right hand grips the stick
+      // Continuous proximity detection on all THUMB FIRE LASER meshes (cap + fallback cylinder)
+      // Works when gripping stick with thumb, poking from above with index finger, or poking with VR controller tip
       NFM.thumb = false;
+      const fireEntries = cockpitInteractables.filter(q => q && q.label === 'THUMB FIRE LASER' && q.mesh && q.mesh.isMesh);
       try {
-        if (renderer.xr.isPresenting && isGrippingStickHand) {
-          const fb = cockpitInteractables.find(q => q.label === 'THUMB FIRE LASER' && q.mesh && q.mesh.isMesh);
-          if (fb) { const bp = fb.mesh.getWorldPosition(new THREE.Vector3());
-            [h1, h2].forEach(h => { const j = h && h.joints && h.joints['thumb-tip']; if (j && j.visible !== false && j.getWorldPosition(new THREE.Vector3()).distanceTo(bp) < 0.035) NFM.thumb = true; });
-            fb.mesh.position.y = (fb.mesh.userData.y0 ?? (fb.mesh.userData.y0 = fb.mesh.position.y)) - (NFM.thumb ? 0.012 : 0);   // the cap goes down under your thumb
+        if (renderer.xr.isPresenting && fireEntries.length > 0) {
+          const fingerJoints = [];
+          [h1, h2].forEach(h => {
+            if (!h || !h.joints) return;
+            ['thumb-tip', 'index-finger-tip'].forEach(jn => {
+              const j = h.joints[jn];
+              if (j && j.visible !== false) fingerJoints.push(j.getWorldPosition(new THREE.Vector3()));
+            });
+          });
+          ['left', 'right'].forEach(s => {
+            const nh = novaHands && novaHands[s];
+            if (nh && nh.grip && nh.grip.visible && nh.tip) {
+              fingerJoints.push(nh.tip.getWorldPosition(new THREE.Vector3()));
+            }
+          });
+          const bp = new THREE.Vector3();
+          for (let i = 0; i < fireEntries.length && !NFM.thumb; i++) {
+            const m = fireEntries[i].mesh;
+            if (!novaWorldVisible(m)) continue;
+            m.getWorldPosition(bp);
+            for (let k = 0; k < fingerJoints.length; k++) {
+              if (fingerJoints[k].distanceTo(bp) < 0.046) {
+                NFM.thumb = true;
+                break;
+              }
+            }
           }
         }
       } catch (e) { }
-      const held = NFM.keyHeld || NFM.thumb || (now - NFM.padT < 120);
+
+      const held = NFM.keyHeld || NFM.mouseHeld || NFM.thumb || (now - NFM.padT < 180);
+      NFM.held = held;
+
+      // Visually depress the fire button while held and reliably spring back to restY when released
+      try {
+        fireEntries.forEach(fe => {
+          const m = fe.mesh;
+          if (!m) return;
+          if (m.userData.restY === undefined) m.userData.restY = (m === thumbFireBtn) ? 0.010 : m.position.y;
+          const targetY = m.userData.restY - (held ? (m === thumbFireBtn ? 0.007 : 0.014) : 0);
+          m.position.y = THREE.MathUtils.lerp(m.position.y, targetY, 0.65);
+        });
+        if (typeof thumbFireBtnMat !== 'undefined' && thumbFireBtnMat) {
+          thumbFireBtnMat.emissiveIntensity = held ? 2.4 : 0.95;
+        }
+      } catch (e) { }
+
       const edge = held && !NFM.was; NFM.was = held;
       const mode = NFM.modes[NFM.i];
       if (mode === 'AUTO') { if (held && now >= NFM.nextT) { NFM.nextT = now + 160; nfmShot(); } }
@@ -16864,9 +17604,17 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     { const _ex = exitLightspeed; exitLightspeed = function () { const was = isLightspeedActive; const r = _ex.apply(this, arguments); if (was && !isLightspeedActive) setTimeout(() => novaFlightRestore('warp exit'), 50); return r; }; }
     { const _ed = executeDocking; executeDocking = function () { const r = _ed.apply(this, arguments); novaFlightRestore('docked'); return r; }; }
 
-    // 4) holo-radar shows little hologram models of real ships (overhead RADAR button: models <-> dots)
-    NH.models = true; try { NH.models = localStorage.getItem('novaRadarModels') !== '0'; } catch (e) { }
-    window.novaRadarToggle = () => { NH.models = !NH.models; try { localStorage.setItem('novaRadarModels', NH.models ? '1' : '0'); } catch (e) { } showToast('HOLO-RADAR: ' + (NH.models ? '3D MODELS' : 'DOTS'), 1500, '#00e5ff'); };
+    // 4) 3D holo-radar with real 3D ship models — overhead RADAR button toggles the entire 3D radar ON/OFF
+    NH.models = true;
+    NH.on = true; try { NH.on = localStorage.getItem('novaRadarOn') !== '0'; } catch (e) { }
+    window.novaRadarToggle = (forceState) => {
+      NH.on = (typeof forceState === 'boolean') ? forceState : !NH.on;
+      NH.models = true;
+      try { localStorage.setItem('novaRadarOn', NH.on ? '1' : '0'); } catch (e) { }
+      if (NH.g) NH.g.visible = NH.on && cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen;
+      showToast('3D HOLO-RADAR: ' + (NH.on ? 'ONLINE (3D SHIPS)' : 'OFFLINE'), 1500, NH.on ? '#00e5ff' : '#ff5566');
+      try { sound.switchClick(); } catch (e) { }
+    };
     NH.minis = new Map(); NH.invis = new THREE.MeshBasicMaterial({ visible: false });
     function nhMini(c) {
       if (NH.minis.has(c.obj)) return NH.minis.get(c.obj);
@@ -16874,7 +17622,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       let src = c.obj; const u = c.obj.userData && c.obj.userData.nfUnit;
       if (u && u.model && u.model.isLOD && u.model.levels.length) src = u.model.levels[u.model.levels.length - 1].object;   // low-poly copy
       let cl; try { cl = src.clone(true); } catch (e) { NH.minis.set(c.obj, null); return null; }
-      const mat = new THREE.MeshBasicMaterial({ color: nhMat(c.type).color, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+      const mat = new THREE.MeshBasicMaterial({ color: nhMat(c.type).color, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
       const drop = []; cl.traverse(o => { if (o.isSprite || o.isPoints || o.isLight || o.isLine) drop.push(o); else if (o.isMesh) { o.material = mat; o.raycast = () => { }; } }); drop.forEach(o => o.parent && o.parent.remove(o));
       cl.position.set(0, 0, 0); cl.quaternion.identity(); cl.scale.setScalar(1); cl.updateMatrixWorld(true);
       const bb = new THREE.Box3().setFromObject(cl); if (bb.isEmpty()) { NH.minis.set(c.obj, null); return null; }
@@ -16883,10 +17631,12 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       holder.add(inner); inner.scale.setScalar(0.017 / Math.max(sz.x, sz.y, sz.z, 1e-6)); holder.userData.inner = inner;
       NH.minis.set(c.obj, holder); return holder;
     }
+    NH.mb = [];
     { const _nt = nhTick; nhTick = function (dt) {
+        if (!NH.on) { if (NH.g) NH.g.visible = false; return; }
         _nt(dt);
         if (!NH.g || !NH.g.visible) return;
-        const iq = shipGroup.quaternion.clone().invert(), q = new THREE.Quaternion();
+        const iq = shipGroup.quaternion.clone().invert(), q = new THREE.Quaternion(), sp = shipGroup.position;
         NH.pool.forEach(b => {
           const c = b.userData.c; let m = b.userData.mini;
           const want = NH.models && c && c.obj && c.type !== 'asteroid' ? nhMini(c) : null;
@@ -16894,45 +17644,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           if (want && !m) { b.add(want); b.userData.mini = want; m = want; }
           if (m) { b.material = NH.invis; c.obj.getWorldQuaternion(q); m.quaternion.copy(iq).multiply(q); m.scale.setScalar(1 / Math.max(b.scale.x, 1e-3)); }
         });
-      }; }
-
-    // 5) centre dash screen: NAV (objective, heading arrow, distance, ETA, autopilot / dock / stealth / fire mode) instead of a 2D copy of the radar
-    nkDrawPlate = function () {
-      const { x, w, h } = NKS.plate; x.fillStyle = '#020a14'; x.fillRect(0, 0, w, h); x.textBaseline = 'alphabetic';
-      let pos = stationGroup.position, name = 'STATION NOVA-1', col = '#00ffcc', lab = 'OBJECTIVE';
-      try { const so = window.novaSiteObjective && window.novaSiteObjective(); if (so) { pos = so.pos; name = so.label; } } catch (e) { }
-      const lk = currentLockedTarget; if (lk && lk.targetObj) { pos = lk.targetObj.getWorldPosition(new THREE.Vector3()); name = lk.name; lab = lk.isHostile ? 'TARGET · HOSTILE' : 'TARGET'; col = lk.isHostile ? '#ff5566' : '#33ff99'; }
-      const rel = pos.clone().sub(shipGroup.position), d = rel.length(); rel.applyQuaternion(shipGroup.quaternion.clone().invert());
-      const brg = Math.atan2(rel.x, -rel.z), el = Math.atan2(rel.y, Math.hypot(rel.x, rel.z)), v = shipBody.velocity.length();
-      x.font = 'bold 24px monospace'; x.fillStyle = '#00e5ff'; x.textAlign = 'left'; x.fillText('NAV', 14, 32);
-      x.textAlign = 'right'; x.fillStyle = col; x.fillText(lab, w - 14, 32);
-      x.textAlign = 'center'; x.fillStyle = '#ffffff'; x.font = 'bold 30px monospace'; x.fillText(nkFit(x, name, w - 40), w / 2, 78);
-      // steering arrow: where to turn
-      const cx = w / 2, cy = 192, R = 70; x.strokeStyle = 'rgba(0,229,255,0.35)'; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, R, 0, 7); x.stroke();
-      x.save(); x.translate(cx, cy); x.rotate(brg); x.fillStyle = col; x.beginPath(); x.moveTo(0, -R + 6); x.lineTo(-18, -R + 40); x.lineTo(18, -R + 40); x.closePath(); x.fill(); x.restore();
-      x.fillStyle = Math.abs(brg) < 0.1 && Math.abs(el) < 0.1 ? '#33ff99' : '#9fc3d8'; x.font = 'bold 20px monospace';
-      x.fillText(Math.abs(brg) < 0.1 && Math.abs(el) < 0.1 ? 'ON TARGET' : (el > 0.1 ? 'UP ' : el < -0.1 ? 'DOWN ' : '') + Math.round(Math.abs(brg) * 57.3) + '° ' + (brg > 0 ? 'RIGHT' : 'LEFT'), cx, cy + 8);
-      x.font = 'bold 34px monospace'; x.fillStyle = '#ffd24a'; x.fillText(d < 1000 ? Math.round(d) + ' m' : (d / 1000).toFixed(1) + ' km', cx, 300);
-      x.font = '20px monospace'; x.fillStyle = '#7fb6d0'; x.fillText(v > 2 ? 'ETA ' + Math.round(d / v) + ' s  ·  ' + Math.round(v) + ' m/s' : Math.round(v) + ' m/s', cx, 328);
-      const st = [];
-      if (isAutopilotActive || novaAutoDockPending) st.push(['AUTOPILOT', '#33ff99']); if (novaDock.state !== 'idle') st.push(['DOCKING', '#00f0ff']);
-      if (window.NF && NF.stealth) st.push(['STEALTH', '#9a7dff']); st.push(['FIRE ' + NFM.modes[NFM.i], '#ff5566']);
-      x.font = 'bold 18px monospace'; st.forEach((s, i) => { x.fillStyle = s[1]; x.fillText(s[0], (i + 0.5) * w / st.length, h - 14); });
-      NKS.plate.t.needsUpdate = true;
-    };
-
-
-    // ── NOVA14: radar on/off, missile blips, fire button held down, data centre screen, ULTRA graphics (original models) ──
-    NH.on = true; try { NH.on = localStorage.getItem('novaRadarOn') !== '0'; } catch (e) { }
-    NH.models = true;
-    window.novaRadarToggle = () => { NH.on = !NH.on; try { localStorage.setItem('novaRadarOn', NH.on ? '1' : '0'); } catch (e) { } showToast('HOLO-RADAR ' + (NH.on ? 'ON' : 'OFF'), 1400, '#00e5ff'); };
-    NH.mb = [];
-    { const _nt2 = nhTick; nhTick = function (dt) {
-        if (!NH.on) { if (NH.g) NH.g.visible = false; return; }
-        _nt2(dt);
-        if (!NH.g || !NH.g.visible) return;
         // missiles: tiny flashing blips (red = coming at you, white = yours)
-        const range = (typeof radarZoomLevels !== 'undefined') ? radarZoomLevels[radarZoomIdx] : 600, R = NH.R, iq = shipGroup.quaternion.clone().invert(), sp = shipGroup.position;
+        const range = (typeof radarZoomLevels !== 'undefined') ? radarZoomLevels[radarZoomIdx] : 600, R = NH.R;
         const list = [];
         try { NF.msl.forEach(m => list.push([m.m.position, m.tgt && m.tgt.player ? 0xff2233 : 0xffaa33])); } catch (e) { }
         try { activeMissiles.forEach(m => list.push([m.group.position, 0xffffff])); } catch (e) { }
@@ -16944,35 +17657,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           b.position.copy(v); b.visible = true; b.material.color.setHex(it[1]); b.material.opacity = fl;
         });
       }; }
-    // the stick's fire cap stays down for as long as you hold fire (any input)
-    setInterval(() => {
-      try {
-        const fb = cockpitInteractables.find(q => q.label === 'THUMB FIRE LASER' && q.mesh && q.mesh.isMesh); if (!fb) return;
-        const held = NFM.keyHeld || NFM.thumb || (performance.now() - NFM.padT < 120);
-        const m = fb.mesh, u = m.userData; if (u.y0 === undefined) u.y0 = m.position.y;
-        m.position.y = u.y0 - (held ? 0.012 : 0);
-        if (m.material && m.material.emissive) { if (!u.em0) u.em0 = m.material.emissive.clone(); m.material.emissive.copy(held ? new THREE.Color(0xff2a1a) : u.em0); }
-      } catch (e) { }
-    }, 30);
-    // centre dash screen: ship data (no steering hints)
-    nkDrawPlate = function () {
-      const { x, w, h } = NKS.plate; x.fillStyle = '#020a14'; x.fillRect(0, 0, w, h); x.textBaseline = 'alphabetic';
-      const v = shipBody.velocity.length(), tp = throttlePct > 1 ? throttlePct : throttlePct * 100;
-      const hull = window.novaHull ?? 100, sh = window.novaShield ?? 100, core = (typeof NW !== 'undefined') ? NW.core : 0, cap = (typeof novaWarpCap === 'function') ? novaWarpCap() : 100;
-      x.font = 'bold 24px monospace'; x.fillStyle = '#00e5ff'; x.textAlign = 'left'; x.fillText('SHIP DATA', 14, 32);
-      x.textAlign = 'right'; x.fillStyle = '#ffd24a'; x.fillText(String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', w - 14, 32);
-      const big = (l, val, X, c) => { x.textAlign = 'center'; x.font = '18px monospace'; x.fillStyle = '#7fb6d0'; x.fillText(l, X, 68); x.font = 'bold 40px monospace'; x.fillStyle = c; x.fillText(val, X, 110); };
-      big('SPEED m/s', Math.round(v), w * 0.2, '#e9fbff'); big('THROTTLE', Math.round(tp) + '%', w * 0.5, '#00e5ff'); big('MISSILES', missileAmmo, w * 0.8, '#ffaa22');
-      const bar = (y, l, f, c) => { x.textAlign = 'left'; x.font = 'bold 18px monospace'; x.fillStyle = '#9fc3d8'; x.fillText(l, 18, y - 6); x.fillStyle = '#0d1d2b'; x.fillRect(18, y, w - 36, 18); x.fillStyle = c; x.fillRect(18, y, (w - 36) * Math.max(0, Math.min(1, f)), 18); };
-      bar(152, 'SHIELDS ' + Math.round(sh) + '%', sh / 100, '#00e5ff'); bar(198, 'HULL ' + Math.round(hull) + '%', hull / 100, hull < 35 ? '#ff3344' : '#33ff99'); bar(244, 'WARP CORE ' + Math.round(core) + '%', core / cap, '#b266ff');
-      x.font = 'bold 20px monospace'; x.textAlign = 'left'; x.fillStyle = '#e9fbff';
-      x.fillText(`FLR ${cargoFlares}  CAP ${cargoShieldCaps}  KIT ${window.novaKits || 0}  ORE ${cargoOre}t`, 18, 292);
-      let th = 0; try { th = ((NP.panels[0] && NP.panels[0].list) || []).filter(c => c.isHostile).length; } catch (e) { }
-      const st = [['FIRE ' + NFM.modes[NFM.i], '#ff5566'], [th ? th + ' HOSTILE' : 'CLEAR', th ? '#ff5566' : '#33ff99']];
-      if (isAutopilotActive || novaAutoDockPending) st.push(['AUTOPILOT', '#33ff99']); if (novaDock.state !== 'idle') st.push(['DOCKING', '#00f0ff']); if (window.NF && NF.stealth) st.push(['STEALTH', '#9a7dff']);
-      x.font = 'bold 17px monospace'; x.textAlign = 'center'; st.forEach((s, i) => { x.fillStyle = s[1]; x.fillText(s[0], (i + 0.5) * w / st.length, h - 14); });
-      NKS.plate.t.needsUpdate = true;
-    };
+
     // ULTRA graphics: faction ships load your original full-detail files (big: Quest frame rate will drop, best on PC VR / desktop)
     const NF_ORIG = {
       alien_fighter: 'Alien/Alien fighterspaceship 3d model.glb', alien_mothership: 'Alien/futuristic dragon ring 3d model alien mothership.glb', alien_carrier: 'Alien/Alien carrier ship.glb',
@@ -16989,6 +17674,630 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         return (async () => { const L = await nmGetLoader(); return new Promise(res => L.load('./' + NF_ASSETS[hit].origFile.split('/').map(encodeURIComponent).join('/'), g => res(g), undefined, () => { console.warn('[NOVA14] ULTRA: missing original', hit); _ld(slug).then(res); })); })();
       };
       console.log('[NOVA14] ULTRA graphics: original faction models');
+    }
+
+    // 5) centre dash screen: SHIP TELEMETRY & SYSTEMS DATA (replaces turn directions)
+    nkDrawPlate = function () {
+      const { x, w, h } = NKS.plate;
+      x.fillStyle = '#020a14';
+      x.fillRect(0, 0, w, h);
+      x.strokeStyle = 'rgba(0,229,255,0.35)';
+      x.lineWidth = 2;
+      x.strokeRect(4, 4, w - 8, h - 8);
+      x.textBaseline = 'alphabetic';
+
+      // Header bar
+      x.fillStyle = 'rgba(0,229,255,0.12)';
+      x.fillRect(6, 6, w - 12, 34);
+      x.font = 'bold 20px monospace';
+      x.fillStyle = '#00e5ff';
+      x.textAlign = 'left';
+      x.fillText('SHIP TELEMETRY // SYS-DATA', 14, 29);
+      let shipName = 'NOVA-1';
+      try { shipName = (novaShipDef && novaShipDef().name) ? novaShipDef().name.toUpperCase() : 'STARFIGHTER'; } catch (e) { }
+      x.textAlign = 'right';
+      x.fillStyle = '#7fb6d0';
+      x.font = 'bold 17px monospace';
+      x.fillText(nkFit(x, shipName, 175), w - 14, 29);
+
+      // Compute flight kinematics
+      const spd = shipBody ? Math.round(shipBody.velocity.length()) : 0;
+      const thr = Math.round((throttlePct || 0) * 100);
+      const eul = new THREE.Euler().setFromQuaternion(shipGroup.quaternion, 'YXZ');
+      const hdg = ((Math.round(THREE.MathUtils.radToDeg(-eul.y)) % 360) + 360) % 360;
+      const pit = Math.round(THREE.MathUtils.radToDeg(eul.x));
+      const rol = Math.round(THREE.MathUtils.radToDeg(-eul.z));
+
+      // Row 1: Flight Kinematics (Boxes)
+      const boxY = 48, boxH = 58, boxW = (w - 36) / 3;
+      const drawStatBox = (idx, label, val, sub, col) => {
+        const bx = 12 + idx * (boxW + 6);
+        x.fillStyle = 'rgba(6,22,38,0.9)';
+        x.fillRect(bx, boxY, boxW, boxH);
+        x.strokeStyle = 'rgba(0,229,255,0.28)';
+        x.lineWidth = 1.5;
+        x.strokeRect(bx, boxY, boxW, boxH);
+        x.textAlign = 'left';
+        x.fillStyle = '#7fb6d0';
+        x.font = 'bold 13px monospace';
+        x.fillText(label, bx + 8, boxY + 17);
+        x.fillStyle = col;
+        x.font = 'bold 24px monospace';
+        x.fillText(val, bx + 8, boxY + 43);
+        if (sub) {
+          x.textAlign = 'right';
+          x.fillStyle = '#9fc3d8';
+          x.font = '13px monospace';
+          x.fillText(sub, bx + boxW - 8, boxY + 17);
+        }
+      };
+      drawStatBox(0, 'VELOCITY', spd + ' m/s', isLightspeedActive ? 'WARP' : 'SUBLIGHT', '#00ffcc');
+      drawStatBox(1, 'THROTTLE', thr + '%', 'GATE ' + (currentThrottleNotch || 0) + '/4', '#ffd24a');
+      drawStatBox(2, 'ATTITUDE', String(hdg).padStart(3, '0') + '°', `P:${pit >= 0 ? '+' : ''}${pit}° R:${rol >= 0 ? '+' : ''}${rol}°`, '#00e5ff');
+
+      // Row 2: Vitals Bars (Hull, Shields, Warp Core)
+      const hull = Math.max(0, Math.min(100, Math.round(window.novaHull ?? 100)));
+      const shld = Math.max(0, Math.min(100, Math.round(window.novaShield ?? 100)));
+      let wCore = 100, wCap = 100, wReg = 1.0;
+      try { wCore = Math.round(NW.core); wCap = novaWarpCap(); wReg = novaWarpRegen(); } catch (e) { }
+      const wPct = Math.max(0, Math.min(100, Math.round((wCore / Math.max(1, wCap)) * 100)));
+
+      const drawBar = (y, label, valTxt, pct, col) => {
+        x.textAlign = 'left';
+        x.font = 'bold 16px monospace';
+        x.fillStyle = '#bfefff';
+        x.fillText(label, 14, y + 15);
+        x.fillStyle = '#081828';
+        x.fillRect(116, y, 260, 18);
+        x.fillStyle = col;
+        x.fillRect(116, y, Math.round(2.6 * pct), 18);
+        x.strokeStyle = 'rgba(0,229,255,0.4)';
+        x.strokeRect(116, y, 260, 18);
+        x.textAlign = 'right';
+        x.fillStyle = col;
+        x.fillText(valTxt, w - 14, y + 15);
+      };
+      drawBar(118, 'HULL INT', hull + '%', hull, hull > 50 ? '#33ff99' : hull > 25 ? '#ffcc00' : '#ff3344');
+      drawBar(144, 'SHIELDS', shld + '%', shld, '#00e5ff');
+      drawBar(170, 'WARP CORE', `${wCore}/${wCap} (+${wReg.toFixed(1)}/s)`, wPct, '#b266ff');
+
+      // Row 3: Ordnance, Repair & Cargo Grid
+      const ordY = 200;
+      x.fillStyle = 'rgba(6,22,38,0.85)';
+      x.fillRect(12, ordY, w - 24, 52);
+      x.strokeStyle = 'rgba(0,229,255,0.25)';
+      x.strokeRect(12, ordY, w - 24, 52);
+      x.textAlign = 'left';
+      x.font = 'bold 16px monospace';
+      const mArmed = (typeof isMissileLidOpen !== 'undefined' && isMissileLidOpen);
+      x.fillStyle = mArmed ? '#ff5566' : '#ffd24a';
+      x.fillText(`MSL: ${missileAmmo} [${mArmed ? 'ARMED' : 'SAFE'}]`, 22, ordY + 21);
+      x.fillStyle = '#ff9a3c';
+      x.fillText(`FLARES: ${typeof cargoFlares !== 'undefined' ? cargoFlares : 0}`, 215, ordY + 21);
+      x.fillStyle = '#33ff99';
+      x.fillText(`REPAIR KITS: ${window.novaKits || 0}`, 350, ordY + 21);
+
+      x.fillStyle = '#9fc3d8';
+      x.fillText(`ORE CARGO: ${typeof cargoOre !== 'undefined' ? cargoOre : 0} t`, 22, ordY + 43);
+      x.fillStyle = '#00ffcc';
+      x.fillText(`CREDITS: ${typeof bankCredits !== 'undefined' ? bankCredits : 0} CR`, 215, ordY + 43);
+      x.fillStyle = '#ff6688';
+      x.fillText(`MODE: ${NFM.modes[NFM.i]}`, 375, ordY + 43);
+
+      // Row 4: Sensor Lock & Objective Data Readout (Data Only, No Turn Directions)
+      const senY = 260;
+      x.fillStyle = 'rgba(4,16,30,0.92)';
+      x.fillRect(12, senY, w - 24, 58);
+      x.strokeStyle = 'rgba(0,229,255,0.28)';
+      x.strokeRect(12, senY, w - 24, 58);
+
+      let tName = 'STATION NOVA-1', tType = 'STATION', tCol = '#00ffcc', tPos = stationGroup.position;
+      try { const so = window.novaSiteObjective && window.novaSiteObjective(); if (so) { tPos = so.pos; tName = so.label; tType = 'WAYPOINT'; } } catch (e) { }
+      const lk = currentLockedTarget;
+      if (lk && lk.targetObj) {
+        tPos = lk.targetObj.getWorldPosition(new THREE.Vector3());
+        tName = lk.name || 'CONTACT';
+        tType = lk.isHostile ? 'HOSTILE LOCK' : ('LOCK · ' + String(lk.type || 'CONTACT').toUpperCase());
+        tCol = lk.isHostile ? '#ff5566' : '#33ff99';
+      }
+      const dist = tPos.distanceTo(shipGroup.position);
+      const distStr = dist < 1000 ? Math.round(dist) + ' m' : (dist / 1000).toFixed(2) + ' km';
+      const etaStr = spd > 2 ? Math.min(999, Math.round(dist / spd)) + ' s' : '--';
+
+      x.textAlign = 'left';
+      x.font = 'bold 15px monospace';
+      x.fillStyle = tCol;
+      x.fillText(tType, 22, senY + 21);
+      x.textAlign = 'right';
+      x.fillStyle = '#ffd24a';
+      x.fillText(`RNG: ${distStr}  |  ETA: ${etaStr}`, w - 22, senY + 21);
+
+      x.textAlign = 'left';
+      x.font = 'bold 21px monospace';
+      x.fillStyle = '#ffffff';
+      x.fillText(nkFit(x, tName, w - 190), 22, senY + 47);
+      x.textAlign = 'right';
+      x.font = '15px monospace';
+      x.fillStyle = '#7fb6d0';
+      x.fillText(`CONTACTS: ${(NH && NH.list) ? NH.list.length : 0}`, w - 22, senY + 47);
+
+      // Bottom Systems Status Strip
+      const sys = [
+        ['DAMP ' + (isRotationDampenerOn ? 'ON' : 'OFF'), isRotationDampenerOn ? '#33ff99' : '#668899'],
+        ['3D RADAR ' + (NH.on !== false ? 'ON' : 'OFF'), NH.on !== false ? '#00e5ff' : '#ff5566'],
+        ['AUTO ' + ((isAutopilotActive || novaAutoDockPending) ? 'ON' : 'OFF'), (isAutopilotActive || novaAutoDockPending) ? '#33ff99' : '#668899'],
+        ['STLTH ' + ((window.NF && NF.stealth) ? 'ON' : 'OFF'), (window.NF && NF.stealth) ? '#9a7dff' : '#668899']
+      ];
+      x.font = 'bold 16px monospace';
+      x.textAlign = 'center';
+      sys.forEach((s, i) => {
+        x.fillStyle = s[1];
+        x.fillText(s[0], (i + 0.5) * (w / sys.length), h - 14);
+      });
+
+      NKS.plate.t.needsUpdate = true;
+    };
+
+    // ════════════════════════════════════════════════════════════════
+    // ── NOVA14 VFX: Real Texture Pack (lasers, shields, explosions, flares, lightning) ──
+    // ════════════════════════════════════════════════════════════════
+    const NOVA_VFX = {
+      tex: {},
+      ready: false,
+      loader: new THREE.TextureLoader(),
+      finGeo: null,
+      shieldSpheres: new Map()
+    };
+    window.NOVA_VFX = NOVA_VFX;
+    NOVA_VFX.liveBoom = 0;                       // explosion billboards currently alive
+    const NOVA_VFX_MAX_BOOM_LAYERS = [20, 6];    // [full, cheap] cap across all explosions
+    function novaVfxCheap() {
+      try {
+        if (renderer.xr.isPresenting) return true;
+        return typeof NOPT !== 'undefined' && NOPT.o && (NOPT.o.gfx === 'low' || NOPT.o.gfx === 'mid');
+      } catch (e) { return false; }
+    }
+    // Show one cell of a cols x rows atlas (frame 0 = top-left), with texture.repeat = 1/cols, 1/rows.
+    function novaVfxAtlasFrame(tex, frame, cols, rows) {
+      const c = frame % cols, r = Math.floor(frame / cols);
+      tex.offset.set(c / cols, 1 - (r + 1) / rows);
+    }
+
+    (function initNovaVfx() {
+      const files = {
+        // Game-ready textures: laser/flare/spark/explosion from Gemini sources (tools/vfx_build.py);
+        // lightning cut from the ./VFX/ sheets (tools/vfx_cut.py); shield hex generated with Gemini
+        laser: './fx/vfx_laser.png',
+        flare: './fx/vfx_flare.png',
+        spark: './fx/vfx_spark.png',
+        shield: './fx/vfx_shield_hex.png',   // seamless 1024 hex, generated with Gemini
+        explosion: './fx/vfx_explosion_8x8.jpg',   // 8x8 atlas (2048px), 56 frames: fireball -> smoke (tools/vfx_build.py)
+        lightning: './fx/vfx_lightning.png'
+      };
+      const quad1 = new THREE.PlaneGeometry(0.42, 2.8);
+      quad1.rotateX(Math.PI / 2);
+      const quad2 = quad1.clone();
+      quad2.rotateZ(Math.PI / 2);
+      NOVA_VFX.finGeo = { q1: quad1, q2: quad2 };
+
+      Object.entries(files).forEach(([k, url]) => {
+        try {
+          const t = NOVA_VFX.loader.load(url, tex => {
+            tex.colorSpace = THREE.SRGBColorSpace;
+            if (k === 'shield' || k === 'lightning') {
+              tex.wrapS = THREE.RepeatWrapping;
+              tex.wrapT = THREE.RepeatWrapping;
+            }
+            if (k === 'shield') {
+              tex.repeat.set(2, 1);   // hex texture already holds ~30 cells per row
+              try {
+                shieldBubbleMat.map = tex;
+                shieldBubbleMat.alphaMap = tex;
+                shieldBubbleMat.wireframe = false;
+                shieldBubbleMat.blending = THREE.AdditiveBlending;
+                shieldBubbleMat.color.setHex(0x44ddff);
+                shieldBubbleMat.needsUpdate = true;
+              } catch (e) {}
+              try {
+                if (typeof targetDrones !== 'undefined' && targetDrones) {
+                  targetDrones.forEach(td => {
+                    if (td.userData && td.userData.shieldRing && td.userData.shieldRing.material) {
+                      const sm = td.userData.shieldRing.material;
+                      sm.map = tex;
+                      sm.wireframe = false;
+                      sm.blending = THREE.AdditiveBlending;
+                      sm.needsUpdate = true;
+                    }
+                  });
+                }
+              } catch (e) {}
+            }
+            if (k === 'laser') {
+              try {
+                laserBoltMat.map = tex;
+                laserBoltMat.transparent = true;
+                laserBoltMat.blending = THREE.AdditiveBlending;
+                laserBoltMat.depthWrite = false;
+                laserBoltMat.color.setHex(0x55ffee);
+                laserBoltMat.needsUpdate = true;
+                novaBoltMat.map = tex;
+                novaBoltMat.transparent = true;
+                novaBoltMat.blending = THREE.AdditiveBlending;
+                novaBoltMat.depthWrite = false;
+                novaBoltMat.color.setHex(0xff4455);
+                novaBoltMat.needsUpdate = true;
+              } catch (e) {}
+            }
+          });
+          t.colorSpace = THREE.SRGBColorSpace;
+          NOVA_VFX.tex[k] = t;
+        } catch (e) { console.warn('[NOVA_VFX] texture load failed:', k, e); }
+      });
+      NOVA_VFX.ready = true;
+    })();
+
+    // Spawn an additive flare/spark sprite using glows and flares.jpg
+    function novaVfxFlare(pos, col = 0x00ffcc, size = 3.2, dur = 0.22, parent = null) {
+      try {
+        const mat = new THREE.SpriteMaterial({
+          map: NOVA_VFX.tex.flare || null,
+          color: col,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          toneMapped: false
+        });
+        const sp = new THREE.Sprite(mat);
+        sp.position.copy(pos);
+        sp.scale.setScalar(size);
+        sp.raycast = () => {};
+        const host = parent || scene;
+        host.add(sp);
+        novaFx.push({
+          t: 0,
+          d: dur,
+          o: sp,
+          up: k => {
+            sp.scale.setScalar(size * (1 + k * 0.85));
+            mat.opacity = 0.95 * (1 - k);
+          }
+        });
+        return sp;
+      } catch (e) { return null; }
+    }
+    window.novaVfxFlare = novaVfxFlare;
+
+    // Spawn an electrical lightning arc sprite using lightning.jpg
+    function novaVfxArc(pos, col = 0x66eeff, size = 6.0, dur = 0.32) {
+      try {
+        const mat = new THREE.SpriteMaterial({
+          map: NOVA_VFX.tex.spark || null,
+          color: col,
+          transparent: true,
+          opacity: 0.92,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          toneMapped: false,
+          rotation: Math.random() * Math.PI * 2
+        });
+        const sp = new THREE.Sprite(mat);
+        sp.position.copy(pos);
+        sp.scale.setScalar(size);
+        sp.raycast = () => {};
+        scene.add(sp);
+        novaFx.push({
+          t: 0,
+          d: dur,
+          o: sp,
+          up: k => {
+            mat.rotation += 0.35;
+            sp.scale.setScalar(size * (0.85 + 0.45 * Math.sin(k * Math.PI)));
+            mat.opacity = (k < 0.7 ? 0.92 : 0.92 * (1 - (k - 0.7) / 0.3)) * (0.65 + 0.35 * Math.random());
+          }
+        });
+      } catch (e) {}
+    }
+    window.novaVfxArc = novaVfxArc;
+
+    // Attach crossed laser texture fins + core flare to any projectile mesh
+    function novaVfxDressBolt(boltMesh, col = 0x00ffcc, scaleZ = 1.0) {
+      try {
+        if (!NOVA_VFX.finGeo) return;
+        const finMat = new THREE.MeshBasicMaterial({
+          map: NOVA_VFX.tex.laser || null,
+          color: col,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          toneMapped: false
+        });
+        const f1 = new THREE.Mesh(NOVA_VFX.finGeo.q1, finMat);
+        const f2 = new THREE.Mesh(NOVA_VFX.finGeo.q2, finMat);
+        f1.scale.set(1, 1, scaleZ);
+        f2.scale.set(1, 1, scaleZ);
+        f1.raycast = () => {};
+        f2.raycast = () => {};
+        boltMesh.add(f1);
+        boltMesh.add(f2);
+        if (NOVA_VFX.tex.flare) {
+          const tip = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: NOVA_VFX.tex.flare,
+            color: col,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            toneMapped: false
+          }));
+          tip.scale.setScalar(1.35 * Math.sqrt(scaleZ));
+          tip.position.set(0, 0, -1.1 * scaleZ);
+          tip.raycast = () => {};
+          boltMesh.add(tip);
+        }
+      } catch (e) {}
+    }
+
+    // Upgrade player twin laser spawn with laser fins + muzzle flash
+    {
+      const _origSpawnLasers = spawnLaserBolts;
+      spawnLaserBolts = function () {
+        const before = activePlayerLasers.length;
+        _origSpawnLasers.apply(this, arguments);
+        for (let i = before; i < activePlayerLasers.length; i++) {
+          const b = activePlayerLasers[i];
+          if (b && b.mesh) {
+            novaVfxDressBolt(b.mesh, 0x00ffcc, 1.0);
+            novaVfxFlare(b.mesh.position, 0x00ffcc, 2.2, 0.12);
+          }
+        }
+      };
+    }
+
+    // Upgrade NOVA14 faction bolts, beams, and missiles with VFX textures
+    {
+      const _origNfFireBolt = nfFireBolt;
+      nfFireBolt = function (u, from, dir, gun) {
+        const before = NF.bolts.length;
+        _origNfFireBolt.apply(this, arguments);
+        if (NF.bolts.length > before) {
+          const b = NF.bolts[NF.bolts.length - 1];
+          if (b && b.m) {
+            novaVfxDressBolt(b.m, gun.col || 0xffaa33, 1.8);
+            if (from.distanceTo(shipGroup.position) < 650) {
+              novaVfxFlare(from, gun.col || 0xffaa33, 3.0, 0.14);
+            }
+          }
+        }
+      };
+
+      const _origNfBeam = nfBeam;
+      nfBeam = function (u, tgt, gun) {
+        const before = NF.beams.length;
+        _origNfBeam.apply(this, arguments);
+        if (NF.beams.length > before) {
+          const bm = NF.beams[NF.beams.length - 1];
+          if (bm && bm.m && NOVA_VFX.tex.lightning) {
+            const lt = NOVA_VFX.tex.lightning.clone();
+            lt.wrapS = THREE.RepeatWrapping;
+            lt.wrapT = THREE.RepeatWrapping;
+            lt.repeat.set(1, 5);
+            lt.needsUpdate = true;
+            bm.m.material.map = lt;
+            bm.m.material.side = THREE.DoubleSide;
+            bm.m.material.needsUpdate = true;
+            bm.lt = lt;
+          }
+          if (tgt && tgt.g) {
+            novaVfxFlare(tgt.g.position, gun.col || 0x88ffee, 10.0, 0.35);
+            novaVfxArc(tgt.g.position, gun.col || 0x88ffee, 9.0, 0.35);
+          }
+        }
+      };
+
+      const _origNfFireMissile = nfFireMissile;
+      nfFireMissile = function (u, tgt, m0) {
+        const before = NF.msl.length;
+        _origNfFireMissile.apply(this, arguments);
+        if (NF.msl.length > before) {
+          const ms = NF.msl[NF.msl.length - 1];
+          if (ms && ms.m && NOVA_VFX.tex.flare) {
+            const plume = new THREE.Sprite(new THREE.SpriteMaterial({
+              map: NOVA_VFX.tex.flare,
+              color: 0xff9933,
+              transparent: true,
+              opacity: 0.95,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+              toneMapped: false
+            }));
+            plume.scale.setScalar(3.2);
+            plume.position.set(0, 0, 1.8);
+            plume.raycast = () => {};
+            ms.m.add(plume);
+          }
+        }
+      };
+    }
+
+    // Small surface flash for a laser strike; the shield shell below remains the broader hit cue.
+    function novaVfxLaserImpact(u, col, shielded) {
+      if (!u || !u.g) return;
+      const r = Math.max(3, u.r || 5);
+      const phase = (NF.t || 0) * 17.13 + (u.hp || 0) * 0.37;
+      const normal = new THREE.Vector3(Math.sin(phase), Math.cos(phase * 1.31), Math.sin(phase * 0.73 + 1.7)).normalize();
+      const point = u.g.position.clone().addScaledVector(normal, r * 0.94);
+      const size = Math.min(6, r * (shielded ? 0.42 : 0.62));
+      novaVfxFlare(point, col, size, 0.16);
+      novaVfxArc(point, col, size * 1.35, 0.13);
+    }
+
+    // Upgrade shield hit ripple on faction ships & player cockpit shield dome
+    {
+      const _origNfHit = nfHit;
+      nfHit = function (u, dmg, byPlayer) {
+        if (u && u.alive && u.g) {
+          const hadShield = u.sh > 0;
+          const col = u.fac === 'alien' ? 0x66ffcc : (u.fac === 'pirate' ? 0xffaa33 : 0x55aaff);
+          novaVfxLaserImpact(u, byPlayer ? 0x00e5ff : col, hadShield);
+          if (hadShield && NOVA_VFX.tex.shield) {
+            const shMat = new THREE.MeshBasicMaterial({
+              map: NOVA_VFX.tex.shield,
+              alphaMap: NOVA_VFX.tex.shield,
+              color: col,
+              transparent: true,
+              opacity: 0.85,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+              side: THREE.DoubleSide,
+              toneMapped: false
+            });
+            const shMesh = new THREE.Mesh(new THREE.SphereGeometry(Math.max(4, (u.r || 6) * 1.15), 14, 12), shMat);
+            shMesh.position.copy(u.g.position);
+            shMesh.raycast = () => {};
+            scene.add(shMesh);
+            novaFx.push({
+              t: 0,
+              d: 0.38,
+              o: shMesh,
+              up: k => {
+                if (u.alive && u.g) shMesh.position.copy(u.g.position);
+                shMesh.rotation.y += 0.08;
+                shMesh.scale.setScalar(1.0 + k * 0.14);
+                shMat.opacity = 0.85 * (1 - k);
+              }
+            });
+          } else { /* the localized laser impact above replaces the broad hull flash */ }
+          _origNfHit.apply(this, arguments);
+          if (hadShield && u.sh <= 0 && u.alive) {
+            novaVfxArc(u.g.position, col, Math.max(7, (u.r || 6) * 1.6), 0.45);
+          }
+        } else {
+          _origNfHit.apply(this, arguments);
+        }
+      };
+
+      const _origNovaDamage = novaDamage;
+      novaDamage = function (amount) {
+        const prevShield = window.novaShield;
+        _origNovaDamage.apply(this, arguments);
+        try {
+          const fwd = new THREE.Vector3(0, 0, -1.3).applyQuaternion(shipGroup.quaternion).add(shipGroup.position);
+          if (prevShield > 0 && window.novaShield <= 0) {
+            novaVfxArc(fwd, 0x00e5ff, 3.0, 0.5);
+          } else if (prevShield <= 0) {
+            novaVfxArc(fwd, 0xff5533, 2.4, 0.35);
+          }
+        } catch (e) {}
+      };
+      window.novaDamage = novaDamage;
+    }
+
+    // Upgrade novaBoom(pos, scale) and destroyPirateBoss() with explosion VFX1.jpg, glows and flares.jpg, and lightning.jpg
+    {
+      const _origNovaBoom = novaBoom;
+      novaBoom = function (pos, scale = 1.0) {
+        _origNovaBoom(pos);
+        try {
+          // Cheap path in a headset or on low/mid graphics: fewer, capped additive layers
+          // (large overlapping additive billboards are expensive on Quest's mobile GPU).
+          const cheap = novaVfxCheap();
+          // 1) Initial blinding core flash
+          novaVfxFlare(pos, 0xffeeaa, 28 * scale, 0.38);
+          if (!cheap) novaVfxFlare(pos, 0xff6611, 42 * scale, 0.65);
+
+          // 2) Expanding fireball billboards, each playing the 8x8 explosion atlas
+          if (NOVA_VFX.tex.explosion) {
+            const want = cheap ? (scale >= 1.5 ? 2 : 1) : Math.min(5, Math.max(2, Math.round(3 * scale)));
+            const count = Math.max(0, Math.min(want, NOVA_VFX_MAX_BOOM_LAYERS[cheap ? 1 : 0] - NOVA_VFX.liveBoom));
+            for (let i = 0; i < count; i++) {
+              const ft = NOVA_VFX.tex.explosion.clone();   // shares the GPU image; own UV window
+              ft.repeat.set(1 / 8, 1 / 8);
+              novaVfxAtlasFrame(ft, 0, 8, 8);
+              NOVA_VFX.liveBoom++;
+              const tint = i % 3 === 0 ? 0xffffff : (i % 3 === 1 ? 0xffaa44 : 0xff5522);
+              const mat = new THREE.SpriteMaterial({
+                map: ft,
+                color: tint,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                toneMapped: false,
+                rotation: Math.random() * Math.PI * 2
+              });
+              const sp = new THREE.Sprite(mat);
+              const off = new THREE.Vector3((Math.random() - 0.5) * 18 * scale, (Math.random() - 0.5) * 18 * scale, (Math.random() - 0.5) * 18 * scale);
+              sp.position.copy(pos).add(off);
+              const s0 = (8 + Math.random() * 8) * scale;
+              const s1 = (28 + Math.random() * 22) * scale;
+              sp.scale.setScalar(s0);
+              sp.raycast = () => {};
+              scene.add(sp);
+              const spin = (Math.random() - 0.5) * 0.04;
+              novaFx.push({
+                t: -i * 0.045,
+                d: 1.15 + Math.random() * 0.45,
+                o: sp,
+                up: k => {
+                  novaVfxAtlasFrame(ft, Math.min(55, Math.floor(k * 56)), 8, 8);
+                  sp.scale.setScalar(s0 + (s1 - s0) * Math.sqrt(k));
+                  mat.opacity = 0.95 * (1 - k * k);
+                  mat.rotation += spin;
+                  sp.position.addScaledVector(off, 0.014);
+                  if (k >= 1) { NOVA_VFX.liveBoom = Math.max(0, NOVA_VFX.liveBoom - 1); ft.dispose(); mat.dispose(); }
+                }
+              });
+            }
+          }
+
+          // 3) Plasma arcs on explosion
+          novaVfxArc(pos, 0xffaa44, 24 * scale, 0.48);
+          if (scale >= 1.0 && !cheap) novaVfxArc(pos, 0x66eeff, 30 * scale, 0.55);
+        } catch (e) {}
+      };
+      window.novaBoom = novaBoom;
+
+      const _origDestroyPirate = destroyPirateBoss;
+      destroyPirateBoss = function () {
+        if (!isPirateDefeated && pirateBoss) {
+          try { novaBoom(pirateBoss.position.clone(), 1.8); } catch (e) {}
+        }
+        return _origDestroyPirate.apply(this, arguments);
+      };
+    }
+
+    function novaVfxTick(dt) {
+      try {
+        if (novaFx.length === 0) NOVA_VFX.liveBoom = 0;   // self-heal the layer cap if FX were cleared elsewhere
+        // Animate player shield dome UVs when shield is flashing
+        if (shieldFlashTimer > 0 && NOVA_VFX.tex.shield) {
+          NOVA_VFX.tex.shield.offset.x = (NOVA_VFX.tex.shield.offset.x + dt * 0.45) % 1;
+          NOVA_VFX.tex.shield.offset.y = (NOVA_VFX.tex.shield.offset.y + dt * 0.28) % 1;
+        }
+        // Animate active faction beam lightning UVs
+        if (window.NF && NF.beams) {
+          NF.beams.forEach(b => {
+            if (b.lt) {
+              b.lt.offset.y -= dt * 6.5;
+              b.lt.offset.x = (Math.random() - 0.5) * 0.15;
+            }
+          });
+        }
+        // Dress tractor beam with lightning texture if active
+        if (novaDock && novaDock.beam && NOVA_VFX.tex.lightning) {
+          if (!novaDock.beam.userData.vfxWoven) {
+            novaDock.beam.userData.vfxWoven = true;
+            novaDock.beam.material.map = NOVA_VFX.tex.lightning;
+            novaDock.beam.material.blending = THREE.AdditiveBlending;
+            novaDock.beam.material.opacity = 0.55;
+            novaDock.beam.material.needsUpdate = true;
+          }
+          NOVA_VFX.tex.lightning.offset.y = (NOVA_VFX.tex.lightning.offset.y - dt * 2.2) % 1;
+        }
+      } catch (e) {}
     }
 
     async function nmCockpit() {
@@ -17074,10 +18383,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       setTimeout(() => { try { console.log('[NOVA12] models in:', NM.done.join(', ')); showToast('MODELS: ' + NM.done.length + ' loaded', 2500, '#7fffd4'); } catch (e) { } }, 4000);
     }
     let nmLast = performance.now();
-    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
+    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); try { if (!isLightspeedActive) nfmTick(); } catch (e) { } nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); novaVfxTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
     window.nmFrame = nmFrame;
     (function f() { requestAnimationFrame(f); if (!renderer.xr.isPresenting) nmFrame(); })();
     nmBoot();
+    try { initTabletController(); updateTabletCtrlVisibility(); } catch (e) { console.warn('tablet controller init failed', e); }
 
     window.GAME_VERSION = GAME_VERSION;
     window.stickPivot = stickPivot;
@@ -17260,6 +18570,24 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     window.thumbFireBtn = thumbFireBtn;
     window.lightspeedBtnGroup = lightspeedBtnGroup;
     window.hullDeckGroup = hullDeckGroup;
+    window.downloadStandaloneForClaude = async function () {
+      try {
+        const res = await fetch('./standalone.html', { cache: 'no-store' });
+        const html = await res.text();
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'standalone.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast('⬇️ DOWNLOADED standalone.html (1-File for Claude AI)', 3000, '#00ffaa');
+      } catch (e) {
+        console.error(e);
+      }
+    };
   </script>
 </body>
 </html>

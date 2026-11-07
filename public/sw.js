@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.2';
+const VERSION = 'nova-alpha-1.3';
 const FILES = [
 "./art/alien_planet.jpg",
 "./art/asteroid.jpg",
