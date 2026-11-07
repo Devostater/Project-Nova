@@ -8691,6 +8691,10 @@ const GAME_VERSION = 'Alpha 1.4';
     function novaAutoDockPress() {
       if (isInsideCantina || isDockingInProgress) return;
       const selected = currentLockedTarget;
+      if (selected?.targetObj?.userData?.boardingReady) {
+        const boarding = window.nova?.modules?.get?.('pirate_boarding') || window.nova?.modules?.pirate_boarding;
+        if (boarding?.dock?.(selected.targetObj)) return;
+      }
       const dockable = selected && selected.targetObj && selected.targetObj.visible !== false && !selected.isHostile &&
         (['station', 'ship', 'allied', 'carrier', 'freighter'].includes(selected.type) || selected.targetObj.userData?.dockable);
       const destination = dockable ? selected.targetObj : stationGroup;
@@ -16879,10 +16883,17 @@ const GAME_VERSION = 'Alpha 1.4';
 
     function nfHit(u, dmg, byPlayer) {
       if (!u.alive) return;
+      if (u.disabled) return;
       u.lastHit = NF.t; if (byPlayer) u.aggroPlayer = NF.t + 20;
       if (u.slug === 'mine') { nfMineBlow(u); return; }
       if (u.cloak > 0.5) u.cloak = 0.3;   // a hit knocks a stealth ship out of cloak
       if (u.sh > 0) { const s = Math.min(u.sh, dmg); u.sh -= s; dmg -= s; }
+      const boardablePirate = u.fac === 'pirate' && (u.st.ai === 'frigate' || u.st.hp >= 500);
+      if (boardablePirate && u.sh <= 0 && u.hp - dmg <= u.st.hp * 0.2) {
+        u.hp = Math.max(1,Math.min(u.hp,u.st.hp * 0.19));u.disabled=true;u.tgt=null;u.state='disabled';
+        u.g.userData.disabled=true;u.g.userData.boardingReady=true;
+        window.nova?.emit?.('pirateDisabled',{unit:u,seconds:90});return;
+      }
       u.hp -= dmg;
       if (u.hp <= 0) nfKill(u, byPlayer);
     }
@@ -17193,6 +17204,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (NF.planet) NF.planet.body.rotation.y += 0.004 * dt;
       for (let i = NF.units.length - 1; i >= 0; i--) {
         const u = NF.units[i]; if (!u || !u.alive) continue;
+        if (u.disabled) { u.tgt=null; continue; }
         if (u.tgt && !u.tgt.player && !u.tgt.alive) u.tgt = null;
         if (u.tgt && u.tgt.pseudo && (!pirateBoss || isPirateDefeated || !pirateBoss.visible)) u.tgt = null;
         if (u.sh < u.st.sh && NF.t - u.lastHit > 4) u.sh = Math.min(u.st.sh, u.sh + u.st.sh * 0.06 * dt);
@@ -19705,12 +19717,17 @@ const GAME_VERSION = 'Alpha 1.4';
       }
     }
     window.nova = {
-      THREE, scene, camera, cameraRig, renderer, shipGroup, sound,
+      THREE, scene, camera, cameraRig, renderer, shipGroup, shipBody, sound,
       toast: (...args) => showToast(...args),
       crew: line => { try { ncAnnounce(line); } catch (e) {} },
       setActive: active => { try { cockpit.visible = !active; setThrottle(0); } catch (e) {} },
       onExit: detail => novaEmit('interiorExit', detail || {}),
       onTick: novaOnTick, on: novaOn, emit: novaEmit,
+      combatUnits: () => NF.units,
+      selectTarget: u => { if (!u?.g) return false; currentLockedTarget={name:u.name,type:'hostile',targetObj:u.g,isHostile:true,dist:u.g.position.distanceTo(shipGroup.position)}; try { drawRightDash(); drawCommsPanel(); } catch (e) {} return true; },
+      spawnBoardingTestTarget: () => nfSpawn('pirate_frigate',shipGroup.position.clone().add(new THREE.Vector3(0,0,-140).applyQuaternion(shipGroup.quaternion)),{force:true,name:'BOARDING TEST FRIGATE',quat:shipGroup.quaternion}),
+      awardBoardingLoot: loot => { const credits=Math.max(0,Math.round(loot?.credits||0)),cargo=Math.max(0,Math.round(loot?.cargo||0)),cores=Math.max(0,Math.round(loot?.cores||0));bankCredits+=credits;cargoSalvage+=cargo;NSV.cores=(NSV.cores||0)+cores;try { localStorage.setItem('novaCargoSalvage',String(cargoSalvage));localStorage.setItem('novaHeatCores',String(NSV.cores));drawInventoryPanel();drawRightDash(); } catch (e) {} return {credits:bankCredits,cargo:cargoSalvage,cores:NSV.cores}; },
+      destroyBoardedPirate: u => { if (!u?.alive) return false; try { novaBoom(u.g.position.clone(),1.8);sound.bossExplosion(); } catch (e) {} if (NF.units.includes(u)) nfRemove(u); else { scene.remove(u.g);u.alive=false; } return true; },
       modules: novaModuleInstances
     };
     window.novaLoadModules = async function () {
