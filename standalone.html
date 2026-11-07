@@ -5960,7 +5960,9 @@ const GAME_VERSION = 'Alpha 1.4';
       const flame = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.45, 8), flameMat);
       flame.rotation.x = -Math.PI / 2;
       flame.position.z = 0.7;
+      flame.visible = false;   // replaced by the Gemini plume
       mGroup.add(flame);
+      const pl = novaPlume(3.2, 0.55, 0xffe0c0); pl.position.z = 0.55; mGroup.add(pl);
 
       scene.add(mGroup);
 
@@ -16344,6 +16346,28 @@ const GAME_VERSION = 'Alpha 1.4';
       return g;
     }
 
+    // ── Gemini VFX: missile exhaust plume (crossed additive planes) + ship engine glow ──
+    const NVX = { tl: new THREE.TextureLoader(), plume: null, glow: null, list: [] };
+    NVX.plume = NVX.tl.load('fx/vfx_missile_plume.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; });
+    NVX.glow = NVX.tl.load('fx/vfx_thruster_glow.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; });
+    const NVX_PLUME_GEO = new THREE.PlaneGeometry(1, 1); NVX_PLUME_GEO.translate(0, -0.5, 0); NVX_PLUME_GEO.rotateX(-Math.PI / 2); NVX_PLUME_GEO.rotateY(Math.PI);   // top edge (nozzle) at the origin, flame runs back along +Z
+    function novaPlume(len, wid, col) {
+      const mat = new THREE.MeshBasicMaterial({ map: NVX.plume, color: col || 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+      const g = new THREE.Group(); g.name = 'NOVA_PLUME';
+      for (let i = 0; i < 2; i++) { const m = new THREE.Mesh(NVX_PLUME_GEO, mat); m.rotation.z = i * Math.PI / 2; m.raycast = () => { }; g.add(m); }
+      g.scale.set(wid, wid, len); g.userData.base = [wid, len];
+      g.children.forEach(m => m.onBeforeRender = () => { const f = 0.85 + Math.random() * 0.3; g.scale.set(g.userData.base[0] * (0.9 + Math.random() * 0.2), g.userData.base[0], g.userData.base[1] * f); });
+      return g;
+    }
+    function novaEngineGlow(size, col) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: NVX.glow, color: col, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+      sp.scale.setScalar(size); sp.raycast = () => { }; sp.name = 'NOVA_ENGINE_GLOW';
+      sp.onBeforeRender = () => { sp.material.opacity = 0.75 + Math.random() * 0.25; };
+      return sp;
+    }
+    window.novaPlume = novaPlume; window.novaEngineGlow = novaEngineGlow;
+    const NVX_FAC_GLOW = { pirate: 0xffaa55, alien: 0x77ffdd, edf: 0x88bbff };
+
     function nfSpawn(slug, pos, o = {}) {
       const st = NF_STATS[slug]; if (!st) return null;
       if (slug !== 'mine' && NF.units.filter(u => u.slug !== 'mine').length >= NF.cap && !o.force) return null;
@@ -16360,6 +16384,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (slug === 'mine') { u.model = nfMineMesh(); g.add(u.model); }
       else { u.stand = nfStandIn(st, size); g.add(u.stand); nfDress(u); }
       NF.root.add(g); NF.units.push(u);
+      if (slug !== 'mine' && st.spd > 0) { const eg = novaEngineGlow(u.r * 0.55, NVX_FAC_GLOW[st.fac] || 0x88ccff); eg.position.set(0, 0, u.r * 0.8); g.add(eg); u.eglow = eg; }
       if (u.parent) u.parent.kids.push(u);
       return u;
     }
@@ -17622,6 +17647,7 @@ const GAME_VERSION = 'Alpha 1.4';
     { const _nf = nmFrame; nmFrame = function () { const r = _nf.apply(this, arguments); try { nfxFrame(); } catch (e) { if (!window._nfxErr) { window._nfxErr = 1; console.error('[fx_ultra]', e); } } return r; }; window.nmFrame = nmFrame; }
     { const _nb = novaBoom; novaBoom = function (pos, scale) { const r = _nb.apply(this, arguments); try { if (NFX.fx && NFX.fx.ready && NFX.fx.tier !== 'low' && pos) NFX.fx.explosion(pos, scale || 1, 'ship'); } catch (e) { } return r; }; window.novaBoom = novaBoom; }
     // A10/A13 are loaded once by the A4 manifest; the shared loader below exposes their public APIs.
+    window.novaTest = Object.assign(window.novaTest || {}, { vfxShow: () => { const f = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion), p = shipGroup.position.clone().addScaledVector(f, 45); const u = nfSpawn('pirate_fighter', p, { force: true }); if (!u) return null; u.g.lookAt(shipGroup.position); u.g.rotateY(Math.PI / 2); nfFireMissile(u, NF_PLAYER, { dmg: 0 }); spawnHomingMissile(); return NF.msl.length; } });
     window.novaTest = Object.assign(window.novaTest || {}, { salvage: (n = 3) => { const p = shipGroup.position.clone().add(new THREE.Vector3(0, 0, -60).applyQuaternion(shipGroup.quaternion)); for (let i = 0; i < n; i++) novaSalvageDrop(p, { slug: 'pirate_frigate', st: { boss: true } }); return NSV.pods.length; }, lockSalvage: () => { const t = getAllTargets().find(c => c.type === 'salvage'); currentLockedTarget = t || null; return t ? t.name + ' @ ' + Math.round(t.dist) + ' m' : null; }, salvageState: () => ({ pods: NSV.pods.map(p => p.kind), pulling: !!NSV.pulling, cores: NSV.cores, salvage: cargoSalvage, credits: bankCredits }) });
     // start new pilots on the real soundtrack
     try { if (!localStorage.getItem('novaMusicV1')) { bgmTrackIdx = BGM_TRACKS.findIndex(x => x.file); localStorage.setItem('novaMusicV1', '1'); } } catch (e) { }
@@ -18442,10 +18468,11 @@ const GAME_VERSION = 'Alpha 1.4';
               depthWrite: false,
               toneMapped: false
             }));
-            plume.scale.setScalar(3.2);
-            plume.position.set(0, 0, 1.8);
+            plume.scale.setScalar(2.2);
+            plume.position.set(0, 0, 1.5);
             plume.raycast = () => {};
             ms.m.add(plume);
+            const ex = novaPlume(9, 1.6, 0xffd0a0); ex.position.set(0, 0, 1.3); ms.m.add(ex);
           }
         }
       };
