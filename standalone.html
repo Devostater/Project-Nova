@@ -15782,7 +15782,12 @@ const GAME_VERSION = 'Alpha 1.4';
         ];
         P.emergencyHit = hit('R EMERGENCY MISSILES', 8, 342, 1002, 70, () => { if (P.cfg.tabs[P.tab] === NP_WPN) npEmergencyMissileResupply(); });
       }
-      if (cfg.id !== 'R') for (let i = 0; i < 4; i++) hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); });
+      if (cfg.id !== 'R') {
+        P.padHits = [];
+        for (let i = 0; i < 4; i++) P.padHits.push(hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); }));
+        P.flightHits = [];
+        [[430, 180], [724, 180], [430, 296], [724, 296]].forEach(([x, y], i) => P.flightHits.push(hit('L FLIGHT CONTROL ' + (i + 1), x, y, 280, 104, () => { const pd = NP_FLIGHT.pads[i]; if (pd) pd.fn(P); })));
+      }
       // holographic buttons floating over the console's physical button row
       cfg.holo.forEach((b, i) => {
         if (!b) return;
@@ -15877,7 +15882,7 @@ const GAME_VERSION = 'Alpha 1.4';
       x.save(); x.translate(0, NP_OFF);
       x.fillStyle = 'rgba(0,229,255,0.35)'; x.fillRect(0, 47, 1024, 2);
       T.draw(x, P);
-      if (cfg.id !== 'R') npPads(x, T.pads);
+      if (cfg.id !== 'R' && T !== NP_FLIGHT) npPads(x, T.pads);
       x.fillStyle = 'rgba(0,229,255,0.35)'; x.fillRect(0, 414, 1024, 2);
       npText(x, T.hint || '', 14, 446, '22px monospace', '#6f9ab3', 996);
       x.restore();
@@ -15924,7 +15929,7 @@ const GAME_VERSION = 'Alpha 1.4';
         npTgtInfo(x, 430, 52, 280);
         npHoloFrame(x, lk ? (NP.ccol[currentLockedTarget.type] || '#00e5ff') : '#2a4a63');   // chat lives on the CHAT tab now
       } };
-    const NP_FLIGHT = { name: 'FLIGHT', c: '#b266ff', hint: 'flight modes on the pads \u00b7 WARP opens the jump map \u00b7 CREW talks to your companion',
+    const NP_FLIGHT = { name: 'FLIGHT', c: '#b266ff', hint: 'touch the large controls · instruments show attitude, throttle and airspeed',
       pads: [{ l: 'DAMPERS', c: '#e8e8e8', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } }, { l: 'ASSIST', c: '#00e5ff', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } }, { l: 'AUTOPILOT', c: '#33ff99', fn: () => { try { novaTargetAutopilotPress(); } catch (e) { } } }, { l: 'WARP NAV', c: '#b266ff', fn: () => window.novaNavToggle() }],
       draw: (x, P) => {
         const v = shipBody.velocity.length(), tp = throttlePct > 1 ? throttlePct : throttlePct * 100;
@@ -15933,11 +15938,36 @@ const GAME_VERSION = 'Alpha 1.4';
         npBar(x, 20, 232, 380, 22, (window.novaShield ?? 100) / 100, '#00e5ff', 'SHIELDS');
         npBar(x, 20, 292, 380, 22, (window.novaHull ?? 100) / 100, '#33ff99', 'HULL');
         try { npBar(x, 20, 352, 380, 22, NW.core / novaWarpCap(), '#b266ff', 'WARP CORE ' + Math.round(NW.core) + '%'); } catch (e) { }
-        npText(x, 'DAMPENERS', 430, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, isRotationDampenerOn ? 'ENGAGED' : 'OFF', 430, 122, 'bold 32px monospace', isRotationDampenerOn ? '#33ff99' : '#ff7a66');
-        try { npText(x, 'ASSIST', 640, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, isFlightAssistOn ? 'ON' : 'OFF', 640, 122, 'bold 32px monospace', isFlightAssistOn ? '#33ff99' : '#ff7a66'); } catch (e) { }
-        try { npText(x, 'AUTOPILOT', 800, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, isAutopilotActive ? 'ON' : 'OFF', 800, 122, 'bold 32px monospace', isAutopilotActive ? '#33ff99' : '#5f7d95'); } catch (e) { }
-        try { npText(x, 'MUSIC', 430, 170, 'bold 20px monospace', '#9fc3d8'); npText(x, (isBgmPlaying ? '▶ ' : '❚❚ ') + BGM_TRACKS[bgmTrackIdx].name, 430, 202, 'bold 24px monospace', '#ff88dd', 580); } catch (e) { }
-        try { const ch = CAMPAIGN[campaignChapter]; npText(x, 'OBJECTIVE', 430, 252, 'bold 20px monospace', '#9fc3d8'); npText(x, ch ? ch.objective : 'Free flight', 430, 284, '22px monospace', '#00ffcc', 580); if (ch && ch.hint) npText(x, ch.hint, 430, 314, '19px monospace', '#7fb6d0', 580); } catch (e) { }
+        // Compact 2D flight instruments: artificial horizon, throttle dial and airspeed dial.
+        const att = new THREE.Euler().setFromQuaternion(shipGroup.quaternion, 'YXZ'), pitch = THREE.MathUtils.radToDeg(att.x), roll = THREE.MathUtils.radToDeg(att.z);
+        const cx = 500, cy = 112, ar = 50;
+        x.save(); x.beginPath(); x.arc(cx, cy, ar, 0, Math.PI * 2); x.clip(); x.translate(cx, cy + THREE.MathUtils.clamp(pitch, -35, 35) * 1.15); x.rotate(-att.z);
+        x.fillStyle = '#17466e'; x.fillRect(-90, -100, 180, 100); x.fillStyle = '#604322'; x.fillRect(-90, 0, 180, 100); x.strokeStyle = '#ffffff'; x.lineWidth = 3; x.beginPath(); x.moveTo(-90, 0); x.lineTo(90, 0); x.stroke(); x.restore();
+        x.strokeStyle = '#b266ff'; x.lineWidth = 4; x.beginPath(); x.arc(cx, cy, ar, 0, Math.PI * 2); x.stroke();
+        x.strokeStyle = '#ffffff'; x.lineWidth = 3; x.beginPath(); x.moveTo(cx - 22, cy); x.lineTo(cx - 7, cy); x.lineTo(cx, cy + 7); x.lineTo(cx + 7, cy); x.lineTo(cx + 22, cy); x.stroke();
+        npText(x, `P ${pitch >= 0 ? '+' : ''}${Math.round(pitch)}°  R ${roll >= 0 ? '+' : ''}${Math.round(roll)}°`, 430, 174, 'bold 16px monospace', '#bfe8ff', 160);
+        const dial = (dx, lab, value, max, col, txt) => {
+          const a0 = Math.PI * 0.75, span = Math.PI * 1.5, f = Math.max(0, Math.min(1, value / Math.max(1, max))), dy = 112, rr = 47;
+          x.strokeStyle = '#183247'; x.lineWidth = 9; x.beginPath(); x.arc(dx, dy, rr, a0, a0 + span); x.stroke();
+          x.strokeStyle = col; x.beginPath(); x.arc(dx, dy, rr, a0, a0 + span * f); x.stroke();
+          const a = a0 + span * f; x.strokeStyle = '#ffffff'; x.lineWidth = 3; x.beginPath(); x.moveTo(dx, dy); x.lineTo(dx + Math.cos(a) * 34, dy + Math.sin(a) * 34); x.stroke();
+          x.fillStyle = '#030a14'; x.beginPath(); x.arc(dx, dy, 7, 0, Math.PI * 2); x.fill();
+          x.textAlign = 'center'; npText(x, lab, dx, 70, 'bold 16px monospace', '#9fc3d8'); npText(x, txt, dx, 170, 'bold 18px monospace', col); x.textAlign = 'left';
+        };
+        dial(680, 'THROTTLE', tp, 100, '#00e5ff', Math.round(tp) + '%');
+        const speedMax = (novaCruise.active ? 900 : isAfterburnerActive ? 360 : 180) * (1 + 0.1 * (novaUp.propulsion || 0));
+        dial(880, 'AIRSPEED', v, speedMax, novaCruise.active ? '#66ffcc' : '#b266ff', Math.round(v) + ' m/s');
+        const controls = [
+          ['DAMPERS', isRotationDampenerOn ? 'ENGAGED' : 'OFF', '#e8e8e8', isRotationDampenerOn],
+          ['ASSIST', isFlightAssistOn ? 'ON' : 'OFF', '#00e5ff', isFlightAssistOn],
+          ['AUTOPILOT', isAutopilotActive ? 'ON' : 'OFF', '#33ff99', isAutopilotActive],
+          ['WARP NAV', 'OPEN MAP', '#b266ff', false]
+        ];
+        controls.forEach((b, i) => {
+          const X = i % 2 ? 724 : 430, Y = i < 2 ? 180 : 296;
+          x.fillStyle = b[3] ? b[2] : 'rgba(255,255,255,0.055)'; x.fillRect(X, Y, 280, 104); x.strokeStyle = b[2]; x.lineWidth = 4; x.strokeRect(X, Y, 280, 104);
+          x.textAlign = 'center'; npText(x, b[0], X + 140, Y + 43, 'bold 25px monospace', b[3] ? '#021019' : b[2], 250); npText(x, b[1], X + 140, Y + 76, 'bold 18px monospace', b[3] ? '#021019' : '#9fc3d8', 250); x.textAlign = 'left';
+        });
       } };
     const NP_OBJ = { name: 'OBJECTIVE', c: '#ffcc00', hint: 'ROUTE warps you to the objective when the route is known \u00b7 the compass diamond points to it',
       pads: [{ l: 'ROUTE', c: '#ffcc00', fn: () => { try { nsObjectivePick(); } catch (e) { } } }, { l: 'BRIEFING', c: '#b266ff', fn: () => { const ch = CAMPAIGN[campaignChapter]; if (ch) nkIntroStart(true, { k: ch.title, t: ch.objective, b: [ch.hint, '"' + ch.intro + '"', '\u2014 ' + ch.speaker], last: true }); } },
@@ -16153,6 +16183,10 @@ const GAME_VERSION = 'Alpha 1.4';
       NP.panels.forEach(P => {
         if (P.cfg.id === 'L') { P.listT -= dt; if (P.listT <= 0) { P.listT = 1.0; npRefreshList(P); } }
         const T = P.cfg.tabs[P.tab];
+        if (P.cfg.id === 'L') {
+          (P.padHits || []).forEach(m => { m.visible = T !== NP_FLIGHT && !!(T.pads && T.pads.length); });
+          (P.flightHits || []).forEach(m => { m.visible = T === NP_FLIGHT; });
+        }
         if (P.cfg.id === 'R') {
           let market = false; try { market = T === NP_CARGO && !!nmkNear(); } catch (e) { }
           (P.rowHits || []).forEach(m => { m.visible = T !== NP_SYSOPT && T !== NP_MUSIC && typeof T.row === 'function'; });
