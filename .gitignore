@@ -18,3 +18,8 @@ desktop.ini
 !.env.example
 # Nova local-only
 optimize_log.txt
+# Quest PWA build output and signing material
+.build/
+dist/*.apk
+*.jks
+*.keystore
