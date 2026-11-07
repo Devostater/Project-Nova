@@ -4,10 +4,10 @@
 
 Claude handed the lead to GPT when it hit its usage limit. GPT now owns the three game files, integration, and merges the owner approves.
 
-**State after the #34 lead handoff:**
-- Merged: #24 (A4 loader), #25 (warp/combat), #27 (A11 controls), #28 (existing firing-range interior and morality modules), #29 (A5 drones), #30 (A12 boarding), #32 (A14 Cold Run), and #34 (lead/docs handoff).
-- Open: #33 adds only the two mirrored missile-plume and thruster-glow images; waiting for owner approval before merge. Draft integration PR #35 contains module wiring, mobile-only touch controls, and desktop gamepad flight actions.
-- Next: owner-approved merge of #33, then wire its missile plume and engine glow. Follow with A15 save/load, then VR hands.
+**State after the #35 integration merge:**
+- Merged: #24 (A4 loader), #25 (warp/combat), #27 (A11 controls), #28 (existing firing-range interior and morality modules), #29 (A5 drones), #30 (A12 boarding), #32 (A14 Cold Run), #34 (lead/docs handoff), and #35 (module integration, mobile-only touch visibility and desktop gamepad flight actions).
+- Open: #33 image VFX, #37 territories/campaign planning, and #38 FPS flow/controls/helmet HUD. Owner approval is required before each merge.
+- Next: runtime review of #38 in desktop/gamepad/Quest, then continue the approved release plan.
 - Pending owner request: rigged VR glove with finger joints and controller grip poses; cockpit stick and throttle grabs must keep working.
 
 > Read [AI_WORKFLOW.md](AI_WORKFLOW.md) before starting or taking over work.
@@ -28,7 +28,7 @@ On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** GPT/Codex, on branch `gpt/integrate-modules` and draft PR #35.
+**Held by:** GPT/Codex as lead. PR #38 changes FPS modules only; the three game files are unchanged.
 
 ## Active claims
 
@@ -37,7 +37,6 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| GPT/Codex | Module integration + touch controls | `gpt/integrate-modules` | Three game files, manifests, service workers, module wiring, AI_STATUS | Active | [Draft PR #35](https://github.com/Devostater/Project-Nova/pull/35) |
 
 
 ## Waiting for review / merge
@@ -45,14 +44,17 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
 | Gemini | Missile-plume and thruster-glow textures | [Draft PR #33](https://github.com/Devostater/Project-Nova/pull/33) | Four image files only: root and public mirrors; owner approval required before merge. |
-| GPT/Codex | Module integration and mobile touch visibility | [Draft PR #35](https://github.com/Devostater/Project-Nova/pull/35) | Manifest/cache wiring, A11/A5 range, A12 BOARD, A14 events, and touch controls gated to mobile/tablet devices. |
+| GPT/Codex | FPS flow, controls and helmet HUD | [Draft PR #38](https://github.com/Devostater/Project-Nova/pull/38) | Range exit, desktop/gamepad/Quest FPS input, helmet visor HUD, boarding lifecycle and drone combat coordinates; awaiting runtime review. |
+| GPT/Codex | Territories and campaign scope plan | [Draft PR #37](https://github.com/Devostater/Project-Nova/pull/37) | Planning only; proposed factions, territory simulation, news, traffic, cinematics and full-release checklist. |
 | Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
 
-- **GPT/Codex: lead handoff and module integration** ([draft PR #35](https://github.com/Devostater/Project-Nova/pull/35), branch `gpt/integrate-modules`). PR #34 is merged. #24, #27, #29, #30, and #32 are also merged in the requested order, preserving the existing interior and morality modules. PR #35 adds module manifests/cache entries, A11 range movement, A5 drones, A12 BOARD, A14 mission events, phone/tablet-only touch controls, and desktop gamepad steering/actions. Checks: `node --check` on all eight module files, the A4 loader script, touch visibility handler, desktop gamepad poll, and flight input handler; LF, conflict-marker, game-file parity and manifest/cache checks passed. Not tested: browser/device runtime or mission progression. Next: owner approval to merge image-only #33, then wire missile plume/engine glow, A15 save/load, and VR hands.
+- **GPT/Codex: FPS flow, controls, combat and helmet HUD** ([draft PR #38](https://github.com/Devostater/Project-Nova/pull/38), branch `gpt/fps-flow-hud`). Repairs the range EXIT door and all exit inputs; adds pointer-lock mouse look, keyboard/gamepad/Quest controller and hand input; adds a camera-mounted helmet visor HUD; unifies range/boarding entry and return; and places pooled drone combat in the correct interior coordinate space. Root/public copies of `fps_core.js`, `interior.js`, `fps_ai.js` and `boarding.js` match with LF endings. Static review only; browser, physical gamepad, tablet and Quest runtime were not tested. Next: play `?arena=range` and `?arena=boarding` in desktop/gamepad/Quest before merge.
+
+- **GPT/Codex: lead handoff and module integration** ([PR #35](https://github.com/Devostater/Project-Nova/pull/35), merged as `406b4ed4a568bdfc6f563d70a9e67a08ea671986`, branch `gpt/integrate-modules`). PR #34 is merged. #24, #27, #29, #30, and #32 are also merged in the requested order, preserving the existing interior and morality modules. PR #35 adds module manifests/cache entries, A11 range movement, A5 drones, A12 BOARD, A14 mission events, phone/tablet-only touch controls, and desktop gamepad steering/actions. Checks: `node --check` on all eight module files, the A4 loader script, touch visibility handler, desktop gamepad poll, and flight input handler; LF, conflict-marker, game-file parity and manifest/cache checks passed. Not tested: browser/device runtime or mission progression. Next: owner approval to merge image-only #33, then wire missile plume/engine glow, A15 save/load, and VR hands.
 
 
 

@@ -32,7 +32,7 @@ export function init(nova) {
   for(const x of [-2.2,2.2])box(1.35,1.15,.35,stripeMat,x,.58,-6.5);
   // Core pedestal and airlock marker.
   box(1.4,.45,1.4,trimMat,0,.22,-5.2);
-  box(2.8,2.7,.16,trimMat,0,1.35,-12.55);
+  const airlockDoor=box(2.8,2.7,.16,trimMat,0,1.35,-12.55);
   box(2.1,.08,.08,glowMat,0,2.7,-12.42);
   const core=new T.Group();core.name='NOVA_HEAT_CORE_PICKUP';core.position.set(0,1.12,-5.2);root.add(core);
   const coreMesh=new T.Mesh(new T.IcosahedronGeometry(.38,2),coreMat);core.add(coreMesh);
@@ -64,10 +64,10 @@ export function init(nova) {
     state.shipVisible=nova.shipGroup?.visible??true;
     if(nova.shipGroup)nova.shipGroup.visible=false;
     rig.position.set(0,0,8);rig.quaternion.identity();
-    root.visible=true;state.active=true;core.visible=!state.choice;
+    root.visible=true;state.active=true;core.visible=!state.choice;nova.setActive?.(true);
     nova.emit?.('boardingStarted',{target:state.target});
-    nova.modules?.fps_core?.enable?.();
-    nova.modules?.fps_ai?.start?.();
+    nova.modules?.fps_core?.enable?.({mode:'BOARDING',speed:2.9,bounds:[-3.5,3.5,-12.2,8.3],onExit:()=>returnToCockpit(),onInteract:()=>interact('take')});
+    nova.modules?.fps_ai?.start?.({origin:root.position});
     nova.toast?.('DERELICT BOARDING · CHOOSE THE CORE · E TAKE / Q LEAVE',3500,'#37e7ff');
     return true;
   }
@@ -92,7 +92,7 @@ export function init(nova) {
   function returnToCockpit(){
     if(!state.active)return false;
     root.visible=false;state.active=false;
-    nova.modules?.fps_ai?.stop?.();nova.modules?.fps_core?.disable?.();
+    nova.modules?.fps_ai?.stop?.();nova.modules?.fps_core?.disable?.();nova.setActive?.(false);
     if(nova.shipGroup)nova.shipGroup.visible=state.shipVisible;
     if(state.savedPos)rig.position.copy(state.savedPos);if(state.savedQuat)rig.quaternion.copy(state.savedQuat);
     nova.toast?.(state.choice==='take'?'HEAT CORE RECOVERED · RETURNED TO SHIP':state.choice==='leave'?'CREW PODS SPARED · RETURNED TO SHIP':'BOARDING ABORTED · RETURNED TO SHIP',2400,'#75ffd1');
@@ -104,7 +104,7 @@ export function init(nova) {
     if(!state.choice&&point.distanceTo(corePoint)<2.1){chooseCore(choice);return;}
     if(point.distanceTo(exitPoint)<2.2)returnToCockpit();
   }
-  const keyDown=e=>{if(state.active&&(e.code==='KeyE'||e.code==='Enter'||e.code==='KeyQ')){e.preventDefault();interact(e.code==='KeyQ'?'leave':'take');}};
+  const keyDown=e=>{if(state.active&&e.code==='KeyQ'){e.preventDefault();interact('leave');}};
   const select=e=>interact(e?.inputSource?.handedness==='left'?'leave':'take');
   function tick(dt){
     if(!state.active)return;
@@ -114,18 +114,15 @@ export function init(nova) {
     camera.getWorldPosition(point);
     if(point.x>3.5)rig.position.x=3.5;if(point.x< -3.5)rig.position.x=-3.5;
     if(point.z< -12)returnToCockpit();
-    let usePressed=false,leavePressed=false;const pads=navigator.getGamepads?.()||[];for(let i=0;i<pads.length;i++){if(pads[i]?.connected){usePressed=!!pads[i].buttons?.[0]?.pressed;leavePressed=!!pads[i].buttons?.[1]?.pressed;break;}}
-    if(usePressed&&!state.padDown)interact('take');if(leavePressed&&!state.padLeaveDown)interact('leave');state.padDown=usePressed;state.padLeaveDown=leavePressed;
-    const session=renderer?.xr?.getSession?.();
-    if(session&&session!==state.session){state.session?.removeEventListener?.('selectstart',select);state.session=session;session.addEventListener('selectstart',select);}
-    if(!session&&state.session){state.session.removeEventListener?.('selectstart',select);state.session=null;}
+    // Input and exit actions are centralized in fps_core; this tick only handles level flow.
   }
+  core.userData.fpsInteract=()=>interact('take');airlockDoor.userData.fpsInteract=()=>returnToCockpit();
   window.addEventListener('keydown',keyDown);
   const off=nova.onTick?.(tick);
   if(queryBoard())board(null,{force:true});
   return{ready:true,board,collect,chooseCore,returnToCockpit,get active(){return state.active;},get hasLoot(){return state.loot;},dispose(){
     returnToCockpit();state.disposed=true;off?.();window.removeEventListener('keydown',keyDown);
-    state.session?.removeEventListener?.('selectstart',select);scene.remove(root);
+    scene.remove(root);
     for(const g of geometry)g.dispose();coreMesh.geometry.dispose();halo.geometry.dispose();label.geometry.dispose();
     for(const m of [floorMat,wallMat,stripeMat,trimMat,glowMat,coreMat,label.material])m.dispose();
     floorTex.dispose();wallTex.dispose();stripeTex.dispose();labelTex.dispose();
