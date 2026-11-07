@@ -10,14 +10,39 @@ export function init(nova) {
   if(!T||!scene||!camera||!rig)return{ready:false,enable(){},disable(){},damage(){}};
 
   const pistol=new T.Group();pistol.name='NOVA_FPS_PISTOL';
+  const fallbackGun=new T.Group();fallbackGun.name='NOVA_FPS_PISTOL_FALLBACK';pistol.add(fallbackGun);
   const gunMat=new T.MeshStandardMaterial({color:0x152535,metalness:.82,roughness:.28});
   const glowMat=new T.MeshStandardMaterial({color:0x27dcff,emissive:0x087795,emissiveIntensity:1.4,metalness:.3});
-  pistol.add(new T.Mesh(new T.BoxGeometry(.075,.09,.26),gunMat));
-  const grip=new T.Mesh(new T.BoxGeometry(.06,.15,.075),gunMat);grip.position.set(0,-.1,.065);pistol.add(grip);
-  const muzzle=new T.Mesh(new T.CylinderGeometry(.025,.025,.09,12),glowMat);muzzle.rotation.x=Math.PI/2;muzzle.position.z=-.16;pistol.add(muzzle);
+  fallbackGun.add(new T.Mesh(new T.BoxGeometry(.075,.09,.26),gunMat));
+  const grip=new T.Mesh(new T.BoxGeometry(.06,.15,.075),gunMat);grip.position.set(0,-.1,.065);fallbackGun.add(grip);
+  const muzzle=new T.Mesh(new T.CylinderGeometry(.025,.025,.09,12),glowMat);muzzle.rotation.x=Math.PI/2;muzzle.position.z=-.16;fallbackGun.add(muzzle);
   const muzzleFlash=new T.Mesh(new T.SphereGeometry(.045,8,6),new T.MeshBasicMaterial({color:0xbffcff,toneMapped:false,transparent:true,opacity:.95}));
-  muzzleFlash.position.z=-.22;muzzleFlash.visible=false;pistol.add(muzzleFlash);
+  muzzleFlash.position.set(0,.025,-.21);muzzleFlash.visible=false;pistol.add(muzzleFlash);
   pistol.visible=false;scene.add(pistol);
+
+  // Load the owner's full-resolution Arc-Pistol unchanged. The simple meshes above remain only
+  // as an offline/loading fallback; no LOD or geometry reduction is applied to the GLB.
+  let importedGun=null,disposed=false;
+  (async()=>{
+    try{
+      const mod=await import(new URL('../vendor/loaders/GLTFLoader.js',import.meta.url).href);
+      const loader=new mod.GLTFLoader();
+      loader.load(new URL('../models/nova_gun.glb',import.meta.url).href,gltf=>{
+        if(disposed){gltf.scene?.traverse?.(o=>{o.geometry?.dispose?.();if(Array.isArray(o.material))o.material.forEach(m=>m?.dispose?.());else o.material?.dispose?.();});return;}
+        const model=gltf.scene;model.name='NOVA_ARC_PISTOL_FULL_QUALITY';
+        // Source model: Z is up and -X points through the muzzle. FPS weapons use Y up / -Z forward.
+        model.setRotationFromMatrix(new T.Matrix4().makeBasis(new T.Vector3(0,0,1),new T.Vector3(1,0,0),new T.Vector3(0,1,0)));
+        model.updateMatrixWorld(true);
+        const box=new T.Box3().setFromObject(model),size=new T.Vector3(),center=new T.Vector3();box.getSize(size);box.getCenter(center);
+        const scale=.30/Math.max(size.x,size.y,size.z,1e-6);model.scale.multiplyScalar(scale);model.updateMatrixWorld(true);
+        new T.Box3().setFromObject(model).getCenter(center);model.position.sub(center);
+        // Put the controller/hand at the grip instead of the model's geometric centre.
+        model.position.add(new T.Vector3(0,.045,-.052));
+        model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
+        importedGun=model;pistol.add(model);fallbackGun.visible=false;
+      },undefined,e=>console.warn('[NOVA FPS] Full-quality pistol failed to load; using fallback.',e));
+    }catch(e){console.warn('[NOVA FPS] GLTFLoader unavailable; using fallback pistol.',e);}
+  })();
 
   const tracerGeo=new T.BoxGeometry(.018,.018,1);
   const tracerMat=new T.MeshBasicMaterial({color:0x69f5ff,toneMapped:false,transparent:true,opacity:.85,depthWrite:false,blending:T.AdditiveBlending});
@@ -323,7 +348,7 @@ export function init(nova) {
 
   const off=nova.onTick?.(tick);
   return{ready:true,enable,disable,fire,interact,damage,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
-    disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(tracerRoot);damageOverlay.remove();
+    disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(tracerRoot);damageOverlay.remove();
     scene.remove(leftGlove);scene.remove(rightGlove);
     leftGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
     rightGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
