@@ -3427,7 +3427,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (ent && ent.obj && window.ndkState === 'idle') {
           currentLockedTarget = { name: ent.name, type: ent.type, targetObj: ent.obj, dist: ent.dist, isHostile: ent.isHostile };
         }
-        if (window.nova?.modules?.boarding?.board(currentLockedTarget)) { drawCommsPanel(); return; }
+        if (currentLockedTarget && currentLockedTarget.type === 'derelict' && window.novaColdRunBoard && window.novaColdRunBoard()) { drawCommsPanel(); return; }
         novaDockAny();
         drawCommsPanel();
         return;
@@ -8299,7 +8299,7 @@ const GAME_VERSION = 'Alpha 1.4';
       });
       const cur = CAMPAIGN[campaignChapter];
       g.fillStyle = '#88ccff'; g.font = '24px monospace';
-      if (cur) g.fillText(`OBJECTIVE: ${cur.objective}`.slice(0, 70), 30, 470);
+      { const mm = window.nova?.modules?.get?.('mission'); if (mm && mm.active) g.fillText(`COLD RUN: ${mm.currentObjective}`.slice(0, 70), 30, 470); else if (cur) g.fillText(`OBJECTIVE: ${cur.objective}`.slice(0, 70), 30, 470); }
       if (cur) g.fillText(`HINT: ${cur.hint}`.slice(0, 70), 30, 505);
       g.fillStyle = '#ffaa00'; g.font = 'bold 26px monospace'; g.fillText('CONTRACTS', 30, 555);
       g.font = '22px monospace';
@@ -9983,7 +9983,7 @@ const GAME_VERSION = 'Alpha 1.4';
       });
       const cur = CAMPAIGN[campaignChapter];
       g.fillStyle = '#88ccff'; g.font = '20px monospace';
-      if (cur) { g.fillText(`OBJECTIVE: ${cur.objective}`.slice(0, 92), 28, 318); g.fillText(`HINT: ${cur.hint}`.slice(0, 92), 28, 344); }
+      { const mm = window.nova?.modules?.get?.('mission'); if (mm && mm.active) { g.fillStyle = '#66e6ff'; g.fillText(`COLD RUN: ${mm.currentObjective}`.slice(0, 92), 28, 318); g.fillStyle = '#88ccff'; g.fillText(`STEP ${mm.progress.cursor + 1}/${mm.progress.total + 1}`, 28, 344); } else if (cur) { g.fillText(`OBJECTIVE: ${cur.objective}`.slice(0, 92), 28, 318); g.fillText(`HINT: ${cur.hint}`.slice(0, 92), 28, 344); } }
       g.fillStyle = '#ffaa00'; g.font = 'bold 22px monospace'; g.fillText('CONTRACT', 28, 384);
       g.font = '20px monospace'; g.fillStyle = '#ffe0a0';
        g.fillText(novaContract ? `${novaContract.title} \u00B7 ${Math.floor(novaContract.prog)}/${novaContract.goal} \u00B7 pays ${novaContract.pay} CR` : 'No active contract. Check the cantina board or await a comms offer.', 160, 384);
@@ -17638,6 +17638,99 @@ const GAME_VERSION = 'Alpha 1.4';
     { const _nf = nmFrame; nmFrame = function () { const r = _nf.apply(this, arguments); try { nfxFrame(); } catch (e) { if (!window._nfxErr) { window._nfxErr = 1; console.error('[fx_ultra]', e); } } return r; }; window.nmFrame = nmFrame; }
     { const _nb = novaBoom; novaBoom = function (pos, scale) { const r = _nb.apply(this, arguments); try { if (NFX.fx && NFX.fx.ready && NFX.fx.tier !== 'low' && pos) NFX.fx.explosion(pos, scale || 1, 'ship'); } catch (e) { } return r; }; window.novaBoom = novaBoom; }
     // A10/A13 are loaded once by the A4 manifest; the shared loader below exposes their public APIs.
+
+    // ── Cold Run director (Claude, lead): connects the A14 mission beats to real gameplay ──
+    // intro → warp (any jump) → pirate ambush (3 fighters spawn) → tractor the heat core they drop →
+    // derelict hauler appears → BOARD it (COMMS DOCK or V within 150 m) → drones → fusion-core choice → THE LANTERN (dock, sell, crew).
+    const NCR = { m: null, kills: 0, wave: [], derelict: null, beaconT: 0 };
+    const ncrMission = () => NCR.m || (NCR.m = window.nova?.modules?.get?.('mission') || null);
+    const ncrBeat = () => { const m = ncrMission(); return m && m.active ? (m.currentObjective || '') : ''; };
+    const ncrCur = () => { const m = ncrMission(); if (!m || !m.active) return null; const pr = m.progress; return ['intro', 'graveyard', 'ambush', 'salvage', 'distress', 'drones', 'choice', 'return', 'complete'][pr.cursor]; };
+    const ncrSay = t => { try { ncAnnounce(t); } catch (e) { showToast(t, 3500, '#9fe8ff'); } };
+    function ncrAhead(d) { return shipGroup.position.clone().add(new THREE.Vector3(0, 0, -d).applyQuaternion(shipGroup.quaternion)); }
+    function ncrOnBeat(next) {
+      if (next === 'graveyard') { NSITE.unlock.graveyard = true; ncrSay('Graveyard coordinates are in the NAV list. Spool the warp core and jump.'); }
+      if (next === 'ambush') {
+        NCR.kills = 0; NCR.wave = [];
+        const c = ncrAhead(520);
+        for (let i = 0; i < 3; i++) { const u = nfSpawn('pirate_fighter', c.clone().add(new THREE.Vector3((i - 1) * 60, (i % 2) * 30, 0)), { force: true }); if (u) { u.aggroPlayer = 1e9; NCR.wave.push(u); } }
+        showToast('🚨 PIRATE AMBUSH · 3 CORSAIR FIGHTERS', 3500, '#ff3344'); ncrSay('Contacts! Three Corsairs, coming in hot. Keep moving and break their lock.');
+      }
+      if (next === 'salvage') ncrSay('One of them was carrying a heat core. Lock the orange pod and use TRACTOR.');
+      if (next === 'distress') ncrSpawnDerelict();
+      if (next === 'return') { NSITE.unlock.lantern = true; ncrSay('Set course for the Lantern. Dock, sell a heat core, and let the crew know what you did.'); }
+    }
+    async function ncrSpawnDerelict() {
+      if (NCR.derelict) return;
+      const g = new THREE.Group(); g.name = 'DERELICT_COLD_HAULER'; g.position.copy(ncrAhead(380)); g.rotation.set(0.35, Math.random() * 6, 0.6);
+      g.userData.boardingReady = true; g.userData.disabled = true; g.userData.radius = 40;
+      try {
+        const P = await nfProto('pirate_frigate');
+        if (P && P.wrap) { const w = P.wrap.clone(true); w.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); if (o.material.color) o.material.color.multiplyScalar(0.45); if (o.material.emissive) o.material.emissive.setHex(0x000000); o.raycast = () => { }; } }); g.add(w); }
+      } catch (e) { }
+      if (!g.children.length) g.add(new THREE.Mesh(new THREE.BoxGeometry(30, 12, 80), new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.8, roughness: 0.5 })));
+      const bt = new THREE.TextureLoader().load('fx/vfx_salvage_beacon.png'); bt.colorSpace = THREE.SRGBColorSpace;
+      const b = new THREE.Sprite(new THREE.SpriteMaterial({ map: bt, color: 0x66e6ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); b.scale.setScalar(26); b.position.y = 22; g.add(b); NCR.beacon = b;
+      scene.add(g); NCR.derelict = g;
+      showToast('📡 DISTRESS BEACON · DERELICT COLD HAULER', 3500, '#66e6ff');
+      ncrSay('A distress beacon. That hauler is dead in space, but the crew pods are still warm. Get within a hundred and fifty metres and board her.');
+    }
+    function ncrTryBoard() {
+      const d = NCR.derelict; if (!d) return false;
+      const B = window.nova?.modules?.get?.('boarding'); if (!B) return false;
+      const dist = d.position.distanceTo(shipGroup.position);
+      if (dist > 150) { showToast(`MOVE CLOSER TO BOARD · ${Math.round(dist)} m / 150 m`, 1800, '#ff9a5e'); return true; }
+      return !!B.board(d, { force: true });
+    }
+    window.novaColdRunBoard = ncrTryBoard;
+    addEventListener('keydown', e => { if (e.code === 'KeyV' && ncrCur() === 'distress') ncrTryBoard(); });
+    // derelict shows up in target cycle / COMMS / radar
+    { const _ga2 = getAllTargets; getAllTargets = function () {
+        const list = _ga2.apply(this, arguments);
+        try { const d = NCR.derelict; if (d && d.userData.boardingReady) { const v = d.position.clone().sub(shipGroup.position), dist = v.length(), fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion);
+          list.push({ name: 'DERELICT: COLD HAULER', type: 'derelict', targetObj: d, dist, dot: fwd.dot(v.normalize()), isHostile: false, status: dist <= 150 ? 'BOARD READY · COMMS DOCK / V' : 'DERELICT · MOVE CLOSER' }); } } catch (e) { }
+        return list; }; }
+    // pirate kills during the ambush
+    { const _k3 = nfKill; nfKill = function (u) { const r = _k3.apply(this, arguments);
+        try { if (NCR.wave.includes(u)) { NCR.kills++; if (NCR.wave.every(w => !w.alive)) { window.nova?.emit?.('pirateWaveCleared', { count: NCR.kills }); NCR.wave = []; } } } catch (e) { }
+        return r; }; }
+    // heat core tractored in flight → mission salvage beat
+    { const _st = nsvStow; nsvStow = function (pod) { const r = _st.apply(this, arguments); try { window.nova?.emit?.('salvageStowed', { type: pod.kind === 'core' ? 'heat-core' : pod.kind }); } catch (e) { } return r; }; }
+    // the ambush always drops one heat core so the slice can't stall
+    function ncrDropCore(pos) {
+      novaSalvageDrop(pos, { slug: 'pirate_frigate', st: { boss: true } });
+      const pod = NSV.pods[NSV.pods.length - 1]; if (pod) { pod.kind = 'core'; pod.g.children[0].material = NSV_CORE_MAT; }
+    }
+    function ncrWire() {
+      const m = ncrMission(); if (!m || !window.nova?.on) return false;
+      window.nova.morality = { get score() { return window.novaMorality ? window.novaMorality.value : 0; } };
+      window.nova.on('missionBeatCompleted', e => {
+        if (e && e.id === 'ambush') { const last = shipGroup.position.clone().add(new THREE.Vector3(0, 0, -120).applyQuaternion(shipGroup.quaternion)); ncrDropCore(last); }
+        if (e && e.id === 'distress' && NCR.derelict) NCR.derelict.userData.boardingReady = false;
+        ncrOnBeat(e && e.next);
+      });
+      window.nova.on('dockedAtLantern', () => {
+        if (ncrCur() !== 'return') return;
+        const ch = (m.stats && m.stats.coreChoice) || '';
+        setTimeout(() => {
+          ncrSay(ch === 'take' ? 'The Lantern pays well for warmth. The crew pods we left... I keep thinking about them.' : 'Word is already out: the hauler crew made it home on that core. People here are looking at us differently.');
+          window.nova.emit('crewReaction', { phase: 'lantern', choice: ch });
+          if (!(NSV.cores > 0)) { showToast('NO HEAT CORE TO SELL · the broker shrugs', 2400, '#ffaa55'); window.nova.emit('coreSold', { count: 0 }); }
+          else showToast('SELL A HEAT CORE at the market to finish the run', 3000, '#ffaa55');
+        }, 2500);
+      });
+      return true;
+    }
+    (function ncrWait(n) { if (ncrWire()) return; if (n < 120) setTimeout(() => ncrWait(n + 1), 500); })(0);
+    function novaColdRunStart() {
+      const m = ncrMission(); if (!m) { showToast('Mission module still loading…', 1500); return; }
+      const fresh = m.progress.cursor >= m.progress.total || m.progress.cursor === 0;
+      m.start({ fresh });
+      if (ncrCur() === 'intro') setTimeout(() => { ncrSay('Nova-1 control: Cold Run is a go. The colonies are freezing, and every heat core counts. Fly safe.'); m.completeBeat('intro'); }, 4000);
+      else ncrOnBeat(ncrCur());
+    }
+    window.novaColdRunStart = novaColdRunStart;
+    window.novaTest = Object.assign(window.novaTest || {}, { coldRun: () => ({ beat: ncrCur(), objective: ncrBeat(), kills: NCR.kills, wave: NCR.wave.length, derelict: !!NCR.derelict, cores: NSV.cores }), coldAmbushWin: () => { NCR.wave.forEach(u => { if (u.alive) nfKill(u, true); }); return ncrCur(); }, coldStowCore: () => { const p = NSV.pods.find(q => q.kind === 'core'); if (p) { nsvStow(p); scene.remove(p.g); NSV.pods.splice(NSV.pods.indexOf(p), 1); } return ncrCur(); }, coldNearDerelict: () => { if (NCR.derelict) shipGroup.position.copy(NCR.derelict.position).add(new THREE.Vector3(0, 0, 90)); return ncrTryBoard(); } });
     window.novaTest = Object.assign(window.novaTest || {}, { vfxShow: () => { const f = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion), p = shipGroup.position.clone().addScaledVector(f, 45); const u = nfSpawn('pirate_fighter', p, { force: true }); if (!u) return null; u.g.lookAt(shipGroup.position); u.g.rotateY(Math.PI / 2); nfFireMissile(u, NF_PLAYER, { dmg: 0 }); spawnHomingMissile(); return NF.msl.length; } });
     window.novaTest = Object.assign(window.novaTest || {}, { salvage: (n = 3) => { const p = shipGroup.position.clone().add(new THREE.Vector3(0, 0, -60).applyQuaternion(shipGroup.quaternion)); for (let i = 0; i < n; i++) novaSalvageDrop(p, { slug: 'pirate_frigate', st: { boss: true } }); return NSV.pods.length; }, lockSalvage: () => { const t = getAllTargets().find(c => c.type === 'salvage'); currentLockedTarget = t || null; return t ? t.name + ' @ ' + Math.round(t.dist) + ' m' : null; }, salvageState: () => ({ pods: NSV.pods.map(p => p.kind), pulling: !!NSV.pulling, cores: NSV.cores, salvage: cargoSalvage, credits: bankCredits }) });
     // start new pilots on the real soundtrack
@@ -19016,6 +19109,7 @@ const GAME_VERSION = 'Alpha 1.4';
     const _play = window.novaPlay;
     if (_play) window.novaPlay = function () { const r = _play.apply(this, arguments); if (wantRange || window._novaRangeNext) { window._novaRangeNext = 0; setTimeout(() => window.novaRange?.(), 1200); } return r; };
     const pb = document.getElementById('btn-play');
+    if (pb && !document.getElementById('btn-coldrun')) { const cb = document.createElement('button'); cb.className = 'modal-btn'; cb.id = 'btn-coldrun'; cb.innerHTML = '&#10052; COLD RUN (MISSION)'; cb.onclick = e => { e.stopPropagation(); window.novaPlay(); setTimeout(() => window.novaColdRunStart?.(), 1500); }; pb.insertAdjacentElement('afterend', cb); }
     if (pb && !document.getElementById('btn-range')) { const rb = document.createElement('button'); rb.className = 'modal-btn'; rb.id = 'btn-range'; rb.innerHTML = '&#127919; FIRING RANGE'; rb.onclick = e => { e.stopPropagation(); window._novaRangeNext = 1; window.novaPlay(); }; pb.insertAdjacentElement('afterend', rb); }
     if (wantRange) setTimeout(() => window.novaRange?.(), 1200);
     return modules;

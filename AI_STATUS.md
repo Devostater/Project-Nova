@@ -10,6 +10,8 @@ The owner handed the lead back to Claude after Claude's usage reset. Claude owns
 - Took #33 and wired it: Gemini missile plume on enemy and player missiles, faction-coloured engine glow on every ship. `novaTest.vfxShow()` spawns a pirate + missiles for a check.
 - Checked headless: all 8 modules load, range enters/fires/exits, no page errors.
 
+**Claude, branch `claude/cold-run-pass`:** Cold Run director in the game file. Menu button ❄ COLD RUN; intro beat completes; warp → 3-fighter ambush spawns; a heat core always drops and tractoring it advances the mission; a boardable derelict hauler (cyan beacon, in targets/COMMS) appears; COMMS DOCK or V boards within 150 m; Lantern dock triggers the crew line and finishes the run; mission objective shown in LOG; morality emits `moralityChanged`. Headless: all 9 beats to the end card, no errors. Test hooks `novaTest.coldRun()`, `coldAmbushWin()`, `coldStowCore()`, `coldNearDerelict()`.
+
 ## GPT/Codex jobs (in order; modules/tools/docs only)
 
 Each job: own branch `gpt/<job>`, draft PR, `node --check` every module, `public/modules` = `modules`, both `sw.js` lists, handoff here.
