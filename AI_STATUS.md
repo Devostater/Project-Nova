@@ -2,6 +2,24 @@
 
 > Read [AI_WORKFLOW.md](AI_WORKFLOW.md) and [AI_PLAN.md](AI_PLAN.md) before starting or taking over work.
 
+## ⏸ HANDOFF: Claude paused (2026-11-07, out of usage)
+
+**Open PRs, in merge order (all clean, no CI):**
+1. **#7 `claude/alpha-1.2`**: Alpha 1.2. AI Studio side panels (merged from the uploaded file), Gemini VFX pack (`tools/vfx_build.py`, `art_src/gemini/`), Gemini shield hex, Codex #9 integrated (laser impacts, flight-log wording, clean `sky.jpg`), `.gitattributes` (LF), warp streak lines removed, holo-radar made see-through. **Contains #6 and #9.** Tested headless only; needs an owner Quest run of `TESTING.md`.
+2. **#6 `claude/shield-hex`**: contained in #7; it closes when #7 merges.
+3. **#9 `codex/skybox-laser-story`**: already integrated into #7 with LF endings. **Close it without merging** (its CRLF rewrite would conflict).
+4. **#8 `claude/fps-plan`**: docs only. `FPS_PLAN.md` with the owner's decisions; lore anchor in `reference/mind-space/PROJECT_NOVA_NOTE.md`.
+
+**In progress, not started in code: holo-radar position toggle (owner decision).**
+- Positions: **LEFT** (default, on the left console by the throttle) and **HIGH** (top of the dash under the canopy, never over a screen). Save as `NOPT.o.radarPos` with `noptSave()`.
+- Where: `nhBuild()` sets `NH.g.position` (currently `nkC(0, 0.412, -0.153) + NKS.n*0.10 + (0, 0.02, 0)` when `NK.on`; centre telemetry screen). Add `nhPlace(mode)` and call it on build and on toggle. Measure the throttle and left console positions in cockpit space first (`throttleGroup`, `novaConsoles[0].g`), and screenshot from the pilot camera.
+- Toggle in options: (a) the main-menu `#menu-options` DOM button; (b) the in-cockpit SYSTEM tab (`npSysCards`, `NP_SYS`). That grid has 6 cards plus music on row hits 6/7, and only 8 row hits exist (`npBuild` loop `i < 8`). Plan: raise the loop to `i < 9`; in the default rect use `hasRow && i < 8` so other tabs are unaffected; make `NP_SYS.rowRect(8)` a full-width 4th row; shrink cards to H 48 / step 52 (they must end above the pads at y 330); route `row(P, 8)` to the new card.
+- Keep `standalone.html` == `public/standalone.html`; `index.html` = the same file without the import map. Run `node --check` on the module, then a headless test.
+
+**Next (after #7 merges):** FPS plan **M0** (`nova` module API + loader, `novaInterior`), then **M1** salvage (greyed salvage targets on radar and comms, TRACTOR button, heat cores).
+
+**Still waiting:** GPT's docking update (it pushed laser and skybox work instead, #9). The Gemini key in the `project-nova` environment works (Tier 1); image generation costs about 1.5k tokens per image.
+
 ## Primary AI
 
 **Claude** is primary for Project Nova until the owner changes this.
@@ -10,7 +28,7 @@
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Nobody (Alpha 1.1 released). GPT (docking) and AI Studio (side panels) may edit **only their listed functions** below, starting from the latest `main`; Claude merges both into Alpha 1.2.
+**Held by:** Nobody. Claude paused (out of usage) and released the game files; see the handoff below.
 
 ## Active claims
 
@@ -19,7 +37,6 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| Google AI Studio | Side panel layouts | `aistudio/side-panels` | panel layout code only: `nkDashBuild`, `nmMountConsole`, `novaConsoleTick`, `draw*Panel` | Active | — |
 
 ## Waiting for review / merge
 
@@ -31,6 +48,11 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
 
+- **Claude: warp lines removed, see-through holo-radar** (`claude/alpha-1.2`, owner request). The 1,000 warp streak lines are no longer added to the scene (they ran through the cockpit and converged over the consoles); the hyperspace star particles and backdrop remain. The 3D holo-radar is fainter (sphere, disc, rings, sweep, stalks, mini ships) and its emitter cone is off. Its position is waiting on the owner's choice. Checks: `node --check`; headless Chromium screenshot shows the telemetry screen readable through the radar.
+- **Codex + Claude: laser impacts, flight-log wording, clean skybox** (PR #9 integrated into `claude/alpha-1.2`). Codex added localized laser-hit flares and sparks (`novaVfxLaserImpact`) and reworded campaign objectives and flight-log headings, and found the pole-seam streaks in `sky.jpg`. Its push converted all three game files to CRLF (about 36k changed lines for a 33-line change), so Claude merged only the real lines with LF endings, swapped in the clean `art/sky_v014_backup.jpg` as `sky.jpg`, and added `.gitattributes` to keep LF from now on. Checks: three-way merge without conflicts; headless Chromium.
+- **Claude: Gemini VFX pack** (branch `claude/alpha-1.2`). Seven Gemini source images (`art_src/gemini/`: fireball, smoke, sparks, laser, muzzle, engine, warp) built into game textures by `tools/vfx_build.py`. In game: a 2048 px 8×8 explosion (fireball → smoke) and grayscale laser, flare and spark. Delivered but not wired yet: small hit burst, muzzle sheet, engine glow, warp streaks. `vfx_cut.py` now only makes lightning and the legacy shield cell. Checks: headless Chromium from the repo root and `public/` (all textures load, rendered in front of the camera, explosions run, no 404s or errors).
+- **Google AI Studio + Claude: side panel layouts** (branch `claude/alpha-1.2`). AI Studio ran out of usage, so the owner uploaded its `standalone.html`. It was based on 642938b and changed only the panel/UI code (`np*` panels, gestures, keyboard `novaKb*`, `novaChoice*`). Claude three-way merged it onto the shield branch with no conflicts, kept all later fixes (VFX, fx/, shield hex, gamepad), restored the import map, and set the version to Alpha 1.2 (cache `nova-alpha-1.2`). Checks: `node --check`; headless Chromium shows the side panels, with no 404s or errors.
+- **Claude: Gemini shield texture** (branch `claude/shield-hex`). First asset generated through the Gemini API (`gemini-3.1-flash-image`): a seamless 1024 px hex shield, stored grayscale (387 KB) in `public/fx/` and `fx/`. It replaces the 128 px hex on the shield dome, shield hits and drone rings; offline cache bumped to `nova-alpha-1.1b`. Only the NOVA_VFX texture map and shield repeat lines changed. Checks: headless Chromium (loads at 1024², no 404s or errors, rendered on a dome).
 - **Claude: Alpha 1.1** (PR #5). Version bump, offline cache `nova-alpha-1.1` (now includes `vendor/three.core.js`, `SkeletonUtils.js` and `fx/`), root `fx/` textures for the PC servers, `TESTING.md`, `ASSET_BACKLOG.md`, and a manual GitHub Pages deploy workflow. Checks: headless Chromium serving both the repo root and `public/` (textures and models load, no 404s or errors). Next: the owner pulls in GitHub Desktop and runs `TESTING.md` on PC and Quest; then Claude merges AI Studio's panels and GPT's docking into Alpha 1.2.
 - **Claude: Phase 1 foundation** (PR #4, merged). three.js r187 vendor files so GLB models load in the web build; `ASSET_SPEC.md`, `AI_PLAN.md`, multi-claim status; `AGENTS.md` and `.gemini/` review configs. Checks: headless Chromium (models load, no 404s).
 - **Google AI Studio Build + Claude: VFX texture pack** (PR #3, merged). AI Studio wired VFX into weapons, shields, beams and explosions and reconciled Alpha 1.0 RC with NOVA14. Claude restored the dropped import map, cut clean textures into `public/fx/` (`tools/vfx_cut.py`), made explosions play one atlas frame at a time and capped explosion layers for Quest. Checks: headless Chromium. Still needs an owner test on the Quest.

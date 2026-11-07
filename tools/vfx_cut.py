@@ -60,30 +60,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(OUT_ROOT, exist_ok=True)
 
-    # Explosion: 10x6 grid, 56 usable frames -> clean 8x8 atlas (1024 px, 128 px cells).
-    ex = load('explosion VFX1.jpg')
-    cw, ch = ex.width / 10, ex.height / 6
-    atlas = Image.new('RGB', (1024, 1024), 0)
-    for i in range(56):
-        c, r = i % 10, i // 10
-        f = cell(ex, round(c * cw), round(r * ch), round((c + 1) * cw), round((r + 1) * ch))
-        f = feather(fit(f, (128, 128)), 0.08)
-        atlas.paste(f, ((i % 8) * 128, (i // 8) * 128))
-    save(atlas, 'vfx_explosion_8x8.png')
-
-    # Laser: row 7 (white bolt, tinted in game). Rotated so the head points down the
-    # texture, which maps to -Z (forward) on the bolt fins.
-    la = load('lasers.jpg')
-    rh = la.height / 8
-    bolt = cell(la, 20, round(6 * rh), 1000, round(7 * rh), inset=2)
-    save(feather(fit(bolt.rotate(90, expand=True), (128, 512)), 0.06), 'vfx_laser.png')
-
-    # Glows sheet: 4x3 grid between x 45..1001, y 49..559.
-    gl = load('glows and flares.jpg')
-    gx, gy, gw, gh = 45, 49, (1001 - 45) / 4, (559 - 49) / 3
-    g = lambda c, r: cell(gl, round(gx + c * gw), round(gy + r * gh), round(gx + (c + 1) * gw), round(gy + (r + 1) * gh), inset=4)
-    save(feather(fit(g(2, 0), (256, 256)), 0.10), 'vfx_flare.png')   # white 4-point star
-    save(feather(fit(g(3, 1), (256, 256)), 0.10), 'vfx_spark.png')   # blue electric burst
+    # Explosion, laser, flare and spark now come from Gemini sources: see tools/vfx_build.py.
 
     # Shield: hex cell (row 1, col 1) of the 8x8 grid between x 77..998, y 76..572.
     sh = load('energy shields.jpg')

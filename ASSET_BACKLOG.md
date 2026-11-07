@@ -11,17 +11,19 @@ How to deliver: upload to the right folder on a new branch through the GitHub we
 
 ## P1: VFX upgrade (biggest visual win)
 
+Sources: `art_src/gemini/` (made with `gemini-3.1-flash-image`). Rebuild the textures with `python3 tools/vfx_build.py`.
+
 The current effects are cut from low-resolution catalog sheets (explosion frames are only about 100 px). Make proper sheets to `ASSET_SPEC.md`: square, no grid lines, black background.
 
 | Item | File | Size / grid | Notes | Status |
 |---|---|---|---|---|
-| Large explosion | `public/fx/vfx_explosion_large_8x8.png` | 2048², 8×8 | Fireball → smoke, fades fully to black by the last frame | |
-| Small explosion / hit | `public/fx/vfx_explosion_small_4x4.png` | 1024², 4×4 | Quick spark burst for bullet hits and asteroid chips | |
-| Shield hex (tileable) | `public/fx/vfx_shield_hex.png` | 1024², 1 frame | Seamless honeycomb, white/cyan lines on black | |
-| Player laser | `public/fx/vfx_laser_player.png` | 128×512 | Vertical bolt, head at the **bottom**, white core (tinted in game) | |
-| Muzzle flash | `public/fx/vfx_muzzle_4x4.png` | 512², 4×4 | Short, star-shaped | |
-| Engine glow | `public/fx/vfx_engine_glow.png` | 256² | Soft round glow, white/blue | |
-| Warp streaks | `public/fx/vfx_warp_streaks.png` | 1024² | Radial lines for hyperspace, tileable around the circle | |
+| Large explosion | `public/fx/vfx_explosion_8x8.jpg` | 2048², 8×8 | Fireball → smoke, fades fully to black by the last frame | **Delivered + in game** (Gemini fireball and smoke, animated by `tools/vfx_build.py`) |
+| Small explosion / hit | `public/fx/vfx_explosion_small_4x4.png` | 512², 4×4 | Quick spark burst for bullet hits and asteroid chips | **Delivered**, not wired yet |
+| Shield hex (tileable) | `public/fx/vfx_shield_hex.png` | 1024², 1 frame | Seamless honeycomb, white/cyan lines on black | **Delivered** (Gemini, Claude) |
+| Player laser | `public/fx/vfx_laser.png` | 128×512 | Vertical bolt, head at the **bottom**, white core (tinted in game) | **Delivered + in game** (Gemini, grayscale) |
+| Muzzle flash | `public/fx/vfx_muzzle_4x4.png` | 512², 4×4 | Short, star-shaped | **Delivered**, not wired yet. The single star is in game as `vfx_flare.png` |
+| Engine glow | `public/fx/vfx_engine_glow.png` | 256² | Soft round glow, white/blue | **Delivered**, not wired yet |
+| Warp streaks | `public/fx/vfx_warp_streaks.png` | 1024² | Radial lines for hyperspace, tileable around the circle | **Delivered**, not wired yet |
 
 ## P2: Docking (supports GPT's docking update)
 
