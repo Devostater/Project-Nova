@@ -9253,7 +9253,7 @@ const GAME_VERSION = 'Alpha 1.4';
     novaKb.add(kbBack);
     const kbTxtCanvas = document.createElement('canvas'); kbTxtCanvas.width = 1024; kbTxtCanvas.height = 64;
     const kbTxtTex = new THREE.CanvasTexture(kbTxtCanvas);
-    const kbTxt = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.022), new THREE.MeshBasicMaterial({ map: kbTxtTex }));
+    const kbTxt = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.022), new THREE.MeshBasicMaterial({ map: kbTxtTex, transparent: true, opacity: 0.9, depthWrite: false }));
     kbTxt.position.set(0, 0.088, 0.001);
     novaKb.add(kbTxt);
     function novaKbDrawText() {
@@ -9289,7 +9289,7 @@ const GAME_VERSION = 'Alpha 1.4';
         g.strokeStyle = '#00e5ff'; g.lineWidth = wide ? 8 : 6; g.strokeRect(3, 3, c.width - 6, c.height - 6);
         g.fillStyle = k === 'SEND' ? '#00ff88' : (k === 'CLOSE' ? '#ff5566' : '#cfefff');
         g.font = `bold ${wide ? 46 : 50}px monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k, c.width / 2, c.height / 2 + 2);
-        const key = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.008), [null, null, null, null, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }), null].map(m => m || new THREE.MeshBasicMaterial({ color: 0x0a2232 })));
+        const key = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.008), [null, null, null, null, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: 0.92, depthWrite: false }), null].map(m => m || new THREE.MeshBasicMaterial({ color: 0x0a5570, transparent: true, opacity: 0.48, depthWrite: false })));
         key.position.set((ci - (row.length - 1) / 2) * step, kbTop - ri * kbPitch - (wide ? 0.008 : 0), 0.004);
         novaKb.add(key);
         registerCockpitButton(key, 'KEY ' + k, () => novaKbKey(k), wide ? 0.038 : 0.020);
@@ -9301,6 +9301,13 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!novaKbEnt) novaKbEnt = novaSelectedEntity();
       if (isCommsKeyboardOpen) {
         const P = window.NP && NP.panels && NP.panels[0];
+        try {
+          if (P && typeof NP_CHAT !== 'undefined') {
+            const ci = P.cfg.tabs.indexOf(NP_CHAT); if (ci >= 0 && P.tab !== ci) npTab(P, ci);
+            const ent0 = novaKbEnt && Object.assign({}, novaKbEnt, { callsign: novaKbEnt.callsign || novaKbEnt.name });
+            if (ent0) { npChatSave(ent0); npChatSelect(ent0); }
+          }
+        } catch (e) { }
         if (P && P.c && P.c.g) {
           if (novaKb.parent !== P.c.g) P.c.g.attach(novaKb);
           novaKb.position.copy(P.at(512, 420, 0.075)); novaKb.position.y -= 0.085;
@@ -16125,7 +16132,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function npTick(dt) {
       if (!NP.panels.length) {
         if (!novaConsoles[0] || !novaConsoles[1]) return;
-        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_CREW_TAB, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'CREW CHANNEL' : T === NP_CREW_TAB ? 'CREW / FLEET' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
+        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_CREW_TAB, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'MESSAGES' : T === NP_CREW_TAB ? 'CREW / FLEET' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
           holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => { if (P.cfg.tabs[P.tab] === NP_COMMS) npOpenTargetChat(P); else npTab(P, P.cfg.tabs.indexOf(NP_COMMS)); } }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
             { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CREW_TAB)) }, { g: '✈', l: 'FLIGHT', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_FLIGHT)) },
             { g: '◎', l: 'OBJECTIVE', c: '#ffcc00', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_OBJ)) }, { g: '➤', l: 'WARP', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_WARP)) }] });
@@ -16256,7 +16263,11 @@ const GAME_VERSION = 'Alpha 1.4';
         const mx = Math.max(0, G.P.list.length - 8); G.P.scrollF = Math.max(0, Math.min(mx, G.P.scrollF));
         const s = Math.round(G.P.scrollF); if (s !== G.P.scroll) { G.P.scroll = s; G.P.drawT = 0; }
       } else if (T === NP_CHAT) {
-        NPCH.scroll = Math.max(0, NPCH.scroll + dy / 25); G.P.drawT = 0;   // drag down = read older lines
+        if (G.x0 < 320) {
+          const mx = Math.max(0, npChatContacts().length - 6);
+          NPCH.contactScroll = Math.max(0, Math.min(mx, NPCH.contactScroll - dy / 51));
+        } else NPCH.scroll = Math.max(0, NPCH.scroll + dy / 25);   // drag down = read older lines
+        G.P.drawT = 0;
       } else if (T === NP_CARGO && nmkNear()) {
         G.P.scrollF = (G.P.scrollF ?? G.P.scroll) - dy / 88; const mx = Math.max(0, nmkRows(nmkNear()).length - NMK_VIS);
         G.P.scrollF = Math.max(0, Math.min(mx, G.P.scrollF)); NPG.vel = -dy / 88; const s = Math.round(G.P.scrollF); if (s !== G.P.scroll) { G.P.scroll = s; G.P.drawT = 0; }
@@ -16272,6 +16283,19 @@ const GAME_VERSION = 'Alpha 1.4';
         if (T === NP_COMMS) { const r = Math.floor((G.y0 - 52) / 44); const c = r >= 0 && r < 8 ? P.list[P.scroll + r] : null; if (c) { novaHoloSelect(c); P.drawT = 0; } }
         else if (T === NP_CARGO && nmkNear()) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) { NP_CARGO.row(P, r); P.drawT = 0; } }
         else if (T === NP_WARP) { if (G.x0 < 140) npWarpStep(-1); else if (G.x0 > 884) npWarpStep(1); else npWarpGo(); }
+        else if (T === NP_CHAT) {
+          if (G.x0 < 320) {
+            const r = Math.floor((G.y0 - 88) / 51), c = r >= 0 && r < 6 ? npChatContacts()[Math.round(NPCH.contactScroll) + r] : null;
+            if (c) npChatSelect(c);
+          } else if (G.y0 >= 348 && G.y0 <= 412) {
+            if (G.x0 >= 858) {
+              const t = commsTextInput.trim();
+              if (t) { commsTextInput = ''; novaChatSend(npCrewEnt(), t); novaKbDrawText(); }
+              else novaKeyboardToggle(npCrewEnt(), true);
+            } else if (G.x0 >= 330) novaKeyboardToggle(npCrewEnt(), true);
+          }
+          P.drawT = 0;
+        }
         NPG.vel = 0;
       } else if (T === NP_COMMS && (performance.now() - G.t) < 900) NPG.vel *= 6; else NPG.vel = 0;
     }
@@ -16323,7 +16347,11 @@ const GAME_VERSION = 'Alpha 1.4';
       if (T === NP_COMMS) { const mx = Math.max(0, h.P.list.length - 8); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
       else if (T === NP_CARGO && nmkNear()) { const mx = Math.max(0, nmkRows(nmkNear()).length - NMK_VIS); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
       else if (T === NP_WARP) { npWarpStep(Math.sign(e.deltaY || e.deltaX)); e.preventDefault(); }
-      else if (T === NP_CHAT) { NPCH.scroll = Math.max(0, NPCH.scroll - Math.sign(e.deltaY) * 2); h.P.drawT = 0; e.preventDefault(); }
+      else if (T === NP_CHAT) {
+        if (h.px < 320) { const mx = Math.max(0, npChatContacts().length - 6); NPCH.contactScroll = Math.max(0, Math.min(mx, Math.round(NPCH.contactScroll) + Math.sign(e.deltaY))); }
+        else NPCH.scroll = Math.max(0, NPCH.scroll + Math.sign(e.deltaY) * 2);
+        h.P.drawT = 0; e.preventDefault();
+      }
     }, { passive: false });
     window.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
