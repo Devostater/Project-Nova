@@ -4,7 +4,7 @@
 
 ## ▶ Owner away: work from `AI_QUEUE.md`
 
-Each AI takes the next unclaimed card in its lane (A = GPT/Codex, B = Gemini, C = AI Studio), claims it under Active claims, works on its own branch and opens a draft PR. Claude's open PR: #11 (cockpit tweaks), which is waiting for the owner.
+Each AI takes the next unclaimed card in its lane (A = GPT/Codex, B = Gemini, C = AI Studio), claims it under Active claims, works on its own branch and opens a draft PR. Claude's PR #11 (cockpit tweaks) is merged.
 
 ## ⚠ Read first: work from the latest GitHub `main`, never an old local copy
 
@@ -18,7 +18,7 @@ On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Claude (`claude/merge-gpt-cockpit`) until the Alpha 1.3 PR merges.
+**Held by:** Codex (`codex/module-loader`) for A4 module API/loader changes; PR #11 is merged.
 
 ## Active claims
 
@@ -27,6 +27,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
+| Codex | A4 nova module API + loader | `codex/module-loader` | Three mirrored game files, `AI_PLAN.md` | Active | — |
 
 ## Waiting for review / merge
 
