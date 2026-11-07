@@ -1,18 +1,21 @@
 # Absolute Zero Interactive (AZI): Studio Identity
 
-## Established (owner-confirmed)
-- The studio's current name is **Absolute Zero Interactive**, abbreviated **AZI**.
-- AZI is the parent studio.
-- Mind Space and Matrix are AZI properties in their respective roles described in this library.
+## Owner-confirmed organization
+**Absolute Zero Interactive (AZI)** is the current parent studio.
+- **Mind Space:** AZI sci-fi FPS game-development property.
+- **Matrix:** AZI AI character, digital personality, DJ/media concept, and potential assistant experience.
+- **Future projects:** may be added as separate AZI properties after owner confirmation.
 
-## Naming and terminology
-- First mention: **Absolute Zero Interactive (AZI)**.
-- Later mentions: **AZI**.
-- **Zero Horizon Music** is a former name, not the current studio name. Use it only when historical context is relevant.
-- Do not expand AZI differently or refer to the studio as a publisher, label, or legal entity unless the owner confirms that wording.
+AZI is an umbrella for ownership and presentation, **not proof of a shared story universe**.
 
-## Open
-No approved mission statement, founding history, location, team description, slogan, logo, color system, typography, or public-facing brand voice has been supplied here.
+## History and naming
+The owner previously used **Zero Horizon Music** for music/media work and later chose **Absolute Zero Interactive**. Earlier names explored include Quantum Drop Studios. Use AZI for current studio-facing material; preserve actual historical credits on existing releases.
 
-## Prompt guidance
-When generating studio-facing material, use the current name and parent-studio relationship. Leave logo construction, palette, slogan, and brand claims unspecified unless provided by the owner. Any creative brand concepts must be labeled **Proposed**.
+## Creative intent
+AZI's portfolio combines interactive entertainment, original sci-fi worlds, AI characters, and creative media. This describes the owner's project direction, not a legal or commercial claim.
+
+## Unknowns
+Company registration, team, address, formal mission statement, official logo, brand palette, typography, slogan, and publication rights have not been confirmed. Do not invent them.
+
+## For AI agents
+Start with the repository's `AI_CONTEXT.md` and `PROJECT_INDEX.md`; use property-specific references for prompt generation. Record new approved decisions as facts, and proposed concepts as proposals.
