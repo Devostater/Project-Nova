@@ -35,7 +35,8 @@ export function init(nova) {
 
   const ray=new T.Raycaster();ray.far=60;ray.params.Line.threshold=.08;
   const origin=new T.Vector3(),direction=new T.Vector3(),forward=new T.Vector3(),right=new T.Vector3(),move=new T.Vector3(),up=new T.Vector3(0,1,0);
-  const thumb=new T.Vector3(),index=new T.Vector3(),middle=new T.Vector3(),wrist=new T.Vector3(),endPoint=new T.Vector3(),midPoint=new T.Vector3();\n  const controllerQ=new T.Quaternion();
+  const thumb=new T.Vector3(),index=new T.Vector3(),middle=new T.Vector3(),wrist=new T.Vector3(),endPoint=new T.Vector3(),midPoint=new T.Vector3();
+  const controllerQ=new T.Quaternion();
   const down=new Set();
   let active=false,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=25,yaw=0,pitch=0,hudTimer=0,muzzleTimer=0;
   let rightController=null,leftController=null,rightHand=null,leftHand=null,leftFist=false,leftAnchor=null;
