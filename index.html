@@ -570,7 +570,7 @@
     <div id="hud-controls">STICK: +0.0° PITCH · +0.0° ROLL | THROTTLE: 0% | SEAT: +5cm</div>
   </div>
 
-  <div id="version-badge">Alpha 1.1 · STARFIGHTER SIMULATOR</div>
+  <div id="version-badge">Alpha 1.2 · STARFIGHTER SIMULATOR</div>
   <div id="status-toast"></div>
 
   <!-- Launch Modal -->
@@ -704,7 +704,7 @@ git push -u origin main</pre>
 
         let pirateBoss = null;
     let pirateBossSpawned = false;
-const GAME_VERSION = 'Alpha 1.1';
+const GAME_VERSION = 'Alpha 1.2';
     let passthroughActive = false;
     let seatOffset = 0.12; // Elevated command default (+12cm)
     let throttlePct = 0;
@@ -8826,11 +8826,12 @@ const GAME_VERSION = 'Alpha 1.1';
     const NOVA_KB_HOME = new THREE.Vector3(0, 0.50, -0.34);
     novaKb.position.set(0, -50, 0);
     novaKb.rotation.x = -0.75;
+    novaKb.scale.setScalar(1.22);
     let novaKbEnt = null;
     const kbRows = [['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L','?'], ['Z','X','C','V','B','N','M',',','.','!'], ['QUICK','SPACE','DEL','SEND','CLOSE']];
     const kbPitch = 0.034, kbTop = 0.05;
-    const kbBack = new THREE.Mesh(new THREE.BoxGeometry(0.37, 0.20, 0.008), new THREE.MeshStandardMaterial({ color: 0x07121c, metalness: 0.8, roughness: 0.4, emissive: 0x002233, emissiveIntensity: 0.5 }));
-    kbBack.position.set(0, 0.005, -0.006);
+    const kbBack = new THREE.Mesh(new THREE.BoxGeometry(0.39, 0.224, 0.008), new THREE.MeshStandardMaterial({ color: 0x07121c, metalness: 0.8, roughness: 0.4, emissive: 0x002233, emissiveIntensity: 0.5 }));
+    kbBack.position.set(0, -0.004, -0.006);
     novaKb.add(kbBack);
     const kbTxtCanvas = document.createElement('canvas'); kbTxtCanvas.width = 1024; kbTxtCanvas.height = 64;
     const kbTxtTex = new THREE.CanvasTexture(kbTxtCanvas);
@@ -8860,19 +8861,20 @@ const GAME_VERSION = 'Alpha 1.1';
     }
     kbRows.forEach((row, ri) => {
       const wide = ri === 3;
-      const w = wide ? 0.066 : 0.030;
-      const step = wide ? 0.072 : kbPitch;
+      const w = wide ? 0.072 : 0.030;
+      const h = wide ? 0.044 : 0.028;
+      const step = wide ? 0.076 : kbPitch;
       row.forEach((k, ci) => {
-        const c = document.createElement('canvas'); c.width = wide ? 192 : 96; c.height = 96;
+        const c = document.createElement('canvas'); c.width = wide ? 224 : 96; c.height = wide ? 128 : 96;
         const g = c.getContext('2d');
-        g.fillStyle = k === 'SEND' ? '#003a22' : (k === 'CLOSE' ? '#3a0a10' : '#0a2232'); g.fillRect(0, 0, c.width, 96);
-        g.strokeStyle = '#00e5ff'; g.lineWidth = 6; g.strokeRect(3, 3, c.width - 6, 90);
+        g.fillStyle = k === 'SEND' ? '#003a22' : (k === 'CLOSE' ? '#3a0a10' : '#0a2232'); g.fillRect(0, 0, c.width, c.height);
+        g.strokeStyle = '#00e5ff'; g.lineWidth = wide ? 8 : 6; g.strokeRect(3, 3, c.width - 6, c.height - 6);
         g.fillStyle = k === 'SEND' ? '#00ff88' : (k === 'CLOSE' ? '#ff5566' : '#cfefff');
-        g.font = `bold ${wide ? 36 : 50}px monospace`; g.textAlign = 'center'; g.fillText(k, c.width / 2, 64);
-        const key = new THREE.Mesh(new THREE.BoxGeometry(w, 0.028, 0.008), [null, null, null, null, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }), null].map(m => m || new THREE.MeshBasicMaterial({ color: 0x0a2232 })));
-        key.position.set((ci - (row.length - 1) / 2) * step, kbTop - ri * kbPitch, 0.004);
+        g.font = `bold ${wide ? 46 : 50}px monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k, c.width / 2, c.height / 2 + 2);
+        const key = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.008), [null, null, null, null, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }), null].map(m => m || new THREE.MeshBasicMaterial({ color: 0x0a2232 })));
+        key.position.set((ci - (row.length - 1) / 2) * step, kbTop - ri * kbPitch - (wide ? 0.008 : 0), 0.004);
         novaKb.add(key);
-        registerCockpitButton(key, 'KEY ' + k, () => novaKbKey(k), 0.018);
+        registerCockpitButton(key, 'KEY ' + k, () => novaKbKey(k), wide ? 0.038 : 0.020);
       });
     });
     function novaKeyboardToggle(ent, force) {
@@ -9052,12 +9054,12 @@ const GAME_VERSION = 'Alpha 1.1';
       const tex = new THREE.CanvasTexture(c);
       g.add(new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.163), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })));
       const btns = [0, 1, 2].map(i => {
-        const bc = document.createElement('canvas'); bc.width = 384; bc.height = 112;
+        const bc = document.createElement('canvas'); bc.width = 416; bc.height = 128;
         const bt = new THREE.CanvasTexture(bc);
         const side = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.5 });
-        const m = new THREE.Mesh(new THREE.BoxGeometry(0.135, 0.04, 0.016), [side, side, side, side, new THREE.MeshBasicMaterial({ map: bt }), side]);
-        m.position.set(0, -0.11, 0.008); g.add(m);
-        registerCockpitButton(m, 'CHOICE ' + (i + 1), () => novaChoicePick(i), 0.035);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.156, 0.056, 0.016), [side, side, side, side, new THREE.MeshBasicMaterial({ map: bt }), side]);
+        m.position.set(0, -0.118, 0.008); g.add(m);
+        registerCockpitButton(m, 'CHOICE ' + (i + 1), () => novaChoicePick(i), 0.055);
         return { m, bc, bt, side };
       });
       return { g, c, tex, btns, opts: null };
@@ -9079,12 +9081,12 @@ const GAME_VERSION = 'Alpha 1.1';
         const o = opts[i];
         b.m.visible = !!o;
         if (!o) return;
-        b.m.position.x = (i - (n - 1) / 2) * 0.148;
+        b.m.position.x = (i - (n - 1) / 2) * 0.168;
         const bg = b.bc.getContext('2d');
-        bg.fillStyle = '#0a1a26'; bg.fillRect(0, 0, 384, 112);
-        bg.strokeStyle = o.col || '#00e5ff'; bg.lineWidth = 8; bg.strokeRect(4, 4, 376, 104);
-        bg.fillStyle = o.col || '#00e5ff'; bg.font = 'bold 32px monospace'; bg.textAlign = 'center'; bg.textBaseline = 'middle';
-        bg.fillText(o.label, 192, 58);
+        bg.fillStyle = '#0a1a26'; bg.fillRect(0, 0, 416, 128);
+        bg.strokeStyle = o.col || '#00e5ff'; bg.lineWidth = 8; bg.strokeRect(4, 4, 408, 120);
+        bg.fillStyle = o.col || '#00e5ff'; bg.font = 'bold 36px monospace'; bg.textAlign = 'center'; bg.textBaseline = 'middle';
+        bg.fillText(o.label, 208, 66);
         b.bt.needsUpdate = true;
         b.side.color.set(o.col || '#00e5ff'); b.side.emissive.set(o.col || '#00e5ff');
       });
@@ -14320,8 +14322,9 @@ const GAME_VERSION = 'Alpha 1.1';
         const rx = flat(xs, 0.005);
         if (!rx || (rx.b - rx.a) * 0.005 < 0.05) { console.warn('[NOVA12] console', c.title, ': no flat screen found, keeping procedural face'); return false; }
         const screenW = (rx.b - rx.a) * 0.005;
-        const k = THREE.MathUtils.clamp((c.fieldW + 0.03) / screenW, 0.5, 2.2);
+        const k = THREE.MathUtils.clamp((c.fieldW + 0.045) / screenW, 0.5, 2.4);
         wrap.scale.multiplyScalar(k);
+        wrap.scale.y *= 1.10;
         // 3) height + depth of the screen -> position
         f = sample(); const ys2 = []; for (let n = 0; n <= 200; n++) ys2.push(f(0, 0.3 - n * YS));
         const ry = flat(ys2, 0.005);
@@ -15036,48 +15039,53 @@ const GAME_VERSION = 'Alpha 1.1';
     //   right = WEAPONS (missiles, lock, holo scan) | CARGO (manifest, resupply, sell ore)
     const NP = { panels: [], ccol: { hostile: '#ff3344', allied: '#33ff88', station: '#3fa9ff', asteroid: '#9aa6b8', wreck: '#ffaa33', wingman: '#33ff88', freighter: '#33ff88', ship: '#33ff88' } };
     window.NP = NP;
-    const NP_SW = 0.30, NP_SH = 0.133, NP_BX = [-0.151, -0.116, -0.082, -0.047, -0.015, 0.024, 0.060, 0.096, 0.144];
+    const NP_SW = 0.315, NP_SH = 0.148, NP_BX = [-0.151, -0.116, -0.082, -0.047, -0.015, 0.024, 0.060, 0.096, 0.144];
     function npBtnTex(glyph, lab, col) {
-      const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
-      g.fillStyle = 'rgba(2,14,26,0.82)'; g.fillRect(6, 6, 116, 116); g.strokeStyle = col; g.lineWidth = 8; g.strokeRect(6, 6, 116, 116);
-      g.fillStyle = col; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'bold 60px sans-serif'; g.fillText(glyph, 64, 52);
-      g.font = 'bold 22px monospace'; g.fillText(lab, 64, 104);
+      const c = document.createElement('canvas'); c.width = 160; c.height = 160; const g = c.getContext('2d');
+      g.fillStyle = 'rgba(2,14,26,0.90)'; g.fillRect(4, 4, 152, 152); g.strokeStyle = col; g.lineWidth = 10; g.strokeRect(4, 4, 152, 152);
+      g.fillStyle = col; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'bold 74px sans-serif'; g.fillText(glyph, 80, 62);
+      g.font = 'bold 30px monospace'; g.fillText(lab, 80, 128);
       return new THREE.CanvasTexture(c);
     }
     function npFindAct(lab) { const e = cockpitInteractables.find(q => q.label === lab && !q.nk); return e ? e.action : null; }
     function npBuild(c, cfg) {
-      const P = { c, cfg, tab: 0, cv: document.createElement('canvas'), list: [], scroll: 0, listT: 0, drawT: 0, holo: new THREE.Group(), holoKey: undefined, hb: [], acts: {} };
+      const P = { c, cfg, tab: 0, cv: document.createElement('canvas'), list: [], scroll: 0, listT: 0, drawT: 0, holo: new THREE.Group(), holoKey: undefined, hb: [], padHits: [], rowHits: [], acts: {} };
       P.cv.width = 1024; P.cv.height = 456; P.tex = new THREE.CanvasTexture(P.cv); P.tex.anisotropy = 4;
       // keep the old cell actions, then retire the old on-screen cells
       c.btns.forEach(b => { const e = cockpitInteractables.find(q => q.mesh === b); if (e) P.acts[e.label] = e.action; b.visible = false; const i = cockpitInteractables.indexOf(e); if (i >= 0) cockpitInteractables.splice(i, 1); });
-      c.root.scale.setScalar(0.78);   // half the previous size
+      c.root.scale.set(0.96, 1.12, 0.96);   // enlarged 3D console mesh and screen for comfortable reading & touch
       const ry = c.rowY;
+      const scrBezel = new THREE.Mesh(new THREE.PlaneGeometry(NP_SW + 0.012, NP_SH + 0.012), new THREE.MeshBasicMaterial({ color: 0x051322, transparent: true, opacity: 0.92 }));
+      scrBezel.position.set(0, ry, 0.002); scrBezel.renderOrder = 1; scrBezel.raycast = () => { }; c.g.add(scrBezel);
       const scr = new THREE.Mesh(new THREE.PlaneGeometry(NP_SW, NP_SH), new THREE.MeshBasicMaterial({ map: P.tex, toneMapped: false })); scr.position.set(0, ry, 0.004); scr.renderOrder = 2; c.g.add(scr); P.scr = scr;
       P.at = (px, py, z) => new THREE.Vector3((px / 1024 - 0.5) * NP_SW, ry + (0.5 - py / 456) * NP_SH, z === undefined ? 0.006 : z);
       const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-      const hit = (label, rx, ry2, rw, rh, fn) => {
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(rw / 1024 * NP_SW, rh / 456 * NP_SH), hitMat); m.position.copy(P.at(rx + rw / 2, ry2 + rh / 2)); c.g.add(m);
-        registerCockpitButton(m, label, () => { fn(); P.drawT = 0; }, 0.012); const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
+      const hit = (label, rx, ry2, rw, rh, fn, unitGeo, rad) => {
+        const m = new THREE.Mesh(unitGeo ? new THREE.PlaneGeometry(1, 1) : new THREE.PlaneGeometry(rw / 1024 * NP_SW, rh / 456 * NP_SH), hitMat);
+        if (unitGeo) m.scale.set(rw / 1024 * NP_SW, rh / 456 * NP_SH, 1);
+        m.position.copy(P.at(rx + rw / 2, ry2 + rh / 2)); c.g.add(m);
+        registerCockpitButton(m, label, () => { fn(); P.drawT = 0; }, rad || 0.024); const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
+        return { m, e };
       };
-      const TW = cfg.tabs.length > 4 ? 158 : 176; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 8 + i * TW, -36, TW - 8, 84, () => npTab(P, i)));
-      for (let i = 0; i < 8; i++) hit(cfg.id + ' ROW ' + (i + 1), 8, 52 + i * 44, 392, 42, () => { const t = cfg.tabs[P.tab]; if (t.row) t.row(P, i); });
-      for (let i = 0; i < 4; i++) hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); });
+      const TW = cfg.tabs.length <= 3 ? 256 : cfg.tabs.length > 4 ? 166 : 190; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 8 + i * TW, -38, TW - 6, 92, () => npTab(P, i), false, 0.028));
+      for (let i = 0; i < 8; i++) P.rowHits.push(hit(cfg.id + ' ROW ' + (i + 1), 8, 52 + i * 44, 412, 42, () => { const t = cfg.tabs[P.tab]; if (t.row) t.row(P, i); }, true, 0.028));
+      for (let i = 0; i < 4; i++) P.padHits.push(hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 330, 142, 80, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); }, true, 0.032));
       // holographic buttons floating over the console's physical button row
       cfg.holo.forEach((b, i) => {
         if (!b) return;
-        const live = cfg.holo.filter(Boolean), k = live.indexOf(b), n = live.length, SZ = 0.046;
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(SZ, SZ), new THREE.MeshBasicMaterial({ map: npBtnTex(b.g, b.l, b.c), transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false }));
-        m.position.set((k - (n - 1) / 2) * (NP_SW / n), ry - 0.105, 0.018); m.renderOrder = 3; c.g.add(m);   // NOVA14: fewer, bigger buttons spread across the panel
-        registerCockpitButton(m, cfg.id + ' ' + b.l, () => { m.userData.flash = 0.18; b.fn(P); P.drawT = 0; }, 0.03);
+        const live = cfg.holo.filter(Boolean), k = live.indexOf(b), n = live.length, SZ = 0.056;
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(SZ, SZ), new THREE.MeshBasicMaterial({ map: npBtnTex(b.g, b.l, b.c), transparent: true, opacity: 0.96, depthWrite: false, toneMapped: false }));
+        m.position.set((k - (n - 1) / 2) * ((NP_SW * 1.10) / n), ry - 0.114, 0.018); m.renderOrder = 3; c.g.add(m);   // NOVA14: fewer, bigger buttons spread across the panel
+        registerCockpitButton(m, cfg.id + ' ' + b.l, () => { m.userData.flash = 0.18; b.fn(P); P.drawT = 0; }, 0.038);
         const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
         P.hb.push(m);
       });
       P.holo.position.copy(P.at(918, 140, 0.028)); c.g.add(P.holo);
       // HIDE / SHOW: drops the whole panel down and out toward the wall, clear of the view
       P.stow = false; P.k = 0; P.stowTex = [npBtnTex('\u25BC', 'HIDE', '#9fc3d8'), npBtnTex('\u25B2', 'SHOW', '#00e5ff')];
-      const sb = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.03), new THREE.MeshBasicMaterial({ map: P.stowTex[0], transparent: true, depthWrite: false, toneMapped: false }));
-      sb.position.set(NP_SW / 2 + 0.008, ry + NP_SH / 2 + 0.01, 0.014); sb.renderOrder = 3; c.g.add(sb); P.sb = sb;
-      registerCockpitButton(sb, cfg.id + ' HIDE PANEL', () => { P.stow = !P.stow; sb.material.map = P.stowTex[P.stow ? 1 : 0]; try { sound.switchClick(); } catch (e) { } }, 0.02);
+      const sb = new THREE.Mesh(new THREE.PlaneGeometry(0.048, 0.048), new THREE.MeshBasicMaterial({ map: P.stowTex[0], transparent: true, depthWrite: false, toneMapped: false }));
+      sb.position.set(NP_SW / 2 + 0.016, ry + NP_SH / 2 + 0.014, 0.016); sb.renderOrder = 3; c.g.add(sb); P.sb = sb;
+      registerCockpitButton(sb, cfg.id + ' HIDE PANEL', () => { P.stow = !P.stow; sb.material.map = P.stowTex[P.stow ? 1 : 0]; try { sound.switchClick(); } catch (e) { } }, 0.035);
       { const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true; }
       NP.panels.push(P); return P;
     }
@@ -15108,184 +15116,373 @@ const GAME_VERSION = 'Alpha 1.1';
     const npDist = d => d < 1000 ? Math.round(d) + ' m' : (d / 1000).toFixed(1) + ' km';
     function npEnt(lk) { return lk ? { name: lk.name, callsign: lk.name, isHostile: !!lk.isHostile, type: lk.type, obj: lk.targetObj } : null; }
     function npCanTalk(lk) { return lk && lk.type !== 'asteroid' && lk.type !== 'wreck'; }
+    function npGoChat() {
+      const P = NP.panels[0]; if (!P) return;
+      if (P.stow) { P.stow = false; P.sb.material.map = P.stowTex[0]; }
+      const ci = P.cfg.tabs.indexOf(NP_CHAT);
+      if (ci >= 0) npTab(P, ci);
+    }
     function npHail() {
       const lk = currentLockedTarget;
       if (!lk) { showToast('Select a contact in the COMMS list first.', 2000, '#ffaa00'); return; }
+      npGoChat();
       if (!npCanTalk(lk)) { novaChatLog('SENSORS', lk.name + ': no transponder, nothing to hail.', '#88aacc'); return; }
       if (lk.isHostile && typeof pirateBoss !== 'undefined' && lk.targetObj === pirateBoss) { try { novaPirateHail(); } catch (e) { } return; }
       novaChatSend(npEnt(lk), `Nova Lead to ${lk.name}, do you read?`);
     }
-    function npTalk() { const lk = currentLockedTarget; if (!lk || !npCanTalk(lk)) { showToast(lk ? 'No transponder on that contact.' : 'Select a contact first.', 2000, '#ffaa00'); return; } novaKeyboardToggle(npEnt(lk), true); }
-    function npQuick() { const lk = currentLockedTarget; if (!lk || !npCanTalk(lk)) { showToast('Select a contact you can talk to.', 2000, '#ffaa00'); return; } novaChatQuickPrompt(npEnt(lk)); }
+    function npTalk() {
+      const lk = currentLockedTarget;
+      if (!lk || !npCanTalk(lk)) { npGoChat(); try { novaKeyboardToggle(npCrewEnt(), true); } catch (e) { } return; }
+      npGoChat(); novaKeyboardToggle(npEnt(lk), true);
+    }
+    function npQuick() {
+      const lk = currentLockedTarget;
+      if (!lk || !npCanTalk(lk)) { npGoChat(); try { novaChatQuickPrompt(npCrewEnt()); } catch (e) { } return; }
+      npGoChat(); novaChatQuickPrompt(npEnt(lk));
+    }
     { const _se = novaSelectedEntity; novaSelectedEntity = function () { const lk = currentLockedTarget; return (lk && npCanTalk(lk)) ? npEnt(lk) : _se(); }; }
     try { NOVA_KB_HOME.set(0, 0.60, -0.30); } catch (e) { }
     function npText(x, t, X, Y, font, col, maxW) { x.font = font; x.fillStyle = col; x.fillText(maxW ? nkFit(x, t, maxW) : t, X, Y); }
-    function npBar(x, X, Y, w, h, f, col, lab) { x.fillStyle = '#0d1c2a'; x.fillRect(X, Y, w, h); x.fillStyle = col; x.fillRect(X, Y, w * Math.max(0, Math.min(1, f)), h); x.strokeStyle = 'rgba(0,229,255,0.4)'; x.lineWidth = 2; x.strokeRect(X, Y, w, h); if (lab) npText(x, lab, X, Y - 6, 'bold 20px monospace', '#9fc3d8'); }
+    function npBar(x, X, Y, w, h, f, col, lab) { x.fillStyle = '#0d1c2a'; x.fillRect(X, Y, w, h); x.fillStyle = col; x.fillRect(X, Y, w * Math.max(0, Math.min(1, f)), h); x.strokeStyle = 'rgba(0,229,255,0.45)'; x.lineWidth = 2; x.strokeRect(X, Y, w, h); if (lab) npText(x, lab, X, Y - 6, 'bold 21px monospace', '#9fc3d8'); }
     function npTgtInfo(x, X, Y, W) {
       const lk = currentLockedTarget; x.textAlign = 'left';
-      if (!lk) { npText(x, 'NO CONTACT SELECTED', X, Y + 34, 'bold 28px monospace', '#6f8ca3'); npText(x, 'touch a contact in the list', X, Y + 66, '22px monospace', '#5c7a90'); return; }
+      if (!lk) { npText(x, 'NO CONTACT SELECTED', X, Y + 36, 'bold 30px monospace', '#6f8ca3'); npText(x, 'touch a contact in the list', X, Y + 70, '24px monospace', '#5c7a90'); return; }
       const col = NP.ccol[lk.type] || (lk.isHostile ? '#ff3344' : '#33ff88');
-      npText(x, lk.name, X, Y + 34, 'bold 32px monospace', col, W);
+      npText(x, lk.name, X, Y + 36, 'bold 34px monospace', col, W);
       const kind = lk.isHostile ? 'HOSTILE' : (lk.type === 'asteroid' || lk.type === 'wreck' ? 'NEUTRAL' : 'FRIENDLY');
-      npText(x, kind + ' · ' + String(lk.type || 'contact').toUpperCase(), X, Y + 66, 'bold 22px monospace', lk.isHostile ? '#ff7788' : '#bfe8ff', W);
-      if (lk.targetObj) { const r = npRel(lk.targetObj); npText(x, `${npDist(r.d)}  BRG ${r.brg >= 0 ? '+' : ''}${r.brg}°  EL ${r.el >= 0 ? '+' : ''}${r.el}°`, X, Y + 96, '22px monospace', '#ffd24a', W); }
+      npText(x, kind + ' · ' + String(lk.type || 'contact').toUpperCase(), X, Y + 70, 'bold 24px monospace', lk.isHostile ? '#ff7788' : '#bfe8ff', W);
+      if (lk.targetObj) { const r = npRel(lk.targetObj); npText(x, `${npDist(r.d)}  BRG ${r.brg >= 0 ? '+' : ''}${r.brg}°  EL ${r.el >= 0 ? '+' : ''}${r.el}°`, X, Y + 102, 'bold 23px monospace', '#ffd24a', W); }
       let ch = 'NO TRANSPONDER'; if (npCanTalk(lk)) { const per = novaPersonaFor(npEnt(lk)); ch = per ? 'CHANNEL · ' + per.call : 'HOSTILE · ENCRYPTED'; }
-      npText(x, ch, X, Y + 126, '20px monospace', '#7fb6d0', W);
+      npText(x, ch, X, Y + 132, '21px monospace', '#7fb6d0', W);
     }
     function npHoloFrame(x, col) {
       const X = 830, Y = 56, S = 180; x.strokeStyle = col; x.lineWidth = 4;
       [[X, Y, 1, 1], [X + S, Y, -1, 1], [X, Y + S, 1, -1], [X + S, Y + S, -1, -1]].forEach(([a, b, sx, sy]) => { x.beginPath(); x.moveTo(a + sx * 30, b); x.lineTo(a, b); x.lineTo(a, b + sy * 30); x.stroke(); });
-      x.textAlign = 'center'; npText(x, 'HOLO SCAN', X + S / 2, Y + S + 22, 'bold 18px monospace', col); x.textAlign = 'left';
+      x.textAlign = 'center'; npText(x, 'HOLO SCAN', X + S / 2, Y + S + 22, 'bold 19px monospace', col); x.textAlign = 'left';
     }
-    function npPads(x, pads) { (pads || []).forEach((p, i) => { const X = 420 + i * 149; x.fillStyle = p.c; x.fillRect(X, 362, 141, 46); x.fillStyle = '#021019'; x.textAlign = 'center'; npText(x, p.l, X + 70, 394, 'bold 22px monospace', '#021019'); x.textAlign = 'left'; }); }
+    function npIsFullPads(T) {
+      return !!(T && T.name && !/^MUSIC\b/.test(T.name));
+    }
+    function npPadRect(T, pads, i) {
+      const full = npIsFullPads(T);
+      if (full) {
+        const n = Math.max(1, (pads || []).length), gap = 16, totalW = 992, W = Math.floor((totalW - gap * (n - 1)) / n);
+        return { X: 16 + i * (W + gap), Y: 330, W, H: 80, font: (n <= 3 ? 'bold 34px' : 'bold 30px') + ' monospace', full: true };
+      }
+      return { X: 424 + i * 148, Y: 330, W: 140, H: 80, font: 'bold 26px monospace', full: false };
+    }
+    function npPads(x, pads, P, T) {
+      const list = pads || [];
+      for (let i = 0; i < 4; i++) {
+        const p = list[i], r = npPadRect(T, list, i), ph = P && P.padHits && P.padHits[i];
+        if (ph) {
+          ph.m.visible = !!p;
+          if (p) {
+            ph.m.scale.set(r.W / 1024 * NP_SW, r.H / 456 * NP_SH, 1);
+            ph.m.position.copy(P.at(r.X + r.W / 2, r.Y + r.H / 2));
+            ph.e.radius = Math.max(0.028, (r.W / 1024 * NP_SW) * 0.44);
+          }
+        }
+        if (!p) continue;
+        x.fillStyle = p.c; x.fillRect(r.X, r.Y, r.W, r.H);
+        x.strokeStyle = 'rgba(255,255,255,0.60)'; x.lineWidth = r.full ? 4 : 3; x.strokeRect(r.X + 2, r.Y + 2, r.W - 4, r.H - 4);
+        x.textAlign = 'center'; x.textBaseline = 'middle';
+        npText(x, p.l, r.X + r.W / 2, r.Y + r.H / 2 + 2, r.font, '#021019', r.W - 14);
+        x.textBaseline = 'alphabetic'; x.textAlign = 'left';
+      }
+    }
     function npChat(x, X, Y, W, n) {
-      x.font = '19px monospace'; const out = [];
+      x.font = '21px monospace'; const out = [];
       (window.commsChatLog || []).slice(-8).forEach(it => { const words = (it.s + ': ' + it.m).split(' '); let line = ''; words.forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > W && line) { out.push([line, it.c]); line = w; } else line = t; }); if (line) out.push([line, it.c]); });
-      out.slice(-n).forEach(([t, c], i) => { x.fillStyle = c || '#cfefff'; x.fillText(t, X, Y + i * 23); });
+      out.slice(-n).forEach(([t, c], i) => { x.fillStyle = c || '#cfefff'; x.fillText(t, X, Y + i * 24); });
     }
     function npDraw(P) {
       const x = P.cv.getContext('2d'), cfg = P.cfg, T = cfg.tabs[P.tab];
       x.fillStyle = '#030a14'; x.fillRect(0, 0, 1024, 456); x.textBaseline = 'alphabetic'; x.textAlign = 'left';
-      const TW = cfg.tabs.length > 4 ? 158 : 176;
+      const TW = cfg.tabs.length <= 3 ? 256 : cfg.tabs.length > 4 ? 166 : 190;
       cfg.tabs.forEach((t, i) => {
         const X = 8 + i * TW, on = i === P.tab;
-        x.fillStyle = on ? t.c : 'rgba(255,255,255,0.05)'; x.fillRect(X, 4, TW - 8, 40);
-        x.strokeStyle = t.c; x.lineWidth = 3; x.strokeRect(X, 4, TW - 8, 40);
-        x.textAlign = 'center'; npText(x, t.name, X + (TW - 8) / 2, 33, (TW < 170 ? 'bold 21px' : 'bold 24px') + ' monospace', on ? '#021019' : t.c, TW - 14); x.textAlign = 'left';
+        x.fillStyle = on ? t.c : 'rgba(255,255,255,0.07)'; x.fillRect(X, 3, TW - 8, 43);
+        x.strokeStyle = t.c; x.lineWidth = on ? 4 : 3; x.strokeRect(X, 3, TW - 8, 43);
+        x.textAlign = 'center'; npText(x, t.name, X + (TW - 8) / 2, 33, 'bold 23px monospace', on ? '#021019' : t.c, TW - 14); x.textAlign = 'left';
       });
-      x.textAlign = 'right'; npText(x, cfg.status(P), 1014, 32, 'bold 20px monospace', '#7fb6d0'); x.textAlign = 'left';
-      x.fillStyle = 'rgba(0,229,255,0.35)'; x.fillRect(0, 47, 1024, 2);
+      x.textAlign = 'right'; npText(x, cfg.status(P), 1016, 33, 'bold 21px monospace', cfg.id === 'R' ? '#ffd24a' : '#7fb6d0', cfg.tabs.length <= 3 ? 228 : 172); x.textAlign = 'left';
+      x.fillStyle = 'rgba(0,229,255,0.40)'; x.fillRect(0, 48, 1024, 2);
+      if (P.rowHits && P.rowHits.length) {
+        const hasRow = !!T.row;
+        P.rowHits.forEach((rh, i) => {
+          const rr = hasRow && T.rowRect ? T.rowRect(i, P) : (hasRow ? { x: 8, y: 52 + i * 44, w: 412, h: 42 } : null);
+          rh.m.visible = !!rr;
+          if (rr) {
+            rh.m.scale.set(rr.w / 1024 * NP_SW, rr.h / 456 * NP_SH, 1);
+            rh.m.position.copy(P.at(rr.x + rr.w / 2, rr.y + rr.h / 2));
+            rh.e.radius = Math.max(0.028, (rr.h / 456 * NP_SH) * 0.48);
+          }
+        });
+      }
       T.draw(x, P);
-      npPads(x, T.pads);
-      x.fillStyle = 'rgba(0,229,255,0.35)'; x.fillRect(0, 414, 1024, 2);
-      npText(x, T.hint || '', 14, 442, '19px monospace', '#5f8aa3', 996);
+      npPads(x, T.pads, P, T);
+      x.fillStyle = 'rgba(0,229,255,0.40)'; x.fillRect(0, 414, 1024, 2);
+      npText(x, T.hint || '', 14, 443, 'bold 20px monospace', '#6ea0bd', 996);
       P.tex.needsUpdate = true;
     }
-    // ── COMMS tab: everything close by, nearest first; touching one locks it (same lock as the holo-radar and weapons) ──
+
+    // ── LEFT PANEL: 5 DEDICATED TABS (COMMS | CHAT | FLIGHT | WARP | STORY) + 4 NON-REDUNDANT HOLO BUTTONS ──
     function npRefreshList(P) {
       let l = []; try { l = nmContactList(4000, true); } catch (e) { }
       const sp = shipGroup.position, tmp = new THREE.Vector3();
       l.forEach(c => { c.obj.getWorldPosition(tmp); c.d = tmp.distanceTo(sp); });
       l.sort((a, b) => a.d - b.d); P.list = l.slice(0, 30);
-      P.scroll = Math.max(0, Math.min(P.scroll, P.list.length - 8));
+      P.scroll = Math.max(0, Math.min(P.scroll, Math.max(0, P.list.length - 6)));
     }
-    const NP_COMMS = { name: 'COMMS', c: '#00e5ff', holo: true, hint: 'swipe the list to scroll · tap a contact to lock it · HAIL / TALK / QUICK on the buttons below',
-      row: (P, i) => { const c = P.list[P.scroll + i]; if (c) novaHoloSelect(c); },
-      pads: [],
+    const NPCH = { choice: null, scroll: 0, unread: 0, seen: 0, typing: null };
+    // Hook novaChatSend & novaChatLog so CHAT shows live "is typing..." indicators like a phone messenger app
+    {
+      const _origSend = novaChatSend, _origLog = novaChatLog;
+      novaChatLog = function (s, m, c) {
+        if (s && s !== 'YOU') NPCH.typing = null;
+        _origLog(s, m, c);
+        if (NP.panels[0]) NP.panels[0].drawT = 0;
+      };
+      novaChatSend = async function (ent, text) {
+        let targetEnt = ent || novaSelectedEntity();
+        try { targetEnt = novaCompanionRoute(targetEnt); } catch (e) { }
+        const per = novaPersonaFor(targetEnt);
+        const who = per ? per.call : (targetEnt ? (targetEnt.callsign || targetEnt.name || 'CONTACT') : 'CREW');
+        const col = per ? (per.color || '#00e5ff') : '#ff7788';
+        NPCH.typing = { who, col, until: performance.now() + 9000 };
+        NPCH.scroll = 0;
+        if (NP.panels[0]) NP.panels[0].drawT = 0;
+        return _origSend(ent, text);
+      };
+      window.novaChatSend = novaChatSend;
+    }
+
+    const NP_COMMS = { name: 'COMMS', c: '#00e5ff', holo: true,
+      hint: 'swipe contact list to scroll · tap a contact to lock · HAIL TGT messages contact & switches to CHAT',
+      pads: [
+        { l: 'HAIL TGT', c: '#00e5ff', fn: () => npHail() },
+        { l: 'TYPE MSG', c: '#33ff99', fn: () => npTalk() },
+        { l: 'QUICK MSG', c: '#ffd24a', fn: () => npQuick() }
+      ],
       draw: (x, P) => {
         const lk = currentLockedTarget && currentLockedTarget.targetObj;
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 6; i++) {
           const c = P.list[P.scroll + i]; if (!c) break;
-          const Y = 52 + i * 44, sel = lk && c.obj === lk, col = NP.ccol[c.type] || '#cfefff';
-          x.fillStyle = sel ? 'rgba(0,229,255,0.24)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(8, Y, 392, 42);
-          if (sel) { x.strokeStyle = col; x.lineWidth = 3; x.strokeRect(8, Y, 392, 42); }
-          x.fillStyle = col; x.beginPath(); x.arc(28, Y + 21, 8, 0, 7); x.fill();
-          npText(x, c.name, 46, Y + 29, 'bold 22px monospace', sel ? '#ffffff' : '#d6eefc', 250);
-          x.textAlign = 'right'; npText(x, npDist(c.d), 392, Y + 29, '20px monospace', '#ffd24a'); x.textAlign = 'left';
+          const Y = 54 + i * 44, sel = lk && c.obj === lk, col = NP.ccol[c.type] || '#cfefff';
+          x.fillStyle = sel ? 'rgba(0,229,255,0.28)' : (i % 2 ? 'rgba(15,32,48,0.86)' : 'rgba(10,22,36,0.86)'); x.fillRect(16, Y, 388, 42);
+          x.strokeStyle = sel ? col : 'rgba(0,229,255,0.25)'; x.lineWidth = sel ? 3.5 : 1.5; x.strokeRect(16, Y, 388, 42);
+          x.fillStyle = col; x.beginPath(); x.arc(36, Y + 21, 9, 0, 7); x.fill();
+          npText(x, c.name, 54, Y + 29, 'bold 23px monospace', sel ? '#ffffff' : '#d6eefc', 244);
+          x.textAlign = 'right'; npText(x, npDist(c.d), 396, Y + 29, 'bold 21px monospace', '#ffd24a'); x.textAlign = 'left';
         }
-        if (P.list.length > 8) { const f = P.scroll / Math.max(1, P.list.length - 8); x.fillStyle = 'rgba(0,229,255,0.25)'; x.fillRect(404, 52, 8, 352); x.fillStyle = '#00e5ff'; x.fillRect(404, 52 + f * 300, 8, 52); }
-        if (!P.list.length) npText(x, 'NO CONTACTS IN 4 KM', 20, 90, 'bold 22px monospace', '#6f8ca3');
-        npTgtInfo(x, 430, 52, 390);
-        npHoloFrame(x, lk ? (NP.ccol[currentLockedTarget.type] || '#00e5ff') : '#2a4a63');
-        x.fillStyle = 'rgba(0,229,255,0.06)'; x.fillRect(420, 272, 596, 136);
-        npChat(x, 430, 296, 576, 5);   // latest lines; the full conversation is on the CHAT tab
+        if (P.list.length > 6) {
+          const f = P.scroll / Math.max(1, P.list.length - 6);
+          x.fillStyle = 'rgba(0,229,255,0.25)'; x.fillRect(408, 54, 10, 262);
+          x.fillStyle = '#00e5ff'; x.fillRect(408, 54 + f * 212, 10, 50);
+        }
+        if (!P.list.length) {
+          x.fillStyle = 'rgba(15,28,44,0.78)'; x.fillRect(16, 54, 388, 264);
+          x.strokeStyle = 'rgba(0,229,255,0.25)'; x.lineWidth = 2; x.strokeRect(16, 54, 388, 264);
+          npText(x, 'NO CONTACTS IN 4 KM', 36, 110, 'bold 25px monospace', '#6f8ca3');
+          npText(x, 'use WARP to jump sectors', 36, 146, '21px monospace', '#5c7a90');
+        }
+        // Full-height Target Telemetry & 3D Holo-Scan Card on the right
+        x.fillStyle = 'rgba(15,28,44,0.82)'; x.fillRect(424, 54, 584, 264);
+        x.strokeStyle = 'rgba(0,229,255,0.40)'; x.lineWidth = 2.5; x.strokeRect(424, 54, 584, 264);
+        npTgtInfo(x, 440, 62, 376);
+        const HX = 828, HY = 64, HS = 164, hcol = lk ? (NP.ccol[currentLockedTarget.type] || '#00e5ff') : '#2a4a63';
+        x.strokeStyle = hcol; x.lineWidth = 4;
+        [[HX, HY, 1, 1], [HX + HS, HY, -1, 1], [HX, HY + HS, 1, -1], [HX + HS, HY + HS, -1, -1]].forEach(([a, b, sx, sy]) => { x.beginPath(); x.moveTo(a + sx * 28, b); x.lineTo(a, b); x.lineTo(a, b + sy * 28); x.stroke(); });
+        x.textAlign = 'center'; npText(x, '3D HOLO SCAN', HX + HS / 2, HY + HS + 24, 'bold 19px monospace', hcol); x.textAlign = 'left';
+
+        x.fillStyle = 'rgba(0,229,255,0.10)'; x.fillRect(440, 258, 552, 46);
+        x.strokeStyle = 'rgba(0,229,255,0.35)'; x.lineWidth = 2; x.strokeRect(440, 258, 552, 46);
+        npText(x, lk ? 'TAP "HAIL TGT" BELOW TO OPEN MESSENGER CHANNEL ▶' : 'SELECT A CONTACT ON THE LEFT TO SCAN OR HAIL', 456, 288, 'bold 20px monospace', lk ? '#00e5ff' : '#7fb6d0', 520);
       } };
-    const NP_FLIGHT = { name: 'FLIGHT', c: '#b266ff', hint: 'flight modes on the pads \u00b7 WARP opens the jump map \u00b7 CREW talks to your companion',
-      pads: [{ l: 'DAMPERS', c: '#e8e8e8', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } }, { l: 'ASSIST', c: '#00e5ff', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } }, { l: 'AUTOPILOT', c: '#33ff99', fn: () => { try { toggleAutopilot(); } catch (e) { } } }, { l: 'WARP NAV', c: '#b266ff', fn: () => window.novaNavToggle() }],
+
+    // ── FLIGHT TAB: Pure Ship Telemetry & 4 Full-Height Flight System Cards (No Objective Info, No Redundant Pads) ──
+    const npFlightCards = () => {
+      const dampOn = !!isRotationDampenerOn;
+      let asstOn = false; try { asstOn = !!isFlightAssistOn; } catch (e) { }
+      let autoOn = false; try { autoOn = !!isAutopilotActive; } catch (e) { }
+      const nearSt = stationGroup.position.distanceTo(shipGroup.position) < 2400;
+      return [
+        { title: 'ROTATION DAMPERS: ' + (dampOn ? 'ENGAGED' : 'OFF'), sub: 'TAP CARD TO TOGGLE ATTITUDE STABILIZERS', c: dampOn ? '#33ff99' : '#ff7a66', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } },
+        { title: 'FLIGHT ASSIST: ' + (asstOn ? 'ONLINE' : 'OFF'), sub: 'TAP CARD TO TOGGLE VECTOR DRIFT COMPENSATION', c: asstOn ? '#00e5ff' : '#ff7a66', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } },
+        { title: 'AUTOPILOT: ' + (autoOn ? 'ACTIVE' : 'STANDBY'), sub: 'TAP CARD TO ENGAGE / DISENGAGE AUTOPILOT', c: autoOn ? '#33ff99' : '#ffd24a', fn: () => { try { toggleAutopilot(); } catch (e) { } } },
+        { title: 'AUTO-DOCK: ' + (nearSt ? 'NOVA-1 IN RANGE' : 'APPROACH STATION'), sub: 'TAP CARD TO INITIATE AUTOMATIC STATION LANDING', c: '#00f0ff', fn: () => { try { novaAutoDockPress(); } catch (e) { } } }
+      ];
+    };
+    const NP_FLIGHT = { name: 'FLIGHT', c: '#33ff99', hint: 'tap any of the 4 large flight system cards on the right to toggle · no duplicate buttons',
+      rowRect: (i) => i < 4 ? { x: 516, y: 56 + i * 88, w: 492, h: 80 } : null,
+      row: (P, i) => { const c = npFlightCards()[i]; if (c) { try { sound.switchClick(); } catch (e) { } c.fn(P); } },
+      pads: [],
       draw: (x, P) => {
         const v = shipBody.velocity.length(), tp = throttlePct > 1 ? throttlePct : throttlePct * 100;
-        npText(x, 'VELOCITY', 20, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, Math.round(v) + ' m/s', 20, 128, 'bold 42px monospace', '#e9fbff');
-        npBar(x, 20, 172, 380, 22, tp / 100, '#00e5ff', 'THROTTLE ' + Math.round(tp) + '%');
-        npBar(x, 20, 232, 380, 22, (window.novaShield ?? 100) / 100, '#00e5ff', 'SHIELDS');
-        npBar(x, 20, 292, 380, 22, (window.novaHull ?? 100) / 100, '#33ff99', 'HULL');
-        try { npBar(x, 20, 352, 380, 22, NW.core / novaWarpCap(), '#b266ff', 'WARP CORE ' + Math.round(NW.core) + '%'); } catch (e) { }
-        npText(x, 'DAMPENERS', 430, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, isRotationDampenerOn ? 'ENGAGED' : 'OFF', 430, 122, 'bold 32px monospace', isRotationDampenerOn ? '#33ff99' : '#ff7a66');
-        try { npText(x, 'ASSIST', 640, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, isFlightAssistOn ? 'ON' : 'OFF', 640, 122, 'bold 32px monospace', isFlightAssistOn ? '#33ff99' : '#ff7a66'); } catch (e) { }
-        try { npText(x, 'AUTOPILOT', 800, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, isAutopilotActive ? 'ON' : 'OFF', 800, 122, 'bold 32px monospace', isAutopilotActive ? '#33ff99' : '#5f7d95'); } catch (e) { }
-        try { npText(x, 'MUSIC', 430, 170, 'bold 20px monospace', '#9fc3d8'); npText(x, (isBgmPlaying ? '▶ ' : '❚❚ ') + BGM_TRACKS[bgmTrackIdx].name, 430, 202, 'bold 24px monospace', '#ff88dd', 580); } catch (e) { }
-        try { const ch = CAMPAIGN[campaignChapter]; npText(x, 'OBJECTIVE', 430, 252, 'bold 20px monospace', '#9fc3d8'); npText(x, ch ? ch.objective : 'Free flight', 430, 284, '22px monospace', '#00ffcc', 580); if (ch && ch.hint) npText(x, ch.hint, 430, 314, '19px monospace', '#7fb6d0', 580); } catch (e) { }
+        x.fillStyle = 'rgba(15,28,44,0.84)'; x.fillRect(16, 56, 484, 348);
+        x.strokeStyle = 'rgba(51,255,153,0.45)'; x.lineWidth = 2.5; x.strokeRect(16, 56, 484, 348);
+        npText(x, 'SHIP VELOCITY', 34, 94, 'bold 23px monospace', '#9fc3d8');
+        npText(x, Math.round(v) + ' m/s', 240, 98, 'bold 42px monospace', '#ffffff');
+        npBar(x, 34, 148, 448, 24, tp / 100, '#00e5ff', 'THROTTLE ' + Math.round(tp) + '%');
+        npBar(x, 34, 214, 448, 24, (window.novaShield ?? 100) / 100, '#00e5ff', 'SHIELDS ' + Math.round(window.novaShield ?? 100) + '%');
+        npBar(x, 34, 280, 448, 24, (window.novaHull ?? 100) / 100, '#33ff99', 'HULL INTEGRITY ' + Math.round(window.novaHull ?? 100) + '%');
+        try { npBar(x, 34, 346, 448, 24, NW.core / novaWarpCap(), '#b266ff', 'WARP CORE ' + Math.round(NW.core) + '%'); } catch (e) { }
+
+        npFlightCards().forEach((c, i) => {
+          const X = 516, Y = 56 + i * 88, W = 492, H = 80;
+          x.fillStyle = 'rgba(15,36,54,0.92)'; x.fillRect(X, Y, W, H);
+          x.strokeStyle = c.c; x.lineWidth = 3; x.strokeRect(X, Y, W, H);
+          x.fillStyle = c.c; x.fillRect(X, Y, 12, H);
+          npText(x, c.title, X + 26, Y + 36, 'bold 24px monospace', '#ffffff', W - 38);
+          npText(x, c.sub, X + 26, Y + 64, 'bold 18px monospace', c.c, W - 38);
+        });
       } };
-    const NP_OBJ = { name: 'OBJECTIVE', c: '#ffcc00', hint: 'ROUTE warps you to the objective when the route is known \u00b7 the compass diamond points to it',
-      pads: [{ l: 'ROUTE', c: '#ffcc00', fn: () => { try { nsObjectivePick(); } catch (e) { } } }, { l: 'BRIEFING', c: '#b266ff', fn: () => { const ch = CAMPAIGN[campaignChapter]; if (ch) nkIntroStart(true, { k: ch.title, t: ch.objective, b: [ch.hint, '"' + ch.intro + '"', '\u2014 ' + ch.speaker], last: true }); } },
-        { l: 'LOG', c: '#ffd24a', fn: P => { const a = (P && P.acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); } }, { l: 'STORY', c: '#00e5ff', fn: () => nkIntroStart(true) }],
+
+    // ── STORY TAB: Dedicated Campaign Objective + Illustrated Story Pictures While Flying ──
+    const NP_STORY_SLIDES = [
+      { src: './art/keyart.jpg', tag: 'THE NOVA SECTOR · 2387', cap: 'Frontier Station Nova-1 & The Outer Rim Lanes', chMax: 0 },
+      { src: './art/planet_teal.jpg', tag: 'ACT 1 · TITANIUM BELT', cap: 'Mining Fields & Iron Convoy Escort Routes', chMax: 1 },
+      { src: './art/nav_cards.jpg', crop: [320, 0, 320, 210], tag: 'ACT 1 · CORSAIR AMBUSH', cap: 'Raider Interdiction Along The Lightspeed Line', chMax: 3 },
+      { src: './art/planet_red.jpg', tag: 'ACT 2 · THE GRAVEYARD', cap: 'Ghost Signal From The Derelict Fleet & The Lantern', chMax: 5 },
+      { src: './art/planet_ice.jpg', tag: 'ACT 2 · FROST RING', cap: 'Reactor Crystal Fields & Dreadnought Meridian', chMax: 7 },
+      { src: './art/alien_planet.jpg', tag: 'ACT 3 · MIND SPACE', cap: 'Deep-Space Anomaly & Living Fleet Signal', chMax: 99 },
+      { src: './art/matrix_holo.jpg', tag: 'CREW & COMPANIONS', cap: 'Valkyrie-7, Nyx, John & Cat-Bot Obi', chMax: 99 }
+    ];
+    const NP_STORY_IMGS = NP_STORY_SLIDES.map(s => { const im = new Image(); im.src = s.src; return im; });
+    const NP_STORY = { name: 'STORY', c: '#ffcc00', picIdx: -1, lastCh: -1,
+      hint: 'view story pictures & active mission while flying · tap picture or ◀ / ▶ pads to flip illustrations',
+      rowRect: (i) => i === 0 ? { x: 16, y: 54, w: 468, h: 264 } : null,
+      row: (P, i) => { if (i === 0) { NP_STORY.picIdx = (NP_STORY.curPic() + 1) % NP_STORY_SLIDES.length; P.drawT = 0; try { sound.switchClick(); } catch (e) { } } },
+      curPic() {
+        if (this.lastCh !== campaignChapter) {
+          this.lastCh = campaignChapter;
+          const autoIdx = NP_STORY_SLIDES.findIndex(s => campaignChapter <= s.chMax);
+          this.picIdx = autoIdx >= 0 ? autoIdx : 0;
+        }
+        return (this.picIdx + NP_STORY_SLIDES.length) % NP_STORY_SLIDES.length;
+      },
+      pads: [
+        { l: '◀ PREV PIC', c: '#00e5ff', fn: P => { NP_STORY.picIdx = (NP_STORY.curPic() - 1 + NP_STORY_SLIDES.length) % NP_STORY_SLIDES.length; P.drawT = 0; } },
+        { l: 'NEXT PIC ▶', c: '#00e5ff', fn: P => { NP_STORY.picIdx = (NP_STORY.curPic() + 1) % NP_STORY_SLIDES.length; P.drawT = 0; } },
+        { l: 'PLOT ROUTE', c: '#ffcc00', fn: () => { try { nsObjectivePick(); } catch (e) { } } },
+        { l: 'HUD BRIEF', c: '#b266ff', fn: () => { const ch = CAMPAIGN[campaignChapter]; if (ch) nkIntroStart(true, { k: ch.title, t: ch.objective, b: [ch.hint, '"' + ch.intro + '"', '\u2014 ' + ch.speaker], last: true }); else nkIntroStart(true); } }
+      ],
       draw: (x, P) => {
+        const idx = NP_STORY.curPic(), sl = NP_STORY_SLIDES[idx], im = NP_STORY_IMGS[idx];
+        const PX = 16, PY = 54, PW = 468, PH = 264;
+        x.fillStyle = '#061320'; x.fillRect(PX, PY, PW, PH);
+        if (im && im.complete && im.naturalWidth) {
+          if (sl.crop) x.drawImage(im, sl.crop[0], sl.crop[1], sl.crop[2], sl.crop[3], PX, PY, PW, PH);
+          else x.drawImage(im, PX, PY, PW, PH);
+        }
+        const gr = x.createLinearGradient(0, PY + PH * 0.42, 0, PY + PH);
+        gr.addColorStop(0, 'rgba(3,10,20,0)'); gr.addColorStop(0.65, 'rgba(3,10,20,0.82)'); gr.addColorStop(1, 'rgba(3,10,20,0.96)');
+        x.fillStyle = gr; x.fillRect(PX, PY, PW, PH);
+        x.strokeStyle = '#ffcc00'; x.lineWidth = 3; x.strokeRect(PX, PY, PW, PH);
+        x.fillStyle = 'rgba(2,12,24,0.82)'; x.fillRect(PX + 8, PY + 8, PW - 16, 30);
+        npText(x, sl.tag, PX + 16, PY + 29, 'bold 18px monospace', '#ffcc00', 330);
+        x.textAlign = 'right'; npText(x, `PIC ${idx + 1}/${NP_STORY_SLIDES.length}`, PX + PW - 16, PY + 29, 'bold 18px monospace', '#00e5ff'); x.textAlign = 'left';
+        npText(x, sl.cap, PX + 14, PY + PH - 36, 'bold 19px monospace', '#ffffff', PW - 28);
+        npText(x, 'TAP PICTURE OR PADS BELOW TO BROWSE STORY ART', PX + 14, PY + PH - 12, 'bold 15px monospace', '#ffd24a', PW - 28);
+
+        // Right Column: Active Campaign Objective & Story Briefing Card
+        const RX = 500, RY = 54, RW = 508, RH = 264;
+        x.fillStyle = 'rgba(15,30,46,0.90)'; x.fillRect(RX, RY, RW, RH);
+        x.strokeStyle = 'rgba(255,204,0,0.45)'; x.lineWidth = 2.5; x.strokeRect(RX, RY, RW, RH);
         const ch = CAMPAIGN[campaignChapter];
-        if (!ch) { npText(x, 'ALL CHAPTERS COMPLETE', 20, 100, 'bold 30px monospace', '#ffcc00'); npText(x, 'The sector is yours. Contracts are on the cantina board.', 20, 140, '22px monospace', '#9fc3d8', 980); return; }
-        npText(x, 'CHAPTER ' + (campaignChapter + 1) + ' / ' + CAMPAIGN.length, 20, 84, 'bold 20px monospace', '#9fc3d8');
-        npText(x, ch.title, 20, 124, 'bold 34px monospace', '#ffcc00', 980);
-        npText(x, ch.objective, 20, 166, 'bold 24px monospace', '#ffffff', 980);
+        if (!ch) {
+          npText(x, 'ALL CHAPTERS COMPLETE', RX + 18, RY + 44, 'bold 28px monospace', '#ffcc00', RW - 36);
+          npText(x, 'The sector is yours, pilot. Explore & take contracts.', RX + 18, RY + 84, 'bold 20px monospace', '#d8f2ff', RW - 36);
+          return;
+        }
+        npText(x, `CHAPTER ${campaignChapter + 1} OF ${CAMPAIGN.length}`, RX + 18, RY + 30, 'bold 18px monospace', '#9fc3d8');
+        if (ch.reward) { x.textAlign = 'right'; npText(x, `REWARD: +${ch.reward} CR`, RX + RW - 18, RY + 30, 'bold 19px monospace', '#33ff99'); x.textAlign = 'left'; }
+        npText(x, ch.title, RX + 18, RY + 62, 'bold 28px monospace', '#ffcc00', RW - 36);
+        npText(x, ch.objective, RX + 18, RY + 94, 'bold 20px monospace', '#ffffff', RW - 36);
         const goal = ch.goal || 1, f = Math.max(0, Math.min(1, campaignProgress / goal));
-        npBar(x, 20, 206, 600, 24, f, '#ffcc00', 'PROGRESS ' + Math.floor(Math.min(campaignProgress, goal)) + ' / ' + goal);
-        if (ch.reward) npText(x, 'REWARD ' + ch.reward + ' CR', 650, 226, 'bold 22px monospace', '#33ff99');
-        npText(x, 'HOW: ' + ch.hint, 20, 272, '21px monospace', '#7fb6d0', 990);
-        npText(x, (ch.speaker || 'COMMS') + ': "' + ch.intro + '"', 20, 306, '19px monospace', '#bfe8ff', 990);
-        try { const so = nsActiveCh(); if (so && so.site) npText(x, 'ROUTE: ' + (NSITE.unlock[so.site] ? 'known \u00b7 press ROUTE' : 'not found yet'), 20, 338, 'bold 20px monospace', NSITE.unlock[so.site] ? '#33ff99' : '#ff8866'); } catch (e) { }
+        npBar(x, RX + 18, RY + 124, RW - 36, 18, f, '#ffcc00', `PROGRESS ${Math.floor(Math.min(campaignProgress, goal))} / ${goal}`);
+
+        x.font = 'bold 18px monospace'; x.fillStyle = '#00e5ff';
+        const wrap = (txt, x0, y0, maxW, lh, maxLines, col) => {
+          x.fillStyle = col; const words = String(txt || '').split(' '); let line = '', row = 0;
+          words.forEach(w => {
+            const t = line ? line + ' ' + w : w;
+            if (x.measureText(t).width > maxW && line) { if (row < maxLines) x.fillText(line, x0, y0 + row * lh); row++; line = w; }
+            else line = t;
+          });
+          if (line && row < maxLines) x.fillText(line, x0, y0 + row * lh);
+        };
+        wrap('HOW: ' + (ch.hint || ''), RX + 18, RY + 170, RW - 36, 22, 2, '#8de8ff');
+        wrap(`${ch.speaker || 'COMMS'}: "${ch.intro || ''}"`, RX + 18, RY + 220, RW - 36, 21, 2, '#cfe8ff');
       } };
-    // ── WEAPONS + CARGO (right) ──
+    const NP_OBJ = NP_STORY;
+
+    // ── RIGHT PANEL: 3 CLEAR TABS (COMBAT | CARGO | SYSTEM) + 4 NON-REDUNDANT HOLO BUTTONS ──
     const npFire = () => { const e = cockpitInteractables.find(q => q.label === 'FIRE MISSILE' && q.mesh !== bigRedBtn); if (e) e.action(); };
-    const NP_WPN = { name: 'COMBAT', c: '#ff3355', hint: 'REFILL restocks missiles + flares · fire missiles with the console button · lock targets from COMMS or the holo-radar',
-      pads: [{ l: 'REFILL MSL', c: '#ffaa22', fn: () => { try { resupplyInventory(); } catch (e) { } } }, { l: 'NEXT TGT', c: '#ff4455', fn: () => { try { cycleTarget(); } catch (e) { } } }, { l: 'FIRE MODE', c: '#ff5566', fn: () => window.novaFireModeCycle() }, { l: 'FLARE', c: '#ff8833', fn: () => { const a = npFindAct('FLARES'); if (a) a(); } }],
+    const NP_WPN = { name: 'COMBAT', c: '#ff3355', hint: 'pads toggle missile arming lid, cannon mode & shield boost · bottom bank fires missiles, locks & flares',
+      pads: [
+        { l: 'ARM / SAFE LID', c: '#ff3355', fn: () => { try { toggleMissileLid(); } catch (e) { } } },
+        { l: 'CANNON MODE', c: '#00e5ff', fn: () => window.novaFireModeCycle() },
+        { l: 'SHIELD BOOST', c: '#33bbff', fn: () => { const a = npFindAct('SHIELD CAP'); if (a) a(); else if (cargoShieldCaps > 0) { cargoShieldCaps--; window.novaShield = Math.min(100, (window.novaShield ?? 100) + 50); showToast('SHIELD CAPACITOR USED (+50% SHIELDS)', 2000, '#33bbff'); } else showToast('No Shield Capacitors left.', 1800, '#ffaa00'); } }
+      ],
       draw: (x, P) => {
         const cap = (typeof novaMslCap === 'function') ? novaMslCap() : 6, armed = !!isMissileLidOpen;
-        npText(x, 'MISSILES', 20, 86, 'bold 20px monospace', '#9fc3d8');
-        for (let i = 0; i < cap; i++) { x.fillStyle = i < missileAmmo ? '#ffaa22' : '#1c2a38'; x.fillRect(20 + i * 46, 100, 34, 58); x.strokeStyle = '#ffaa22'; x.lineWidth = 2; x.strokeRect(20 + i * 46, 100, 34, 58); }
-        npText(x, armed ? 'ARMED' : 'SAFE', 20, 206, 'bold 38px monospace', armed ? '#ff3344' : '#33ff99');
-        npText(x, `${missileAmmo} / ${cap}`, 200, 206, 'bold 30px monospace', '#ffd24a');
-        npBar(x, 20, 252, 380, 22, cargoFlares / 4, '#ff8833', 'FLARES ' + cargoFlares + ' / 4');
-        npBar(x, 20, 312, 380, 22, cargoShieldCaps / 4, '#33bbff', 'SHIELD CAPS ' + cargoShieldCaps + ' / 4');
-        npText(x, 'FIRE MODE ' + (window.NFM ? NFM.modes[NFM.i] : 'AUTO'), 20, 372, 'bold 22px monospace', '#ff5566');
-        npTgtInfo(x, 430, 52, 580);
-        // nearest threats (from the COMMS list, hostiles only)
-        npText(x, 'THREATS', 430, 214, 'bold 20px monospace', '#9fc3d8');
+        x.fillStyle = 'rgba(15,28,44,0.78)'; x.fillRect(16, 54, 488, 266);
+        x.strokeStyle = 'rgba(255,51,85,0.40)'; x.lineWidth = 2; x.strokeRect(16, 54, 488, 266);
+        npText(x, 'MISSILE RACK', 32, 82, 'bold 21px monospace', '#9fc3d8');
+        for (let i = 0; i < cap; i++) {
+          x.fillStyle = i < missileAmmo ? '#ffaa22' : '#142230';
+          x.fillRect(32 + i * 48, 94, 38, 52);
+          x.strokeStyle = i < missileAmmo ? '#ffd24a' : '#355068'; x.lineWidth = 2.5; x.strokeRect(32 + i * 48, 94, 38, 52);
+        }
+        npText(x, armed ? 'ARMED' : 'SAFE', 340, 120, 'bold 34px monospace', armed ? '#ff3344' : '#33ff99');
+        npText(x, `${missileAmmo} / ${cap} READY`, 340, 148, 'bold 22px monospace', '#ffd24a');
+        npText(x, 'CANNON MODE: ' + (window.NFM ? NFM.modes[NFM.i] : 'AUTO'), 32, 184, 'bold 25px monospace', '#00e5ff');
+        npBar(x, 32, 224, 456, 22, cargoFlares / 4, '#ff8833', 'THERMAL FLARES ' + cargoFlares + ' / 4');
+        npBar(x, 32, 278, 456, 22, cargoShieldCaps / 4, '#33bbff', 'SHIELD CAPACITORS ' + cargoShieldCaps + ' / 4');
+
+        x.fillStyle = 'rgba(15,28,44,0.78)'; x.fillRect(520, 54, 488, 266);
+        x.strokeStyle = 'rgba(0,229,255,0.35)'; x.lineWidth = 2; x.strokeRect(520, 54, 488, 266);
+        npTgtInfo(x, 536, 56, 456);
+        npText(x, 'NEAREST THREATS (4 KM)', 536, 214, 'bold 21px monospace', '#9fc3d8');
         const th = ((NP.panels[0] && NP.panels[0].list) || []).filter(c => c.isHostile).slice(0, 3);
-        if (!th.length) npText(x, 'none in 4 km', 430, 246, '22px monospace', '#33ff99');
-        th.forEach((c, i) => { npText(x, '● ' + c.name, 430, 246 + i * 32, 'bold 21px monospace', '#ff6677', 430); x.textAlign = 'right'; npText(x, npDist(c.d), 1010, 246 + i * 32, '20px monospace', '#ffd24a'); x.textAlign = 'left'; });
+        if (!th.length) npText(x, 'SECTOR CLEAR · NO HOSTILES', 536, 248, 'bold 24px monospace', '#33ff99');
+        th.forEach((c, i) => {
+          npText(x, '● ' + c.name, 536, 248 + i * 30, 'bold 23px monospace', '#ff6677', 340);
+          x.textAlign = 'right'; npText(x, npDist(c.d), 992, 248 + i * 30, 'bold 22px monospace', '#ffd24a'); x.textAlign = 'left';
+        });
       } };
     const NP_CARGO_ITEMS = () => [
-      { k: 0, n: 'TITANIUM ORE', q: `${cargoOre} t`, v: cargoOre * 100, c: '#00ffaa' }, { k: 12, n: 'HYPERDRIVE CELLS', q: '4', v: 1000, c: '#00f0ff' },
-      { k: 9, n: 'HOMING MISSILES', q: `${missileAmmo}/6`, v: missileAmmo * 150, c: '#ffaa00' }, { k: 2, n: 'THERMAL FLARES', q: `${cargoFlares}/4`, v: cargoFlares * 75, c: '#ff7733' },
-      { k: 13, n: 'SHIELD CAPACITORS', q: `${cargoShieldCaps}/4`, v: cargoShieldCaps * 300, c: '#33bbff' }, { k: 14, n: 'DERELICT RECORDER', q: `${cargoSalvage}`, v: 1200, c: '#dd88ff' }];
-    const NP_CARGO = { name: 'CARGO', c: '#00ff99', hint: 'touch the ore row to sell · the missile row to resupply',
+      { k: 0, n: 'TITANIUM ORE', q: `${cargoOre} t`, v: cargoOre * 100, c: '#00ffaa', act: 'TAP TO SELL' },
+      { k: 12, n: 'HYPERDRIVE CELLS', q: '4', v: 1000, c: '#00f0ff' },
+      { k: 9, n: 'HOMING MISSILES', q: `${missileAmmo}/6`, v: missileAmmo * 150, c: '#ffaa00', act: 'TAP TO RESUPPLY' },
+      { k: 2, n: 'THERMAL FLARES', q: `${cargoFlares}/4`, v: cargoFlares * 75, c: '#ff7733' },
+      { k: 13, n: 'SHIELD CAPACITORS', q: `${cargoShieldCaps}/4`, v: cargoShieldCaps * 300, c: '#33bbff' },
+      { k: 14, n: 'DERELICT RECORDER', q: `${cargoSalvage}`, v: 1200, c: '#dd88ff' }];
+    const NP_CARGO = { name: 'CARGO', c: '#00ff99', hint: 'tap RESUPPLY ALL or SELL ORE on the bottom pads (or tap the Titanium Ore / Missiles cards)',
+      rowRect: (i) => i < 6 ? { x: (i % 2 === 0 ? 16 : 516), y: 54 + Math.floor(i / 2) * 72, w: 492, h: 66 } : null,
       row: (P, i) => { if (i === 0) tradeCargoOre(); else if (i === 2) resupplyInventory(); },
-      pads: [{ l: 'RESUPPLY', c: '#ffd24a', fn: () => resupplyInventory() }, { l: 'SELL ORE', c: '#00ff99', fn: () => tradeCargoOre() }],
+      pads: [{ l: 'RESUPPLY ALL', c: '#ffd24a', fn: () => resupplyInventory() }, { l: 'SELL ORE', c: '#00ff99', fn: () => tradeCargoOre() }],
       draw: (x, P) => {
         const ic = window.NG_ICONS;
         NP_CARGO_ITEMS().forEach((it, i) => {
-          const Y = 52 + i * 44; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'; x.fillRect(8, Y, 392, 42);
-          if (ic && ic.complete && ic.naturalWidth) x.drawImage(ic, (it.k % 4) * 96, Math.floor(it.k / 4) * 96, 96, 96, 14, Y + 3, 36, 36);
-          npText(x, it.n, 58, Y + 28, 'bold 19px monospace', '#d6eefc', 210);
-          x.textAlign = 'right'; npText(x, it.q, 330, Y + 28, 'bold 19px monospace', it.c); npText(x, it.v + ' cr', 396, Y + 28, '17px monospace', '#ffd24a'); x.textAlign = 'left';
+          const col = i % 2, r = Math.floor(i / 2), X = col === 0 ? 16 : 516, Y = 54 + r * 72, W = 492, H = 66;
+          x.fillStyle = it.act ? 'rgba(0,255,153,0.12)' : 'rgba(15,32,48,0.86)'; x.fillRect(X, Y, W, H);
+          x.strokeStyle = it.act ? it.c : 'rgba(0,229,255,0.28)'; x.lineWidth = it.act ? 3 : 2; x.strokeRect(X, Y, W, H);
+          x.fillStyle = it.c; x.fillRect(X, Y, 8, H);
+          if (ic && ic.complete && ic.naturalWidth) x.drawImage(ic, (it.k % 4) * 96, Math.floor(it.k / 4) * 96, 96, 96, X + 16, Y + 9, 48, 48);
+          npText(x, it.n, X + 74, Y + 30, 'bold 22px monospace', '#ffffff', 268);
+          npText(x, it.act || (it.v + ' CR VALUE'), X + 74, Y + 55, 'bold 18px monospace', it.act ? it.c : '#7fb6d0', 268);
+          x.textAlign = 'right';
+          npText(x, it.q, X + W - 16, Y + 36, 'bold 28px monospace', it.c);
+          npText(x, it.v + ' CR', X + W - 16, Y + 58, '18px monospace', '#ffd24a');
+          x.textAlign = 'left';
         });
-        npText(x, 'CREDITS', 430, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', 430, 132, 'bold 44px monospace', '#ffd24a');
-        npBar(x, 430, 190, 560, 26, Math.min(1, cargoOre / 100), '#00ffaa', 'ORE HOLD ' + cargoOre + ' / 100 t');
-        npText(x, 'Sell ore at any station in dock range.', 430, 260, '20px monospace', '#7fb6d0');
-        npText(x, 'Resupply restocks missiles + flares.', 430, 290, '20px monospace', '#7fb6d0');
-      } };
-    const NP_SHIP_ROWS = [
-      ['SEAT UP', '#00e5ff', () => adjustSeat(0.02)], ['SEAT DOWN', '#00e5ff', () => adjustSeat(-0.02)],
-      ['LAUNCH DRONE WING', '#ff6644', () => novaWingLaunch()], ['SITUATION REPORT', '#33ff99', () => { const a = npFindAct('SITUATION REPORT'); if (a) a(); }],
-      ['STORY INTRO', '#b266ff', () => nkIntroStart(true)], ['QUEST LOG', '#ffcc00', () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); }]];
-    // OPTIONS tab (after MUSIC): view mode, recenter, save / load, volume, graphics, exit
-    const npOptRows = () => [
-      [(typeof passthroughActive !== 'undefined' && passthroughActive) ? 'SWITCH TO FULL VR' : 'SWITCH TO MIXED REALITY', '#ff66cc', () => togglePassthrough()],
-      ['RECENTER VIEW (1 s countdown)', '#ffd24a', () => npRecenterDelayed()],
-      ['SAVE GAME', '#33ff99', () => nsvSave(1)], ['LOAD GAME', '#ffd24a', () => nsvLoad(1)],
-      ['MASTER VOLUME ' + Math.round(NOPT.o.master * 100) + '%', '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }],
-      ['GRAPHICS ' + String(NOPT.o.gfx).toUpperCase(), '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); showToast('GRAPHICS ' + NOPT.o.gfx.toUpperCase() + (renderer.xr.isPresenting ? ' (VR resolution changes next launch)' : ''), 2000, '#b266ff'); }],
-      [(localStorage.getItem('novaEndingSeen') === '1') ? 'WATCH ENDING & CREDITS' : 'STORY INTRO', '#b266ff', () => { if (localStorage.getItem('novaEndingSeen') === '1') nrmPlayEnding(); else nkIntroStart(true); }],
-      ['EXIT GAME', '#ff3344', () => npExitArm()]];
-    const NP_OPT = { name: 'OPTIONS', c: '#9fc3d8', hint: 'touch a row · EXIT GAME needs a second touch · key bindings are in the main menu OPTIONS',
-      row: (P, i) => { const r = npOptRows()[i]; if (r) { try { sound.switchClick(); } catch (e) { } r[2](P); } },
-      pads: [],
-      draw: (x, P) => {
-        npOptRows().forEach((r, i) => { const Y = 52 + i * 44; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'; x.fillRect(8, Y, 520, 42); x.fillStyle = r[1]; x.fillRect(8, Y, 6, 42); npText(x, (i === 7 && NPX.arm > performance.now()) ? 'TOUCH AGAIN TO EXIT' : r[0], 26, Y + 29, 'bold 21px monospace', r[1], 490); });
-        npText(x, 'VIEW', 560, 86, 'bold 20px monospace', '#9fc3d8');
-        try { npText(x, passthroughActive ? 'MIXED REALITY' : 'FULL VR SPACE', 560, 120, 'bold 28px monospace', '#ff88dd', 450); } catch (e) { }
-        let sv = null; try { sv = JSON.parse(localStorage.getItem('novaSave1') || 'null'); } catch (e) { }
-        npText(x, 'SAVE SLOT', 560, 176, 'bold 20px monospace', '#9fc3d8');
-        npText(x, sv ? sv.sum : 'empty', 560, 208, '20px monospace', sv ? '#33ff99' : '#5f7d95', 450);
-        if (sv) npText(x, new Date(sv.at).toLocaleString(), 560, 236, '18px monospace', '#7fb6d0', 450);
-        npText(x, 'GRAPHICS ' + String(NOPT.o.gfx).toUpperCase() + '  ·  VOL ' + Math.round(NOPT.o.master * 100) + '%', 560, 290, 'bold 20px monospace', '#b266ff', 450);
+        npBar(x, 16, 294, 620, 24, Math.min(1, cargoOre / 100), '#00ffaa', 'ORE HOLD ' + cargoOre + ' / 100 t');
+        x.textAlign = 'right';
+        npText(x, 'BANK: ' + String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', 1008, 314, 'bold 30px monospace', '#ffd24a', 360);
+        x.textAlign = 'left';
       } };
     const NPX = { arm: 0, rc: null };
     function npExitArm() {
@@ -15315,50 +15512,97 @@ const GAME_VERSION = 'Alpha 1.1';
       if (R.t >= 1) { try { recenterPilotView(); } catch (e) { } try { sound.beep(1200, 0.06); } catch (e) { } setTimeout(() => { if (R.t >= 1) R.m.visible = false; }, 600); }
     }
 
-    const NP_MUSIC = { name: 'MUSIC', c: '#ff66cc', hint: "touch a track to play it \u00b7 Obi dances to his favourite",
+    // Legacy NP_MUSIC kept for NRM hook compatibility
+    const NP_MUSIC = { name: 'MUSIC', c: '#ff66cc', hint: '',
       row: (P, i) => { if (i >= BGM_TRACKS.length) return; try { sound.init(); } catch (e) { } bgmTrackIdx = i; bgmStep = 0; isBgmPlaying = true; try { updateBgmDisplay(); } catch (e) { } showToast('\u266B ' + BGM_TRACKS[i].name, 1800, '#ff66cc'); },
-      pads: [{ l: isBgmPlaying ? 'PAUSE' : 'PLAY', c: '#ff66cc', fn: () => { try { toggleBgm(); } catch (e) { } } }, { l: '\u23EE PREV', c: '#ff66cc', fn: () => { try { cycleBgmTrack(-1); } catch (e) { } } },
-        { l: 'NEXT \u23ED', c: '#ff66cc', fn: () => { try { cycleBgmTrack(1); } catch (e) { } } }, { l: 'VOLUME', c: '#ffd24a', fn: () => { const v = [0.04, 0.08, 0.14, 0.2]; bgmVolume = v[(v.indexOf(bgmVolume) + 1) % v.length] || 0.08; showToast('MUSIC VOLUME ' + Math.round(bgmVolume / 0.2 * 100) + '%', 1400, '#ffd24a'); } }],
+      pads: [], draw: () => {} };
+
+    // ── SYSTEM tab: merges SHIP + MUSIC MINI-PLAYER + OPTIONS into a clean 2-column grid of large button cards ──
+    const npSysCards = () => [
+      { title: (typeof passthroughActive !== 'undefined' && passthroughActive) ? 'VIEW: MIXED REALITY' : 'VIEW: FULL VR SPACE', sub: 'TAP TO SWITCH VIEW MODE', c: '#ff66cc', fn: () => togglePassthrough() },
+      { title: 'RECENTER PILOT VIEW', sub: '1 SECOND POSE COUNTDOWN', c: '#ffd24a', fn: () => npRecenterDelayed() },
+      { title: 'SEAT HEIGHT UP (+2 CM)', sub: 'OFFSET: ' + ((seatOffset >= 0 ? '+' : '') + Math.round(seatOffset * 100) + ' CM'), c: '#00e5ff', fn: () => adjustSeat(0.02) },
+      { title: 'SEAT HEIGHT DOWN (-2 CM)', sub: 'LOWER PILOT SEAT POSITION', c: '#00e5ff', fn: () => adjustSeat(-0.02) },
+      { title: 'VOLUME: ' + Math.round(NOPT.o.master * 100) + '%', sub: 'TAP TO CYCLE MASTER AUDIO', c: '#33ff99', fn: () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); } },
+      { title: 'GRAPHICS: ' + String(NOPT.o.gfx).toUpperCase(), sub: 'LOW · MID · HIGH · ULTRA', c: '#b266ff', fn: () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); showToast('GRAPHICS ' + NOPT.o.gfx.toUpperCase() + (renderer.xr.isPresenting ? ' (VR resolution changes next launch)' : ''), 2000, '#b266ff'); } }
+    ];
+    const NP_SYS = { name: 'SYSTEM', c: '#00e5ff', hint: 'top bar controls music · tap any large card to adjust ship & VR settings · SAVE / LOAD / EXIT below',
+      rowRect: (i) => {
+        if (i === 6) return { x: 16, y: 54, w: 620, h: 56 };
+        if (i === 7) return { x: 648, y: 54, w: 360, h: 56 };
+        if (i < 6) return { x: (i % 2 === 0 ? 16 : 516), y: 118 + Math.floor(i / 2) * 68, w: 492, h: 62 };
+        return null;
+      },
+      row: (P, i) => {
+        try { sound.switchClick(); } catch (e) { }
+        if (i === 6) { try { toggleBgm(); } catch (e) { } return; }
+        if (i === 7) { try { const nextIdx = (bgmTrackIdx + 1) % BGM_TRACKS.length; NP_MUSIC.row(P, nextIdx); } catch (e) { } return; }
+        const card = npSysCards()[i]; if (card) card.fn(P);
+      },
+      get pads() {
+        const isExitArmed = NPX.arm > performance.now();
+        return [
+          { l: 'SAVE GAME', c: '#33ff99', fn: () => nsvSave(1) },
+          { l: 'LOAD GAME', c: '#ffd24a', fn: () => nsvLoad(1) },
+          { l: (localStorage.getItem('novaEndingSeen') === '1') ? 'ENDING' : 'STORY', c: '#b266ff', fn: () => { if (localStorage.getItem('novaEndingSeen') === '1') nrmPlayEnding(); else nkIntroStart(true); } },
+          { l: isExitArmed ? 'CONFIRM EXIT' : 'EXIT GAME', c: '#ff3344', fn: () => npExitArm() }
+        ];
+      },
       draw: (x, P) => {
-        NP_MUSIC.pads[0].l = isBgmPlaying ? 'PAUSE' : 'PLAY';
-        BGM_TRACKS.slice(0, 8).forEach((t, i) => {
-          const Y = 52 + i * 44, on = i === bgmTrackIdx; x.fillStyle = on ? 'rgba(255,102,204,0.25)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(8, Y, 392, 42);
-          if (on) { x.strokeStyle = '#ff66cc'; x.lineWidth = 3; x.strokeRect(8, Y, 392, 42); }
-          npText(x, (on && isBgmPlaying ? '\u25B6 ' : '  ') + t.name.replace("OBI'S FAVORITE: ", ''), 18, Y + 29, 'bold 20px monospace', t.obi ? '#ffd24a' : (on ? '#ffffff' : '#ffb3e6'), 300);
-          x.textAlign = 'right'; npText(x, t.obi ? '\u2605 OBI' : t.bpm + ' bpm', 394, Y + 29, '17px monospace', t.obi ? '#ffd24a' : '#9fc3d8'); x.textAlign = 'left';
+        // Top Compact Music Mini-Player Bar (RowHits 6 & 7)
+        const tr = BGM_TRACKS[bgmTrackIdx] || { name: 'NONE', bpm: '' };
+        const nextTr = BGM_TRACKS[(bgmTrackIdx + 1) % BGM_TRACKS.length] || tr;
+        x.fillStyle = isBgmPlaying ? 'rgba(255,102,204,0.18)' : 'rgba(15,28,44,0.88)'; x.fillRect(16, 54, 620, 56);
+        x.strokeStyle = '#ff66cc'; x.lineWidth = 3; x.strokeRect(16, 54, 620, 56);
+        x.fillStyle = '#ff66cc'; x.fillRect(16, 54, 10, 56);
+        npText(x, (isBgmPlaying ? '\u25B6 ' : '\u275A\u275A ') + tr.name.replace("OBI'S FAVORITE: ", ''), 38, 80, 'bold 23px monospace', tr.obi ? '#ffd24a' : '#ffffff', 420);
+        npText(x, (isBgmPlaying ? 'TAP TO PAUSE' : 'TAP TO PLAY') + (window.NRM && NRM.auto ? ' · AUTO AMBIENCE' : ' · PINNED TRACK'), 38, 102, 'bold 17px monospace', '#ff99dd', 420);
+        if (isBgmPlaying) {
+          for (let i = 0; i < 10; i++) {
+            const hgt = 8 + Math.abs(Math.sin(NKS.t * (3 + i % 4) + i)) * 34;
+            x.fillStyle = tr.obi ? '#ffd24a' : '#ff66cc';
+            x.fillRect(480 + i * 14, 102 - hgt, 9, hgt);
+          }
+        }
+        x.fillStyle = 'rgba(255,102,204,0.14)'; x.fillRect(648, 54, 360, 56);
+        x.strokeStyle = '#ff66cc'; x.lineWidth = 3; x.strokeRect(648, 54, 360, 56);
+        npText(x, '\u23ED NEXT TRACK', 666, 80, 'bold 23px monospace', '#ff88dd', 324);
+        npText(x, nextTr.name.replace("OBI'S FAVORITE: ", ''), 666, 102, 'bold 17px monospace', '#bfe8ff', 324);
+
+        // 2-Column × 3-Row System Control Cards (RowHits 0..5)
+        npSysCards().forEach((c, i) => {
+          const col = i % 2, r = Math.floor(i / 2), X = col === 0 ? 16 : 516, Y = 118 + r * 68, W = 492, H = 62;
+          x.fillStyle = 'rgba(15,36,54,0.90)'; x.fillRect(X, Y, W, H);
+          x.strokeStyle = c.c; x.lineWidth = 2.5; x.strokeRect(X, Y, W, H);
+          x.fillStyle = c.c; x.fillRect(X, Y, 10, H);
+          npText(x, c.title, X + 24, Y + 29, 'bold 23px monospace', '#ffffff', W - 36);
+          npText(x, c.sub, X + 24, Y + 52, 'bold 17px monospace', c.c, W - 36);
         });
-        const t = BGM_TRACKS[bgmTrackIdx];
-        npText(x, isBgmPlaying ? 'NOW PLAYING' : 'PAUSED', 430, 86, 'bold 20px monospace', '#9fc3d8');
-        npText(x, t.name, 430, 122, 'bold 26px monospace', t.obi ? '#ffd24a' : '#ff88dd', 580);
-        npText(x, t.bpm + ' bpm \u00b7 volume ' + Math.round(bgmVolume / 0.2 * 100) + '%', 430, 156, '20px monospace', '#7fb6d0');
-        if (t.obi) npText(x, "Obi's favourite. Watch the dash.", 430, 196, 'bold 20px monospace', '#ffd24a');
-        if (isBgmPlaying) for (let i = 0; i < 28; i++) { const hgt = 10 + Math.abs(Math.sin(NKS.t * (3 + i % 5) + i)) * 70; x.fillStyle = t.obi ? '#ffd24a' : '#ff66cc'; x.fillRect(430 + i * 20, 340 - hgt, 12, hgt); }
       } };
-    const NP_SHIP = { name: 'SHIP', c: '#ffd24a', hint: 'touch a row to use it · save / load, view mode and exit are on the OPTIONS tab',
-      row: (P, i) => { const r = NP_SHIP_ROWS[i]; if (r) r[2](P); },
-      pads: [{ l: 'LOG', c: '#ffcc00', fn: () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); } }, { l: 'CREW', c: '#ff88cc', fn: () => { try { ncTalk(); } catch (e) { } } }],
-      draw: (x, P) => {
-        NP_SHIP_ROWS.forEach((r, i) => { const Y = 52 + i * 44; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'; x.fillRect(8, Y, 392, 42); x.fillStyle = r[1]; x.fillRect(8, Y, 6, 42); npText(x, r[0], 26, Y + 29, 'bold 21px monospace', r[1], 360); });
-        try { npText(x, 'SHIP', 430, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, novaShipDef().name, 430, 120, 'bold 28px monospace', '#e9fbff', 580); } catch (e) { }
-        try { npText(x, 'SEAT HEIGHT', 430, 170, 'bold 20px monospace', '#9fc3d8'); npText(x, (seatOffset >= 0 ? '+' : '') + Math.round(seatOffset * 100) + ' cm', 430, 202, 'bold 26px monospace', '#00e5ff'); } catch (e) { }
-        try { npText(x, 'VIEW', 640, 170, 'bold 20px monospace', '#9fc3d8'); npText(x, passthroughActive ? 'MIXED REALITY' : 'FULL SPACE', 640, 202, 'bold 26px monospace', '#ff88dd'); } catch (e) { }
-        try { npText(x, 'MUSIC', 430, 252, 'bold 20px monospace', '#9fc3d8'); npText(x, (isBgmPlaying ? '\u25B6 ' : '\u275A\u275A ') + BGM_TRACKS[bgmTrackIdx].name, 430, 284, 'bold 24px monospace', '#ff88dd', 580); } catch (e) { }
-        try { const d = ncD(); npText(x, 'CREW', 430, 326, 'bold 20px monospace', '#9fc3d8'); npText(x, d ? d.name : 'none aboard', 540, 326, 'bold 22px monospace', d ? d.col : '#5f7d95', 300); } catch (e) { }
-      } };
+    const NP_OPT = NP_SYS, NP_SHIP = NP_SYS;
     function npTick(dt) {
       if (!NP.panels.length) {
         if (!novaConsoles[0] || !novaConsoles[1]) return;
-        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'CREW CHANNEL' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
-          holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => npTab(P, 0) }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
-            { g: '☎', l: 'HAIL', c: '#00e5ff', fn: () => npHail() }, { g: '➤', l: 'WARP', c: '#b266ff', fn: () => window.novaNavToggle() },
-            { g: '⚓', l: 'DOCK', c: '#00f0ff', fn: () => { try { novaAutoDockPress(); } catch (e) { } } }, { g: '♥', l: 'CREW', c: '#ffd24a', fn: () => { try { ncTalk(); } catch (e) { } } }] });
-        const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SHIP, NP_MUSIC, NP_OPT], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
-          holo: [{ g: '\u2316', l: 'COMBAT', c: '#ff3355', fn: P => npTab(P, 0) }, { g: '\u25A6', l: 'CARGO', c: '#00ff99', fn: P => npTab(P, 1) }, { g: '\u2699', l: 'SHIP', c: '#ffd24a', fn: P => npTab(P, 2) },
-            { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }, { g: '\u2630', l: 'OPTIONS', c: '#9fc3d8', fn: P => npTab(P, 4) },
-            null, null, null,   // combat buttons moved onto the COMBAT screen
-            { g: '\u21C4', l: 'TAB', c: '#ff3355', fn: P => npTab(P, P.tab + 1) }] });
+        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_FLIGHT, NP_WARP, NP_STORY],
+          status: P => {
+            const T = P.cfg.tabs[P.tab];
+            return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'MESSENGER' : T === NP_FLIGHT ? `${Math.round(shipBody.velocity.length())} M/S` : T === NP_WARP ? `WARP ${Math.round(NW.core)}%` : `CH ${campaignChapter + 1}/${CAMPAIGN.length}`;
+          },
+          holo: [
+            { g: '☎', l: 'HAIL', c: '#00e5ff', fn: () => npHail() },
+            { g: '◈', l: 'DAMPERS', c: '#33ff99', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } },
+            { g: '✦', l: 'AUTOPILOT', c: '#ffd24a', fn: () => { try { toggleAutopilot(); } catch (e) { } } },
+            { g: '⚓', l: 'DOCK', c: '#00f0ff', fn: () => { try { novaAutoDockPress(); } catch (e) { } } }
+          ] });
+        const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SYS], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
+          holo: [
+            { g: '\u2316', l: 'FIRE', c: '#ff3355', fn: () => npFire() },
+            { g: '\u25CE', l: 'LOCK', c: '#ffaa22', fn: () => { try { cycleTarget(); } catch (e) { } } },
+            { g: '\u2726', l: 'FLARE', c: '#ff8833', fn: () => { const a = npFindAct('FLARES'); if (a) a(); } },
+            { g: '\u25B2', l: 'WING', c: '#00e5ff', fn: () => novaWingLaunch() }
+          ] });
         try { commsArmRoot.visible = false; invArmRoot.visible = false; } catch (e) { }       // the floating TACCOMS / CARGO screens are folded into these panels
-        console.log('[NOVA13] side panels rebuilt: COMMS|FLIGHT and WEAPONS|CARGO');
+        console.log('[NOVA13] side panels rebuilt: COMMS|CHAT|FLIGHT|WARP|STORY and COMBAT|CARGO|SYSTEM');
         return;
       }
       try { npRecenterTick(dt); } catch (e) { }
@@ -15372,40 +15616,43 @@ const GAME_VERSION = 'Alpha 1.1';
         P.holo.visible = !!want; P.holo.rotation.y += dt * 0.6;
         P.hb.forEach(m => { const f = m.userData.flash || 0; if (f > 0) m.userData.flash = Math.max(0, f - dt); m.scale.setScalar(f > 0 ? 0.88 : 1); });
         if (P.c.t >= 1.8) { P.k += ((P.stow ? 1 : 0) - P.k) * Math.min(1, dt * 6); P.c.root.position.copy(P.c.dep).add(new THREE.Vector3(0.10 * P.c.side, -0.26, 0.08).multiplyScalar(P.k)); }
-        P.drawT -= dt; if (P.drawT <= 0 && cockpit.visible) { P.drawT = 0.3; npDraw(P); }
+        const fastDraw = (P.cfg.id === 'L' && T === NP_CHAT && (NPCH.typing || isCommsKeyboardOpen));
+        P.drawT -= dt; if (P.drawT <= 0 && cockpit.visible) { P.drawT = fastDraw ? 0.12 : 0.3; npDraw(P); }
       });
     }
     // ── NOVA14: swipe / drag / mouse-wheel on the left panel (COMMS list scrolls up-down, WARP cards flip left-right) ──
-    const NP_WARP = { name: 'WARP', c: '#b266ff', i: 0, hint: 'swipe left / right to pick a destination · tap the card to jump · N opens this tab',
-      pads: [{ l: '◀ PREV', c: '#b266ff', fn: () => npWarpStep(-1) }, { l: 'JUMP', c: '#33ff99', fn: () => npWarpGo() }, { l: 'NEXT ▶', c: '#b266ff', fn: () => npWarpStep(1) },
-        { l: 'EXIT WARP', c: '#ff7a66', fn: () => { if (isLightspeedActive) exitLightspeed(); else showToast('Not in warp.', 1400, '#88aacc'); } }],
+    const NP_WARP = { name: 'WARP', c: '#b266ff', i: 0, hint: 'swipe left/right or use pads to pick a sector · tap center card or JUMP / DOCK to warp',
+      pads: [
+        { l: '◀ PREV', c: '#b266ff', fn: () => npWarpStep(-1) },
+        { l: 'JUMP / DOCK', c: '#33ff99', fn: () => npWarpGo() },
+        { l: 'NEXT ▶', c: '#b266ff', fn: () => npWarpStep(1) },
+        { l: 'ROUTE OBJ', c: '#ffcc00', fn: () => { if (isLightspeedActive) exitLightspeed(); else { try { nsObjectivePick(); } catch (e) { } } } }
+      ],
       draw: (x, P) => {
         const L = npWarpList(); if (!L.length) return;
         NP_WARP.i = (NP_WARP.i + L.length) % L.length;
         const card = (k, X, Y, W, H, big) => {
           const c = L[(k + L.length) % L.length], col = c.col;
-          x.fillStyle = big ? 'rgba(10,24,40,0.95)' : 'rgba(10,24,40,0.55)'; x.fillRect(X, Y, W, H);
-          x.strokeStyle = col; x.lineWidth = big ? 5 : 2; x.globalAlpha = big ? 1 : 0.55; x.strokeRect(X, Y, W, H);
-          const R = big ? 62 : 26, cx = X + (big ? 92 : W / 2), cy = Y + (big ? 120 : 62);   // planet-style marker
+          x.fillStyle = big ? 'rgba(10,24,40,0.95)' : 'rgba(10,24,40,0.60)'; x.fillRect(X, Y, W, H);
+          x.strokeStyle = col; x.lineWidth = big ? 4.5 : 2.5; x.globalAlpha = big ? 1 : 0.65; x.strokeRect(X, Y, W, H);
+          const R = big ? 58 : 22, cx = X + (big ? 88 : W / 2), cy = Y + (big ? 105 : 54);   // planet-style marker
           const gr = x.createRadialGradient(cx - R * 0.35, cy - R * 0.35, R * 0.1, cx, cy, R); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.25, col); gr.addColorStop(1, '#05101c');
           x.fillStyle = gr; x.beginPath(); x.arc(cx, cy, R, 0, 7); x.fill();
           if (big) {
-            npText(x, c.name, X + 180, Y + 58, 'bold 38px monospace', col, W - 200);
-            npText(x, c.l2, X + 180, Y + 104, 'bold 24px monospace', '#ffd24a', W - 200);
-            npText(x, c.l3, X + 180, Y + 142, '22px monospace', '#bfe8ff', W - 200);
+            npText(x, c.name, X + 168, Y + 54, 'bold 38px monospace', col, W - 188);
+            npText(x, c.l2, X + 168, Y + 98, 'bold 24px monospace', '#ffd24a', W - 188);
+            npText(x, c.l3, X + 168, Y + 136, '22px monospace', '#bfe8ff', W - 188);
             const ok = !c.why;
-            x.fillStyle = ok ? 'rgba(51,255,153,0.18)' : 'rgba(255,90,90,0.14)'; x.fillRect(X + 180, Y + 172, W - 200, 50);
-            x.strokeStyle = ok ? '#33ff99' : '#ff6655'; x.lineWidth = 3; x.strokeRect(X + 180, Y + 172, W - 200, 50);
-            x.textAlign = 'center'; npText(x, ok ? (c.dock ? 'TAP TO DOCK' : 'TAP CARD TO JUMP') : c.why, X + 180 + (W - 200) / 2, Y + 206, 'bold 26px monospace', ok ? '#33ff99' : '#ff8877'); x.textAlign = 'left';
-            x.textAlign = 'right'; npText(x, (NP_WARP.i + 1) + ' / ' + L.length, X + W - 16, Y + 30, 'bold 20px monospace', '#7fb6d0'); x.textAlign = 'left';
-          } else { x.textAlign = 'center'; npText(x, c.name, X + W / 2, Y + 124, 'bold 16px monospace', col, W - 10); x.textAlign = 'left'; }
+            x.fillStyle = ok ? 'rgba(51,255,153,0.20)' : 'rgba(255,90,90,0.16)'; x.fillRect(X + 168, Y + 154, W - 188, 48);
+            x.strokeStyle = ok ? '#33ff99' : '#ff6655'; x.lineWidth = 3; x.strokeRect(X + 168, Y + 154, W - 188, 48);
+            x.textAlign = 'center'; npText(x, ok ? (c.dock ? 'TAP TO DOCK' : 'TAP CARD TO JUMP') : c.why, X + 168 + (W - 188) / 2, Y + 186, 'bold 26px monospace', ok ? '#33ff99' : '#ff8877'); x.textAlign = 'left';
+            x.textAlign = 'right'; npText(x, (NP_WARP.i + 1) + ' / ' + L.length, X + W - 16, Y + 32, 'bold 21px monospace', '#7fb6d0'); x.textAlign = 'left';
+          } else { x.textAlign = 'center'; npText(x, c.name, X + W / 2, Y + 124, 'bold 17px monospace', col, W - 10); x.textAlign = 'left'; }
           x.globalAlpha = 1;
         };
-        card(NP_WARP.i - 1, 8, 60, 128, 226, false); card(NP_WARP.i + 1, 888, 60, 128, 226, false);
-        card(NP_WARP.i, 146, 56, 732, 234, true);
-        x.fillStyle = '#b266ff'; x.font = 'bold 44px monospace'; x.textAlign = 'center'; x.fillText('◀', 72, 334); x.fillText('▶', 952, 334); x.textAlign = 'left';
-        try { const cap = novaWarpCap(), f = NW.core / cap; npBar(x, 146, 316, 732, 22, f, f > 0.5 ? '#33ff99' : f > 0.25 ? '#ffcc00' : '#ff3344', 'WARP CORE ' + Math.round(NW.core) + ' / ' + cap); } catch (e) { }
-        L.forEach((c, k) => { x.fillStyle = k === NP_WARP.i ? '#ffffff' : 'rgba(178,102,255,0.45)'; x.beginPath(); x.arc(512 - (L.length - 1) * 9 + k * 18, 354, k === NP_WARP.i ? 5 : 3.5, 0, 7); x.fill(); });
+        card(NP_WARP.i - 1, 16, 62, 124, 210, false); card(NP_WARP.i + 1, 884, 62, 124, 210, false);
+        card(NP_WARP.i, 148, 58, 728, 218, true);
+        try { const cap = novaWarpCap(), f = NW.core / cap; npBar(x, 148, 298, 728, 18, f, f > 0.5 ? '#33ff99' : f > 0.25 ? '#ffcc00' : '#ff3344', 'WARP CORE ' + Math.round(NW.core) + ' / ' + cap); } catch (e) { }
       } };
     function npWarpList() {
       const out = [];
@@ -15455,7 +15702,7 @@ const GAME_VERSION = 'Alpha 1.1';
     function npGestureStart(P, src, px, py) {
       const T = P.cfg.tabs[P.tab];
       if (py < 50 || py > 412) return false;                       // tab strip and footer keep their own buttons
-      if (T.pads && T.pads.length && py > 358 && px > 412) return false;   // pads
+      if (T.pads && T.pads.length && py > 324 && (npIsFullPads(T) || px > 416)) return false; // bottom pads
       if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT) return false;
       if (T === NP_COMMS && px > 420) return false;
       NPG.g = { P, src, x0: px, y0: py, lx: px, ly: py, acc: 0, moved: 0, t: performance.now() }; NPG.vel = 0;
@@ -15465,12 +15712,12 @@ const GAME_VERSION = 'Alpha 1.1';
       const G = NPG.g; if (!G) return;
       const dx = px - G.lx, dy = py - G.ly; G.lx = px; G.ly = py; G.moved = Math.max(G.moved, Math.hypot(px - G.x0, py - G.y0));
       const T = G.P.cfg.tabs[G.P.tab];
-      if (T === NP_COMMS) {
+      if (T === NP_CHAT) {
+        NPCH.scroll = Math.max(0, NPCH.scroll + dy / 28); G.P.drawT = 0;   // drag down = read older bubbles
+      } else if (T === NP_COMMS) {
         G.P.scrollF = (G.P.scrollF ?? G.P.scroll) - dy / 44; NPG.vel = -dy / 44;
-        const mx = Math.max(0, G.P.list.length - 8); G.P.scrollF = Math.max(0, Math.min(mx, G.P.scrollF));
+        const mx = Math.max(0, G.P.list.length - 6); G.P.scrollF = Math.max(0, Math.min(mx, G.P.scrollF));
         const s = Math.round(G.P.scrollF); if (s !== G.P.scroll) { G.P.scroll = s; G.P.drawT = 0; }
-      } else if (T === NP_CHAT) {
-        NPCH.scroll = Math.max(0, NPCH.scroll + dy / 25); G.P.drawT = 0;   // drag down = read older lines
       } else if (T === NP_WARP) {
         G.acc += dx;
         if (Math.abs(G.acc) > 150) { npWarpStep(G.acc < 0 ? 1 : -1); G.acc = 0; }   // swipe left = next
@@ -15480,17 +15727,13 @@ const GAME_VERSION = 'Alpha 1.1';
       const G = NPG.g; NPG.g = null; if (!G) return;
       const P = G.P, T = P.cfg.tabs[P.tab];
       if (G.moved < 22) {   // tap
-        if (T === NP_COMMS) { const r = Math.floor((G.y0 - 52) / 44); const c = r >= 0 && r < 8 ? P.list[P.scroll + r] : null; if (c) { novaHoloSelect(c); P.drawT = 0; } }
-        else if (T === NP_WARP) { if (G.x0 < 140) npWarpStep(-1); else if (G.x0 > 884) npWarpStep(1); else npWarpGo(); }
+        if (T === NP_COMMS) { const r = Math.floor((G.y0 - 54) / 44); const c = r >= 0 && r < 6 ? P.list[P.scroll + r] : null; if (c) { novaHoloSelect(c); P.drawT = 0; } }
+        else if (T === NP_WARP) { if (G.x0 < 144) npWarpStep(-1); else if (G.x0 > 880) npWarpStep(1); else npWarpGo(); }
         NPG.vel = 0;
       } else if (T === NP_COMMS && (performance.now() - G.t) < 900) NPG.vel *= 6; else NPG.vel = 0;
     }
     function npGestureTick(dt) {
       const P = NP.panels[0]; if (!P || !P.scr) return;
-      if (!P.rowsGone) {   // the list rows are handled here (tap vs. swipe), not as separate buttons
-        P.rowsGone = true;
-        for (let i = cockpitInteractables.length - 1; i >= 0; i--) if (/^L ROW \d/.test(cockpitInteractables[i].label)) cockpitInteractables.splice(i, 1);
-      }
       if (NavUI.open !== npNavOpen) { NavUI.open = npNavOpen; NavUI.close = () => { NavUI.isOpen = false; }; NavUI.isOpen = false; }
       try { if (NWP.g && NWP.g.visible) NWP.g.visible = false; } catch (e) { }
       // fingertips: controller gloves and bare hands
@@ -15511,7 +15754,7 @@ const GAME_VERSION = 'Alpha 1.1';
       }
       // fling inertia for the contact list
       if (!NPG.g && Math.abs(NPG.vel) > 0.01 && P.cfg.tabs[P.tab] === NP_COMMS) {
-        const mx = Math.max(0, P.list.length - 8);
+        const mx = Math.max(0, P.list.length - 6);
         P.scrollF = Math.max(0, Math.min(mx, (P.scrollF ?? P.scroll) + NPG.vel)); NPG.vel *= Math.pow(0.02, dt);
         const s = Math.round(P.scrollF); if (s !== P.scroll) { P.scroll = s; P.drawT = 0; }
       }
@@ -15528,9 +15771,10 @@ const GAME_VERSION = 'Alpha 1.1';
     window.addEventListener('wheel', e => {
       const h = npMouseHit(e); if (!h) return;
       const T = h.P.cfg.tabs[h.P.tab];
-      if (T === NP_COMMS) { const mx = Math.max(0, h.P.list.length - 8); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
+      if (T === NP_COMMS) { const mx = Math.max(0, h.P.list.length - 6); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
       else if (T === NP_WARP) { npWarpStep(Math.sign(e.deltaY || e.deltaX)); e.preventDefault(); }
-      else if (T === NP_CHAT) { NPCH.scroll = Math.max(0, NPCH.scroll - Math.sign(e.deltaY) * 2); h.P.drawT = 0; e.preventDefault(); }
+      else if (T === NP_CHAT) { NPCH.scroll = Math.max(0, NPCH.scroll - Math.sign(e.deltaY)); h.P.drawT = 0; e.preventDefault(); }
+      else if (T === NP_STORY) { NP_STORY.picIdx = (NP_STORY.curPic() + Math.sign(e.deltaY || e.deltaX) + NP_STORY_SLIDES.length) % NP_STORY_SLIDES.length; h.P.drawT = 0; e.preventDefault(); }
     }, { passive: false });
     window.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
@@ -15539,51 +15783,150 @@ const GAME_VERSION = 'Alpha 1.1';
     }, true);
     window.addEventListener('mousemove', e => { if (!NPG.g || NPG.g.src !== 'mouse') return; const h = npMouseHit(e); if (h) npGestureMove(h.px, h.py); }, true);
     window.addEventListener('mouseup', e => { if (NPG.g && NPG.g.src === 'mouse') npGestureEnd(); }, true);
-    // ── NOVA14: CHAT tab on the left panel. Character chats, story choices and hails land here instead of a pop-up in front of you ──
-    const NPCH = { choice: null, scroll: 0, unread: 0, seen: 0 };
-    const NP_CHAT = { name: 'CHAT', c: '#ff88cc', hint: 'crew channel only · swipe for older messages · choices appear on the pads',
+
+    // ── NOVA14: Dedicated Phone-Messenger CHAT Tab with Message Bubbles & Live "is typing..." Indicators ──
+    const NP_CREW_RE = /^(YOU|NYX|MATRIX|VALKYRIE|OBI|JOHN|KIP)/i;
+    function npCrewLog() { return (window.commsChatLog || []); }
+    function npCrewEnt() { let d = null; try { d = ncD(); } catch (e) { } const c = d ? d.call : 'VALKYRIE-7'; return { name: c, callsign: c, isHostile: false }; }
+    const NP_CHAT = { name: 'CHAT', c: '#ff88cc',
+      get hint() {
+        if (NPCH.choice && novaChoiceOpen) return 'choose a response on the bottom pads · swipe up/down to read message history';
+        return 'phone messenger feed · swipe to scroll bubbles · TYPE MSG opens keyboard · HAIL TGT switches here';
+      },
       get pads() {
-        if (NPCH.choice && novaChoiceOpen) return NPCH.choice.opts.slice(0, 4).map((o, i) => ({ l: String(o.label).slice(0, 11), c: o.col || '#00e5ff', fn: () => { novaChoicePick(i); NPCH.choice = null; } }));
-        return [{ l: 'TALK', c: '#33ff99', fn: () => { try { novaKeyboardToggle(npCrewEnt(), true); } catch (e) { } } }, { l: 'QUICK', c: '#ffd24a', fn: () => { try { novaChatQuickPrompt(npCrewEnt()); } catch (e) { } } }, { l: 'CREW', c: '#ff88cc', fn: () => { try { ncTalk(); } catch (e) { } } }];
+        if (NPCH.choice && novaChoiceOpen) {
+          return NPCH.choice.opts.slice(0, 4).map((o, i) => ({ l: String(o.label).slice(0, 18), c: o.col || '#00e5ff', fn: () => { novaChoicePick(i); NPCH.choice = null; } }));
+        }
+        return [
+          { l: 'TYPE MSG', c: '#33ff99', fn: () => npTalk() },
+          { l: 'QUICK REPLY', c: '#ffd24a', fn: () => npQuick() },
+          { l: 'TALK CREW', c: '#ff88cc', fn: () => { try { ncTalk(); } catch (e) { } } }
+        ];
       },
       draw: (x, P) => {
-        NPCH.unread = 0; NPCH.seen = npCrewLog().length;
-        let top = 56;
-        if (NPCH.choice && novaChoiceOpen) {   // the open question / offer, with its answers on the pads below
-          x.fillStyle = 'rgba(255,204,0,0.10)'; x.fillRect(8, 54, 1008, 112); x.strokeStyle = '#ffcc00'; x.lineWidth = 3; x.strokeRect(8, 54, 1008, 112);
-          npText(x, NPCH.choice.title, 22, 86, 'bold 26px monospace', '#ffcc00', 980);
-          x.font = '21px sans-serif'; x.fillStyle = '#e8f6ff'; let y = 116, line = '';
-          String(NPCH.choice.text).split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 980 && line) { if (y < 166) x.fillText(line, 22, y); y += 24; line = w; } else line = t; });
-          if (line && y < 166) x.fillText(line, 22, y);
-          npText(x, '▼ answer on the pads below', 1010 - 300, 86, 'bold 18px monospace', '#ffd24a');
-          top = 176;
+        const log = npCrewLog();
+        NPCH.unread = 0; NPCH.seen = log.length;
+        const now = performance.now();
+        if (NPCH.typing && now > NPCH.typing.until) NPCH.typing = null;
+
+        let top = 54;
+        if (NPCH.choice && novaChoiceOpen) {
+          x.fillStyle = 'rgba(255,204,0,0.14)'; x.fillRect(16, 54, 992, 104); x.strokeStyle = '#ffcc00'; x.lineWidth = 3; x.strokeRect(16, 54, 992, 104);
+          npText(x, NPCH.choice.title, 30, 82, 'bold 25px monospace', '#ffcc00', 650);
+          x.textAlign = 'right'; npText(x, '▼ ANSWER ON PADS BELOW', 992, 82, 'bold 18px monospace', '#ffd24a'); x.textAlign = 'left';
+          x.font = '21px sans-serif'; x.fillStyle = '#e8f6ff'; let y = 110, line = '';
+          String(NPCH.choice.text).split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 960 && line) { if (y < 152) x.fillText(line, 30, y); y += 23; line = w; } else line = t; });
+          if (line && y < 152) x.fillText(line, 30, y);
+          top = 164;
+        } else {
+          // Phone-Messenger Header Bar
+          const lk = currentLockedTarget;
+          const chanName = (lk && npCanTalk(lk)) ? lk.name : (npCrewEnt().name || 'CREW CHANNEL');
+          x.fillStyle = 'rgba(15,30,46,0.92)'; x.fillRect(16, 54, 992, 34);
+          x.strokeStyle = 'rgba(255,136,204,0.45)'; x.lineWidth = 2; x.strokeRect(16, 54, 992, 34);
+          x.fillStyle = '#33ff99'; x.beginPath(); x.arc(34, 71, 6, 0, 7); x.fill();
+          npText(x, `ACTIVE CHANNEL: ${chanName} · CREW & SECTOR MESSENGER`, 50, 78, 'bold 19px monospace', '#ffffff', 680);
+          x.textAlign = 'right';
+          npText(x, NPCH.typing ? `${NPCH.typing.who} IS TYPING...` : 'ONLINE', 994, 78, 'bold 18px monospace', NPCH.typing ? '#ffd24a' : '#33ff99');
+          x.textAlign = 'left';
+          top = 94;
         }
-        // chat history, newest at the bottom; swipe to read back
-        x.font = '21px monospace'; const out = [];
-        npCrewLog().forEach(it => {
-          const words = (it.s + ': ' + it.m).split(' '); let line = '';
-          words.forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 990 && line) { out.push([line, it.c, it.s]); line = '   ' + w; } else line = t; });
-          if (line) out.push([line, it.c, it.s]);
+
+        // Reserve bottom bar for live typing indicator or user compose bar
+        const hasTypingBar = !!(NPCH.typing || isCommsKeyboardOpen || (typeof commsTextInput === 'string' && commsTextInput.length > 0));
+        const bottomLimit = hasTypingBar ? 280 : 322;
+
+        // Build wrapped message bubbles
+        x.font = 'bold 20px monospace';
+        const bubbles = [];
+        log.slice(-24).forEach(it => {
+          const isMe = String(it.s).toUpperCase() === 'YOU';
+          const words = String(it.m || '').split(' ');
+          const lines = []; let line = '';
+          words.forEach(w => {
+            const t = line ? line + ' ' + w : w;
+            if (x.measureText(t).width > 640 && line) { lines.push(line); line = w; }
+            else line = t;
+          });
+          if (line) lines.push(line);
+          const bh = 26 + lines.length * 22;
+          bubbles.push({ s: it.s || 'COMMS', c: it.c || (isMe ? '#00e5ff' : '#cfefff'), isMe, lines, bh });
         });
-        const rows = Math.floor((352 - top) / 25);
-        NPCH.scroll = Math.max(0, Math.min(NPCH.scroll, Math.max(0, out.length - rows)));
-        const start = Math.max(0, out.length - rows - Math.round(NPCH.scroll));
-        out.slice(start, start + rows).forEach(([t, c], i) => { x.fillStyle = c || '#cfefff'; x.fillText(t, 16, top + 20 + i * 25); });
-        if (!out.length) npText(x, 'No crew messages yet. TALK types to your crew, CREW opens a conversation.', 16, top + 30, '21px monospace', '#5f8aa3', 990);
-        if (NPCH.scroll > 0) npText(x, '▼ ' + Math.round(NPCH.scroll) + ' newer lines below', 760, top + 14, 'bold 16px monospace', '#ffd24a');
+
+        // Pack visible bubbles from bottom up, honoring NPCH.scroll
+        const maxScroll = Math.max(0, bubbles.length - 2);
+        NPCH.scroll = Math.max(0, Math.min(NPCH.scroll, maxScroll));
+        const endIdx = Math.max(0, bubbles.length - Math.round(NPCH.scroll));
+        const vis = [];
+        let availH = bottomLimit - top;
+        for (let i = endIdx - 1; i >= 0; i--) {
+          const b = bubbles[i];
+          if (vis.length > 0 && availH < b.bh + 6) break;
+          vis.unshift(b);
+          availH -= (b.bh + 6);
+        }
+
+        let curY = top;
+        vis.forEach(b => {
+          const BW = 680, BX = b.isMe ? (1008 - BW) : 16, BH = Math.min(b.bh, bottomLimit - curY);
+          x.fillStyle = b.isMe ? 'rgba(0, 180, 225, 0.22)' : 'rgba(16, 34, 52, 0.92)';
+          x.fillRect(BX, curY, BW, BH);
+          x.strokeStyle = b.isMe ? '#00e5ff' : b.c;
+          x.lineWidth = 2.5;
+          x.strokeRect(BX, curY, BW, BH);
+          x.fillStyle = b.isMe ? '#00e5ff' : b.c;
+          x.fillRect(b.isMe ? (BX + BW - 8) : BX, curY, 8, BH);
+
+          if (b.isMe) {
+            x.textAlign = 'right';
+            npText(x, 'YOU · SENT', BX + BW - 18, curY + 19, 'bold 15px monospace', '#7feaff');
+            b.lines.forEach((ln, li) => {
+              if (curY + 40 + li * 22 <= curY + BH + 4) npText(x, ln, BX + BW - 18, curY + 39 + li * 22, 'bold 20px monospace', '#ffffff', BW - 34);
+            });
+            x.textAlign = 'left';
+          } else {
+            npText(x, b.s, BX + 18, curY + 19, 'bold 16px monospace', b.c, BW - 34);
+            b.lines.forEach((ln, li) => {
+              if (curY + 40 + li * 22 <= curY + BH + 4) npText(x, ln, BX + 18, curY + 39 + li * 22, 'bold 20px monospace', '#e8f7ff', BW - 34);
+            });
+          }
+          curY += BH + 6;
+        });
+
+        if (!bubbles.length) {
+          npText(x, 'No messages yet. HAIL a contact on COMMS or tap TALK CREW below.', 24, top + 40, 'bold 22px monospace', '#6f96b0', 960);
+        }
+
+        // Live Typing Indicator Bubble (NPC typing or Pilot typing on keyboard)
+        if (hasTypingBar) {
+          const TY = 284, TH = 38;
+          if (NPCH.typing) {
+            x.fillStyle = 'rgba(20, 42, 64, 0.95)'; x.fillRect(16, TY, 470, TH);
+            x.strokeStyle = NPCH.typing.col || '#ffd24a'; x.lineWidth = 2.5; x.strokeRect(16, TY, 470, TH);
+            const phase = Math.floor(now / 260) % 3;
+            for (let d = 0; d < 3; d++) {
+              x.fillStyle = d === phase ? '#ffffff' : (NPCH.typing.col || '#ffd24a');
+              x.beginPath(); x.arc(36 + d * 14, TY + 19, d === phase ? 6 : 4, 0, 7); x.fill();
+            }
+            npText(x, `${NPCH.typing.who} is typing...`, 84, TY + 26, 'bold 20px monospace', '#ffd24a', 390);
+          }
+          if (isCommsKeyboardOpen || (typeof commsTextInput === 'string' && commsTextInput.length > 0)) {
+            const UX = NPCH.typing ? 500 : 16, UW = NPCH.typing ? 508 : 992;
+            x.fillStyle = 'rgba(0, 210, 255, 0.18)'; x.fillRect(UX, TY, UW, TH);
+            x.strokeStyle = '#00e5ff'; x.lineWidth = 2.5; x.strokeRect(UX, TY, UW, TH);
+            const cur = (Math.floor(now / 420) % 2) ? '_' : ' ';
+            npText(x, `YOU (TYPING): > ${commsTextInput || ''}${cur}`, UX + 16, TY + 26, 'bold 20px monospace', '#00f0ff', UW - 32);
+          }
+        }
       } };
-    // crew only: your companion, wingmen, Obi, John and you (stations, sensors and strangers stay on COMMS)
-    const NP_CREW_RE = /^(YOU|NYX|MATRIX|VALKYRIE|OBI|JOHN|KIP)/i;
-    function npCrewLog() { let d = null; try { d = ncD(); } catch (e) { } return (window.commsChatLog || []).filter(it => NP_CREW_RE.test(String(it.s)) || (d && it.s === d.call)); }
-    function npCrewEnt() { let d = null; try { d = ncD(); } catch (e) { } const c = d ? d.call : 'VALKYRIE-7'; return { name: c, callsign: c, isHostile: false }; }
-    // story choices / offers / hails: on the CHAT tab while flying (the cantina keeps the floating card, there is no panel there)
+
+    // story choices / offers / hails: switch directly to the CHAT tab while flying
     { const _nc = novaChoice; novaChoice = function (title, text, opts) {
         const P = NP.panels[0];
         if (isInsideCantina || !P || !cockpit.visible) return _nc(title, text, opts);
         const U = novaChoiceUI; U.opts = opts; novaChoiceOpen = true; U.g.visible = false;
         NPCH.choice = { title, text, opts };
-        if (P.stow) { P.stow = false; P.sb.material.map = P.stowTex[0]; }
-        npTab(P, P.cfg.tabs.indexOf(NP_CHAT)); P.drawT = 0;
+        npGoChat(); P.drawT = 0;
         try { if (sound && sound.commsChirp) sound.commsChirp(); } catch (e) { }
       }; }
     // unread counter on the CHAT tab name
@@ -15592,9 +15935,9 @@ const GAME_VERSION = 'Alpha 1.1';
       const n = npCrewLog().length;
       if (P.cfg.tabs[P.tab] === NP_CHAT) { NPCH.seen = n; NP_CHAT.name = 'CHAT'; return; }
       const u = Math.max(0, n - NPCH.seen);
-      const nm = u ? 'CHAT ' + Math.min(u, 9) + (u > 9 ? '+' : '') : 'CHAT';
+      const nm = u ? 'CHAT (' + Math.min(u, 9) + (u > 9 ? '+' : '') + ')' : 'CHAT';
       if (nm !== NP_CHAT.name) { NP_CHAT.name = nm; P.drawT = 0; }
-      if (NPCH.choice && !novaChoiceOpen) NPCH.choice = null;
+      if (NPCH.choice && !novaChoiceOpen) { NPCH.choice = null; P.drawT = 0; }
     }
     // ── warning when a pirate is on you ──
     const NPW = { m: null, x: null, t: null, tt: 0, scanT: 0, beepT: 0, threat: null }; window.NPW = NPW;
@@ -16905,23 +17248,12 @@ const GAME_VERSION = 'Alpha 1.1';
       return /ORE/.test(l) && !/DONATE/.test(l) ? 0 : /SALVAGE/.test(l) ? 14 : /MISSILE \+|RACK/.test(l) ? 9 : /FLARE/.test(l) ? 2 : /SHIELD CAP|SHIELDS/.test(l) ? 13 : /WARP/.test(l) ? 12 :
         /REPAIR|OBI|KIT/.test(l) ? 4 : /WARHEAD/.test(l) ? 10 : /MINING/.test(l) ? 8 : /DONATE/.test(l) ? 7 : -1;
     }
-    // MARKET: the BUY / SELL buttons on the right of each row are touchable too (the stock row hit areas stop at the item name)
-    setInterval(() => {
-      try {
-        const P = NP.panels[1]; if (!P || P.mkHits) return; P.mkHits = true;
-        const hm = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-        for (let i = 0; i < 8; i++) {
-          const m = new THREE.Mesh(new THREE.PlaneGeometry(150 / 1024 * NP_SW, 42 / 456 * NP_SH), hm); m.position.copy(P.at(475, 52 + i * 44 + 21)); P.c.g.add(m);
-          registerCockpitButton(m, 'R BUY ' + (i + 1), () => { const T = P.cfg.tabs[P.tab]; if (T.row) T.row(P, i); P.drawT = 0; }, 0.012);
-          const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
-        }
-      } catch (e) { }
-    }, 1000);
     function nmkRedraw() { const P = NP.panels[1]; if (P) P.drawT = 0; }
-    { const _draw = NP_CARGO.draw, _row = NP_CARGO.row, _pads = NP_CARGO.pads, _hint = NP_CARGO.hint;
+    { const _draw = NP_CARGO.draw, _row = NP_CARGO.row, _rowRect = NP_CARGO.rowRect, _pads = NP_CARGO.pads, _hint = NP_CARGO.hint;
       Object.defineProperty(NP_CARGO, 'name', { get: () => (nmkNear() ? 'MARKET' : 'CARGO'), configurable: true });
       Object.defineProperty(NP_CARGO, 'hint', { get: () => (nmkNear() ? 'touch a row to buy or sell · every station stocks different gear and pays different prices' : _hint), configurable: true });
       Object.defineProperty(NP_CARGO, 'pads', { get: () => (nmkNear() ? [] : _pads), configurable: true });
+      NP_CARGO.rowRect = function (i, P) { const st = nmkNear(); return st ? { x: 8, y: 52 + i * 44, w: 540, h: 42 } : (_rowRect ? _rowRect(i, P) : null); };
       NP_CARGO.row = function (P, i) { const st = nmkNear(); if (!st) return _row(P, i); const r = nmkRows(st)[i]; if (r) { r.fn(); try { novaSave13(); drawInventoryPanel(); } catch (e) { } nmkRedraw(); } };
       NP_CARGO.draw = function (x, P) {
         const st = nmkNear(); if (!st) return _draw(x, P);
@@ -17184,7 +17516,7 @@ const GAME_VERSION = 'Alpha 1.1';
         { k: 'OPEN SKIES', t: rift === 'contact' ? 'The ring is quiet. It listens.' : rift ? 'The rift is closed.' : 'The lanes are open.', b: ['Convoys run again. The colonies have power. Nova-1 sleeps easy.', 'And everyone on the station knows the name Nova Lead.'] },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(0, 4) },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(4).concat([kept]) },
-        { k: 'PROJECT NOVA', t: 'Alpha 1.1', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
+        { k: 'PROJECT NOVA', t: 'Alpha 1.2', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
         { k: 'CREDITS', t: 'Ships, cockpit and crew', b: ['3D models generated for Project Nova (Tripo), optimised for Quest.', 'Faction fleets: Mind Space, the Corsair Line, the EDF.', 'Obi the cat-bot, Nyx, Valkyrie-7, John, Kip, Mother Kestrel, ADA-9.'] },
         { k: 'CREDITS', t: 'Music and art', b: ['Music: ScifiMusicPack (Fab), tracks Voyager, Space Caravan, Battle in the Market.', 'Sky, planets, icons and key art generated for Project Nova.'] },
         { k: 'THANK YOU FOR FLYING', t: 'The sector is yours.', b: ['Free flight continues: contracts, bounties, markets, the reef and the rift.', 'Fly safe, Nova Lead.'], last: true }
