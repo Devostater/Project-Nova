@@ -6,7 +6,7 @@
  * nova.load(), and nova.reset() from that UI or reload after nova.load().
  */
 
-const SAVE_KEY = 'novaSaveV2';
+const SAVE_KEY = 'novaStateV2';
 const SCHEMA_VERSION = 2;
 
 function finite(value, fallback = 0) {
