@@ -20,17 +20,19 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
 | Google AI Studio | Side panel layouts | `aistudio/side-panels` | panel layout code only: `nkDashBuild`, `nmMountConsole`, `novaConsoleTick`, `draw*Panel` | Active | — |
-| Codex | Skybox audit, laser impacts, star-sim story polish | `codex/skybox-laser-story` | `public/art/sky.jpg`; impact VFX; campaign log copy; mirrored game files | Active | — |
+
 
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
-| — | — | — | — |
+| Codex | Skybox audit, laser impact and flight-log polish | #9 | Draft PR. Sky texture seam cleanup remains a follow-up because binary upload is unavailable through this connection. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: laser impacts and flight-log polish** ([PR #9](https://github.com/Devostater/Project-Nova/pull/9), `codex/skybox-laser-story`). Localized hit sparks and campaign/flight-log wording mirrored across all three game files. Skybox checked at 2048×1024; edge streaks identified and a matching clean backup found, but the image replacement is not in this PR. No automated or Quest checks run. Next: upload the clean panorama to `public/art/sky.jpg`, review, then owner merges.
 
 - **Claude: Alpha 1.1** (PR #5). Version bump, offline cache `nova-alpha-1.1` (now includes `vendor/three.core.js`, `SkeletonUtils.js` and `fx/`), root `fx/` textures for the PC servers, `TESTING.md`, `ASSET_BACKLOG.md`, and a manual GitHub Pages deploy workflow. Checks: headless Chromium serving both the repo root and `public/` (textures and models load, no 404s or errors). Next: the owner pulls in GitHub Desktop and runs `TESTING.md` on PC and Quest; then Claude merges AI Studio's panels and GPT's docking into Alpha 1.2.
 - **Claude: Phase 1 foundation** (PR #4, merged). three.js r187 vendor files so GLB models load in the web build; `ASSET_SPEC.md`, `AI_PLAN.md`, multi-claim status; `AGENTS.md` and `.gemini/` review configs. Checks: headless Chromium (models load, no 404s).
