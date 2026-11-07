@@ -28,7 +28,9 @@ Merge order when the owner returns: open Claude PRs first (#11), then the queue 
 | A4 | **`nova` module API + loader** (FPS_PLAN M0) | a small `window.nova` object + `<script type="module">` loader for `public/modules/*.js` | Modules load in both builds; documented in `AI_PLAN.md` |
 | A5 | **Enemy AI module** (FPS_PLAN M4) | `public/modules/fps_ai.js`: drone state machine against the `nova` API | Patrol → cover → shoot → retreat, testable via `?arena=range` |
 | A6 | **Morality meter** (FPS_PLAN §5) | `public/modules/morality.js` + one flight-log line | −100…+100, history list, saved |
-| A7 | **Performance pass** | read-only profiling first; then fix hot spots (allocations per frame) | Report + PR with measured fixes |
+| A8 | **Side panels fit the cockpit mesh** (GPT, in progress) | panel placement/scale only (`npBuild`, `NP_SW/NP_SH`, panel roots) | Panels sit flush on their console screens in 2D and VR |
+| A9 | **Offline APK check** | `tools/make_quest_apk.bat`, `OFFLINE_PLAY.md` | Owner can build and sideload the APK; it runs offline after the first load |
+| A7 | **Performance pass** (Claude, in progress) | measured: about 282 draw calls / 772k tris in flight; target about 150 / 300k on Quest | Quest-tier draw calls and tris inside budget |
 
 ## Lane B: Gemini (art; images only, no code)
 
