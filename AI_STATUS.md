@@ -1,14 +1,27 @@
 # AI Work Status
 
-## Current lead: GPT/Codex (from 2026-11-07)
+## Current lead: Claude (from 2026-11-07, evening)
 
-Claude handed the lead to GPT when it hit its usage limit. GPT now owns the three game files, integration, and merges the owner approves.
+The owner handed the lead back to Claude after Claude's usage reset. Claude owns the three game files, integration and merges the owner approves. **GPT/Codex does the heavy lifting in modules, tools and docs** (jobs below); list any game-file hooks you need in your PR and Claude wires them.
 
-**State after the #35 integration merge:**
-- Merged: #24 (A4 loader), #25 (warp/combat), #27 (A11 controls), #28 (existing firing-range interior and morality modules), #29 (A5 drones), #30 (A12 boarding), #32 (A14 Cold Run), #34 (lead/docs handoff), and #35 (module integration, mobile-only touch visibility and desktop gamepad flight actions).
-- Open: #33 image VFX, #37 territories/campaign planning, and #38 FPS flow/controls/helmet HUD. Owner approval is required before each merge.
-- Next: runtime review of #38 in desktop/gamepad/Quest, then continue the approved release plan.
-- Pending owner request: rigged VR glove with finger joints and controller grip poses; cockpit stick and throttle grabs must keep working.
+**Claude, branch `claude/lead-polish` (PR open):**
+- Fixed `main`: `novaRunTicks` used `novaTickHandlers` before it was initialised, so every frame threw and modules never loaded.
+- Took #38 (GPT FPS flow + helmet HUD) and fixed a literal `\n` syntax error in `fps_core.js` that stopped it loading; camera now levels when you step out of the cockpit.
+- Took #33 and wired it: Gemini missile plume on enemy and player missiles, faction-coloured engine glow on every ship. `novaTest.vfxShow()` spawns a pirate + missiles for a check.
+- Checked headless: all 8 modules load, range enters/fires/exits, no page errors.
+
+## GPT/Codex jobs (in order; modules/tools/docs only)
+
+Each job: own branch `gpt/<job>`, draft PR, `node --check` every module, `public/modules` = `modules`, both `sw.js` lists, handoff here.
+
+1. **G1 Ship roster expansion (`modules/roster.js` + `optimize_nova.py`).** Register more ship variants from the existing GLBs in `public/Alien`, `public/EDF`, `public/Pirate` (e.g. pirate stealth, alien worker drone, spiked orb, EDF frigate-carrier) as new `NF_STATS`-style entries with distinct roles, colours and loadouts. Export `register(nova)` that adds them through `window.NF_STATS`/`NF_ASSETS`; Claude wires spawning. Owner will add new GLBs later: add an `optimize_nova.py` rule for each.
+2. **G2 Faction emblems.** Move the owner's `EM v5.png`…`Emv10.png`, `emblem v2–v4.png` from the repo root to `public/art/emblems/` (+ root `art/emblems/`) with clean names, make 512 px PNG copies, and list in `OWNER_QUESTIONS.md` which emblem belongs to which faction (owner decides). Delete the stray root `three.module.js` / `GLTFLoader.js` (r170; the game uses r187 in `vendor/`) after asking the owner.
+3. **G3 A15 save/load (`modules/save.js`).** One versioned save object (heat cores, morality + log, salvage, credits, Cold Run progress, interior/boarding counts); autosave on dock and on mission events; `nova.save()/load()/reset()`; a migration path for old localStorage keys.
+4. **G4 VR hands (`modules/vr_hands.js`).** Rigged glove driven by XR joints; grip pose on controllers; hide joint spheres when loaded; cockpit stick/throttle grab must still work (see the owner's hands brief).
+5. **G5 NOVA NET feed (`modules/novanet.js`)** from #37's ROADMAP: event-driven news articles with response windows. Data + UI canvas; Claude docks it into the right panel.
+6. **G6 Cantina expansion brief.** Using `Concept art/` (bar, booth, stool), write the model list for Tripo with sizes/triangle budgets in `ASSET_BACKLOG.md` P4, and the cantina layout in `VERTICAL_SLICE.md`.
+
+Open PRs: #37 (planning doc, ready), #9 (stale; owner may close).
 
 > Read [AI_WORKFLOW.md](AI_WORKFLOW.md) before starting or taking over work.
 
