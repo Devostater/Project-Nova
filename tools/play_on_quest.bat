@@ -28,14 +28,10 @@ if errorlevel 1 (
   pause & exit /b 1
 )
 
-echo  Quest found. Linking the headset's localhost:8000 to this PC...
-"%ADB%" reverse tcp:8000 tcp:8000
-
-echo  Opening the game in the Quest browser...
-"%ADB%" shell am start -a android.intent.action.VIEW -d "http://localhost:8000/standalone.html" com.oculus.browser >nul 2>nul
-
-echo  Starting the game server (keep this window open while you play, close it to stop).
-echo.
-where python >nul 2>nul && (python -m http.server 8000 --directory "%~dp0.." & goto :eof)
-where py >nul 2>nul && (py -m http.server 8000 --directory "%~dp0.." & goto :eof)
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Root "%~dp0.." -Port 8000
+rem The game is hosted on GitHub Pages (updated on every push to main), so no PC server is needed.
+rem The old localhost:8000 server mode left stale offline copies on the headset; it was removed 2026-11-07.
+echo  Quest found. Opening Project Nova...
+"%ADB%" shell am start -n com.azi.projectnova/.LauncherActivity >nul 2>nul
+if errorlevel 1 "%ADB%" shell am start -a android.intent.action.VIEW -d "https://devostater.github.io/Project-Nova/standalone.html" com.oculus.browser >nul 2>nul
+echo  Done. Put the headset on.
+timeout /t 5 >nul
