@@ -2,23 +2,9 @@
 
 > Read [AI_WORKFLOW.md](AI_WORKFLOW.md) and [AI_PLAN.md](AI_PLAN.md) before starting or taking over work.
 
-## ⏸ HANDOFF: Claude paused (2026-11-07, out of usage)
+## ⚠ Read first: work from the latest GitHub `main`, never an old local copy
 
-**Open PRs, in merge order (all clean, no CI):**
-1. **#7 `claude/alpha-1.2`**: Alpha 1.2. AI Studio side panels (merged from the uploaded file), Gemini VFX pack (`tools/vfx_build.py`, `art_src/gemini/`), Gemini shield hex, Codex #9 integrated (laser impacts, flight-log wording, clean `sky.jpg`), `.gitattributes` (LF), warp streak lines removed, holo-radar made see-through. **Contains #6 and #9.** Tested headless only; needs an owner Quest run of `TESTING.md`.
-2. **#6 `claude/shield-hex`**: contained in #7; it closes when #7 merges.
-3. **#9 `codex/skybox-laser-story`**: already integrated into #7 with LF endings. **Close it without merging** (its CRLF rewrite would conflict).
-4. **#8 `claude/fps-plan`**: docs only. `FPS_PLAN.md` with the owner's decisions; lore anchor in `reference/mind-space/PROJECT_NOVA_NOTE.md`.
-
-**In progress, not started in code: holo-radar position toggle (owner decision).**
-- Positions: **LEFT** (default, on the left console by the throttle) and **HIGH** (top of the dash under the canopy, never over a screen). Save as `NOPT.o.radarPos` with `noptSave()`.
-- Where: `nhBuild()` sets `NH.g.position` (currently `nkC(0, 0.412, -0.153) + NKS.n*0.10 + (0, 0.02, 0)` when `NK.on`; centre telemetry screen). Add `nhPlace(mode)` and call it on build and on toggle. Measure the throttle and left console positions in cockpit space first (`throttleGroup`, `novaConsoles[0].g`), and screenshot from the pilot camera.
-- Toggle in options: (a) the main-menu `#menu-options` DOM button; (b) the in-cockpit SYSTEM tab (`npSysCards`, `NP_SYS`). That grid has 6 cards plus music on row hits 6/7, and only 8 row hits exist (`npBuild` loop `i < 8`). Plan: raise the loop to `i < 9`; in the default rect use `hasRow && i < 8` so other tabs are unaffected; make `NP_SYS.rowRect(8)` a full-width 4th row; shrink cards to H 48 / step 52 (they must end above the pads at y 330); route `row(P, 8)` to the new card.
-- Keep `standalone.html` == `public/standalone.html`; `index.html` = the same file without the import map. Run `node --check` on the module, then a headless test.
-
-**Next (after #7 merges):** FPS plan **M0** (`nova` module API + loader, `novaInterior`), then **M1** salvage (greyed salvage targets on radar and comms, TRACTOR button, heat cores).
-
-**Still waiting:** GPT's docking update (it pushed laser and skybox work instead, #9). The Gemini key in the `project-nova` environment works (Tier 1); image generation costs about 1.5k tokens per image.
+On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old local copy (Alpha 1.0 RC)** and pushed straight to `main`. That replaced Alpha 1.2 in that file (VFX pack, shield, gamepad and so on), and `public/standalone.html` and `index.html` were left unchanged and out of sync. Claude merged both sides as **Alpha 1.3** (branch `claude/merge-gpt-cockpit`). Before editing: pull `main`, edit **all three** game files the same way (or let Claude sync them), and use a branch and PR.
 
 ## Primary AI
 
@@ -28,7 +14,7 @@
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Nobody. Claude paused (out of usage) and released the game files; see the handoff below.
+**Held by:** Claude (`claude/merge-gpt-cockpit`) until the Alpha 1.3 PR merges.
 
 ## Active claims
 
@@ -48,6 +34,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
 
+- **Claude: Alpha 1.3, GPT cockpit work merged with Alpha 1.2** (`claude/merge-gpt-cockpit`). GPT's 18 commits on `main` (crew/fleet tab, VR-sized SYSTEM buttons, joystick deadzone, throttle grip, COMMS→chat, right-dash radar with split zoom, clean warp starfield, Obi gated behind purchase, cargo scrolling, objective shortcut) started from 74ed760. Three-way merged onto Alpha 1.2. All non-panel Alpha 1.2 work is kept (Gemini VFX pack, shield hex, gamepad/tablet, laser impacts, explosion caps, clean sky). In the panel section (`const NP = {` to `nmkIcon`), **GPT's version is taken whole**, so AI Studio's STORY tab and SYSTEM card grid are dropped, with no dangling references. Claude's unfinished LEFT/HIGH radar toggle is shelved (GPT's right-dash placement kept; stash `claude radar-toggle WIP`). All three files are synced; version Alpha 1.3, cache `nova-alpha-1.3`. Checks: `node --check`; headless Chromium from the repo root and `public/` (Alpha 1.3, panels built, every VFX texture loads, no 404s or errors). Not tested on Quest.
 - **Claude: warp lines removed, see-through holo-radar** (`claude/alpha-1.2`, owner request). The 1,000 warp streak lines are no longer added to the scene (they ran through the cockpit and converged over the consoles); the hyperspace star particles and backdrop remain. The 3D holo-radar is fainter (sphere, disc, rings, sweep, stalks, mini ships) and its emitter cone is off. Its position is waiting on the owner's choice. Checks: `node --check`; headless Chromium screenshot shows the telemetry screen readable through the radar.
 - **Codex + Claude: laser impacts, flight-log wording, clean skybox** (PR #9 integrated into `claude/alpha-1.2`). Codex added localized laser-hit flares and sparks (`novaVfxLaserImpact`) and reworded campaign objectives and flight-log headings, and found the pole-seam streaks in `sky.jpg`. Its push converted all three game files to CRLF (about 36k changed lines for a 33-line change), so Claude merged only the real lines with LF endings, swapped in the clean `art/sky_v014_backup.jpg` as `sky.jpg`, and added `.gitattributes` to keep LF from now on. Checks: three-way merge without conflicts; headless Chromium.
 - **Claude: Gemini VFX pack** (branch `claude/alpha-1.2`). Seven Gemini source images (`art_src/gemini/`: fireball, smoke, sparks, laser, muzzle, engine, warp) built into game textures by `tools/vfx_build.py`. In game: a 2048 px 8×8 explosion (fireball → smoke) and grayscale laser, flare and spark. Delivered but not wired yet: small hit burst, muzzle sheet, engine glow, warp streaks. `vfx_cut.py` now only makes lightning and the legacy shield cell. Checks: headless Chromium from the repo root and `public/` (all textures load, rendered in front of the camera, explosions run, no 404s or errors).
