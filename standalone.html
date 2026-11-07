@@ -5729,8 +5729,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     // ── Interactive Throttle Lever (Alpha 0.2 Palm-Sized Ergonomics & 5 Speed Notches) ──
     const throttleGroup = new THREE.Group();
     throttleGroup.visible = NOVA_TOUCH_DEVICE;
-    throttleGroup.position.set(-0.44, 0.16, -0.20);
-    throttleGroup.scale.setScalar(1.28);
+    throttleGroup.position.set(-0.36, 0.16, -0.20);
+    throttleGroup.scale.setScalar(1.92);
     cockpit.add(throttleGroup);
 
     const THROTTLE_MIN_Z = 0.045;  // Notch 0: 0% Idle / Reverse Cut (+0.045m)
@@ -17029,7 +17029,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       try {   // stick: back toward the pilot a little and further right; throttle: further left into the open space (tunable ?stx ?stz ?thx ?thz)
         const q = new URLSearchParams(location.search), f = (k, d) => q.has(k) ? parseFloat(q.get(k)) : d;
         stickGroup.position.set(f('stx', 0.27), stickGroup.position.y, f('stz', -0.17));
-        throttleGroup.position.set(f('thx', -0.44), throttleGroup.position.y, f('thz', -0.20));
+        throttleGroup.position.set(f('thx', -0.36), throttleGroup.position.y, f('thz', -0.20));
       } catch (e) { }
       try { novaConsoles.forEach((c, i) => {
         if (i === 2) nmSkin(c.g, 'overhead_dash', { tag: 'consoles', hide: false, scale: 0.62, pos: [0, -0.004, -0.066] }).then(w => { if (w) nmOverheadWire(c, w); });
