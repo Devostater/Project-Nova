@@ -5902,17 +5902,15 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       new THREE.CylinderGeometry(0.012, 0.014, 0.016, 16),
       boosterBtnMat
     );
-    throttleBoosterBtn.rotation.z = Math.PI / 2;
-    throttleBoosterBtn.position.set(0.034, 0.008, 0.006);
+    throttleBoosterBtn.position.set(0, 0.021, -0.020);
     throttleHandle.add(throttleBoosterBtn);
 
     const boosterCollar = new THREE.Mesh(
       new THREE.CylinderGeometry(0.016, 0.018, 0.010, 16),
       new THREE.MeshStandardMaterial({ color: 0x0a1420, metalness: 0.9, roughness: 0.2 })
     );
-    boosterCollar.rotation.z = Math.PI / 2;
     boosterCollar.position.copy(throttleBoosterBtn.position);
-    boosterCollar.position.x -= 0.003;
+    boosterCollar.position.y -= 0.002;
     throttleHandle.add(boosterCollar);
 
     let isAfterburnerActive = false;
@@ -5931,15 +5929,15 @@ const GAME_VERSION = 'Alpha 1.0 RC';
 
     // Illuminated Top Grip Plate with Speed Notch Indicator
     const topPlateMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x0088cc, emissiveIntensity: 0.7 });
-    const topPlate = new THREE.Mesh(new THREE.BoxGeometry(0.054, 0.006, 0.040), topPlateMat);
-    topPlate.position.set(0, 0.076, -0.004);
+    const topPlate = new THREE.Mesh(new THREE.BoxGeometry(0.054, 0.004, 0.012), topPlateMat);
+    topPlate.position.set(0, 0.076, 0.014);
     throttleArm.add(topPlate);
 
     const notchPointer = new THREE.Mesh(
-      new THREE.BoxGeometry(0.058, 0.008, 0.003),
+      new THREE.BoxGeometry(0.058, 0.006, 0.003),
       new THREE.MeshBasicMaterial({ color: 0xffffff })
     );
-    notchPointer.position.set(0, 0.078, -0.004);
+    notchPointer.position.set(0, 0.078, 0.014);
     throttleArm.add(notchPointer);
 
     // Visual Grip Indicator Halo for Throttle
@@ -10514,7 +10512,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
                 const dz = localStickHand.z - handNeutralZ;
                 const dx = localStickHand.x;
 
-                const DEADZONE = 0.008;
+                const DEADZONE = 0.012;
                 let targetPitch = 0.0;
                 let targetRoll = 0.0;
 
@@ -10543,7 +10541,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
 
           // ── Throttle Control (LEFT HAND ONLY - Smooth Rail Follow & Clean Release) ──
           if (isLeftHand) {
-            const canEngageThrottle = (distThrottle < 0.16 && isGripActive);
+            const canEngageThrottle = (distThrottle < 0.22 && isGripActive);
             if (!isGrippingThrottleHand && canEngageThrottle && !isHandBusyWithControls) {
               isGrippingThrottleHand = true;
               sound.beep(520, 0.05);
@@ -10556,8 +10554,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
               if (tp.distanceTo(bp) < 0.05 && now - (window._novaBoostT || 0) > 900) { window._novaBoostT = now; try { triggerAfterburner(); sound.switchClick(); } catch (e) {} }
             }
             if (isGrippingThrottleHand) {
-              // Grip ends when uncurling (!isGripActive) or pulling away (> 24cm)
-              if (!isGripActive || distThrottle > 0.24 || isHandBusyWithControls) {
+              // Keep a forgiving grab radius while the pilot works the lever.
+              if (!isGripActive || distThrottle > 0.30 || isHandBusyWithControls) {
                 isGrippingThrottleHand = false;
                 // Notch Lock on Release: Firmly snap throttle to achieved notch, preventing backward drag!
                 throttlePct = currentThrottleNotch / 4;
@@ -10882,12 +10880,12 @@ const GAME_VERSION = 'Alpha 1.0 RC';
             throttleHandle.getWorldPosition(throttleWorldPos);
             const distThrottle = cPos.distanceTo(throttleWorldPos);
 
-            if (!isGrippingThrottleCtrl && distThrottle < 0.12 && isControllerActive) {
+            if (!isGrippingThrottleCtrl && distThrottle < 0.18 && isControllerActive) {
               isGrippingThrottleCtrl = true;
               sound.beep(520, 0.05);
             }
             if (isGrippingThrottleCtrl && isControllerActive) {
-              if (distThrottle > 0.24) {
+              if (distThrottle > 0.30) {
                 isGrippingThrottleCtrl = false;
                 throttlePct = currentThrottleNotch / 4;
                 throttleSlideZ = THROTTLE_MIN_Z - throttlePct * THROTTLE_RANGE;
@@ -11032,10 +11030,13 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       // ── Direct Thumbstick Input (Flight & Throttle without Needing 6DOF Grip) ──
       isThumbstickSteering = false;
       if (!isGrippingStick && rightGamepad && rightGamepad.axes && rightGamepad.axes.length >= 2) {
-        const axisX = (Math.abs(rightGamepad.axes[2]) > 0.08) ? rightGamepad.axes[2] : (Math.abs(rightGamepad.axes[0]) > 0.08 ? rightGamepad.axes[0] : 0);
-        const axisY = (Math.abs(rightGamepad.axes[3]) > 0.08) ? rightGamepad.axes[3] : (Math.abs(rightGamepad.axes[1]) > 0.08 ? rightGamepad.axes[1] : 0);
+        const dz = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12));
+        const rawX = (Math.abs(rightGamepad.axes[2]) > dz) ? rightGamepad.axes[2] : (Math.abs(rightGamepad.axes[0]) > dz ? rightGamepad.axes[0] : 0);
+        const rawY = (Math.abs(rightGamepad.axes[3]) > dz) ? rightGamepad.axes[3] : (Math.abs(rightGamepad.axes[1]) > dz ? rightGamepad.axes[1] : 0);
+        const shape = v => Math.abs(v) <= dz ? 0 : Math.sign(v) * (Math.abs(v) - dz) / (1 - dz);
+        const axisX = shape(rawX), axisY = shape(rawY);
 
-        if (Math.abs(axisX) > 0.08 || Math.abs(axisY) > 0.08) {
+        if (axisX || axisY) {
           isThumbstickSteering = true;
           const targetPitch = axisY * 0.45;
           const targetRoll = -axisX * 0.45;
@@ -11049,7 +11050,10 @@ const GAME_VERSION = 'Alpha 1.0 RC';
 
       // Left thumbstick: Notched throttle shifter (Full access to Notch 0, 1, 2, 3, 4) & Lateral RCS Strafe
       if (!isGrippingThrottle && leftGamepad && leftGamepad.axes && leftGamepad.axes.length >= 2) {
-        const tAxisY = (Math.abs(leftGamepad.axes[3]) > 0.20) ? leftGamepad.axes[3] : (Math.abs(leftGamepad.axes[1]) > 0.20 ? leftGamepad.axes[1] : 0);
+        const dz = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12));
+        const shape = v => Math.abs(v) <= dz ? 0 : Math.sign(v) * (Math.abs(v) - dz) / (1 - dz);
+        const rawT = (Math.abs(leftGamepad.axes[3]) > dz) ? leftGamepad.axes[3] : (Math.abs(leftGamepad.axes[1]) > dz ? leftGamepad.axes[1] : 0);
+        const tAxisY = shape(rawT);
         if (Math.abs(tAxisY) > 0.35 && (now - lastThumbstickThrottleShift > 280)) {
           lastThumbstickThrottleShift = now;
           if (tAxisY < -0.35) {
@@ -11060,7 +11064,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         }
 
         // Lateral RCS Strafe Thrusters (Avoid Asteroids & Obstacles with ease)
-        const strafeAxisX = (Math.abs(leftGamepad.axes[2]) > 0.15) ? leftGamepad.axes[2] : (Math.abs(leftGamepad.axes[0]) > 0.15 ? leftGamepad.axes[0] : 0);
+        const rawStrafe = (Math.abs(leftGamepad.axes[2]) > dz) ? leftGamepad.axes[2] : (Math.abs(leftGamepad.axes[0]) > dz ? leftGamepad.axes[0] : 0);
+        const strafeAxisX = shape(rawStrafe);
         if (Math.abs(strafeAxisX) > 0.15 && shipBody) {
           const strafeForce = strafeAxisX * 45000;
           const localStrafe = new THREE.Vector3(strafeForce, 0, 0).applyQuaternion(shipGroup.quaternion);
@@ -13688,25 +13693,25 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         console.log('[NOVA12] stick fire button wired');
       } catch (e) { console.warn('stick fire wiring failed', e); }
     }
-    // throttle: the two thumb paddles are the afterburner
+    // fallback throttle model: expose one generous top-mounted afterburner hit target
     function nmWireThrottleAB(w) {
       try {
         const old = cockpitInteractables.find(e => e.label === 'AFTERBURNER BOOST'); if (!old) return;
         let n = 0;
         ['tripo_part_14', 'tripo_part_15'].forEach(nm => { const m = w.getObjectByName(nm); if (m && m.isMesh) { nmRecenter(m); nmPressable(m, 'AFTERBURNER BOOST', old.action, 0.03, 'y', 0.04); n++; } });
+        const top = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })); top.position.set(0, 0.96, 0.08); w.add(top);
+        registerCockpitButton(top, 'AFTERBURNER BOOST', old.action, 0.05); cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
         console.log('[NOVA12] afterburner paddles wired:', n);
       } catch (e) { console.warn('afterburner wiring failed', e); }
     }
-    // new throttle handle: its two red side buttons are the afterburner (one per side, so either thumb works)
+    // new throttle handle: a broad top-cap target works for either hand/controller
     function nmWireThrottleStick(w) {
       try {
         const old = cockpitInteractables.find(e => e.label === 'AFTERBURNER BOOST'); if (!old) return;
         const hm = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-        [-1, 1].forEach(sx => {
-          const h = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), hm); h.position.set(0.16 * sx, 0.87, 0.13); w.add(h);
-          registerCockpitButton(h, 'AFTERBURNER BOOST', old.action, 0.025); cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
-        });
-        console.log('[NOVA13] throttle handle wired (afterburner on both red buttons)');
+        const h = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), hm); h.position.set(0, 0.96, 0.08); w.add(h);
+        registerCockpitButton(h, 'AFTERBURNER BOOST', old.action, 0.05); cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
+        console.log('[NOVA13] throttle handle wired (large top afterburner button)');
       } catch (e) { console.warn('throttle wiring failed', e); }
     }
     // VR hands: the glove model (floating bits and forearms stripped offline) follows each controller / tracked hand
@@ -14791,6 +14796,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       ['RECENTER VIEW (1 s countdown)', '#ffd24a', () => npRecenterDelayed()],
       ['SAVE GAME', '#33ff99', () => nsvSave(1)], ['LOAD GAME', '#ffd24a', () => nsvLoad(1)],
       ['MASTER VOLUME ' + Math.round(NOPT.o.master * 100) + '%', '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }],
+      ['JOYSTICK DEADZONE ' + Math.round((NOPT.o.deadzone ?? 0.12) * 100) + '%', '#33ff99', () => { const D = [0.05, 0.08, 0.12, 0.16, 0.20]; const i = D.findIndex(v => Math.abs(v - (NOPT.o.deadzone ?? 0.12)) < 0.01); NOPT.o.deadzone = D[(i + 1) % D.length]; noptSave(); showToast('JOYSTICK DEADZONE ' + Math.round(NOPT.o.deadzone * 100) + '%', 1800, '#33ff99'); }],
       ['GRAPHICS ' + String(NOPT.o.gfx).toUpperCase(), '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); showToast('GRAPHICS ' + NOPT.o.gfx.toUpperCase() + (renderer.xr.isPresenting ? ' (VR resolution changes next launch)' : ''), 2000, '#b266ff'); }],
       [(localStorage.getItem('novaEndingSeen') === '1') ? 'WATCH ENDING & CREDITS' : 'STORY INTRO', '#b266ff', () => { if (localStorage.getItem('novaEndingSeen') === '1') nrmPlayEnding(); else nkIntroStart(true); }],
       ['EXIT GAME', '#ff3344', () => npExitArm()]];
@@ -15357,8 +15363,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       ['inv', 'Inventory', 'KeyI'], ['wing', 'Drone wing', 'KeyK'], ['talk', 'Talk to companion', 'KeyC'], ['kb', 'Comms keyboard', 'KeyT'],
       ['tgt', 'Target box', 'KeyB'], ['mr', 'MR passthrough', 'KeyP'], ['reset', 'Reset controls', 'KeyR'], ['galaxy', 'Galaxy map', 'KeyG']
     ];
-    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'mid', keys: {} }, wait: null, resetArm: 0 };
+    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'mid', deadzone: 0.12, keys: {} }, wait: null, resetArm: 0 };
     try { Object.assign(NOPT.o, JSON.parse(localStorage.getItem('novaOpts') || '{}')); } catch (e) { }
+    NOPT.o.deadzone = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12));
     window.NOPT = NOPT;
     function noptSave() { try { localStorage.setItem('novaOpts', JSON.stringify(NOPT.o)); } catch (e) { } }
     const noptBind = id => NOPT.o.keys[id] || NOPT_KEYS.find(k => k[0] === id)[2];
