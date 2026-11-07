@@ -52,13 +52,13 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| GPT/Codex | A9 Quest offline APK check | `gpt/a9-quest-offline` | `tools/make_quest_apk.*`, offline validation tool and `OFFLINE_PLAY.md` | Active | draft pending |
 
 
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
+| GPT/Codex | A9 Quest offline/APK workflow | [Draft PR #49](https://github.com/Devostater/Project-Nova/pull/49) | Current Meta Bubblewrap builder, offline cache audit and physical-headset test guide. |
 | Gemini | Missile-plume and thruster-glow textures | [Draft PR #33](https://github.com/Devostater/Project-Nova/pull/33) | Four image files only: root and public mirrors; owner approval required before merge. |
 | GPT/Codex | FPS flow, controls and helmet HUD | [Draft PR #38](https://github.com/Devostater/Project-Nova/pull/38) | Range exit, desktop/gamepad/Quest FPS input, helmet visor HUD, boarding lifecycle and drone combat coordinates; awaiting runtime review. |
 | GPT/Codex | Territories and campaign scope plan | [Draft PR #37](https://github.com/Devostater/Project-Nova/pull/37) | Planning only; proposed factions, territory simulation, news, traffic, cinematics and full-release checklist. |
@@ -67,6 +67,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **GPT/Codex: A9 Quest offline/APK workflow** ([draft PR #49](https://github.com/Devostater/Project-Nova/pull/49), branch `gpt/a9-quest-offline`). Replaces the broken obsolete `ovr-platform-util create-pwa` batch logic with a guarded Meta Bubblewrap builder pinned to `@meta-quest/bubblewrap-cli@1.24.1`; validates the hosted manifest/game/worker, applies Quest Gradle compatibility settings, produces a signed APK and optionally installs it through adb. Adds `check_offline_cache.ps1` for root/public cache parity, missing/duplicate entries and manifest validity; updates the full HTTPS, signing, priming and airplane-mode test guide; ignores generated projects/APKs/keys. Checks: both PowerShell files parse, batch usage path works, remote files re-read. Not tested: signed build, adb, Quest launch or offline runtime—requires deployment/signing/SDK/headset. No game/module/service-worker content changes. Next: Claude reviews #49; owner runs the documented cache audit, build and physical Quest airplane-mode matrix.
 
 - **GPT/Codex: FPS flow, controls, combat and helmet HUD** ([draft PR #38](https://github.com/Devostater/Project-Nova/pull/38), branch `gpt/fps-flow-hud`). Repairs the range EXIT door and all exit inputs; adds pointer-lock mouse look, keyboard/gamepad/Quest controller and hand input; adds a camera-mounted helmet visor HUD; unifies range/boarding entry and return; and places pooled drone combat in the correct interior coordinate space. Root/public copies of `fps_core.js`, `interior.js`, `fps_ai.js` and `boarding.js` match with LF endings. Static review only; browser, physical gamepad, tablet and Quest runtime were not tested. Next: play `?arena=range` and `?arena=boarding` in desktop/gamepad/Quest before merge.
 
