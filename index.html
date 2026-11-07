@@ -8388,10 +8388,7 @@ const GAME_VERSION = 'Alpha 1.4';
     window.novaAutoDockPress = novaAutoDockPress;
     function novaTargetAutopilotPress() {
       if (isAutopilotActive) { toggleAutopilot(false); return; }
-      const lk = currentLockedTarget, obj = lk && lk.targetObj;
-      if (obj && (obj === stationGroup || lk.type === 'station') && stationGroup.position.distanceTo(shipGroup.position) <= 2400) {
-        novaAutoDockPress(); return;
-      }
+      const lk = currentLockedTarget, obj = lk && lk.targetObj;   // autopilot only flies; DOCK (overhead) docks
       toggleAutopilot(true);
       if (obj) showToast('AUTOPILOT: navigating to ' + lk.name, 2600, '#33ff99');
     }
@@ -12596,8 +12593,8 @@ const GAME_VERSION = 'Alpha 1.4';
     }
 
     // ── Destinations (world objects live in asteroidGroup so they hide with the sector) ──
-    const NW_COLONY_POS = new THREE.Vector3(2200, 180, 1100);
-    const NW_REEF_POS = new THREE.Vector3(-2100, -120, -1500);
+    const NW_COLONY_POS = new THREE.Vector3(2200, -900, 1100);
+    const NW_REEF_POS = new THREE.Vector3(-2100, 1100, -1500);
     const NW_DESTS = [
       { id: 'fwd', name: 'FORWARD JUMP', r: 0 },
       { id: 'station', name: 'NOVA-1 STATION', r: 260, pos: () => stationGroup.position },
@@ -13699,8 +13696,8 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // >>> NOVA11 START: new sectors (Ceres, Graveyard, Frost Ring, The Lantern, The Meridian) + story arc "THE LONG DARK"
     const NS_POS = {
-      graveyard: new THREE.Vector3(3000, 260, -900), frost: new THREE.Vector3(1300, 520, -3000),
-      lantern: new THREE.Vector3(-2900, -450, 1500), meridian: new THREE.Vector3(2900, -150, -2500)
+      graveyard: new THREE.Vector3(3000, 1300, -900), frost: new THREE.Vector3(1300, -1700, -3000),   // owner: more vertical space
+      lantern: new THREE.Vector3(-2900, -1400, 1500), meridian: new THREE.Vector3(2900, 1900, -2500)
     };
     const NS_META = {
       ceres: { col: '#ffaa33', l3: 'relief depot · amber pylons' },
@@ -14874,7 +14871,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // overhead: PREV / CLEAR / HAIL are not needed any more (pieces stay as plain hardware)
     function nkOverheadTrim() {
       if (NKS.ohTrim || !NOV.items.length) return;
-      const map = { 'DOME LIGHT': ['MODE', '◉', '#aa88ff', () => novaCycleCockpitMode()], 'POLARIZER': null,
+      const map = { 'DOME LIGHT': ['MODE', '◉', '#aa88ff', () => novaCycleCockpitMode()], 'POLARIZER': ['DOCK', '⚓', '#00f0ff', () => novaAutoDockPress()],   // owner: docking has its own button
         'PREV TARGET': null, 'CLEAR TARGET': ['REPAIR', '✚', '#33ff99', () => window.novaUseRepairKit()],
         'AUTO-DOCK': ['RADAR', '◎', '#00e5ff', () => window.novaRadarToggle()], 'OH HAIL': ['AUTOPILOT', '✈', '#33ff99', () => novaTargetAutopilotPress()] };   // Lighting, polarizer and stealth share MODE.
       let n = 0;
@@ -14949,7 +14946,7 @@ const GAME_VERSION = 'Alpha 1.4';
         });
       }; }
     // ── NOVA13: 3D holo-radar over the centre dash screen; touch a contact to lock, touch the range tag to zoom ──
-    const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {}, home: null, moved: false, names: false, labelAbove: false };
+    const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {}, home: null, moved: false, names: true, labelAbove: false };   // owner: names on by default
     window.NH = NH;
     const NH_COL = { hostile: 0xff3344, allied: 0x33ff88, station: 0x3fa9ff, planet: 0x66ddff, asteroid: 0x9aa6b8, wreck: 0xffaa33 };
     function nhMat(type) { const k = NH_COL[type] !== undefined ? type : 'asteroid'; return NH.mats[k] || (NH.mats[k] = new THREE.MeshBasicMaterial({ color: NH_COL[k], toneMapped: false })); }
@@ -15286,7 +15283,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
         P.hb.push(m);
       });
-      P.holo.position.copy(P.at(918, 140, 0.028)); c.g.add(P.holo);
+      P.holo.position.copy(P.at(870, 206, 0.028)); P.holo.scale.setScalar(1.65); c.g.add(P.holo);   // bigger hologram: COMMS no longer shows chat
       // HIDE / SHOW: drops the whole panel down and out toward the wall, clear of the view
       P.stow = false; P.k = 0; P.stowTex = [npBtnTex('\u25BC', 'HIDE', '#9fc3d8'), npBtnTex('\u25B2', 'SHOW', '#00e5ff')];
       const sb = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.03), new THREE.MeshBasicMaterial({ map: P.stowTex[0], transparent: true, depthWrite: false, toneMapped: false }));
@@ -15350,7 +15347,7 @@ const GAME_VERSION = 'Alpha 1.4';
       npText(x, ch, X, Y + 126, '20px monospace', '#7fb6d0', W);
     }
     function npHoloFrame(x, col) {
-      const X = 830, Y = 56, S = 180; x.strokeStyle = col; x.lineWidth = 4;
+      const X = 720, Y = 56, S = 300; x.strokeStyle = col; x.lineWidth = 4;
       [[X, Y, 1, 1], [X + S, Y, -1, 1], [X, Y + S, 1, -1], [X + S, Y + S, -1, -1]].forEach(([a, b, sx, sy]) => { x.beginPath(); x.moveTo(a + sx * 30, b); x.lineTo(a, b); x.lineTo(a, b + sy * 30); x.stroke(); });
       x.textAlign = 'center'; npText(x, '3D HOLOGRAM', X + S / 2, Y + S + 22, 'bold 18px monospace', col); x.textAlign = 'left';
     }
@@ -15414,10 +15411,8 @@ const GAME_VERSION = 'Alpha 1.4';
         }
         if (P.list.length > 8) { const f = P.scroll / Math.max(1, P.list.length - 8); x.fillStyle = 'rgba(0,229,255,0.25)'; x.fillRect(404, 52, 8, 352); x.fillStyle = '#00e5ff'; x.fillRect(404, 52 + f * 300, 8, 52); }
         if (!P.list.length) npText(x, 'NO CONTACTS IN 4 KM', 20, 90, 'bold 22px monospace', '#6f8ca3');
-        npTgtInfo(x, 430, 52, 390);
-        npHoloFrame(x, lk ? (NP.ccol[currentLockedTarget.type] || '#00e5ff') : '#2a4a63');
-        x.fillStyle = 'rgba(0,229,255,0.06)'; x.fillRect(420, 272, 596, 136);
-        npChat(x, 430, 296, 576, 5);   // latest lines; the full conversation is on the CHAT tab
+        npTgtInfo(x, 430, 52, 280);
+        npHoloFrame(x, lk ? (NP.ccol[currentLockedTarget.type] || '#00e5ff') : '#2a4a63');   // chat lives on the CHAT tab now
       } };
     const NP_FLIGHT = { name: 'FLIGHT', c: '#b266ff', hint: 'flight modes on the pads \u00b7 WARP opens the jump map \u00b7 CREW talks to your companion',
       pads: [{ l: 'DAMPERS', c: '#e8e8e8', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } }, { l: 'ASSIST', c: '#00e5ff', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } }, { l: 'AUTOPILOT', c: '#33ff99', fn: () => { try { novaTargetAutopilotPress(); } catch (e) { } } }, { l: 'WARP NAV', c: '#b266ff', fn: () => window.novaNavToggle() }],
@@ -15505,7 +15500,7 @@ const GAME_VERSION = 'Alpha 1.4';
       ['LAUNCH DRONE WING', '#ff6644', () => novaWingLaunch()], ['SITUATION REPORT', '#33ff99', () => { const a = npFindAct('SITUATION REPORT'); if (a) a(); }],
       ['STORY INTRO', '#b266ff', () => nkIntroStart(true)], ['QUEST LOG', '#ffcc00', () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); }],
       ['3D RADAR: UPPER RIGHT', '#00e5ff', () => novaRadarPositionToggle()],
-      ['RADAR NAMES: OFF', '#66ddff', () => { NH.names = !NH.names; NP_SHIP_ROWS[7][0] = 'RADAR NAMES: ' + (NH.names ? 'ON' : 'OFF'); }],
+      ['RADAR NAMES: ON', '#66ddff', () => { NH.names = !NH.names; NP_SHIP_ROWS[7][0] = 'RADAR NAMES: ' + (NH.names ? 'ON' : 'OFF'); }],
       ['LABELS: BELOW', '#66ddff', () => { NH.labelAbove = !NH.labelAbove; NP_SHIP_ROWS[8][0] = 'LABELS: ' + (NH.labelAbove ? 'ABOVE' : 'BELOW'); }]];
     // OPTIONS tab (after MUSIC): view mode, recenter, save / load, volume, graphics, exit
     const npOptRows = () => [
@@ -15646,7 +15641,6 @@ const GAME_VERSION = 'Alpha 1.4';
           if (big) {
             npText(x, c.name, X + 180, Y + 58, 'bold 38px monospace', col, W - 200);
             npText(x, c.l2, X + 180, Y + 104, 'bold 24px monospace', '#ffd24a', W - 200);
-            npText(x, c.l3, X + 180, Y + 142, '22px monospace', '#bfe8ff', W - 200);
             const ok = !c.why;
             x.fillStyle = ok ? 'rgba(51,255,153,0.18)' : 'rgba(255,90,90,0.14)'; x.fillRect(X + 180, Y + 172, W - 200, 50);
             x.strokeStyle = ok ? '#33ff99' : '#ff6655'; x.lineWidth = 3; x.strokeRect(X + 180, Y + 172, W - 200, 50);
@@ -15655,9 +15649,10 @@ const GAME_VERSION = 'Alpha 1.4';
           } else { x.textAlign = 'center'; npText(x, c.name, X + W / 2, Y + 124, 'bold 16px monospace', col, W - 10); x.textAlign = 'left'; }
           x.globalAlpha = 1;
         };
-        card(NP_WARP.i - 1, 8, 60, 128, 226, false); card(NP_WARP.i + 1, 888, 60, 128, 226, false);
+        // simplified: one big card, big ◀ ▶ arrows either side (owner)
+        x.fillStyle = 'rgba(178,102,255,0.14)'; x.fillRect(8, 60, 128, 226); x.fillRect(888, 60, 128, 226);
         card(NP_WARP.i, 146, 56, 732, 234, true);
-        x.fillStyle = '#b266ff'; x.font = 'bold 44px monospace'; x.textAlign = 'center'; x.fillText('◀', 72, 334); x.fillText('▶', 952, 334); x.textAlign = 'left';
+        x.fillStyle = '#b266ff'; x.font = 'bold 80px sans-serif'; x.textAlign = 'center'; x.fillText('◀', 72, 200); x.fillText('▶', 952, 200); x.textAlign = 'left';
         try { const cap = novaWarpCap(), f = NW.core / cap; npBar(x, 146, 316, 732, 22, f, f > 0.5 ? '#33ff99' : f > 0.25 ? '#ffcc00' : '#ff3344', 'WARP CORE ' + Math.round(NW.core) + ' / ' + cap); } catch (e) { }
         L.forEach((c, k) => { x.fillStyle = k === NP_WARP.i ? '#ffffff' : 'rgba(178,102,255,0.45)'; x.beginPath(); x.arc(512 - (L.length - 1) * 9 + k * 18, 354, k === NP_WARP.i ? 5 : 3.5, 0, 7); x.fill(); });
       } };
@@ -15671,7 +15666,8 @@ const GAME_VERSION = 'Alpha 1.4';
         const l3 = meta ? meta.l3 : def.id === 'fwd' ? 'free flight · ambush risk' : def.id === 'station' ? 'dock · trade · contracts' : def.id === 'colony' ? 'FREE refuel · ore boom x2' : 'ambush · bounty 4000 CR';
         const dock = def.id === 'station' && stationGroup.position.distanceTo(shipGroup.position) < 2400;
         const l2 = def.id === 'fwd' ? `drain ${(5 * novaWarpMul()).toFixed(1)}%/s` : dock ? `${Math.round(stationGroup.position.distanceTo(shipGroup.position))} m · in dock range` : `${Math.round(inf.dist || 0)} m · cost ${inf.cost}% · ETA ${Math.round(inf.eta || 0)}s`;
-        out.push({ def, col, name: def.name, l2, l3, why: dock ? null : inf.why, dock });
+        let elev = ''; try { if (def.pos) { const dy = def.pos().y - shipGroup.position.y; elev = Math.abs(dy) < 60 ? ' · LEVEL' : ` · ${dy > 0 ? '\u25B2' : '\u25BC'} ${Math.abs(Math.round(dy))} m`; } } catch (e) { }   // height of the route
+        out.push({ def, col, name: def.name, l2: l2 + elev, l3, why: dock ? null : inf.why, dock });
       });
       return out;
     }
@@ -16676,7 +16672,7 @@ const GAME_VERSION = 'Alpha 1.4';
     window.nfWingJoin = nfWingJoin;
 
     // 3) SECTOR SPAWNER: each sector builds its fleet when you come within `on` metres and clears it past `off` (keeps Quest fast)
-    const NF_RIFT_POS = new THREE.Vector3(-3600, 900, -3400);
+    const NF_RIFT_POS = new THREE.Vector3(-3600, 2200, -3400);
     const nfRing = (n, rad, y) => Array.from({ length: n }, (_, i) => new THREE.Vector3(Math.cos(i / n * 6.283) * rad, (y || 0) + (Math.random() - 0.5) * rad * 0.2, Math.sin(i / n * 6.283) * rad));
     const nfScatter = (n, rad) => Array.from({ length: n }, () => NFV().randomDirection().multiplyScalar(rad * (0.4 + Math.random() * 0.6)));
     NF.sectors = [
@@ -16686,7 +16682,7 @@ const GAME_VERSION = 'Alpha 1.4';
       { id: 'reef', name: 'PIRATE REEF', fac: 'pirate', pos: () => NW_REEF_POS.clone().add(nfTmp.b.set(380, 60, 260)), on: 1700, off: 2400,
         fleet: () => [['pirate_frigate', [NFV()]], ['pirate_fighter', nfScatter(3, 320)], ['pirate_stealth', nfScatter(2, 500)],
           ['mine', nfRing(10, 520).concat(nfRing(8, 700, 40), nfScatter(6, 600)).filter(o => o.clone().add(NF.sectors[1].pos()).distanceTo(NW_REEF_POS) > 160)]] },   // no mine on the warp arrival point
-      { id: 'edf', name: 'EDF PATROL', fac: 'edf', pos: () => stationGroup.position.clone().add(nfTmp.b.set(700, 120, -650)), on: 2200, off: 3000,
+      { id: 'edf', name: 'EDF PATROL', fac: 'edf', pos: () => stationGroup.position.clone().add(nfTmp.b.set(700, 520, -650)), on: 2200, off: 3000,
         fleet: () => [['edf_carrier', [NFV()]], ['edf_fighter', nfScatter(2, 260)]] }
     ];
     NF.sectors.forEach(s => { s.live = false; });
@@ -17722,8 +17718,8 @@ const GAME_VERSION = 'Alpha 1.4';
       const civ = NF.units.filter(u => u.alive && u.fac === 'civ').length; if (civ >= 5) return;
       const r = Math.random(), slug = r < 0.35 ? 'neutral_fighter' : r < 0.65 ? 'neutral_starfighter' : r < 0.93 ? 'cargo_hauler' : 'faction3_cruiser';
       const sp = shipGroup.position, a = Math.random() * Math.PI * 2, R = 1300 + Math.random() * 500;
-      const from = sp.clone().add(new THREE.Vector3(Math.cos(a) * R, (Math.random() - 0.5) * 220, Math.sin(a) * R));
-      const dest = Math.random() < 0.5 ? stationGroup.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 300, 40, (Math.random() - 0.5) * 300)) : sp.clone().add(new THREE.Vector3(-Math.cos(a) * R, (Math.random() - 0.5) * 220, -Math.sin(a) * R));
+      const from = sp.clone().add(new THREE.Vector3(Math.cos(a) * R, (Math.random() - 0.5) * 1200, Math.sin(a) * R));
+      const dest = Math.random() < 0.5 ? stationGroup.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 300, 40, (Math.random() - 0.5) * 300)) : sp.clone().add(new THREE.Vector3(-Math.cos(a) * R, (Math.random() - 0.5) * 1200, -Math.sin(a) * R));
       const u = nfSpawn(slug, from, {}); if (!u) return;
       u.dest = dest; u.g.lookAt(dest); u.g.rotateY(Math.PI);
       if (slug === 'cargo_hauler' && Math.random() < 0.35) {   // some haulers are shadowed by pirates
