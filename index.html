@@ -8902,23 +8902,23 @@ const GAME_VERSION = 'Alpha 1.2';
     // ── CAMPAIGN & STORY: "The Corsair Line" ──
     // ════════════════════════════════════════════════════════════════
     const CAMPAIGN = [
-      { title: 'CH 1: FIRST LIGHT', mission: 1, objective: 'Mine 5 tons of titanium ore.', hint: 'Fire lasers at the gray asteroids around you.',
+      { title: 'CH 1: FIRST LIGHT', mission: 1, objective: 'Prospect the local field: bring in 5 t of titanium.', hint: 'The gray asteroids read titanium-rich. Open fire to sample the field.',
         type: 'mine', goal: 5, reward: 1500, speaker: 'STATION NOVA-1', pitch: 0.95,
         intro: 'Welcome to Nova-1, pilot. Every fighter here earns its fuel. Mine five tons of titanium from the field.',
         outro: 'Ore received. Not bad for a rookie. Stand by for convoy duty.' },
-      { title: 'CH 2: IRON CONVOY', mission: 0, objective: 'Fly escort within 300 m of Starlifter-7 for 45 seconds.', hint: 'Follow the freighter marker on the canopy compass.',
+      { title: 'CH 2: IRON CONVOY', mission: 0, objective: 'Hold within 300 m of Starlifter-7 for 45 seconds.', hint: 'Keep the freighter on your canopy compass and stay close.',
         type: 'escort', goal: 45, reward: 2500, speaker: 'STARLIFTER-7', pitch: 0.9,
         intro: 'Nova Lead, this is Bo Harlan on Starlifter-7. Somebody has been shadowing my route. Could use an escort.',
         outro: 'Convoy clear. Thanks, Nova. But my scanners caught a pirate transponder. Talk to Valkyrie.' },
-      { title: 'CH 3: SHADOW SIGNAL', mission: 0, objective: 'Dock at Station Nova-1 to debrief.', hint: 'Fly close to the station and press DOCK on comms, or engage autopilot.',
+      { title: 'CH 3: SHADOW SIGNAL', mission: 0, objective: 'Return to Nova-1 and dock for the transponder debrief.', hint: 'Request docking clearance on comms, or engage autopilot near the station.',
         type: 'dock', goal: 1, reward: 1000, speaker: 'VALKYRIE-7', pitch: 1.15,
         intro: 'That transponder belongs to the Corsair, Nova. We need a full briefing. Head to Nova-1 and dock.',
         outro: 'Intel confirmed: the Corsair raids ships that exit lightspeed. Next time you jump, be ready.' },
-      { title: 'CH 4: THE CORSAIR LINE', mission: 2, objective: 'Make a lightspeed jump and destroy the Corsair raider.', hint: 'Press WARP, pick a destination, then press NEXT TARGET until the red contact is locked.',
+      { title: 'CH 4: THE CORSAIR LINE', mission: 2, objective: 'Jump the lane. Find and destroy the Corsair raider.', hint: 'Plot a WARP destination, then cycle contacts until the hostile is locked.',
         type: 'pirate', goal: 1, reward: 8000, speaker: 'FLEET RELAY', pitch: 1.3,
         intro: 'ADA-9 here. Corsair ambush probability after your next lightspeed exit: 100 percent. Arm missiles.',
         outro: 'Corsair destroyed. The shipping lanes are open again. Well flown, Nova Lead.' },
-      { title: 'EPILOGUE: OPEN SKIES', mission: 1, objective: 'Free flight. Mine, trade, explore and chat with your crew.', hint: 'Pirates are rare now, but stay sharp after jumps.',
+      { title: 'EPILOGUE: OPEN SKIES', mission: 1, objective: 'Open flight: mine, trade, explore, and fly with your crew.', hint: 'The lanes are quieter. Keep a watch after every jump.',
         type: 'free', goal: 0, reward: 0, speaker: 'VALKYRIE-7', pitch: 1.15,
         intro: 'The sector is ours, Nova. Drinks at the cantina are on me.', outro: '' }
     ];
@@ -9878,11 +9878,11 @@ const GAME_VERSION = 'Alpha 1.2';
       g.fillStyle = '#ffcc00'; g.font = 'bold 26px monospace'; g.fillText(`LEVEL ${L}  \u00B7  XP ${novaXP}/${nx}`, 560, 46);
       g.fillStyle = '#cfefff'; g.font = '22px monospace';
       g.fillText(`${novaPilot.name} \u00B7 ${novaRank()} \u00B7 ${novaShipDef().short} \u00B7 ${bankCredits} CR \u00B7 KILLS ${novaPilot.kills} \u00B7 ORE ${novaPilot.ore}t \u00B7 MISSILES ${missileAmmo}/${novaMslCap()}`.slice(0, 84), 28, 80);
-      g.fillStyle = '#ff88cc'; g.font = 'bold 22px monospace'; g.fillText('FRIENDS \u2665', 28, 116);
+      g.fillStyle = '#ff88cc'; g.font = 'bold 22px monospace'; g.fillText('CREW & CONTACTS', 28, 116);
       const bar = (x, y, v, col) => { g.fillStyle = '#1a2a3a'; g.fillRect(x, y - 14, 180, 14); g.fillStyle = col; g.fillRect(x, y - 14, 1.8 * v, 14); };
       Object.keys(novaAff).forEach((k, i) => { const y = 142 + i * 26; g.fillStyle = '#cfefff'; g.font = '20px monospace'; g.fillText(`${NOVA_AFF_NAMES[k]}`.slice(0, 16), 28, y); bar(240, y, novaAff[k], '#ff88cc'); g.fillText(String(novaAff[k]), 430, y); });
       { const y = 142 + 5 * 26; g.fillStyle = '#ff6666'; g.font = '20px monospace'; g.fillText('PIRATE STANDING', 28, y); bar(240, y, novaPirRep, '#ff3344'); g.fillText(String(novaPirRep), 430, y); }
-      g.fillStyle = '#ffcc00'; g.font = 'bold 22px monospace'; g.fillText('STORY \u00B7 THE CORSAIR LINE', 500, 116);
+      g.fillStyle = '#ffcc00'; g.font = 'bold 22px monospace'; g.fillText('FLIGHT RECORD \u00B7 CORSAIR LINE', 500, 116);
       g.font = '20px monospace';
       CAMPAIGN.forEach((ch, i) => {
         const done = i < campaignChapter, cur = i === campaignChapter;
@@ -9895,7 +9895,7 @@ const GAME_VERSION = 'Alpha 1.2';
       if (cur) { g.fillText(`OBJECTIVE: ${cur.objective}`.slice(0, 92), 28, 318); g.fillText(`HINT: ${cur.hint}`.slice(0, 92), 28, 344); }
       g.fillStyle = '#ffaa00'; g.font = 'bold 22px monospace'; g.fillText('CONTRACT', 28, 384);
       g.font = '20px monospace'; g.fillStyle = '#ffe0a0';
-      g.fillText(novaContract ? `${novaContract.title} \u00B7 ${Math.floor(novaContract.prog)}/${novaContract.goal} \u00B7 pays ${novaContract.pay} CR` : 'None. Pick one from the cantina CONTRACT BOARD or accept a comms offer.', 160, 384);
+       g.fillText(novaContract ? `${novaContract.title} \u00B7 ${Math.floor(novaContract.prog)}/${novaContract.goal} \u00B7 pays ${novaContract.pay} CR` : 'No active contract. Check the cantina board or await a comms offer.', 160, 384);
       if (novaMayday) { g.fillStyle = '#ff3344'; g.fillText(`MAYDAY: reach Starlifter-7 in ${Math.ceil(novaMayday.t)} s`, 160, 410); }
       g.fillStyle = '#ffee88'; g.font = 'bold 22px monospace'; g.fillText('CODE OF THE NOVA', 28, 446);
       g.font = '20px monospace';
@@ -18207,6 +18207,18 @@ const GAME_VERSION = 'Alpha 1.2';
       };
     }
 
+    // Small surface flash for a laser strike; the shield shell below remains the broader hit cue.
+    function novaVfxLaserImpact(u, col, shielded) {
+      if (!u || !u.g) return;
+      const r = Math.max(3, u.r || 5);
+      const phase = (NF.t || 0) * 17.13 + (u.hp || 0) * 0.37;
+      const normal = new THREE.Vector3(Math.sin(phase), Math.cos(phase * 1.31), Math.sin(phase * 0.73 + 1.7)).normalize();
+      const point = u.g.position.clone().addScaledVector(normal, r * 0.94);
+      const size = Math.min(6, r * (shielded ? 0.42 : 0.62));
+      novaVfxFlare(point, col, size, 0.16);
+      novaVfxArc(point, col, size * 1.35, 0.13);
+    }
+
     // Upgrade shield hit ripple on faction ships & player cockpit shield dome
     {
       const _origNfHit = nfHit;
@@ -18214,6 +18226,7 @@ const GAME_VERSION = 'Alpha 1.2';
         if (u && u.alive && u.g) {
           const hadShield = u.sh > 0;
           const col = u.fac === 'alien' ? 0x66ffcc : (u.fac === 'pirate' ? 0xffaa33 : 0x55aaff);
+          novaVfxLaserImpact(u, byPlayer ? 0x00e5ff : col, hadShield);
           if (hadShield && NOVA_VFX.tex.shield) {
             const shMat = new THREE.MeshBasicMaterial({
               map: NOVA_VFX.tex.shield,
@@ -18241,9 +18254,7 @@ const GAME_VERSION = 'Alpha 1.2';
                 shMat.opacity = 0.85 * (1 - k);
               }
             });
-          } else {
-            novaVfxFlare(u.g.position, 0xff8833, Math.max(4, (u.r || 5) * 0.9), 0.24);
-          }
+          } else { /* the localized laser impact above replaces the broad hull flash */ }
           _origNfHit.apply(this, arguments);
           if (hadShield && u.sh <= 0 && u.alive) {
             novaVfxArc(u.g.position, col, Math.max(7, (u.r || 6) * 1.6), 0.45);
