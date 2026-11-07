@@ -82,6 +82,89 @@ Add a fictional broadcast service (working name: **NOVA NET**, not canon) as a n
 - Stories update after the event simulation resolves. Do not reveal hidden contacts or exact pirate positions before the pilot has a plausible source.
 - Keep it usable in 2D, gamepad, touch, and Quest VR with large hit targets, captions, scroll/swipe and a one-action close/return path. It must not steal flight controls while closed.
 
+## NOVA NET response loop
+
+NOVA NET is the player's readable view into the territory simulation. It does not need a fixed final brand name yet. Its first implementation should prioritize function:
+
+- A scrollable headline list presented like the existing music/media card, with large VR hit targets and controller/touch/keyboard navigation.
+- Selecting a headline opens an article with source, location, time, confidence, involved factions, likely consequence, and available responses.
+- Urgent stories may expose a response window measured in active play time. The timer pauses while the game is closed and while a cinematic or mandatory story choice is active.
+- Response actions can set a route, accept a rescue/escort/intercept contract, contribute cargo or credits, send a fleet team, or ignore the story.
+- Several warnings precede a deadline. Failure changes supply, territory pressure, traffic, prices, safety, or a named contact; it never deletes purchased ships or blocks the main campaign.
+- Articles persist as resolved, prevented, failed, or superseded history, letting the player understand why the world changed.
+- Faction statements can disagree, but the interface labels source and uncertainty. The system never reveals hidden pirate positions without an established intelligence source.
+
+A news event record should contain an ID, headline, body, source, sector/location, severity, publication time, active-play deadline, response options, linked contacts/contracts, resolution state, and resulting world changes. The event director creates or updates records only at coarse simulation steps.
+
+## Station docks and social spaces
+
+Every station should provide a functional arrival loop: approach/dock, airlock or concourse, a place to pause, market/services, NOVA NET, contracts, and crew contacts. Build these from one modular station-social kit, then give each location different lighting, signs, faction emblems, NPC mix, music, prices, and one signature feature.
+
+The first space is the Nova-1/Lantern-style cantina using the bar, booths, stools, glasses and bottles supplied by the owner. The existing alien pilot model serves as bartender initially. Later stations can reuse the same interaction framework:
+
+- **Nova Defense station:** orderly ready room, security checkpoint, pilot recruitment.
+- **Lantern Freeport:** crowded cantina, brokers, smugglers, mixed civilian crews.
+- **Meridian facility:** corporate lounge, trade desk, industrial crew hiring.
+- **Border station:** sparse rest area, survey crews, anomaly specialists.
+- **Carrier:** mobile version with hangar, briefing area, crew network and dispatch board.
+
+Small stations can use a compact dock/lounge rather than a full cantina. The common requirement is a believable place to leave the cockpit, check the network, talk to contacts and manage the fleet.
+
+## Crew network and conversations
+
+The crew network is the primary purpose of station social spaces. Conversations stay concise and choice-driven. Each recruit has a name, role, model/portrait, skill ratings, traits, faction/reputation requirements, loyalty, assignment, condition and short personal thread.
+
+Initial recruit roles:
+
+- Fighter pilot
+- Engineer/repair specialist
+- Gunner or weapons officer
+- Scout/anomaly specialist
+- Medic/rescue specialist
+- Trader/logistics officer
+
+Dialogue uses two or three meaningful choices rather than long trees: professional, empathetic, aggressive/risky, recruit, decline, or ask about work. Choices can affect loyalty, morality, faction reputation, price, mission knowledge or availability. Named contacts keep a small memory of important choices. Ambient patrons need only greetings, rumors and reactions to current news.
+
+Recruitment sources include cantina contacts, rescued pilots, faction contracts, boarding survivors and NOVA NET stories. A recruit can join the active wing, staff a player ship, work aboard a carrier or remain in reserve. Standard difficulty allows injuries, recovery time and morale consequences; permanent crew death is disabled by default.
+
+## Player fleet and carrier operations
+
+The player begins with one ship and gradually builds a roster of pilots and owned craft. Fleet play has two connected layers:
+
+1. **Active wing:** assign one or more recruited pilots to ships that launch with the player, follow basic commands, fight, retreat, dock and return.
+2. **Strategic dispatch:** send a pilot/ship/team to a NOVA NET response, patrol, escort, trade, salvage, scouting or rescue assignment while the player continues flying.
+
+Mission resolution uses saved deterministic inputs: pilot skills and traits, ship/loadout/condition, intelligence level, sector heat, faction support, mission approach and player preparation. Results can include success, partial success, cargo/credits, information, reputation, ship damage, injury, delay or a request for player rescue. Standard difficulty does not silently kill recruited crew or permanently destroy a purchased flagship.
+
+A purchasable carrier is a later progression milestone and becomes a mobile station:
+
+- Hangar and docking point for the player's craft
+- Crew lounge and network terminal
+- Mission briefing and dispatch board
+- Repair, refuel, rearm and cargo storage
+- Pilot quarters/roster management
+- Launch and recovery sequences
+- Defend, relocate or support territory operations
+
+Carrier ownership requires a clear economic and story milestone so it feels earned. The carrier should initially support a small, readable roster rather than simulating hundreds of crew. Its pilots can be seen launching for assignments, and successful fleet work should appear in NOVA NET and territory changes.
+
+## Studio-made intro and epilogue videos
+
+The owner has no finished videos to upload, so Project Nova will create its own. Plan the sequences from in-engine scenes, owner-supplied models/emblems, generated or painted establishing frames, UI/news overlays, music and captions. Produce locally packaged WebM/MP4 assets when the edit is approved, with an in-engine fallback if video decoding fails.
+
+The intro establishes the cold crisis, Nova-1, the pilot and the first unresolved event. The epilogue is assembled from a small set of approved outcome scenes covering territory, Lantern supply, crew/fleet state, carrier ownership and morality. Both remain skippable, captioned, replayable and available offline. Build the playback/save/replay system before final video production so temporary cuts can be replaced without code changes.
+
+## Delivery slices for the expanded loop
+
+1. **Station social prototype:** furnished first cantina, alien bartender, dock/airlock return, NOVA NET terminal and crew terminal.
+2. **NOVA NET MVP:** scroll articles, inspect event, set route/accept response, active-play deadline and consequence.
+3. **Crew network MVP:** recruit a pilot through simple dialogue, save the roster and assign them to one ship.
+4. **Active wing:** launch with the recruited pilot, issue follow/attack/defend/return commands and recover safely.
+5. **Fleet dispatch:** send one pilot to a simulated news response and receive a deterministic result/article.
+6. **Station rollout:** reuse the dock/lounge kit with faction dressing and signature services at each station.
+7. **Carrier progression:** purchase/earn a carrier, dock inside it, manage the roster and launch pilots on assignments.
+8. **Cinematics:** create, encode and integrate the approved first-run intro and outcome-driven epilogue.
+
 ## Beta story arc: “The Quiet Front”
 
 Six missions form one drama, while territory simulation continues between them. The missions are available in order but do not expire while the player is doing other work.
@@ -117,6 +200,11 @@ For the 1.0 release, target three sectors, six linked missions, a persistent but
 - Default simulation: 15-minute coarse ticks, deterministic saved seed, maximum 6 hours offline catch-up.
 - Default story: the six missions remain available and never fail from elapsed time; territory changes add pressure and alternate routes.
 - Default consequences: services and patrols shift by territory, but purchased assets, cargo, and campaign access are not erased.
+- NOVA NET deadlines use active play time and pause while the game is closed; unresolved events can create negative world consequences without cancelling the main story.
+- Every station has a dock plus at least a compact social/service space built from a shared modular kit.
+- Conversations are short choice scenes centered on recruitment, loyalty, contracts and crew/fleet management.
+- Standard fleet missions can damage ships or injure crew, but permanent crew death and silent destruction of purchased flagships are disabled.
+- Project Nova creates its own intro and epilogue videos; playback supports local video assets and an in-engine fallback.
 
 ## Full-release planning checklist
 
@@ -124,9 +212,9 @@ For the 1.0 release, target three sectors, six linked missions, a persistent but
 
 - **Player promise and audience:** a one-sentence pitch, target session length, 2D/desktop/Quest feature matrix, and the features that are explicitly out of scope.
 - **Core feel:** flight tutorial, comfort presets, flight/combat/docking/boarding quality bars, fail/retry flow, and a satisfying loop even between authored missions.
-- **Campaign and replay:** mission-state graph, branching consequences, companion roles, faction reputation versus territory control, ending coverage, new save/continue/new game behavior, and spoiler-aware news unlocks.
+- **Campaign and replay:** mission-state graph, branching consequences, companion and recruit roles, active wing/fleet assignments, carrier progression, faction reputation versus territory control, ending coverage, new save/continue/new game behavior, and spoiler-aware news unlocks.
 - **World simulation:** three-sector route graph, event cadence, offline catch-up bounds, traffic budgets, economy/service rules, simulation determinism, and safe migration for old saves.
-- **Content budget:** number of ships, boardable interiors, enemy types, anomalies, missions, voice lines, music cues, station variants, cinematics, and which assets can be reused without making encounters feel repeated.
+- **Content budget:** number of ships, carriers, station social variants, recruitable crew, boardable interiors, enemy types, anomalies, missions, dialogue lines, music cues, NOVA NET article templates, cinematics, and which assets can be reused without making encounters feel repeated.
 - **Production pipeline:** asset ownership, naming/import standards, LOD/collision/VR scale checks, audio loudness, cinematic subtitle timing, localization source text, and review checkpoints.
 - **UX/accessibility:** remapping, controller/HOTAS layouts, large VR targets, subtitles and speaker labels, color-blind-safe faction markers, motion/comfort options, pause/resume, skip/replay controls, and readable UI at cockpit distance.
 - **Performance and reliability:** device-specific frame-time budgets, loading and memory budgets, pooled traffic/FX, offline operation, save corruption recovery, cache migration, reconnect/error states, and performance testing at MAX/ULTRA and low tier.
