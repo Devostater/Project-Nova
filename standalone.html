@@ -706,6 +706,8 @@ git push -u origin main</pre>
 
   <script type="module">
     import * as THREE from 'three';
+    const NOVA_WORLD_SCALE = 3; // World separation/ranges, never cockpit or model scale.
+
     const NOVA_LIGHT_BLEND = {
       blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
       blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
@@ -772,7 +774,7 @@ const GAME_VERSION = 'Alpha 1.4';
     let isRotationDampenerOn = true; // Flight Rotation Dampeners (Default: ON)
     let isAutopilotActive = false;
     let isDockingInProgress = false;
-    const DOCKING_MAX_RANGE = 115; // Max docking range in meters
+    const DOCKING_MAX_RANGE = 115 * NOVA_WORLD_SCALE; // Max docking range in meters
     let isInvArmDeployed = true;
     let invArmFoldAngle = 0.0;
     let targetInvArmFoldAngle = 0.0;
@@ -1525,7 +1527,7 @@ const GAME_VERSION = 'Alpha 1.4';
     const shipGroup = new THREE.Group();
     scene.add(shipGroup);
 
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 15000);
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 15000 * NOVA_WORLD_SCALE);
     camera.position.set(0, PILOT_EYE_Y + seatOffset, PILOT_SEAT_Z);
 
     const cameraRig = new THREE.Group();
@@ -1592,7 +1594,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // Colossal Ringed Gas Giant Planet (Cosmic Horizon)
     const planetGroup = new THREE.Group();
-    planetGroup.position.set(900, 350, -1400);
+    planetGroup.position.set(900, 350, -1400).multiplyScalar(NOVA_WORLD_SCALE);
     scene.add(planetGroup);
 
     const planetGeo = new THREE.SphereGeometry(220, 32, 32);
@@ -1759,7 +1761,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // ── Distant Majestic Orbital Space Station (For looks) ──
     const stationGroup = new THREE.Group();
-    stationGroup.position.set(120, 65, -380);
+    stationGroup.position.set(120, 65, -380).multiplyScalar(NOVA_WORLD_SCALE);
     stationGroup.rotation.set(0.2, 0.4, 0.1);
     // ── 3D Allied Escort Starfighter 'VALKYRIE-7' ──
     let valkyrieGroup = new THREE.Group();
@@ -1905,7 +1907,7 @@ const GAME_VERSION = 'Alpha 1.4';
       }
       const astX = Math.cos(angle) * dist;
       const astZ = -25 - Math.sin(angle) * dist;
-      astMesh.position.set(astX, astY, astZ);
+      astMesh.position.set(astX, astY, astZ).multiplyScalar(NOVA_WORLD_SCALE);
       astMesh.userData = {
         radius,
         rotX: (Math.random() - 0.5) * 0.008,
@@ -1919,7 +1921,7 @@ const GAME_VERSION = 'Alpha 1.4';
       // Cannon physics body for asteroid
       const aBody = new CANNON.Body({
         mass: 0, // Kinematic / static obstacle
-        position: new CANNON.Vec3(astX, astY, astZ)
+        position: new CANNON.Vec3(astMesh.position.x, astMesh.position.y, astMesh.position.z)
       });
       aBody.addShape(new CANNON.Sphere(radius * 0.72)); // Tighter realistic asteroid collision hull for thrilling near-miss navigation
       world.addBody(aBody);
@@ -2550,7 +2552,7 @@ const GAME_VERSION = 'Alpha 1.4';
       let cLab = 'OBJECTIVE', cCol = '#00ffcc';
       try { const lk = currentLockedTarget; if (lk && lk.targetObj && lk.targetObj.visible !== false) { targetPos = lk.targetObj.getWorldPosition(new THREE.Vector3()); targetDesc = lk.name; cLab = lk.isHostile ? 'TARGET \u00b7 HOSTILE' : 'TARGET'; cCol = lk.isHostile ? '#ff5566' : '#33ff99'; } } catch (e) {}   // the selected target wins over the objective
       const toTarget = targetPos.clone().sub(shipGroup.position);
-      const distM = Math.round(toTarget.length());
+      const distM = Math.round(toTarget.length()); // Scaled target coordinates already give physical metres; never multiply here.
       let targetAngle = Math.atan2(-toTarget.x, -toTarget.z) * 180 / Math.PI; if (targetAngle < 0) targetAngle += 360;
       let relDeg = targetAngle - headingDeg; while (relDeg > 180) relDeg -= 360; while (relDeg < -180) relDeg += 360;
       if (objArrowGroup) objArrowGroup.rotation.z = -relDeg * Math.PI / 180;
@@ -4298,7 +4300,7 @@ const GAME_VERSION = 'Alpha 1.4';
     rightDashScreen.position.z = 0.009;
     rightDashGroup.add(rightDashScreen);
 
-        let radarZoomLevels = [150, 300, 600, 1200, 2500, 5000];
+        let radarZoomLevels = [150, 300, 600, 1200, 2500, 5000].map(r => r * NOVA_WORLD_SCALE);
     let radarZoomIdx = 1; // Default 300m (zoomed in)
     let radarFilterModes = ['ALL', 'HOSTILE', 'ALLIED', 'ASTEROID'];
     let radarFilterIdx = 0; // Default ALL
@@ -6076,7 +6078,7 @@ const GAME_VERSION = 'Alpha 1.4';
           if (shipBody.torque) shipBody.torque.set(0, 0, 0);
           shipBody.angularDamping = isRotationDampenerOn ? 0.98 : 0.0;
         }
-        showToast('✨ RETURNING FROM LIGHTSPEED: ACTIVE CRUISE MAINTAINED', 2500, '#00ff88');
+        showToast('✨ RETURNING FROM LIGHTSPEED: MANUAL FLIGHT', 2500, '#00ff88');
 
         // Summon Pirate AI Boss on first hyperspace exit if not yet spawned
         if (!pirateBossSpawned && ((typeof campaignWantsPirate === 'function' && campaignWantsPirate()) || Math.random() < 0.08)) {
@@ -6406,7 +6408,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (sound && sound.detentTick) sound.detentTick();
         const notchNames = {
           0: 'IDLE (0%)',
-          1: 'CRUISE (25%)',
+          1: 'SLOW (25%)',
           2: 'COMBAT (50%)',
           3: 'MIL-SPEC (75%)',
           4: 'WARP READY (100%)'
@@ -6445,7 +6447,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // 5 Illuminated Speed Detent Notches along the Track
     const notchLights = [];
     const notchColors = [0x00aaff, 0x00f0ff, 0x00ff88, 0xffaa00, 0xff2255];
-    const notchNames = ['0% IDLE', '25% CRUISE', '50% COMBAT', '75% FLANK', '100% WARP'];
+    const notchNames = ['0% IDLE', '25% SLOW', '50% COMBAT', '75% FLANK', '100% WARP'];
     for (let ni = 0; ni < 5; ni++) {
       const notchZ = THROTTLE_MIN_Z - (ni / 4) * THROTTLE_RANGE;
       const notchMesh = new THREE.Mesh(
@@ -6561,11 +6563,58 @@ const GAME_VERSION = 'Alpha 1.4';
     let isAfterburnerActive = false;
     let afterburnerTimer = 0;
 
+    const novaCruise = { active: false };
+    function novaCruiseBlockReason() {
+      if (isInsideCantina || isInsideCarrier || novaOnFoot() || !cockpit.visible) return 'INTERIOR';
+      if (isLightspeedActive || isAutopilotActive || isDockingInProgress || novaDock.state !== 'idle' || NDK.state !== 'idle') return 'NAVIGATION ACTIVE';
+      if (throttlePct < 0.75) return 'SET THROTTLE TO 75% OR MORE';
+      if (isAfterburnerActive || performance.now() - lastFireTime < 500 || performance.now() - novaLastHit < 2500) return 'COMBAT / BOOST';
+      const lookAhead = Math.max(350 * NOVA_WORLD_SCALE, shipBody.velocity.length() * 2.5);
+      const nearby = nmContactList(Math.max(lookAhead, 1600 * NOVA_WORLD_SCALE), true);
+      for (const c of nearby) {
+        const d = c.obj.getWorldPosition(new THREE.Vector3()).distanceTo(shipGroup.position);
+        if (c.isHostile && d < 1600 * NOVA_WORLD_SCALE) return 'HOSTILE CONTACT';
+        const radius = c.obj === planetGroup ? 900 : c.obj === stationGroup ? 300 : (c.obj.userData.radius || c.obj.userData.size || 60);
+        if (d < lookAhead + radius) return 'NEAR ' + c.name;
+      }
+      return '';
+    }
+    function novaCruiseStop(reason) {
+      if (!novaCruise.active) return;
+      novaCruise.active = false;
+      // Controlled safety braking; keep heading, pitch/roll and the selected flight mode.
+      const limit = 180 * (1 + 0.1 * (novaUp.propulsion || 0));
+      const speed = shipBody.velocity.length();
+      if (speed > limit) shipBody.velocity.scale(limit / speed, shipBody.velocity);
+      showToast('CRUISE OFF: ' + reason, 2200, '#ffaa33');
+    }
+    function novaCruiseToggle() {
+      if (novaCruise.active) { novaCruiseStop('MANUAL'); return; }
+      const reason = novaCruiseBlockReason();
+      if (reason) { showToast('CRUISE UNAVAILABLE: ' + reason, 2400, '#ffaa33'); return; }
+      novaCruise.active = true;
+      showToast('CRUISE ON: open-space travel · drops near contacts · J or SYSTEM to cancel', 3200, '#66ffcc');
+    }
+    window.addEventListener('keydown', e => {
+      if (e.code === 'KeyJ' && !e.repeat && !isCommsKeyboardOpen && novaMenuHidden() && !/INPUT|TEXTAREA|SELECT/.test(e.target?.tagName || '')) novaCruiseToggle();
+    });
+    function novaCruiseStep(delta) {
+      if (!novaCruise.active) return;
+      const reason = novaCruiseBlockReason();
+      if (reason) { novaCruiseStop(reason); return; }
+      const upgrade = 1 + 0.1 * (novaUp.propulsion || 0);
+      const target = new THREE.Vector3(0, 0, -900 * upgrade).applyQuaternion(shipGroup.quaternion);
+      const blend = 1 - Math.exp(-delta * 0.55);
+      shipBody.velocity.x += (target.x - shipBody.velocity.x) * blend;
+      shipBody.velocity.y += (target.y - shipBody.velocity.y) * blend;
+      shipBody.velocity.z += (target.z - shipBody.velocity.z) * blend;
+      shipBody.linearDamping = 0;
+    }
     function triggerAfterburner() {
       isAfterburnerActive = true;
       afterburnerTimer = 2.4;
       if (sound && sound.engineRev) sound.engineRev();
-      showToast('🔥 AFTERBURNER ENGAGED: 135% THRUST SURGE!', 2200, '#ff4400');
+      showToast('🔥 AFTERBURNER ENGAGED: 200% THRUST SURGE!', 2200, '#ff4400');
     }
 
     registerCockpitButton(throttleBoosterBtn, 'AFTERBURNER BOOST', () => {
@@ -8661,7 +8710,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!dockable) currentLockedTarget = { name: 'ORBITAL STATION NOVA-1', type: 'station', targetObj: stationGroup, isHostile: false };
       showToast('DOCK: ORBITAL STATION NOVA-1', 2600, '#00f0ff');
       const d = stationGroup.position.distanceTo(shipGroup.position);
-      if (d <= 2400) { novaDockPress(); if (novaDock.state === 'approach') novaDockTractor(); return; }
+      if (d <= 2400 * NOVA_WORLD_SCALE) { novaDockPress(); if (novaDock.state === 'approach') novaDockTractor(); return; }
       novaAutoDockPending = true;
       toggleAutopilot(true);
       showToast('AUTO-DOCK: autopilot to Nova-1, tractor beam takes over on arrival.', 3500, '#00f0ff');
@@ -8969,10 +9018,10 @@ const GAME_VERSION = 'Alpha 1.4';
       if (novaDock.state === 'approach') { novaDockTractor(); return; }
       if (novaDock.state === 'tractor') return;
       const dist = stationGroup.position.distanceTo(shipGroup.position);
-      if (dist > 2500) {
+      if (dist > 2500 * NOVA_WORLD_SCALE) {
         novaAutoDockPending = false;
         if (isAutopilotActive) toggleAutopilot(false);
-        showToast(`OUT OF DOCKING RANGE (${Math.round(dist)} m). Fly within 2500 m, then press AUTO-DOCK to light the approach corridor.`, 3500, '#ffaa00');
+        showToast(`OUT OF DOCKING RANGE (${Math.round(dist)} m). Fly within ${2500 * NOVA_WORLD_SCALE} m, then press AUTO-DOCK to light the approach corridor.`, 3500, '#ffaa00');
         return;
       }
       novaAutoDockPending = false;
@@ -9030,7 +9079,7 @@ const GAME_VERSION = 'Alpha 1.4';
           showToast(`DOCK ${Math.round(dPort)}m • ${Math.round(speed)}m/s • OFFSET ${Math.round(lateral)}m • ${guide} • DOCK AGAIN = TRACTOR`, 1000, speed > 40 || lateral > 24 ? '#ffaa00' : '#00ffcc');
         }
         if (dPort < 22 && speed < 8) novaDockTractor();
-        if (dPort > 3200) { showToast('Docking aborted: left the approach corridor.', 2500, '#ffaa00'); novaDockClear(); }
+        if (dPort > 3200 * NOVA_WORLD_SCALE) { showToast('Docking aborted: left the approach corridor.', 2500, '#ffaa00'); novaDockClear(); }
       } else if (novaDock.state === 'tractor') {
         novaDock.t += delta;
         const u = Math.min(novaDock.t / novaDock.dur, 1);
@@ -9552,7 +9601,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     const novaDepot = new THREE.Group();
     {
-      novaDepot.position.set(-1600, -120, -2400);
+      novaDepot.position.set(-1600, -120, -2400).multiplyScalar(NOVA_WORLD_SCALE);
       scene.add(novaDepot);
       const metal = new THREE.MeshStandardMaterial({ color: 0x3a3530, metalness: 0.7, roughness: 0.5 });
       const hub = new THREE.Mesh(new THREE.CylinderGeometry(30, 34, 60, 16), metal); novaDepot.add(hub);
@@ -10381,7 +10430,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
-      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) { try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } novaHandTurnFrame(frame, now); cameraRig.updateWorldMatrix(true, true); renderer.render(scene, camera); return; }   // on foot: flight is fully off
+      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) { novaCruiseStop('INTERIOR'); try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } novaHandTurnFrame(frame, now); cameraRig.updateWorldMatrix(true, true); renderer.render(scene, camera); return; }   // on foot: flight is fully off
 
       // Starfield follows ship so stars are always visible to infinity
       if (starfieldGroup && shipGroup) {
@@ -10566,6 +10615,13 @@ const GAME_VERSION = 'Alpha 1.4';
         }
       }
 
+      // Evaluate cruise safety before physics so a new contact cancels before movement.
+      novaCruiseStep(delta);
+      if (!isLightspeedActive && !isAutopilotActive && !isDockingInProgress && novaDock.state === 'idle' && NDK.state === 'idle' && !novaOnFoot()) {
+        const limit = (novaCruise.active ? 900 : isAfterburnerActive ? 360 : 180) * (1 + 0.1 * (novaUp.propulsion || 0));
+        const speed = shipBody.velocity.length();
+        if (speed > limit) shipBody.velocity.scale(limit / speed, shipBody.velocity);
+      }
       // Step zero-G physics simulation
       world.step(1 / 60, delta, 3);
 
@@ -10585,7 +10641,7 @@ const GAME_VERSION = 'Alpha 1.4';
           const sx = THREE.MathUtils.lerp(140, -160, p) + Math.sin(p * Math.PI * 2) * 25.0;
           const sy = THREE.MathUtils.lerp(55, -20, p);
           const sz = THREE.MathUtils.lerp(-390, -90, p);
-          f.position.set(sx, sy, sz);
+          f.position.set(sx, sy, sz).multiplyScalar(NOVA_WORLD_SCALE);
 
           // Heading along trade corridor
           f.rotation.y = Math.PI * 0.75 + Math.sin(p * Math.PI * 2) * 0.15;
@@ -10732,7 +10788,7 @@ const GAME_VERSION = 'Alpha 1.4';
       }
 
       // ── Flight Stabilization & Auto-Stopping (Zero Random Spin / Instant Inertial Arrest) ──
-      if (arcadeFlight && isRotationDampenerOn) {
+      if (arcadeFlight && isRotationDampenerOn && !novaCruise.active) {
         // 1. Angular Rotation Auto-Stop: When not actively deflecting flight stick, lock rotation to dead zero (0 rad/s)
         if (!hasFlightRate) {
           if (shipBody) {
@@ -10776,7 +10832,7 @@ const GAME_VERSION = 'Alpha 1.4';
           // Continuous hyperspace: advance ship forward smoothly along heading (full angular steering authority maintained!)
           if (shipBody) {
             shipBody.collisionResponse = false;
-            const forwardDir = new THREE.Vector3(0, 0, -220).applyQuaternion(shipGroup.quaternion);
+            const forwardDir = new THREE.Vector3(0, 0, -1800).applyQuaternion(shipGroup.quaternion);
             shipBody.position.x += forwardDir.x * delta;
             shipBody.position.y += forwardDir.y * delta;
             shipBody.position.z += forwardDir.z * delta;
@@ -10784,7 +10840,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
             // Safe Sector Clamp: Prevent player flying into void outside the system
             const distFromOrigin = shipBody.position.length();
-            if (distFromOrigin > 12000) {
+            if (distFromOrigin > 12000 * NOVA_WORLD_SCALE) {
               // Stay in warp: swing heading back toward the system instead of dropping out
               const toCenter = new THREE.Vector3(0, 0, 0).sub(shipBody.position).normalize();
               const lookAtQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), toCenter);
@@ -10812,7 +10868,7 @@ const GAME_VERSION = 'Alpha 1.4';
         warpTransitionAlpha = Math.max(warpTransitionAlpha - 2.2 * delta, 0.0);
         if (!isInsideCarrier && Math.abs(throttlePct) > 0.01) {
           // Negative along local Z is forward; positive along local Z is reverse!
-          const thrustForce = -throttlePct * 55000 * novaShipDef().thrust * (1 + 0.1 * (novaUp.propulsion || 0));
+          const thrustForce = -throttlePct * 300000 * novaShipDef().thrust * (1 + 0.1 * (novaUp.propulsion || 0));
           const localThrust = new THREE.Vector3(0, 0, thrustForce);
           const worldThrust = localThrust.applyQuaternion(shipGroup.quaternion);
           shipBody.applyForce(new CANNON.Vec3(worldThrust.x, worldThrust.y, worldThrust.z), shipBody.position);
@@ -10883,7 +10939,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (isAfterburnerActive && !isInsideCarrier) {
         afterburnerTimer -= delta;
         if (afterburnerTimer <= 0) isAfterburnerActive = false;
-        const boostMagnitude = -1.35 * 55000;
+        const boostMagnitude = -2.0 * 300000 * novaShipDef().thrust * (1 + 0.1 * (novaUp.propulsion || 0));
         const localThrust = new THREE.Vector3(0, 0, boostMagnitude);
         const worldThrust = localThrust.applyQuaternion(shipGroup.quaternion);
         shipBody.applyForce(new CANNON.Vec3(worldThrust.x, worldThrust.y, worldThrust.z), shipBody.position);
@@ -12980,8 +13036,8 @@ const GAME_VERSION = 'Alpha 1.4';
     }
 
     // ── Destinations (world objects live in asteroidGroup so they hide with the sector) ──
-    const NW_COLONY_POS = new THREE.Vector3(2200, -900, 1100);
-    const NW_REEF_POS = new THREE.Vector3(-2100, 1100, -1500);
+    const NW_COLONY_POS = new THREE.Vector3(2200, -900, 1100).multiplyScalar(NOVA_WORLD_SCALE);
+    const NW_REEF_POS = new THREE.Vector3(-2100, 1100, -1500).multiplyScalar(NOVA_WORLD_SCALE);
     const NW_DESTS = [
       { id: 'fwd', name: 'FORWARD JUMP', r: 0 },
       { id: 'station', name: 'NOVA-1 STATION', r: 260, pos: () => stationGroup.position },
@@ -13285,7 +13341,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const col2 = meta ? meta.col : def.id === 'fwd' ? '#00e5ff' : def.id === 'station' ? '#00ff88' : def.id === 'colony' ? '#ffaa33' : '#ff3355';
         const l2 = def.id === 'fwd' ? `drain ${(5 * novaWarpMul()).toFixed(1)}%/s` : `${Math.round(inf.dist)} m · cost ${inf.cost}% · ETA ${Math.round(inf.eta)}s`;
         const l3 = meta ? meta.l3 : def.id === 'fwd' ? 'free flight · ambush risk' : def.id === 'station' ? 'dock · trade · contracts' : def.id === 'colony' ? 'FREE refuel · ore boom x2' : 'ambush · bounty 4000 CR';
-        if (def.id === 'station' && stationGroup.position.distanceTo(shipGroup.position) < 2400) novaCardDraw(card, col2, def.name, `${Math.round(stationGroup.position.distanceTo(shipGroup.position))} m · in dock range`, 'tractor beam and dock', 'TOUCH TO AUTO-DOCK', '');
+        if (def.id === 'station' && stationGroup.position.distanceTo(shipGroup.position) < 2400 * NOVA_WORLD_SCALE) novaCardDraw(card, col2, def.name, `${Math.round(stationGroup.position.distanceTo(shipGroup.position))} m · in dock range`, 'tractor beam and dock', 'TOUCH TO AUTO-DOCK', '');
         else novaCardDraw(card, col2, def.name, l2, l3, inf.why ? inf.why : 'TOUCH TO SPOOL', inf.why ? 'locked' : '');
       });
       const sd = novaShipDef();
@@ -13308,7 +13364,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function navPick(i) {
       if (i < NW_DESTS.length) {
         const def = NW_DESTS[i];
-        if (def.id === 'station' && stationGroup.position.distanceTo(shipGroup.position) < 2400) { NavUI.close(); novaAutoDockPress(); return; }
+        if (def.id === 'station' && stationGroup.position.distanceTo(shipGroup.position) < 2400 * NOVA_WORLD_SCALE) { NavUI.close(); novaAutoDockPress(); return; }
         novaWarpStart(def.id); return;
       }
       if (i === 9) {
@@ -13942,7 +13998,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // Traffic lanes: haulers shuttle Nova-1 <-> Cygnus Colony and out toward the gas giant; patrols circle the station
     const nlLanes = [
       { a: () => stationGroup.position, b: () => NW_COLONY_POS, n: 3, v: 55, tint: 0x7d6a4a, call: 'HAULER' },
-      { a: () => stationGroup.position, b: () => planetGroup.position.clone().add(new THREE.Vector3(-380, -120, 300)), n: 2, v: 70, tint: 0x4a6a7d, call: 'TANKER' }
+      { a: () => stationGroup.position, b: () => planetGroup.position.clone().add(new THREE.Vector3(-380, -120, 300).multiplyScalar(NOVA_WORLD_SCALE)), n: 2, v: 70, tint: 0x4a6a7d, call: 'TANKER' }
     ];
     nlLanes.forEach((ln, li) => {
       for (let i = 0; i < ln.n; i++) {
@@ -13952,7 +14008,7 @@ const GAME_VERSION = 'Alpha 1.4';
     });
     for (let i = 0; i < 3; i++) {
       const g = nlPatrol(); scene.add(g);
-      novaLife.ships.push({ g, kind: 'patrol', r: 380 + i * 160, ang: i * 2.1, w: (0.06 + i * 0.012) * (i % 2 ? -1 : 1), tilt: 0.25 + i * 0.2, id: 7 + i * 5, hailT: 0 });
+      novaLife.ships.push({ g, kind: 'patrol', r: (380 + i * 160) * NOVA_WORLD_SCALE, ang: i * 2.1, w: (0.06 + i * 0.012) / NOVA_WORLD_SCALE * (i % 2 ? -1 : 1), tilt: 0.25 + i * 0.2, id: 7 + i * 5, hailT: 0 });
     }
     // Derelicts with beacons that can be salvaged
     const nlWreckDefs = [
@@ -13961,6 +14017,7 @@ const GAME_VERSION = 'Alpha 1.4';
       { id: 'w3', pos: new THREE.Vector3(340, 210, 2250), name: 'GUTTED PIRATE RAIDER', cr: [600, 1400], ore: 2, log: 'Their strongbox is still locked. Not for long.' },
       { id: 'w4', pos: new THREE.Vector3(-1580, 110, 760), name: 'COLD ESCAPE POD', cr: [100, 300], ore: 0, log: 'Empty. A child-sized jacket floats by the hatch. Someone got out.' }
     ];
+    nlWreckDefs.forEach(w => w.pos.multiplyScalar(NOVA_WORLD_SCALE));
     nlWreckDefs.forEach(w => {
       const g = new THREE.Group(); g.position.copy(w.pos);
       const hm = new THREE.MeshStandardMaterial({ color: 0x3a3f46, metalness: 0.75, roughness: 0.7 });
@@ -14021,7 +14078,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!active) return;
       const sp = shipGroup.position, t = now * 0.001;
       // Sun
-      const sd = NL_SUN_DIR; novaLife.sun.position.copy(sp).addScaledVector(sd, 7000);
+      const sd = NL_SUN_DIR; novaLife.sun.position.copy(sp).addScaledVector(sd, 7000 * NOVA_WORLD_SCALE);
       nlPlaceDust();
       // Traffic
       novaLife.ships.forEach(s => {
@@ -14086,6 +14143,7 @@ const GAME_VERSION = 'Alpha 1.4';
       graveyard: new THREE.Vector3(3000, 1300, -900), frost: new THREE.Vector3(1300, -1700, -3000),   // owner: more vertical space
       lantern: new THREE.Vector3(-2900, -1400, 1500), meridian: new THREE.Vector3(2900, 1900, -2500)
     };
+    Object.values(NS_POS).forEach(p => p.multiplyScalar(NOVA_WORLD_SCALE));
     const NS_META = {
       ceres: { col: '#ffaa33', l3: 'relief depot · amber pylons' },
       graveyard: { col: '#9fb4c8', l3: 'dead fleet · salvage · a signal' },
@@ -14600,8 +14658,8 @@ const GAME_VERSION = 'Alpha 1.4';
       if (msg) { try { showToast('RELEASED. Flying manually.', 1800, '#ffaa00'); sound.beep(700, 0.06); } catch (e) { } }
     }
     function ndkNearest() {
-      const sp = shipGroup.position, tmp = new THREE.Vector3(); let best = null, bd = 3500;
-      nmContactList(3500, false).forEach(c => { if (c.isHostile || c.type === 'asteroid') return; c.obj.getWorldPosition(tmp); const d = tmp.distanceTo(sp); if (d < bd) { bd = d; best = c; } });
+      const sp = shipGroup.position, tmp = new THREE.Vector3(); let best = null, bd = 3500 * NOVA_WORLD_SCALE;
+      nmContactList(3500 * NOVA_WORLD_SCALE, false).forEach(c => { if (c.isHostile || c.type === 'asteroid') return; c.obj.getWorldPosition(tmp); const d = tmp.distanceTo(sp); if (d < bd) { bd = d; best = c; } });
       return best;
     }
     function ndkBegin(obj, name, type) {
@@ -14692,10 +14750,10 @@ const GAME_VERSION = 'Alpha 1.4';
     function nmFleet() {
       if (NM.off) return;
       const defs = [
-        ['carrier', 'AEGIS CARRIER', new THREE.Vector3(-450, 110, -200), 80, 0.0007],
-        ['frigate2', 'ORION FRIGATE', new THREE.Vector3(380, -60, -260), 35, 0.0012, 70, -Math.PI / 2],
-        ['gunship', 'CARRIER ESCORT', new THREE.Vector3(-390, 120, -110), 10, 0.0],
-        ['frigate2', 'FRIGATE ESCORT', new THREE.Vector3(330, -50, -180), 10, 0.0, 30, -Math.PI / 2]
+        ['carrier', 'AEGIS CARRIER', new THREE.Vector3(-450, 110, -200).multiplyScalar(NOVA_WORLD_SCALE), 80, 0.0007],
+        ['frigate2', 'ORION FRIGATE', new THREE.Vector3(380, -60, -260).multiplyScalar(NOVA_WORLD_SCALE), 35, 0.0012, 70, -Math.PI / 2],
+        ['gunship', 'CARRIER ESCORT', new THREE.Vector3(-390, 120, -110).multiplyScalar(NOVA_WORLD_SCALE), 10, 0.0],
+        ['frigate2', 'FRIGATE ESCORT', new THREE.Vector3(330, -50, -180).multiplyScalar(NOVA_WORLD_SCALE), 10, 0.0, 30, -Math.PI / 2]
       ];
       defs.forEach(([slug, name, off, size, spin, sc, yaw]) => {
         const g = new THREE.Group(); g.position.copy(stationGroup.position).add(off); g.visible = false;
@@ -15566,8 +15624,8 @@ const GAME_VERSION = 'Alpha 1.4';
       const ngBody = (file, r, pos, emi, col) => TL.load(file, t => { t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.MirroredRepeatWrapping; t.repeat.set(2, 1);
         const m = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 32), new THREE.MeshStandardMaterial({ map: t, color: col || 0xffffff, roughness: 0.95, metalness: 0.0, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: emi }));
         m.position.copy(pos); m.raycast = () => { }; scene.add(m); NG.bodies = NG.bodies || []; NG.bodies.push(m); });
-      ngBody('./art/moon_rock.jpg', 55, planetGroup.position.clone().add(new THREE.Vector3(430, 90, 170)), 0.12);
-      ngBody('./art/planet_ice.jpg', 190, new THREE.Vector3(2700, 650, -2500), 0.14);
+      ngBody('./art/moon_rock.jpg', 55, planetGroup.position.clone().add(new THREE.Vector3(430, 90, 170).multiplyScalar(NOVA_WORLD_SCALE)), 0.12);
+      ngBody('./art/planet_ice.jpg', 190, new THREE.Vector3(2700, 650, -2500).multiplyScalar(NOVA_WORLD_SCALE), 0.14);
       setInterval(() => { (NG.bodies || []).forEach(b => { b.rotation.y += 0.0003; }); }, 50);
       TL.load('./art/asteroid.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; NG.rockTex = t;
         try { asteroidMat.map = t; asteroidMat.color.setHex(0xd8d0c8); asteroidMat.needsUpdate = true; } catch (e) { }
@@ -15575,7 +15633,7 @@ const GAME_VERSION = 'Alpha 1.4';
       TL.load('./art/planet_red.jpg', t => {
         t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.MirroredRepeatWrapping; t.repeat.set(2, 1);
         const m = new THREE.Mesh(new THREE.SphereGeometry(150, 40, 28), new THREE.MeshStandardMaterial({ map: t, color: 0x9a6a62, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.75, roughness: 0.9, metalness: 0.05 }));
-        m.position.set(-2700, -380, 1900); m.rotation.set(0.3, 0.8, 0.1); m.raycast = () => { }; m.name = 'ng_red_planet'; m.material.emissiveIntensity = 0.12; m.material.color.setHex(0xffffff); scene.add(m);
+        m.position.set(-2700, -380, 1900).multiplyScalar(NOVA_WORLD_SCALE); m.rotation.set(0.3, 0.8, 0.1); m.raycast = () => { }; m.name = 'ng_red_planet'; m.material.emissiveIntensity = 0.12; m.material.color.setHex(0xffffff); scene.add(m);
         setInterval(() => { m.rotation.y += 0.0004; }, 50);
       });
       // boresight reticle + lock brackets from the reticle sheet (white masks, tinted by the game's own colours)
@@ -15765,7 +15823,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     // ── COMMS tab: everything close by, nearest first; touching one locks it (same lock as the holo-radar and weapons) ──
     function npRefreshList(P) {
-      let l = []; try { l = nmContactList(4000, true); } catch (e) { }
+      let l = []; try { l = nmContactList(4000 * NOVA_WORLD_SCALE, true); } catch (e) { }
       const sp = shipGroup.position, tmp = new THREE.Vector3();
       l.forEach(c => { c.obj.getWorldPosition(tmp); c.d = tmp.distanceTo(sp); });
       l.sort((a, b) => a.d - b.d); P.list = l.slice(0, 30);
@@ -15872,12 +15930,13 @@ const GAME_VERSION = 'Alpha 1.4';
         npText(x, 'Resupply restocks missiles + flares.', 430, 290, '20px monospace', '#7fb6d0');
       } };
     const NP_SHIP_ROWS = [
+      [novaCruise.active ? 'CRUISE: ON (J)' : 'CRUISE: OFF (J)', '#66ffcc', () => novaCruiseToggle()],
       ['SEAT UP', '#00e5ff', () => adjustSeat(0.02)], ['SEAT DOWN', '#00e5ff', () => adjustSeat(-0.02)],
       ['LAUNCH DRONE WING', '#ff6644', () => novaWingLaunch()], ['SITUATION REPORT', '#33ff99', () => { const a = npFindAct('SITUATION REPORT'); if (a) a(); }],
       ['STORY INTRO', '#b266ff', () => nkIntroStart(true)], ['QUEST LOG', '#ffcc00', () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); }],
       ['3D RADAR: UPPER RIGHT', '#00e5ff', () => novaRadarPositionToggle()],
-      ['RADAR NAMES: ON', '#66ddff', () => { NH.names = !NH.names; NP_SHIP_ROWS[7][0] = 'RADAR NAMES: ' + (NH.names ? 'ON' : 'OFF'); }],
-      ['LABELS: BELOW', '#66ddff', () => { NH.labelAbove = !NH.labelAbove; NP_SHIP_ROWS[8][0] = 'LABELS: ' + (NH.labelAbove ? 'ABOVE' : 'BELOW'); }]];
+      ['RADAR NAMES: ON', '#66ddff', () => { NH.names = !NH.names; NP_SHIP_ROWS[8][0] = 'RADAR NAMES: ' + (NH.names ? 'ON' : 'OFF'); }],
+      ['LABELS: BELOW', '#66ddff', () => { NH.labelAbove = !NH.labelAbove; NP_SHIP_ROWS[9][0] = 'LABELS: ' + (NH.labelAbove ? 'ABOVE' : 'BELOW'); }]];
     // OPTIONS tab (after MUSIC): view mode, recenter, save / load, volume, graphics, exit
     const npOptRows = () => [
       [(typeof passthroughActive !== 'undefined' && passthroughActive) ? 'SWITCH TO FULL VR' : 'SWITCH TO MIXED REALITY', '#ff66cc', () => togglePassthrough()],
@@ -15914,7 +15973,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const r = NP_SYSOPT.rows()[(P.scroll || 0) + i - 2];
         if (r) { try { sound.switchClick(); } catch (e) { } r[2](P); }
       }, pads: [],
-      rows: () => [...NP_SHIP_ROWS, ...npOptRows()],
+      rows: () => { NP_SHIP_ROWS[0][0] = novaCruise.active ? 'CRUISE: ON (J)' : 'CRUISE: OFF (J)'; return [...NP_SHIP_ROWS, ...npOptRows()]; },
       draw: (x, P) => {
         const rows = NP_SYSOPT.rows(), max = Math.max(0, rows.length - 6);
         P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
@@ -15990,7 +16049,7 @@ const GAME_VERSION = 'Alpha 1.4';
       row: (P, i) => { const r = NP_SHIP_ROWS[i]; if (r) r[2](P); },
       pads: [{ l: 'LOG', c: '#ffcc00', fn: () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); } }, { l: 'CREW', c: '#ff88cc', fn: () => { try { ncTalk(); } catch (e) { } } }],
       draw: (x, P) => {
-        NP_SHIP_ROWS[6][0] = '3D RADAR: ' + (NH.moved ? 'CENTER' : 'UPPER RIGHT');
+        NP_SHIP_ROWS[7][0] = '3D RADAR: ' + (NH.moved ? 'CENTER' : 'UPPER RIGHT');
         NP_SHIP_ROWS.forEach((r, i) => { const Y = 52 + i * 44; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'; x.fillRect(8, Y, 392, 42); x.fillStyle = r[1]; x.fillRect(8, Y, 6, 42); npText(x, r[0], 26, Y + 29, 'bold 21px monospace', r[1], 360); });
         try { npText(x, 'SYSTEM', 430, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, novaShipDef().name, 430, 120, 'bold 28px monospace', '#e9fbff', 580); } catch (e) { }
         try { npText(x, 'SEAT HEIGHT', 430, 170, 'bold 20px monospace', '#9fc3d8'); npText(x, (seatOffset >= 0 ? '+' : '') + Math.round(seatOffset * 100) + ' cm', 430, 202, 'bold 26px monospace', '#00e5ff'); } catch (e) { }
@@ -16066,7 +16125,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const meta = (typeof NS_META !== 'undefined') && NS_META[def.id];
         const col = meta ? meta.col : def.id === 'fwd' ? '#00e5ff' : def.id === 'station' ? '#00ff88' : def.id === 'colony' ? '#ffaa33' : '#ff3355';
         const l3 = meta ? meta.l3 : def.id === 'fwd' ? 'free flight · ambush risk' : def.id === 'station' ? 'dock · trade · contracts' : def.id === 'colony' ? 'FREE refuel · ore boom x2' : 'ambush · bounty 4000 CR';
-        const dock = def.id === 'station' && stationGroup.position.distanceTo(shipGroup.position) < 2400;
+        const dock = def.id === 'station' && stationGroup.position.distanceTo(shipGroup.position) < 2400 * NOVA_WORLD_SCALE;
         const l2 = def.id === 'fwd' ? `drain ${(5 * novaWarpMul()).toFixed(1)}%/s` : dock ? `${Math.round(stationGroup.position.distanceTo(shipGroup.position))} m · in dock range` : `${Math.round(inf.dist || 0)} m · cost ${inf.cost}% · ETA ${Math.round(inf.eta || 0)}s`;
         let elev = ''; try { if (def.pos) { const dy = def.pos().y - shipGroup.position.y; elev = Math.abs(dy) < 60 ? ' · LEVEL' : ` · ${dy > 0 ? '\u25B2' : '\u25BC'} ${Math.abs(Math.round(dy))} m`; } } catch (e) { }   // height of the route
         out.push({ def, col, name: def.name, l2: l2 + elev, l3, why: dock ? null : inf.why, dock });
@@ -17077,20 +17136,20 @@ const GAME_VERSION = 'Alpha 1.4';
     window.nfWingJoin = nfWingJoin;
 
     // 3) SECTOR SPAWNER: each sector builds its fleet when you come within `on` metres and clears it past `off` (keeps Quest fast)
-    const NF_RIFT_POS = new THREE.Vector3(-3600, 2200, -3400);
+    const NF_RIFT_POS = new THREE.Vector3(-3600, 2200, -3400).multiplyScalar(NOVA_WORLD_SCALE);
     const nfRing = (n, rad, y) => Array.from({ length: n }, (_, i) => new THREE.Vector3(Math.cos(i / n * 6.283) * rad, (y || 0) + (Math.random() - 0.5) * rad * 0.2, Math.sin(i / n * 6.283) * rad));
     const nfScatter = (n, rad) => Array.from({ length: n }, () => NFV().randomDirection().multiplyScalar(rad * (0.4 + Math.random() * 0.6)));
     NF.sectors = [
       { id: 'mindspace', name: 'MIND SPACE RIFT', fac: 'alien', pos: () => NF_RIFT_POS, on: 2000, off: 2600,
         fleet: () => [['alien_mothership', [NFV()]], ['alien_carrier', [NFV().set(420, 40, 260)]], ['alien_spore_turret', nfRing(4, 320)],
           ['alien_fighter', nfScatter(4, 500)], ['alien_attack_drone', nfScatter(4, 400)], ['alien_support', [NFV().set(-260, 60, -380), NFV().set(300, -40, -420)]]] },
-      { id: 'reef', name: 'PIRATE REEF', fac: 'pirate', pos: () => NW_REEF_POS.clone().add(nfTmp.b.set(380, 60, 260)), on: 1700, off: 2400,
+      { id: 'reef', name: 'PIRATE REEF', fac: 'pirate', pos: () => NW_REEF_POS.clone().add(nfTmp.b.set(380, 60, 260).multiplyScalar(NOVA_WORLD_SCALE)), on: 1700, off: 2400,
         fleet: () => [['pirate_frigate', [NFV()]], ['pirate_fighter', nfScatter(3, 320)], ['pirate_stealth', nfScatter(2, 500)],
           ['mine', nfRing(10, 520).concat(nfRing(8, 700, 40), nfScatter(6, 600)).filter(o => o.clone().add(NF.sectors[1].pos()).distanceTo(NW_REEF_POS) > 160)]] },   // no mine on the warp arrival point
-      { id: 'edf', name: 'EDF PATROL', fac: 'edf', pos: () => stationGroup.position.clone().add(nfTmp.b.set(700, 520, -650)), on: 2200, off: 3000,
+      { id: 'edf', name: 'EDF PATROL', fac: 'edf', pos: () => stationGroup.position.clone().add(nfTmp.b.set(700, 520, -650).multiplyScalar(NOVA_WORLD_SCALE)), on: 2200, off: 3000,
         fleet: () => [['edf_carrier', [NFV()]], ['edf_fighter', nfScatter(2, 260)]] }
     ];
-    NF.sectors.forEach(s => { s.live = false; });
+    NF.sectors.forEach(s => { s.live = false; s.on *= NOVA_WORLD_SCALE; s.off *= NOVA_WORLD_SCALE; });
     function nfSectorTick() {
       const sp = shipGroup.position;
       NF.sectors.forEach(s => {
@@ -17114,7 +17173,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function nfPlanet() {
       if (NF.planet) return;
       const tex = new THREE.TextureLoader().load('./art/alien_planet.jpg'); try { tex.colorSpace = THREE.SRGBColorSpace; } catch (e) { }
-      const g = new THREE.Group(); g.position.copy(NF_RIFT_POS).add(NFV().set(-400, -700, -4300));
+      const g = new THREE.Group(); g.position.copy(NF_RIFT_POS).add(NFV().set(-400, -700, -4300).multiplyScalar(NOVA_WORLD_SCALE));
       const body = new THREE.Mesh(new THREE.SphereGeometry(1500, 64, 40), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0, emissive: 0x0b2a22, emissiveMap: tex, emissiveIntensity: 0.35 }));
       body.rotation.z = 0.3; body.raycast = () => { }; g.add(body);
       const halo = new THREE.Mesh(new THREE.SphereGeometry(1580, 48, 32), new THREE.MeshBasicMaterial({ color: 0x55ffcc, transparent: true, opacity: 0.12, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -17540,7 +17599,7 @@ const GAME_VERSION = 'Alpha 1.4';
         _st();
         keep.forEach(u => { u.sector = u._sec; });
         // stray units with no sector (raid escorts, ordered fighters) are cleared once far from you
-        NF.units.slice().forEach(u => { if (!u.sector && u.slug !== 'matrix_fighter' && !(u.order && u.order.until > NF.t) && u.g.position.distanceTo(shipGroup.position) > 6000) nfRemove(u); });
+        NF.units.slice().forEach(u => { if (!u.sector && u.slug !== 'matrix_fighter' && !(u.order && u.order.until > NF.t) && u.g.position.distanceTo(shipGroup.position) > 6000 * NOVA_WORLD_SCALE) nfRemove(u); });
       }; }
     window.nfDebug = { unlock: () => NSITE.unlock, intro: () => [campaignIntroDone, campaignStartDelay], edfComms: u => nfEdfComms(u), chapters: () => CAMPAIGN.map(c => c.title), ch: () => campaignChapter, setCh: i => { campaignChapter = i; campaignIntroDone = false; campaignStartDelay = 0.5; }, spawnRaid: () => spawnPirateBoss(), choice: () => NPCH.choice && NPCH.choice.title };
     // ── Pirates: every raid now brings an escort of the new pirate ships (fighters, sometimes a ghost raider or a frigate) ──
@@ -17778,7 +17837,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (novaDock.state === 'approach') { novaDockTractor(); return; }
         if (novaDock.state === 'tractor') return;
         const dist = stationGroup.position.distanceTo(shipGroup.position);
-        if (dist > 2500) { novaAutoDockPending = false; if (isAutopilotActive) toggleAutopilot(false); showToast(`OUT OF DOCKING RANGE (${Math.round(dist)} m). Fly within 2500 m, then press AUTO-DOCK to light the approach corridor.`, 3500, '#ffaa00'); return; }
+        if (dist > 2500 * NOVA_WORLD_SCALE) { novaAutoDockPending = false; if (isAutopilotActive) toggleAutopilot(false); showToast(`OUT OF DOCKING RANGE (${Math.round(dist)} m). Fly within ${2500 * NOVA_WORLD_SCALE} m, then press AUTO-DOCK to light the approach corridor.`, 3500, '#ffaa00'); return; }
         novaAutoDockPending = false;
         if (isAutopilotActive) toggleAutopilot(false);
         const P = npadWorld();
@@ -17815,7 +17874,7 @@ const GAME_VERSION = 'Alpha 1.4';
     { const _ap = toggleAutopilot; toggleAutopilot = function (forceState) {
         if (forceState === undefined && !isAutopilotActive && !isInsideCantina && activeSector === 0 && !novaAutoDockPending) {
           const d = stationGroup.position.distanceTo(shipGroup.position);
-          if (d <= 2400 || novaDock.state !== 'idle') { novaAutoDockPress(); return; }
+          if (d <= 2400 * NOVA_WORLD_SCALE || novaDock.state !== 'idle') { novaAutoDockPress(); return; }
         }
         if (forceState === undefined && novaDock.state !== 'idle' && !isAutopilotActive) { novaAutoDockPress(); return; }
         return _ap(forceState);
@@ -17965,7 +18024,7 @@ const GAME_VERSION = 'Alpha 1.4';
     window.novaMusic = { stations: NMS_STATIONS, station: d => nmsStation(d), step: d => nmsStep(d), vol: d => nmsVol(d), state: () => ({ st: NMS.st, idx: bgmTrackIdx, playing: isBgmPlaying, auto: NRM.auto, n: BGM_TRACKS.length }) };
     // ── SALVAGE (AI_QUEUE A2 / FPS_PLAN §1): drops on kills, greyed targets, TRACTOR pulls them in ──
     // Lore anchor (owner): humanity is growing colder; heat cores are the prize.
-    const NSV = { pods: [], max: 8, life: 120, range: 500, pulling: null };
+    const NSV = { pods: [], max: 8, life: 120, range: 500 * NOVA_WORLD_SCALE, pulling: null };
     const NSV_GEO = new THREE.CylinderGeometry(0.55, 0.55, 1.6, 10);
     const NSV_MAT = new THREE.MeshStandardMaterial({ color: 0x7d8a96, metalness: 0.8, roughness: 0.45, emissive: 0x1a2a36, emissiveIntensity: 0.6 });
     const NSV_CORE_MAT = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, metalness: 0.6, roughness: 0.4, emissive: 0xff7a22, emissiveIntensity: 1.4 });
@@ -18012,7 +18071,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const d = pod.g.position.distanceTo(shipGroup.position);
       if (d > NSV.range) { showToast('TRACTOR: MOVE CLOSER (' + Math.round(d) + ' m / ' + NSV.range + ' m)', 2000, '#ffaa33'); return; }
       if (NSV.pulling) return;
-      NSV.pulling = { pod, t: 0, dur: THREE.MathUtils.clamp(d / 150, 1.5, 3.5), from: pod.g.position.clone() };
+      NSV.pulling = { pod, t: 0, dur: THREE.MathUtils.clamp(d / (150 * NOVA_WORLD_SCALE), 1.5, 3.5), from: pod.g.position.clone() };
       if (!NSV.beam) { NSV.beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 1.4, 1, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0x66ffee, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); try { if (NOVA_VFX.tex.lightning) NSV.beam.material.map = NOVA_VFX.tex.lightning; } catch (e) { } }
       scene.add(NSV.beam);
       try { sound.beep(880, 0.12); } catch (e) { }
