@@ -20,6 +20,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
 | Google AI Studio | Side panel layouts | `aistudio/side-panels` | panel layout code only: `nkDashBuild`, `nmMountConsole`, `novaConsoleTick`, `draw*Panel` | Active | — |
+| Codex | Skybox audit, laser impacts, star-sim story polish | `codex/skybox-laser-story` | `public/art/sky.jpg`; impact VFX; campaign log copy; mirrored game files | Active | — |
 
 ## Waiting for review / merge
 
