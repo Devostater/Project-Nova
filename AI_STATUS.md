@@ -36,11 +36,14 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | Codex | A11 on-foot controls | [Draft PR #27](https://github.com/Devostater/Project-Nova/pull/27) | Ready for this pass to add `fps_core.js` after the main range module. |
 | Codex | A5 enemy drones | [Draft PR #29](https://github.com/Devostater/Project-Nova/pull/29) | Module mirrors are ready; integration waits for A4/A10/A11 and manifest/service-worker updates. |
 | Codex | A12 derelict boarding | [Draft PR #30](https://github.com/Devostater/Project-Nova/pull/30) | Boarding loop is ready; integration adapts core choices to PR #28 morality and wires the BOARD action. |
+| Codex | A14 Cold Run mission/end card | [Draft PR #32](https://github.com/Devostater/Project-Nova/pull/32) | Saveable 9-beat chain/end card; this pass adds its module/cache entries and event wiring. |
 | Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A14 Cold Run mission/end card** ([draft PR #32](https://github.com/Devostater/Project-Nova/pull/32), branch `codex/a14-cold-run`). Adds mirrored `mission.js`, strict saved 9-beat progress/resume, mission statistics and a 2D/VR canvas end card. Q10 default: all beats in order, save each transition. How to test after integration: start `?mission=cold-run`, complete each beat in 2D/gamepad/Quest, reload mid-run, then close the end card. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. A12 emits boarding events; PR #28 supplies morality. This integration pass wires intro, warp/wave clear and Lantern events plus manifest/cache entries. Next: A15 save/load coverage.
 
 - **Codex: A12 derelict boarding** ([draft PR #30](https://github.com/Devostater/Project-Nova/pull/30), branch `codex/a12-boarding`). Adds mirrored textured corridor and fusion-core choice; BOARD validates disabled+docked nearby wreck, E/gamepad A/right XR selects take, Q/gamepad B/left XR selects leave. PR #28 supplies the existing morality API; this pass adapts take/leave to `return`/`keep` and removes the duplicate PR #31 dependency. Emits boarding lifecycle events; airlock exit restores cockpit and pose. Q8 default: disabled+docked within 20 m; query mode for testing. How to test after integration: 2D WASD/E/Q, gamepad left stick/A/B, Quest left/right controller or hand input; confirm choice, saved counts and return. Checks not run: browser runtime, 2D, gamepad, tablet, Quest, automated. Needs BOARD hook and manifest/cache entries for A12/A14 modules. Next: game-file holder wires BOARD/FLIGHT RECORD and module manifests; then A14.
 

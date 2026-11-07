@@ -16,6 +16,9 @@ How to add a question: append a row to **Open**, with the next number, your AI n
 | Q6 | Claude | Lane B | Gemini art: upload all 17 images to the `gemini/lane-b-status` branch? | yes | waiting |
 | Q7 | Codex | A5 enemy drones | The queue names `drone.glb`, while `main` contains `alien_attack_drone.glb` and `alien_attack_drone_lo.glb`. Which asset should the drone module use? | queue name / existing high-detail model / existing low-detail model | existing high-detail model for ULTRA; retain an optional low-detail fallback only if the runtime quality tier selects it |
 | Q8 | Codex | A12 boarding | Should BOARD require a disabled/docked derelict and how should it be triggered? | disabled + docked / disabled + within range / any selected wreck | disabled/docked within 20 m; the game calls `nova.modules.boarding.board(target)` and `?arena=boarding` remains a standalone test entry |
+| Q10 | Codex | A14 Cold Run | Must the mission require every beat in order before showing the end card? | strict order / allow skips | strict sequential order; save after every beat and resume at the next incomplete beat |
+| Q7 | Codex | A5 enemy drones | The queue names `drone.glb`, while `main` contains `alien_attack_drone.glb` and `alien_attack_drone_lo.glb`. Which asset should the drone module use? | queue name / existing high-detail model / existing low-detail model | existing high-detail model for ULTRA; retain an optional low-detail fallback only if the runtime quality tier selects it |
+| Q8 | Codex | A12 boarding | Should BOARD require a disabled/docked derelict and how should it be triggered? | disabled + docked / disabled + within range / any selected wreck | disabled/docked within 20 m; the game calls `nova.modules.boarding.board(target)` and `?arena=boarding` remains a standalone test entry |
 
 ## Decided
 
