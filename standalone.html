@@ -14305,8 +14305,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         if (!NH.g) return;
         if (!NH.moved) {
           cockpit.attach(NH.g);
-          NH.g.position.set(0.28, 0.60, -0.45);
-          NH.g.rotation.set(0, Math.atan2(-0.28, 0.45), 0);
+          NH.g.position.set(0.28, 0.73, -0.32); // raise 5 inches and bring the dash radar closer to the pilot
+          NH.g.rotation.set(0, Math.atan2(-0.28, 0.32), 0);
           NH.g.scale.setScalar(0.82);
           NH.moved = true;
         } else {
