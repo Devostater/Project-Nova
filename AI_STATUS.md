@@ -27,6 +27,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
+| Codex | A13 Morality + core choice | `codex/a13-morality` | `public/modules/morality.js`, `modules/morality.js`, A13 handoff/question docs | Active | — |
 
 ## Waiting for review / merge
 
