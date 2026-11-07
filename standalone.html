@@ -14533,7 +14533,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       P.cv.width = 1024; P.cv.height = 456; P.tex = new THREE.CanvasTexture(P.cv); P.tex.anisotropy = 4;
       // keep the old cell actions, then retire the old on-screen cells
       c.btns.forEach(b => { const e = cockpitInteractables.find(q => q.mesh === b); if (e) P.acts[e.label] = e.action; b.visible = false; const i = cockpitInteractables.indexOf(e); if (i >= 0) cockpitInteractables.splice(i, 1); });
-      c.root.scale.setScalar(0.78);   // half the previous size
+      c.root.scale.setScalar(cfg.id === 'R' ? 0.86 : 0.78);   // give the right panel more reach without shifting the flight stick
       const ry = c.rowY;
       const scr = new THREE.Mesh(new THREE.PlaneGeometry(NP_SW, NP_SH), new THREE.MeshBasicMaterial({ map: P.tex, toneMapped: false })); scr.position.set(0, ry, 0.004); scr.renderOrder = 2; c.g.add(scr); P.scr = scr;
       P.at = (px, py, z) => new THREE.Vector3((px / 1024 - 0.5) * NP_SW, ry + (0.5 - py / 456) * NP_SH, z === undefined ? 0.006 : z);
@@ -14542,16 +14542,16 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         const m = new THREE.Mesh(new THREE.PlaneGeometry(rw / 1024 * NP_SW, rh / 456 * NP_SH), hitMat); m.position.copy(P.at(rx + rw / 2, ry2 + rh / 2)); c.g.add(m);
         registerCockpitButton(m, label, () => { fn(); P.drawT = 0; }, 0.012); const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
       };
-      const TW = cfg.tabs.length > 4 ? 158 : 176; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 8 + i * TW, -36, TW - 8, 84, () => npTab(P, i)));
-      for (let i = 0; i < 8; i++) hit(cfg.id + ' ROW ' + (i + 1), 8, 52 + i * 44, 392, 42, () => { const t = cfg.tabs[P.tab]; if (t.row) t.row(P, i); });
+      const TW = cfg.tabs.length > 4 ? 158 : 176; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 4 + i * TW, -40, TW, 92, () => npTab(P, i)));
+      for (let i = 0; i < 8; i++) hit(cfg.id + ' ROW ' + (i + 1), 8, 50 + i * 44, 408, 44, () => { const t = cfg.tabs[P.tab]; if (t.row) t.row(P, i); });
       if (cfg.id !== 'R') for (let i = 0; i < 4; i++) hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); });
       // holographic buttons floating over the console's physical button row
       cfg.holo.forEach((b, i) => {
         if (!b) return;
-        const live = cfg.holo.filter(Boolean), k = live.indexOf(b), n = live.length, SZ = 0.046;
+        const live = cfg.holo.filter(Boolean), k = live.indexOf(b), n = live.length, SZ = 0.052;
         const m = new THREE.Mesh(new THREE.PlaneGeometry(SZ, SZ), new THREE.MeshBasicMaterial({ map: npBtnTex(b.g, b.l, b.c), transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false }));
         m.position.set((k - (n - 1) / 2) * (NP_SW / n), ry - 0.105, 0.018); m.renderOrder = 3; c.g.add(m);   // NOVA14: fewer, bigger buttons spread across the panel
-        registerCockpitButton(m, cfg.id + ' ' + b.l, () => { m.userData.flash = 0.18; b.fn(P); P.drawT = 0; }, 0.03);
+        registerCockpitButton(m, cfg.id + ' ' + b.l, () => { m.userData.flash = 0.18; b.fn(P); P.drawT = 0; }, 0.036);
         const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
         P.hb.push(m);
       });
