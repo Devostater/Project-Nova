@@ -14301,12 +14301,16 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       const lc = document.createElement('canvas'); lc.width = 256; lc.height = 64; NH.lctx = lc.getContext('2d'); NH.ltex = new THREE.CanvasTexture(lc);
       const lab = new THREE.Mesh(new THREE.PlaneGeometry(0.064, 0.016), new THREE.MeshBasicMaterial({ map: NH.ltex, transparent: true, depthWrite: false, toneMapped: false }));
       lab.position.set(0, -R - 0.006, R * 0.55); lab.rotation.x = -0.75; g.add(lab);
-      registerCockpitButton(lab, 'HOLO RANGE', () => {
-        if (typeof radarZoomLevels === 'undefined') return;
-        radarZoomIdx = (radarZoomIdx + 1) % radarZoomLevels.length; NH.listT = 0;
-        showToast('HOLO-RADAR RANGE ' + radarZoomLevels[radarZoomIdx] + ' m', 1500, '#ffd24a');
-      }, 0.03);
-      cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
+      const zoomBtn = (label, text, px, step) => {
+        const c = document.createElement('canvas'); c.width = 192; c.height = 64; const x = c.getContext('2d');
+        x.fillStyle = 'rgba(2,14,26,0.92)'; x.fillRect(2, 2, 188, 60); x.strokeStyle = '#ffd24a'; x.lineWidth = 4; x.strokeRect(3, 3, 186, 58);
+        x.fillStyle = '#ffd24a'; x.font = 'bold 27px monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 96, 33);
+        const tex = new THREE.CanvasTexture(c); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.038, 0.013), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false }));
+        m.position.set(px, -R - 0.025, R * 0.55); m.rotation.x = -0.75; m.renderOrder = 4; g.add(m);
+        registerCockpitButton(m, label, () => { if (typeof radarZoomLevels === 'undefined') return; radarZoomIdx = THREE.MathUtils.clamp(radarZoomIdx + step, 0, radarZoomLevels.length - 1); NH.listT = 0; showToast('HOLO-RADAR RANGE ' + radarZoomLevels[radarZoomIdx] + ' m', 1500, '#ffd24a'); }, 0.025);
+        cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
+      };
+      zoomBtn('HOLO ZOOM IN', 'ZOOM −', -0.026, -1); zoomBtn('HOLO ZOOM OUT', 'ZOOM +', 0.026, 1);
       console.log('[NOVA13] holo-radar up at', g.position.toArray().map(v => v.toFixed(2)).join(','));
     }
     function novaRadarPositionToggle() {
@@ -14315,8 +14319,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         if (!NH.g) return;
         if (!NH.moved) {
           cockpit.attach(NH.g);
-          NH.g.position.set(0.28, 0.73, -0.32); // raise 5 inches and bring the dash radar closer to the pilot
-          NH.g.rotation.set(0, Math.atan2(-0.28, 0.32), 0);
+          NH.g.position.set(0.28, 0.73, -0.24); // raise 5 inches and bring the dash radar closer to the pilot
+          NH.g.rotation.set(0, Math.atan2(-0.28, 0.24), 0);
           NH.g.scale.setScalar(0.82);
           NH.moved = true;
         } else {
