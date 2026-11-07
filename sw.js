@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.6';
+const VERSION = 'nova-alpha-1.7';
 const FILES = [
 "./art/alien_planet.jpg",
 "./art/asteroid.jpg",
@@ -95,6 +95,20 @@ const FILES = [
 "./models/overhead_dash.glb",
 "./models/patrol.glb",
 "./models/pirate_fighter.glb",
+"./models/alien_missile.glb",
+"./models/pirate_missile.glb",
+"./models/cantina_bar.glb",
+"./models/cantina_booth.glb",
+"./models/cantina_stool.glb",
+"./models/cantina_stool2.glb",
+"./models/cargo_container_small.glb",
+"./models/neutral_fighter.glb",
+"./models/neutral_starfighter.glb",
+"./models/pirate_gunship.glb",
+"./models/faction3_cruiser.glb",
+"./models/cargo_hauler.glb",
+"./models/clanker_station.glb",
+"./art/poster_nova1.jpg",
 "./models/pirate_fighter_lo.glb",
 "./models/pirate_frigate.glb",
 "./models/pirate_frigate_lo.glb",

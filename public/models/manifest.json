@@ -346,5 +346,117 @@
       0.157
     ],
     "mb": 0.26
+  },
+  "alien_missile": {
+    "source": "Alien_Missle_NO_texture.glb",
+    "tris_before": 397236,
+    "tris_after": 5958,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.11
+  },
+  "pirate_missile": {
+    "source": "space_missile_3d_model_pirate.glb",
+    "tris_before": 47554,
+    "tris_after": 7133,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.4
+  },
+  "cantina_bar": {
+    "source": "futuristic_bar_3d_model.glb",
+    "tris_before": 974310,
+    "tris_after": 29228,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.97
+  },
+  "cantina_booth": {
+    "source": "diner_booth_3d_model.glb",
+    "tris_before": 371086,
+    "tris_after": 14842,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.54
+  },
+  "cantina_stool": {
+    "source": "metal_bar_stool_3d_model.glb",
+    "tris_before": 396020,
+    "tris_after": 9900,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.34
+  },
+  "cantina_stool2": {
+    "source": "metal_bar_stool_3d_model_v2.glb",
+    "tris_before": 396380,
+    "tris_after": 9908,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.36
+  },
+  "cargo_container_small": {
+    "source": "sealed_cargo_container_3d_model_v2_small.glb",
+    "tris_before": 44113,
+    "tris_after": 10605,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.5
+  },
+  "neutral_fighter": {
+    "source": "sci-fi_fighter_jet_3d_model_nutral_fighter.glb",
+    "tris_before": 47930,
+    "tris_after": 16773,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.63
+  },
+  "neutral_starfighter": {
+    "source": "futuristic_starfighter_3d_model_nutral.glb",
+    "tris_before": 361024,
+    "tris_after": 14434,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.64
+  },
+  "pirate_gunship": {
+    "source": "sci-fi_gunship_3d_model_pirate.glb",
+    "tris_before": 48106,
+    "tris_after": 26956,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 1.02
+  },
+  "faction3_cruiser": {
+    "source": "space_ship_3d_model_3rd_faction_cruiser.glb",
+    "tris_before": 635380,
+    "tris_after": 25414,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.96
+  },
+  "cargo_hauler": {
+    "source": "space_cargo_hauler_3d_model_v2.glb",
+    "tris_before": 45976,
+    "tris_after": 16088,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.75
+  },
+  "clanker_station": {
+    "source": "sci-fi_module_station_clankers_v2.glb",
+    "tris_before": 49190,
+    "tris_after": 20058,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.78
+  },
+  "seat_v2": {
+    "source": "fighter_jet_ejection_seat_3d_model_v2.glb",
+    "tris_before": 56192,
+    "tris_after": 23507,
+    "decimate": "gltf-transform simplify (Claude)",
+    "size_m": "normalised 1.0; scaled in game",
+    "mb": 0.89
   }
 }
