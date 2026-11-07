@@ -34,11 +34,14 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
 | Codex | A11 on-foot controls | [Draft PR #27](https://github.com/Devostater/Project-Nova/pull/27) | Ready for this pass to add `fps_core.js` after the main range module. |
+| Codex | A5 enemy drones | [Draft PR #29](https://github.com/Devostater/Project-Nova/pull/29) | Module mirrors are ready; integration waits for A4/A10/A11 and manifest/service-worker updates. |
 | Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A5 enemy drones** ([draft PR #29](https://github.com/Devostater/Project-Nova/pull/29), branch `codex/a5-enemy-drones`). Adds two mirrored range drones cycling patrol → cover → shoot → retreat; firing uses pooled, slow bolts and routes player hits through `fps_core.damage`. Exposes manual `start()`/`stop()` for A12 boarding. Loads the existing ULTRA `alien_attack_drone.glb` with procedural fallback. Q7 default: keep the high-detail asset for ULTRA. How to test after integration: `?arena=range`; 2D WASD/click, gamepad left stick/right trigger, Quest aim/fire and dodge; confirm hits, retreat, and HP feedback. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. With A4/A11 now in main and A10 in PR #28, add `fps_ai.js` after interior/fps_core in both manifests and service-worker caches. Next: A12 boarding.
 
 - **Codex: A11 on-foot controls** ([draft PR #27](https://github.com/Devostater/Project-Nova/pull/27), branch `codex/a11-fps-controls`). Adds mirrored `fps_core.js` for pistol/target hits, player HP and shield feedback, WASD/gamepad/XR controller and hand-tracking input; fixes pinch toggle and reuses per-frame scratch vectors. A4 loader and the PR #28 range are now in main; this integration pass loads `fps_core.js` after `interior.js`. How to test: 2D WASD/click targets; gamepad left stick/right trigger; Quest controller trigger/left stick and hand pinch/fist movement, then confirm Escape/door exits restore the cockpit. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. Next: A5 enemy drones.
 
