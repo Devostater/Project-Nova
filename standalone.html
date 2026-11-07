@@ -389,7 +389,8 @@
     (function initMenuControllerLoop() {
       var lastNavT = 0;
       var prevA = false, prevB = false, prevStart = false;
-      var prevFire = false, prevMsl = false, prevBoost = false, prevTarget = false, prevRadar = false, prevDamp = false, prevWarp = false;
+      var prevFire = false, prevMsl = false, prevBoost = false, prevTarget = false, prevRadar = false, prevDamp = false, prevWarp = false, prevAutopilot = false, prevThrottleDown = false;
+      window.novaDesktopFlightPad = window.novaDesktopFlightPad || { connected: false, pitch: 0, roll: 0 };
 
       window.addEventListener('gamepadconnected', function(e) {
         try {
@@ -398,7 +399,7 @@
             badge.textContent += ' | 🎮 Controller Connected';
           }
           if (typeof window.showToast === 'function') {
-            window.showToast('🎮 CONTROLLER CONNECTED: ' + (e.gamepad.id || 'Gamepad').slice(0, 28), 2500, '#00ffcc');
+            window.showToast('FLIGHT PAD: Right stick fly · A fire · B missile · X target · Y radar · LB damp · RB boost · D-pad throttle · LT slow · ← autopilot · → warp', 6500, '#00ffcc');
           }
           window.novaUpdateMenuFocus();
         } catch (err) {}
@@ -406,13 +407,13 @@
 
       function pollGamepad() {
         requestAnimationFrame(pollGamepad);
-        if (!navigator.getGamepads) return;
+        if (!navigator.getGamepads) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }
         var pads = navigator.getGamepads();
         var gp = null;
         for (var i = 0; i < pads.length; i++) {
           if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
         }
-        if (!gp) return;
+        if (!gp) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }
 
         var now = performance.now();
         var overlay = document.getElementById('modal-overlay');
@@ -445,6 +446,7 @@
         prevStart = startBtn;
 
         if (menuOpen) {
+          window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0;
           // Menu navigation with D-Pad Up/Down or Left Stick Y
           if (now - lastNavT > 200) {
             if (dUp || ay < -0.45) {
@@ -486,22 +488,17 @@
 
         // In-Flight Standard Gamepad Controls (for Tablet / PC Bluetooth Controllers when not in WebXR)
         var inXR = !!(window.renderer && window.renderer.xr && window.renderer.xr.isPresenting);
-        if (!inXR && window.stickPivot) {
+        window.novaDesktopFlightPad.connected = !inXR;
+        if (inXR) { window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; }
+        if (!inXR) {
           var DZ = 0.16;
           // Right stick (axes 2,3) or Left stick (axes 0,1) steers Pitch & Roll
           var rx = (gp.axes && Math.abs(gp.axes[2] || 0) > Math.abs(gp.axes[0] || 0)) ? (gp.axes[2] || 0) : (gp.axes ? (gp.axes[0] || 0) : 0);
           var ry = (gp.axes && Math.abs(gp.axes[3] || 0) > Math.abs(gp.axes[1] || 0)) ? (gp.axes[3] || 0) : (gp.axes ? (gp.axes[1] || 0) : 0);
           var nx = Math.abs(rx) > DZ ? Math.sign(rx) * ((Math.abs(rx) - DZ) / (1 - DZ)) : 0;
           var ny = Math.abs(ry) > DZ ? Math.sign(ry) * ((Math.abs(ry) - DZ) / (1 - DZ)) : 0;
-          if (nx !== 0 || ny !== 0) {
-            window.isTestingGripStick = true;
-            window.stickPivot.rotation.x = ny * 0.45;
-            window.stickPivot.rotation.z = -nx * 0.45;
-          } else if (window.isTestingGripStick) {
-            window.isTestingGripStick = false;
-            window.stickPivot.rotation.x = 0;
-            window.stickPivot.rotation.z = 0;
-          }
+          window.novaDesktopFlightPad.pitch = ny * 0.45;
+          window.novaDesktopFlightPad.roll = -nx * 0.45;
 
           // D-Pad Up / Down shifts throttle gates
           if (now - lastNavT > 240) {
@@ -561,6 +558,17 @@
             window.triggerLightspeed();
           }
           prevWarp = dRight;
+
+          // D-Pad Left toggles autopilot; Left Trigger drops throttle one gate on press.
+          if (dLeft && !prevAutopilot && typeof window.toggleAutopilot === 'function') {
+            window.toggleAutopilot();
+          }
+          prevAutopilot = dLeft;
+          var ltDown = lt > 0.25;
+          if (ltDown && !prevThrottleDown && typeof window.shiftThrottleGate === 'function') {
+            window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) - 1, true);
+          }
+          prevThrottleDown = ltDown;
         }
       }
       requestAnimationFrame(pollGamepad);
@@ -10155,6 +10163,11 @@ const GAME_VERSION = 'Alpha 1.4';
         if (activeKeys['ArrowUp']) kPitch -= 0.40;   // Push stick forward (dive)
         if (activeKeys['ArrowRight']) kRoll -= 0.40; // Bank right
         if (activeKeys['ArrowLeft']) kRoll += 0.40;  // Bank left
+        const desktopPad = window.novaDesktopFlightPad;
+        if (desktopPad && desktopPad.connected && !renderer.xr.isPresenting) {
+          if (kPitch === 0) kPitch = desktopPad.pitch;
+          if (kRoll === 0) kRoll = desktopPad.roll;
+        }
 
         if (kPitch !== 0 || kRoll !== 0) {
           stickPivot.rotation.x = THREE.MathUtils.lerp(stickPivot.rotation.x, kPitch, 12 * delta);

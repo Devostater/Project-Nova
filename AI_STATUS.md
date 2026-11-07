@@ -6,7 +6,7 @@ Claude handed the lead to GPT when it hit its usage limit. GPT now owns the thre
 
 **State after the #34 lead handoff:**
 - Merged: #24 (A4 loader), #25 (warp/combat), #27 (A11 controls), #28 (existing firing-range interior and morality modules), #29 (A5 drones), #30 (A12 boarding), #32 (A14 Cold Run), and #34 (lead/docs handoff).
-- Open: #33 adds only the two mirrored missile-plume and thruster-glow images; waiting for owner approval before merge. Draft integration PR #35 contains module wiring and the mobile-only touch overlay update.
+- Open: #33 adds only the two mirrored missile-plume and thruster-glow images; waiting for owner approval before merge. Draft integration PR #35 contains module wiring, mobile-only touch controls, and desktop gamepad flight actions.
 - Next: owner-approved merge of #33, then wire its missile plume and engine glow. Follow with A15 save/load, then VR hands.
 - Pending owner request: rigged VR glove with finger joints and controller grip poses; cockpit stick and throttle grabs must keep working.
 
@@ -52,7 +52,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
 
-- **GPT/Codex: lead handoff and module integration** ([draft PR #35](https://github.com/Devostater/Project-Nova/pull/35), branch `gpt/integrate-modules`). PR #34 is merged. #24, #27, #29, #30, and #32 are also merged in the requested order, preserving the existing interior and morality modules. PR #35 adds module manifests/cache entries, A11 range movement, A5 drones, A12 BOARD, A14 mission events, and phone/tablet-only touch controls. Checks: `node --check` on all eight module files, the A4 loader script and touch visibility handler; LF, conflict-marker, game-file parity and manifest/cache checks passed. Not tested: browser/device runtime or mission progression. Next: owner approval to merge image-only #33, then wire missile plume/engine glow, A15 save/load, and VR hands.
+- **GPT/Codex: lead handoff and module integration** ([draft PR #35](https://github.com/Devostater/Project-Nova/pull/35), branch `gpt/integrate-modules`). PR #34 is merged. #24, #27, #29, #30, and #32 are also merged in the requested order, preserving the existing interior and morality modules. PR #35 adds module manifests/cache entries, A11 range movement, A5 drones, A12 BOARD, A14 mission events, phone/tablet-only touch controls, and desktop gamepad steering/actions. Checks: `node --check` on all eight module files, the A4 loader script, touch visibility handler, desktop gamepad poll, and flight input handler; LF, conflict-marker, game-file parity and manifest/cache checks passed. Not tested: browser/device runtime or mission progression. Next: owner approval to merge image-only #33, then wire missile plume/engine glow, A15 save/load, and VR hands.
 
 
 
