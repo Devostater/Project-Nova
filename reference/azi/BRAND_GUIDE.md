@@ -1,17 +1,21 @@
-# AZI Brand Guide
+# Absolute Zero Interactive (AZI): Brand Guide
 
-## Confirmed
-- Current studio name: **Absolute Zero Interactive**.
-- Abbreviation: **AZI**.
-- Role: parent studio.
-- Mind Space is an AZI game-development property.
-- Matrix is an AZI AI character/digital personality and creative-media project.
+## Confirmed identity
+- **Absolute Zero Interactive (AZI)** is the current **parent studio**.
+- **Mind Space** is an AZI game property.
+- **Matrix** is an AZI AI character, digital personality, and creative-media property.
+- The owner selected the **parent-studio** organizational model, not a claim that every project shares one fictional universe.
 
-## Historical naming
-The owner described AZI as the new name for **Zero Horizon Music**. Treat Zero Horizon Music as a former name; do not imply it remains the current studio name or that the new studio is limited to music.
+## Historical names and continuity
+- **Zero Horizon Music** was a prior music/media brand name and has been replaced by AZI as the current umbrella identity.
+- **Quantum Drop** and **Quantum Drop Studios** were earlier studio-name explorations. Do not treat them as current without new approval.
+- Historical content and existing artist credits should not be retroactively rewritten merely because the umbrella studio changed names.
 
-## Not yet defined
-There is no confirmed AZI logo, color palette, typography, iconography, tagline, brand voice, or visual motif in this reference library.
+## Creative portfolio direction
+The owner's projects span game development, AI-assisted music/media, and character-driven content. AZI provides coherent attribution across them without requiring a single canon or identical visual style.
 
-## Proposed use
-For new brand concepts, explore directions only as drafts and mark them **Proposed—not approved**. Do not derive visual identity solely from the words “Absolute Zero” or assume that cold/ice imagery is required.
+## Still unapproved
+No definitive AZI logo, tagline, palette, font, legal entity status, corporate location, or brand mark has been approved in this reference. Cold/ice/zero imagery is a **possible proposal**, not a required design.
+
+## Usage in prompts
+First mention: “Absolute Zero Interactive (AZI).” Subsequent: “AZI.” Identify the specific property and its own references before generating. Do not confuse Matrix (character), Mind Space (game), and Project Nova (repository/flight simulator).
