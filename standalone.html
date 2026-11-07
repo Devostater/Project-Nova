@@ -6183,7 +6183,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       { id: 'level-switch', label: '🚀 SWITCH SECTOR LEVEL', x: 18, y: 330, w: 232, h: 58, color: '#ffcc00', action: () => toggleSectorLevel() },
       { id: 'toggle-mr', label: '👁️ TOGGLE MR / VR', x: 262, y: 330, w: 232, h: 58, color: '#ff33aa', action: () => togglePassthrough() },
       { id: 'exit-xr', label: '🚪 EMERGENCY EXIT VR', x: 18, y: 400, w: 232, h: 58, color: '#ff3344', action: () => exitImmersiveMode() },
-      { id: 'mission-next', label: '🎯 CYCLE MISSION OBJ', x: 262, y: 400, w: 232, h: 58, color: '#00ffaa', action: () => selectMission(activeMissionIdx + 1) }
+      { id: 'mission-next', label: '🎯 CYCLE MISSION OBJ', x: 262, y: 400, w: 232, h: 58, color: '#00ffaa', action: () => selectMission(activeMissionIdx + 1) },
+      { id: 'close-watch-menu', label: '✕ CLOSE', x: 410, y: 14, w: 86, h: 36, color: '#ff6677', action: () => toggleWristMenu(false) }
     ];
 
     function drawDebugWatch() {
@@ -6248,7 +6249,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       ctx.fillStyle = '#ffdd44';
       ctx.fillText(`GRIP L: ${lGrip}  |  GRIP R: ${rGrip}`, 32, 170);
 
-      // Draw 8 Debug Buttons
+      // Draw VR wrist menu controls
       debugWatchButtons.forEach(btn => {
         ctx.fillStyle = 'rgba(12, 28, 48, 0.92)';
         ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
