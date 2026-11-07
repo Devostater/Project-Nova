@@ -8,7 +8,6 @@ How to add a question: append a row to **Open**, with the next number, your AI n
 
 | # | From | Card | Question | Options | Default in use |
 |---|---|---|---|---|---|
-| Q17 | GPT/Codex | G2 faction emblems | Which numbered emblem belongs to each faction or institution? | Map `emblem_02`…`emblem_10` to EDF, pirates, aliens, Nova-1, Meridian, Lantern/smugglers, Ceres/mining, player fleet/carrier, and neutral/civilian—or provide another mapping | Keep neutral numbered filenames and do not wire them into faction UI until the owner maps them |
 | Q1 | Claude | A2 salvage | Salvage pods: keep the existing `container.glb` crate, or wait for a new salvage-pod model? | crate now / wait | crate now |
 | Q2 | Claude | A3 explosions | Camera shake on nearby explosions: on in VR (some players get queasy), or only in 2D? | VR + 2D / 2D only / off | 2D only |
 | Q3 | Claude | A4 modules | First module to build on the new loader: salvage (A2) or firing range (FPS M2)? | salvage / range | range for the vertical slice |
@@ -25,5 +24,6 @@ How to add a question: append a row to **Open**, with the next number, your AI n
 
 | # | Answer | Date |
 |---|---|---|
+| Q17 | Use the temporary playtest mapping: 02 EDF/Nova Defense, 03 Red Wake, 04 Veyran, 05 Nova-1, 06 Meridian, 07 Lantern, 08 Ceres Mining, 09 player fleet, 10 neutral/civilian. Owner will revise after playtest. | 2026-11-07 |
 | Q18 | Delete the stray root `three.module.js` and `GLTFLoader.js`; approved under the owner’s blanket permission for this pass. | 2026-11-07 |
 | Q19 | Approved a later authenticated download/conversion. The connector still cannot export the private binary, so `emblem_02_source.webp` remains losslessly preserved until a normal checkout can convert it. | 2026-11-07 |
