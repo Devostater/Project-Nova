@@ -15787,6 +15787,8 @@ const GAME_VERSION = 'Alpha 1.4';
         for (let i = 0; i < 4; i++) P.padHits.push(hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); }));
         P.flightHits = [];
         [[430, 180], [724, 180], [430, 296], [724, 296]].forEach(([x, y], i) => P.flightHits.push(hit('L FLIGHT CONTROL ' + (i + 1), x, y, 280, 104, () => { const pd = NP_FLIGHT.pads[i]; if (pd) pd.fn(P); })));
+        P.warpHits = [];
+        for (let i = 0; i < 4; i++) P.warpHits.push(hit('L WARP CONTROL ' + (i + 1), 8 + i * 251, 342, 245, 70, () => { const pd = NP_WARP.pads[i]; if (pd) pd.fn(P); }));
       }
       // holographic buttons floating over the console's physical button row
       cfg.holo.forEach((b, i) => {
@@ -15882,7 +15884,7 @@ const GAME_VERSION = 'Alpha 1.4';
       x.save(); x.translate(0, NP_OFF);
       x.fillStyle = 'rgba(0,229,255,0.35)'; x.fillRect(0, 47, 1024, 2);
       T.draw(x, P);
-      if (cfg.id !== 'R' && T !== NP_FLIGHT) npPads(x, T.pads);
+      if (cfg.id !== 'R' && T !== NP_FLIGHT && T !== NP_WARP) npPads(x, T.pads);
       x.fillStyle = 'rgba(0,229,255,0.35)'; x.fillRect(0, 414, 1024, 2);
       npText(x, T.hint || '', 14, 446, '22px monospace', '#6f9ab3', 996);
       x.restore();
@@ -16184,8 +16186,9 @@ const GAME_VERSION = 'Alpha 1.4';
         if (P.cfg.id === 'L') { P.listT -= dt; if (P.listT <= 0) { P.listT = 1.0; npRefreshList(P); } }
         const T = P.cfg.tabs[P.tab];
         if (P.cfg.id === 'L') {
-          (P.padHits || []).forEach(m => { m.visible = T !== NP_FLIGHT && !!(T.pads && T.pads.length); });
+          (P.padHits || []).forEach(m => { m.visible = T !== NP_FLIGHT && T !== NP_WARP && !!(T.pads && T.pads.length); });
           (P.flightHits || []).forEach(m => { m.visible = T === NP_FLIGHT; });
+          (P.warpHits || []).forEach(m => { m.visible = T === NP_WARP; });
         }
         if (P.cfg.id === 'R') {
           let market = false; try { market = T === NP_CARGO && !!nmkNear(); } catch (e) { }
@@ -16205,7 +16208,7 @@ const GAME_VERSION = 'Alpha 1.4';
       });
     }
     // ── NOVA14: swipe / drag / mouse-wheel on the left panel (COMMS list scrolls up-down, WARP cards flip left-right) ──
-    const NP_WARP = { name: 'WARP', c: '#b266ff', i: 0, hint: 'swipe left / right to pick a destination · tap the card to jump · N opens this tab',
+    const NP_WARP = { name: 'WARP', c: '#b266ff', i: 0, hint: 'swipe the card to select a route · launch only with the green JUMP button',
       pads: [{ l: '◀ PREV', c: '#b266ff', fn: () => npWarpStep(-1) }, { l: 'JUMP', c: '#33ff99', fn: () => npWarpGo() }, { l: 'NEXT ▶', c: '#b266ff', fn: () => npWarpStep(1) },
         { l: 'EXIT WARP', c: '#ff7a66', fn: () => { if (isLightspeedActive) exitLightspeed(); else showToast('Not in warp.', 1400, '#88aacc'); } }],
       draw: (x, P) => {
@@ -16224,7 +16227,7 @@ const GAME_VERSION = 'Alpha 1.4';
             const ok = !c.why;
             x.fillStyle = ok ? 'rgba(51,255,153,0.18)' : 'rgba(255,90,90,0.14)'; x.fillRect(X + 180, Y + 172, W - 200, 50);
             x.strokeStyle = ok ? '#33ff99' : '#ff6655'; x.lineWidth = 3; x.strokeRect(X + 180, Y + 172, W - 200, 50);
-            x.textAlign = 'center'; npText(x, ok ? (c.dock ? 'TAP TO DOCK' : 'TAP CARD TO JUMP') : c.why, X + 180 + (W - 200) / 2, Y + 206, 'bold 26px monospace', ok ? '#33ff99' : '#ff8877'); x.textAlign = 'left';
+            x.textAlign = 'center'; npText(x, ok ? (c.dock ? 'DOCK READY · USE GREEN BUTTON' : 'ROUTE READY · USE GREEN JUMP') : c.why, X + 180 + (W - 200) / 2, Y + 206, 'bold 23px monospace', ok ? '#33ff99' : '#ff8877'); x.textAlign = 'left';
             x.textAlign = 'right'; npText(x, (NP_WARP.i + 1) + ' / ' + L.length, X + W - 16, Y + 30, 'bold 20px monospace', '#7fb6d0'); x.textAlign = 'left';
           } else { x.textAlign = 'center'; npText(x, c.name, X + W / 2, Y + 124, 'bold 16px monospace', col, W - 10); x.textAlign = 'left'; }
           x.globalAlpha = 1;
@@ -16233,8 +16236,15 @@ const GAME_VERSION = 'Alpha 1.4';
         x.fillStyle = 'rgba(178,102,255,0.14)'; x.fillRect(8, 60, 128, 226); x.fillRect(888, 60, 128, 226);
         card(NP_WARP.i, 146, 56, 732, 234, true);
         x.fillStyle = '#b266ff'; x.font = 'bold 80px sans-serif'; x.textAlign = 'center'; x.fillText('◀', 72, 200); x.fillText('▶', 952, 200); x.textAlign = 'left';
+        L.forEach((c, k) => { x.fillStyle = k === NP_WARP.i ? '#ffffff' : 'rgba(178,102,255,0.45)'; x.beginPath(); x.arc(512 - (L.length - 1) * 9 + k * 18, 52, k === NP_WARP.i ? 5 : 3.5, 0, 7); x.fill(); });
         try { const cap = novaWarpCap(), f = NW.core / cap; npBar(x, 146, 316, 732, 22, f, f > 0.5 ? '#33ff99' : f > 0.25 ? '#ffcc00' : '#ff3344', 'WARP CORE ' + Math.round(NW.core) + ' / ' + cap); } catch (e) { }
-        L.forEach((c, k) => { x.fillStyle = k === NP_WARP.i ? '#ffffff' : 'rgba(178,102,255,0.45)'; x.beginPath(); x.arc(512 - (L.length - 1) * 9 + k * 18, 354, k === NP_WARP.i ? 5 : 3.5, 0, 7); x.fill(); });
+        const cur = L[NP_WARP.i], travelMax = (novaCruise.active ? 900 : isAfterburnerActive ? 360 : 180) * (1 + 0.1 * (novaUp.propulsion || 0));
+        const fullSpeed = shipBody.velocity.length() >= travelMax * 0.90, ready = cur && !cur.locked && !cur.why;
+        NP_WARP.pads.forEach((p, i) => {
+          const X = 8 + i * 251, jump = i === 1, pulse = jump && ready && fullSpeed ? 0.65 + 0.35 * Math.sin(performance.now() * 0.012) : 1;
+          x.globalAlpha = pulse; x.fillStyle = jump ? (ready ? '#33ff99' : '#245c45') : p.c; x.fillRect(X, 342, 245, 70); x.strokeStyle = jump && ready ? '#d8ffe8' : p.c; x.lineWidth = jump ? 5 : 3; x.strokeRect(X, 342, 245, 70);
+          x.textAlign = 'center'; npText(x, jump ? (fullSpeed && ready ? 'JUMP · READY' : 'JUMP') : p.l, X + 122, 386, 'bold 23px monospace', jump && ready ? '#021019' : '#ffffff', 220); x.textAlign = 'left'; x.globalAlpha = 1;
+        });
       } };
     function npWarpList() {
       const out = [];
@@ -16285,7 +16295,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function npGestureStart(P, src, px, py) {
       const T = P.cfg.tabs[P.tab];
       if (py < 50 || py > 412) return false;                       // tab strip and footer keep their own buttons
-      if (T.pads && T.pads.length && py > 358 && px > 412) return false;   // pads
+      if (T.pads && T.pads.length && py > 338 && (T === NP_WARP || px > 412)) return false;   // pads
       if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT && !(T === NP_CARGO && nmkNear())) return false;
       if (T === NP_COMMS && px > 420) return false;
       if (T === NP_CARGO && px > 560) return false;
@@ -16320,7 +16330,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (G.moved < 22) {   // tap
         if (T === NP_COMMS) { const r = Math.floor((G.y0 - 52) / 44); const c = r >= 0 && r < 8 ? P.list[P.scroll + r] : null; if (c) { novaHoloSelect(c); P.drawT = 0; } }
         else if (T === NP_CARGO && nmkNear()) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) { NP_CARGO.row(P, r); P.drawT = 0; } }
-        else if (T === NP_WARP) { if (G.x0 < 140) npWarpStep(-1); else if (G.x0 > 884) npWarpStep(1); else npWarpGo(); }
+        else if (T === NP_WARP) { if (G.x0 < 140) npWarpStep(-1); else if (G.x0 > 884) npWarpStep(1); }
         else if (T === NP_CHAT) {
           if (G.x0 < 320) {
             const r = Math.floor((G.y0 - 88) / 51), c = r >= 0 && r < 6 ? npChatContacts()[Math.round(NPCH.contactScroll) + r] : null;
