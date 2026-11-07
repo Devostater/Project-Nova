@@ -62,3 +62,8 @@ Newest first. Keep each entry short: what changed, the PR, checks run, and the n
 2. Add a row to **Active claims**: AI/tool, task, branch, files, state (Active / Paused / Handoff), PR.
 3. If you need the game file and it says **Nobody**, put your name there.
 4. When you pause or finish, remove your row, release the game file if you held it, and add a short entry to **Done / handoffs** (or **Waiting for review** if a PR is open). Include the branch or PR, files changed, checks run, and the exact next step.
+
+## Claude — 2026-11-07 — `claude/combat-warp` (PR #25, draft)
+- Done: warp tunnel texture + round warp stars, pirate missile models, frigate missiles, VR combat pacing (NF_STATS scaling after the table).
+- Files: standalone.html (all 3 copies), sw.js (both), fx/vfx_warp_tunnel.jpg (both). Check run: node --check, headless load with no errors.
+- Next: owner playtests in the Quest; then A10 firing range and A13 morality meter on a new branch. Files released.
