@@ -14882,10 +14882,10 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     function npTick(dt) {
       if (!NP.panels.length) {
         if (!novaConsoles[0] || !novaConsoles[1]) return;
-        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'CREW CHANNEL' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
+        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_CREW_TAB, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'CREW CHANNEL' : T === NP_CREW_TAB ? 'CREW / FLEET' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
           holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_COMMS)) }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
-            { g: '✈', l: 'FLIGHT', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_FLIGHT)) }, { g: '◎', l: 'OBJECTIVE', c: '#ffcc00', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_OBJ)) },
-            { g: '➤', l: 'WARP', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_WARP)) }, { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) }] });
+            { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CREW_TAB)) }, { g: '✈', l: 'FLIGHT', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_FLIGHT)) },
+            { g: '◎', l: 'OBJECTIVE', c: '#ffcc00', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_OBJ)) }, { g: '➤', l: 'WARP', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_WARP)) }] });
         const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SYSOPT, NP_MUSIC], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
           holo: [{ g: '\u2316', l: 'COMBAT', c: '#ff3355', fn: P => npTab(P, 0) }, { g: '\u25A6', l: 'CARGO', c: '#00ff99', fn: P => npTab(P, 1) }, { g: '\u2699', l: 'SYSTEM / OPTIONS', c: '#ffd24a', fn: P => npTab(P, 2) },
             { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }] });
@@ -15103,6 +15103,33 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         out.slice(start, start + rows).forEach(([t, c], i) => { x.fillStyle = c || '#cfefff'; x.fillText(t, 16, top + 20 + i * 25); });
         if (!out.length) npText(x, 'No crew messages yet. TALK types to your crew, CREW opens a conversation.', 16, top + 30, '21px monospace', '#5f8aa3', 990);
         if (NPCH.scroll > 0) npText(x, '▼ ' + Math.round(NPCH.scroll) + ' newer lines below', 760, top + 14, 'bold 16px monospace', '#ffd24a');
+      } };
+    const NCT = { colors: ['#00e5ff', '#b266ff', '#33ff88', '#ff8844', '#ff66aa'], emblems: ['✦', '◆', '◈', '⬡'], color: 0, emblem: 0 };
+    try { const s = JSON.parse(localStorage.getItem('novaCrewStyle') || '{}'); NCT.color = Math.max(0, Math.min(NCT.colors.length - 1, s.color | 0)); NCT.emblem = Math.max(0, Math.min(NCT.emblems.length - 1, s.emblem | 0)); } catch (e) { }
+    function npCrewStyleSave() { try { localStorage.setItem('novaCrewStyle', JSON.stringify({ color: NCT.color, emblem: NCT.emblem })); } catch (e) { } }
+    const NP_CREW_TAB = { name: 'CREW', c: '#ffd24a', hint: 'manage crew, wing, fleet colors and squad emblem · select a row to change it', pads: [],
+      row: (P, i) => {
+        if (i === 0) { try { ncMenuOpen(); } catch (e) { showToast('Crew selection is unavailable right now.', 1800, '#ffaa00'); } }
+        else if (i === 1) { try { novaWingLaunch(); } catch (e) { } }
+        else if (i === 2) { NCT.color = (NCT.color + 1) % NCT.colors.length; const col = new THREE.Color(NCT.colors[NCT.color]); nwDroneMat.color.copy(col); nwDroneMat.emissive.copy(col); npCrewStyleSave(); }
+        else if (i === 3) { NCT.emblem = (NCT.emblem + 1) % NCT.emblems.length; npCrewStyleSave(); }
+        else if (i === 4) { const P0 = NP.panels[0]; if (P0) npTab(P0, P0.cfg.tabs.indexOf(NP_CHAT)); }
+        P.drawT = 0;
+      },
+      draw: (x, P) => {
+        const cd = ncD(), ship = novaShipDef(), wingReady = ship.id === 'carrier';
+        const rows = [['CHOOSE COMPANION', '#ff88cc'], [NWING.drones.length ? 'RECALL DRONE WING' : 'LAUNCH DRONE WING', wingReady ? '#33ff99' : '#778899'], ['TEAM COLOR: ' + NCT.colors[NCT.color].toUpperCase(), NCT.colors[NCT.color]], ['SQUAD EMBLEM: ' + NCT.emblems[NCT.emblem], '#ffd24a'], ['OPEN CREW CHAT', '#00e5ff']];
+        rows.forEach((r, i) => { const Y = 52 + i * 44; x.fillStyle = 'rgba(255,255,255,0.035)'; x.fillRect(8, Y, 404, 42); x.fillStyle = r[1]; x.fillRect(8, Y, 6, 42); npText(x, r[0], 26, Y + 29, 'bold 22px monospace', r[1], 370); });
+        npText(x, 'ACTIVE CREW', 450, 84, 'bold 21px monospace', '#9fc3d8');
+        npText(x, 'VALKYRIE-7  ·  WING LEAD', 450, 122, 'bold 20px monospace', '#00e5ff', 540);
+        npText(x, nmkHasObi() ? 'OBI  ·  CO-PILOT / REPAIR' : 'OBI  ·  NOVA-1 UPGRADE', 450, 158, 'bold 19px monospace', nmkHasObi() ? '#bfefff' : '#778899', 540);
+        npText(x, nyxJoined() ? 'NYX  ·  WINGMATE' : 'NYX  ·  NOVA-1 CANTINA', 450, 194, 'bold 19px monospace', '#b266ff', 540);
+        npText(x, cd ? cd.name + ' · ' + cd.kind : 'No active companion selected', 450, 238, '20px monospace', cd ? cd.col : '#7fb6d0', 540);
+        npText(x, 'FLEET', 450, 286, 'bold 20px monospace', '#9fc3d8');
+        npText(x, wingReady ? `${NWING.drones.length ? NWING.drones.length + ' DRONES DEPLOYED' : 'CARRIER WING READY'} · ${NM.fleet.length} ALLIED SHIPS` : `${ship.name} · ${NM.fleet.length} ALLIED SHIPS`, 450, 322, '19px monospace', '#33ff99', 540);
+        npText(x, 'SQUAD EMBLEM', 450, 374, 'bold 18px monospace', '#9fc3d8');
+        x.fillStyle = NCT.colors[NCT.color]; x.font = 'bold 52px sans-serif'; x.textAlign = 'center'; x.fillText(NCT.emblems[NCT.emblem], 510, 432); x.textAlign = 'left';
+        npText(x, 'TEAM COLOR', 570, 408, 'bold 18px monospace', NCT.colors[NCT.color]);
       } };
     // crew only: your companion, wingmen, Obi, John and you (stations, sensors and strangers stay on COMMS)
     const NP_CREW_RE = /^(YOU|NYX|MATRIX|VALKYRIE|OBI|JOHN|KIP)/i;
