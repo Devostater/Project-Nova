@@ -2320,8 +2320,11 @@ const GAME_VERSION = 'Alpha 1.4';
     hullDeckGroup.add(fwdKickplate);
 
     // Rear Aft Bulkhead Floor Seal
-    const aftSeal = new THREE.Mesh(new THREE.BoxGeometry(1.10, 0.48, 0.06), deckTrimMat);
+    const aftSealMat = deckTrimMat.clone();
+    aftSealMat.transparent = true; aftSealMat.opacity = 0.40; aftSealMat.depthWrite = false;
+    const aftSeal = new THREE.Mesh(new THREE.BoxGeometry(1.10, 0.48, 0.06), aftSealMat);
     aftSeal.position.set(0, -0.20, 0.87);
+    aftSeal.renderOrder = 2;
     hullDeckGroup.add(aftSeal);
 
     // Non-Slip Tread Step Plates
@@ -15170,8 +15173,9 @@ const GAME_VERSION = 'Alpha 1.4';
         x.fillStyle = '#35ff9a'; [0.60, 0.66].forEach(f => { x.beginPath(); x.arc(w * f, h * 0.47, 6, 0, 7); x.fill(); });
       });
       { const em = new Image(); em.onload = () => { const c = base.image, x = c.getContext('2d'); x.fillStyle = '#0b131d'; x.fillRect(c.width * 0.29, c.height * 0.11, c.width * 0.42, c.height * 0.32); x.drawImage(em, c.width * 0.355, c.height * 0.07, c.width * 0.29, c.width * 0.29); base.needsUpdate = true; }; em.src = './art/eagle.png'; }
-      const bm = new THREE.Mesh(bg, new THREE.MeshStandardMaterial({ map: base, emissive: 0xffffff, emissiveMap: glow, emissiveIntensity: 0.9, roughness: 0.6, metalness: 0.5, side: THREE.DoubleSide }));
-      bm.position.z = zB; bm.raycast = () => { }; bm.name = 'nk_aft'; wrap.add(bm);
+      const aftMat = new THREE.MeshStandardMaterial({ map: base, emissive: 0xffffff, emissiveMap: glow, emissiveIntensity: 0.9, roughness: 0.6, metalness: 0.5, side: THREE.DoubleSide, transparent: true, opacity: 0.40, depthWrite: false });
+      const bm = new THREE.Mesh(bg, aftMat);
+      bm.position.z = zB; bm.raycast = () => { }; bm.renderOrder = 2; bm.name = 'nk_aft'; bm.userData.vrSeeThrough = true; wrap.add(bm);
       return glass;
     }
     // ── NOVA13: the cockpit's own dash screens (left: ship status, centre: radar plate under the holo, right: targeting) ──
