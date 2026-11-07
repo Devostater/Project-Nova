@@ -18,7 +18,7 @@ On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Nobody; Codex released the tablet HUD area in draft PR #21.
+**Held by:** Codex (`codex/a4-module-system`) for the A4 module API/loader.
 
 ## Active claims
 
@@ -27,6 +27,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
+| Codex | A4 Module system | `codex/a4-module-system` | `standalone.html`, `public/standalone.html`, `index.html`, `modules/*`, service workers, `AI_PLAN.md`, status/questions | Active | — |
 
 ## Waiting for review / merge
 
