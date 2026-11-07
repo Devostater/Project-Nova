@@ -15204,7 +15204,7 @@ const GAME_VERSION = 'Alpha 1.4';
       setInterval(() => { (NG.bodies || []).forEach(b => { b.rotation.y += 0.0003; }); }, 50);
       TL.load('./art/asteroid.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; NG.rockTex = t;
         try { asteroidMat.map = t; asteroidMat.color.setHex(0xd8d0c8); asteroidMat.needsUpdate = true; } catch (e) { }
-        setTimeout(() => { try { const seen = new Set(); asteroids.forEach((a, i) => { if (i % 5 === 0 || !a.material || seen.has(a.material)) return; seen.add(a.material); a.material.map = t; a.material.needsUpdate = true; }); } catch (e) { } }, 9000); });
+        setTimeout(() => { try { if (window.NOVA_ASTEROID_MATS) return; const seen = new Set(); asteroids.forEach((a, i) => { if (i % 5 === 0 || !a.material || seen.has(a.material)) return; seen.add(a.material); a.material.map = t; a.material.needsUpdate = true; }); } catch (e) { } }, 9000); });
       TL.load('./art/planet_red.jpg', t => {
         t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.MirroredRepeatWrapping; t.repeat.set(2, 1);
         const m = new THREE.Mesh(new THREE.SphereGeometry(150, 40, 28), new THREE.MeshStandardMaterial({ map: t, color: 0x9a6a62, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.75, roughness: 0.9, metalness: 0.05 }));
@@ -18960,15 +18960,51 @@ const GAME_VERSION = 'Alpha 1.4';
       try { NM.drone = await nmBaked('drone'); if (NM.drone) NM.drone.geo.rotateY(Math.PI); } catch (e) { }
       // Obi
       nmSkin(novaObi, 'obi_cat', { unique: true, animate: true, keepBelow: 0, scale: NC.scale, pos: [0, NC.baseY, 0] }).then(ncSetup);
-      // asteroids
-      try {
-        const rock = await nmBaked('asteroid_rock'), ice = await nmBaked('asteroid_ice');
-        if (rock) asteroids.forEach((a, i) => {
-          const s = (ice && i % 5 === 0) ? ice : rock;
-          a.geometry = s.geo; a.material = s.mat; a.scale.setScalar(a.userData.radius / 20); a.userData.ownMat = false;
-        });
-      } catch (e) { console.warn('[NOVA12] asteroid swap failed', e); }
+      // asteroids: high-poly procedural shapes × 5 Gemini rock materials with normal maps (owner: max graphics)
+      try { novaAsteroidBoost(); } catch (e) { console.warn('[asteroids] boost failed', e); }
       setTimeout(() => { try { console.log('[NOVA12] models in:', NM.done.join(', ')); showToast('MODELS: ' + NM.done.length + ' loaded', 2500, '#7fffd4'); } catch (e) { } }, 4000);
+    }
+
+    // ── Asteroid graphics boost: 16 unique noise-displaced shapes (24k tris near, 6k far) and 5 rock types ──
+    function novaAsteroidBoost() {
+      const TL = new THREE.TextureLoader(), maxA = renderer.capabilities.getMaxAnisotropy();
+      const tex = (f, srgb) => { const t = TL.load(f); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 2); t.anisotropy = maxA; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+      const K = { basalt: [0xffffff, 0.92, 0.05, 0], iron: [0xffffff, 0.55, 0.55, 0], carbon: [0xffffff, 0.85, 0.15, 0.6], ice: [0xe8f4ff, 0.35, 0.05, 0], sulfur: [0xffffff, 0.9, 0.0, 0] };
+      const MAT = {};
+      Object.keys(K).forEach(k => { const [c, r, m, e] = K[k], map = tex(`art/textures/tex_rock_${k}_1024.jpg`, true);
+        MAT[k] = new THREE.MeshStandardMaterial({ map, normalMap: tex(`art/textures/tex_rock_${k}_n_1024.jpg`, false), normalScale: new THREE.Vector2(1.6, 1.6), color: c, roughness: r, metalness: m,
+          emissive: e ? 0x22ffd0 : 0x000000, emissiveMap: e ? map : null, emissiveIntensity: e });   // carbon rocks: teal crystal veins glow faintly
+      });
+      // 3D value noise (fbm) for the rock shapes
+      const hash = (x, y, z, sd) => { const h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7 + sd * 19.19) * 43758.5453; return h - Math.floor(h); };
+      const vnoise = (x, y, z, sd) => { const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z), xf = x - xi, yf = y - yi, zf = z - zi;
+        const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf); let r = 0;
+        for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) for (let c = 0; c < 2; c++) r += hash(xi + a, yi + b, zi + c, sd) * (a ? u : 1 - u) * (b ? v : 1 - v) * (c ? w : 1 - w);
+        return r; };
+      const fbm = (x, y, z, sd) => { let f = 0, amp = 0.5, fr = 1; for (let o = 0; o < 5; o++) { f += amp * vnoise(x * fr, y * fr, z * fr, sd + o * 7); amp *= 0.5; fr *= 2.1; } return f; };
+      function shape(sd, ws, hs) {
+        const g = new THREE.SphereGeometry(1, ws, hs), pa = g.attributes.position, v = new THREE.Vector3();
+        const sx = 0.75 + hash(sd, 1, 2, 3) * 0.6, sy = 0.65 + hash(sd, 4, 5, 6) * 0.5, sz = 0.8 + hash(sd, 7, 8, 9) * 0.5;
+        const craters = Array.from({ length: 5 + Math.floor(hash(sd, 9, 9, 9) * 6) }, (_, i) => ({ d: new THREE.Vector3(hash(sd, i, 1, 0) - 0.5, hash(sd, i, 2, 0) - 0.5, hash(sd, i, 3, 0) - 0.5).normalize(), r: 0.15 + hash(sd, i, 4, 0) * 0.3 }));
+        for (let i = 0; i < pa.count; i++) {
+          v.fromBufferAttribute(pa, i); const n = v.clone().normalize();
+          let h = 1 + (fbm(n.x * 1.6 + sd, n.y * 1.6, n.z * 1.6, sd) - 0.5) * 0.85 + (fbm(n.x * 6, n.y * 6, n.z * 6, sd + 50) - 0.5) * 0.12;
+          craters.forEach(c => { const d = n.distanceTo(c.d) / c.r; if (d < 1.25) h += d < 1 ? -0.09 * (1 - d * d) : 0.035 * (1.25 - d) * 4 * (d - 1); });
+          pa.setXYZ(i, n.x * h * sx, n.y * h * sy, n.z * h * sz);
+        }
+        g.computeVertexNormals(); g.computeBoundingSphere(); return g;
+      }
+      const near = Array.from({ length: 10 }, (_, i) => shape(i + 1, 160, 120));   // ~38k tris each
+      const far = Array.from({ length: 6 }, (_, i) => shape(i + 31, 72, 54));      // ~7.7k tris each
+      const kinds = ['basalt', 'basalt', 'iron', 'carbon', 'sulfur', 'basalt', 'iron', 'carbon'];
+      asteroids.forEach((a, i) => {
+        const r = a.userData.radius || 10, d = a.position.length();
+        a.geometry = (d > 1300 ? far : near)[i % (d > 1300 ? far.length : near.length)];
+        a.material = i % 5 === 0 ? MAT.ice : MAT[kinds[(i * 7 + 3) % kinds.length]];
+        a.scale.setScalar(r); a.userData.ownMat = false; a.castShadow = a.receiveShadow = true;
+      });
+      window.NOVA_ASTEROID_MATS = MAT;
+      console.log('[asteroids] boosted', asteroids.length, 'rocks');
     }
     let nmLast = performance.now();
     function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; novaRunTicks(dt); NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); try { if (!isLightspeedActive) nfmTick(); } catch (e) { } nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); novaVfxTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
