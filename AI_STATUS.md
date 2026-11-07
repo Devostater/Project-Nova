@@ -18,7 +18,7 @@ On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Codex (`codex/salvage-tractor`) for A2 salvage integration; only the A2 areas are claimed.
+**Held by:** Nobody; Codex released the A2 areas for review on draft PR #16.
 
 ## Active claims
 
@@ -27,17 +27,19 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| Codex | A2 Salvage drops + tractor | codex/salvage-tractor | `public/modules/salvage.js`; salvage target, tick, `nfKill` hook, cargo, and TRACTOR control in all three game files | Active | — |
+
 
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
-| — | — | — | — |
+| Codex | A2 Salvage drops + tractor | [Draft PR #16](https://github.com/Devostater/Project-Nova/pull/16) | Waiting for review; based on latest main after PR #11/#12 merged. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A2 Salvage drops + tractor** ([draft PR #16](https://github.com/Devostater/Project-Nova/pull/16), branch `codex/salvage-tractor`). Added capped drifting pods, grey radar/COMMS contacts, the 500 m TRACTOR control, salvage cargo and heat cores; all three game files are synced. How to test: in 2D, with gamepad, and on tablet, destroy a ship, select the grey contact in COMMS/radar, press TRACTOR, then confirm cargo updates; in Quest, tap the contact and physical TRACTOR button. Checks not run: browser runtime, automated checks, gamepad, tablet and Quest. Next: Claude reviews this queue PR; A3 is next.
 
 - **Claude: cockpit tweaks** (`claude/cockpit-tweaks`, owner requests). The right-dash 3D radar moved inward (x 0.28 → 0.19, slightly lower and closer); right side panel scale 0.86 → 1.0 (left unchanged); the music page has 5 stations (NOVA-1 FM soundtrack with AUTO, SYNTHWAVE 88, DEEP SPACE RADIO, PIRATE RADIO, OBI'S MIX), 6 new synth tracks with per-track waveform and gain, and working touch controls on the right panel (◀/▶ station, PREV / PLAY-PAUSE / NEXT, VOL −/+, RANDOM, AUTO; the right panel had no pad hit zones, so the old music pads couldn't be pressed). Warp: 600 star streaks in a 12–80 m tube that stretch with warp and fly past per star (`novaWarpFxTick`); GPT's starfield dots were sub-pixel and moved as one block. Checks: `node --check`; headless Chromium: music API, stations, track step and volume work, the music page renders, the right panel is at 1.0, warp streaks render, no errors. Warp and radar reach not checked on Quest.
 - **Claude: Alpha 1.3, GPT cockpit work merged with Alpha 1.2** (`claude/merge-gpt-cockpit`). GPT's 18 commits on `main` (crew/fleet tab, VR-sized SYSTEM buttons, joystick deadzone, throttle grip, COMMS→chat, right-dash radar with split zoom, clean warp starfield, Obi gated behind purchase, cargo scrolling, objective shortcut) started from 74ed760. Three-way merged onto Alpha 1.2. All non-panel Alpha 1.2 work is kept (Gemini VFX pack, shield hex, gamepad/tablet, laser impacts, explosion caps, clean sky). In the panel section (`const NP = {` to `nmkIcon`), **GPT's version is taken whole**, so AI Studio's STORY tab and SYSTEM card grid are dropped, with no dangling references. Claude's unfinished LEFT/HIGH radar toggle is shelved (GPT's right-dash placement kept; stash `claude radar-toggle WIP`). All three files are synced; version Alpha 1.3, cache `nova-alpha-1.3`. Checks: `node --check`; headless Chromium from the repo root and `public/` (Alpha 1.3, panels built, every VFX texture loads, no 404s or errors). Not tested on Quest.
