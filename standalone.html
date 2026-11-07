@@ -14883,8 +14883,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       if (!NP.panels.length) {
         if (!novaConsoles[0] || !novaConsoles[1]) return;
         const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'CREW CHANNEL' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
-          holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => npTab(P, 0) }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
-            { g: '➤', l: 'WARP', c: '#b266ff', fn: () => window.novaNavToggle() }, { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) }] });
+          holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_COMMS)) }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
+            { g: '✈', l: 'FLIGHT', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_FLIGHT)) }, { g: '◎', l: 'OBJECTIVE', c: '#ffcc00', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_OBJ)) },
+            { g: '➤', l: 'WARP', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_WARP)) }, { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) }] });
         const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SYSOPT, NP_MUSIC], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
           holo: [{ g: '\u2316', l: 'COMBAT', c: '#ff3355', fn: P => npTab(P, 0) }, { g: '\u25A6', l: 'CARGO', c: '#00ff99', fn: P => npTab(P, 1) }, { g: '\u2699', l: 'SYSTEM / OPTIONS', c: '#ffd24a', fn: P => npTab(P, 2) },
             { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }] });
