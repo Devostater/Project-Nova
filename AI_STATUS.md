@@ -27,17 +27,19 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| Codex | A3 Enemy missile trails + explosion upgrade | `codex/fx-ultra` | `public/modules/fx_ultra.js` only | Active | — |
+
 
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
-| — | — | — | — |
+| Codex | A3 missile trails + explosion VFX | [Draft PR #19](https://github.com/Devostater/Project-Nova/pull/19) | Module PR; A4 loader/gameplay event wiring remains next. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A3 Enemy missile trails + explosion upgrade** ([draft PR #19](https://github.com/Devostater/Project-Nova/pull/19), branch `codex/fx-ultra`). Added `public/modules/fx_ultra.js` with capped missile smoke/spark trails, pooled shockwave rings, debris and light flashes; graphic tiers reduce effects for Quest, and pooled objects/materials are created once in `init`. How to test: in 2D/gamepad/tablet trigger missile launch/impact and ship destruction at LOW/MID/HIGH/ULTRA; in Quest verify LOW/MID caps and frame pacing. Checks not run: runtime, automated checks, desktop input modes, tablet or Quest. Integration note: the `nova` loader/events are not in main yet; A4 needs to load this module and wire the missile events. Next: A4 module API + loader.
 
 - **Claude: salvage drops + TRACTOR (AI_QUEUE A2)** (`claude/modules-salvage`). Faction kills drop salvage pods (fighters 25%, big ships 60% ×2, bosses 100% ×3; at most 8 in space; despawn after 120 s). Contents: salvage, credits, ore, missiles, flares, shield caps, or a **heat core** (rare; more likely from big ships; counted in `localStorage.novaHeatCores`). Pods appear as grey `salvage` contacts in the target cycle, holo-radar and COMMS list. Lock one, then **TRACTOR** (a COMMS pad that appears only when a pod is locked, or **G** on keyboard) pulls it in within 500 m. Test hooks: `novaTest.salvage()`, `.lockSalvage()`, `.salvageState()`. Built inline, not yet as a module (A4 still open). Checks: `node --check`; headless spawn → lock → tractor stows a heat core, no errors. Not checked: COMMS-list display on Quest, gamepad binding.
 - **Claude: cockpit tweaks** (`claude/cockpit-tweaks`, owner requests). The right-dash 3D radar moved inward (x 0.28 → 0.19, slightly lower and closer); right side panel scale 0.86 → 1.0 (left unchanged); the music page has 5 stations (NOVA-1 FM soundtrack with AUTO, SYNTHWAVE 88, DEEP SPACE RADIO, PIRATE RADIO, OBI'S MIX), 6 new synth tracks with per-track waveform and gain, and working touch controls on the right panel (◀/▶ station, PREV / PLAY-PAUSE / NEXT, VOL −/+, RANDOM, AUTO; the right panel had no pad hit zones, so the old music pads couldn't be pressed). Warp: 600 star streaks in a 12–80 m tube that stretch with warp and fly past per star (`novaWarpFxTick`); GPT's starfield dots were sub-pixel and moved as one block. Checks: `node --check`; headless Chromium: music API, stations, track step and volume work, the music page renders, the right panel is at 1.0, warp streaks render, no errors. Warp and radar reach not checked on Quest.
