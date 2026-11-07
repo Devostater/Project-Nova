@@ -6381,7 +6381,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // ── Interactive Throttle Lever (Alpha 0.2 Palm-Sized Ergonomics & 5 Speed Notches) ──
     const throttleGroup = new THREE.Group();
-    throttleGroup.visible = NOVA_TOUCH_DEVICE;
+    throttleGroup.visible = true;
     throttleGroup.position.set(-0.36, 0.16, -0.20);
     throttleGroup.scale.setScalar(1.92);
     cockpit.add(throttleGroup);
@@ -15969,11 +15969,10 @@ const GAME_VERSION = 'Alpha 1.4';
     const NP_SHIP_ROWS = [
       [novaCruise.active ? 'CRUISE: ON (J)' : 'CRUISE: OFF (J)', '#66ffcc', () => novaCruiseToggle()],
       ['SEAT UP', '#00e5ff', () => adjustSeat(0.02)], ['SEAT DOWN', '#00e5ff', () => adjustSeat(-0.02)],
-      ['LAUNCH DRONE WING', '#ff6644', () => novaWingLaunch()], ['SITUATION REPORT', '#33ff99', () => { const a = npFindAct('SITUATION REPORT'); if (a) a(); }],
-      ['STORY INTRO', '#b266ff', () => nkIntroStart(true)], ['QUEST LOG', '#ffcc00', () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); }],
+      ['QUEST LOG', '#ffcc00', () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); }],
       ['3D RADAR: UPPER RIGHT', '#00e5ff', () => novaRadarPositionToggle()],
-      ['RADAR NAMES: ON', '#66ddff', () => { NH.names = !NH.names; NP_SHIP_ROWS[8][0] = 'RADAR NAMES: ' + (NH.names ? 'ON' : 'OFF'); }],
-      ['LABELS: BELOW', '#66ddff', () => { NH.labelAbove = !NH.labelAbove; NP_SHIP_ROWS[9][0] = 'LABELS: ' + (NH.labelAbove ? 'ABOVE' : 'BELOW'); }]];
+      ['RADAR NAMES: ON', '#66ddff', () => { NH.names = !NH.names; NP_SHIP_ROWS[5][0] = 'RADAR NAMES: ' + (NH.names ? 'ON' : 'OFF'); }],
+      ['LABELS: BELOW', '#66ddff', () => { NH.labelAbove = !NH.labelAbove; NP_SHIP_ROWS[6][0] = 'LABELS: ' + (NH.labelAbove ? 'ABOVE' : 'BELOW'); }]];
     // OPTIONS tab (after MUSIC): view mode, recenter, save / load, volume, graphics, exit
     const npOptRows = () => [
       [(typeof passthroughActive !== 'undefined' && passthroughActive) ? 'SWITCH TO FULL VR' : 'SWITCH TO MIXED REALITY', '#ff66cc', () => togglePassthrough()],
@@ -15982,7 +15981,6 @@ const GAME_VERSION = 'Alpha 1.4';
       ['MASTER VOLUME ' + Math.round(NOPT.o.master * 100) + '%', '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }],
       ['JOYSTICK DEADZONE ' + Math.round((NOPT.o.deadzone ?? 0.12) * 100) + '%', '#33ff99', () => { const D = [0.05, 0.08, 0.12, 0.16, 0.20]; const i = D.findIndex(v => Math.abs(v - (NOPT.o.deadzone ?? 0.12)) < 0.01); NOPT.o.deadzone = D[(i + 1) % D.length]; noptSave(); showToast('JOYSTICK DEADZONE ' + Math.round(NOPT.o.deadzone * 100) + '%', 1800, '#33ff99'); }],
       ['GRAPHICS ' + String(NOPT.o.gfx).toUpperCase(), '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); showToast('GRAPHICS ' + NOPT.o.gfx.toUpperCase() + (renderer.xr.isPresenting ? ' (VR resolution changes next launch)' : ''), 2000, '#b266ff'); }],
-      [(localStorage.getItem('novaEndingSeen') === '1') ? 'WATCH ENDING & CREDITS' : 'STORY INTRO', '#b266ff', () => { if (localStorage.getItem('novaEndingSeen') === '1') nrmPlayEnding(); else nkIntroStart(true); }],
       ['EXIT GAME', '#ff3344', () => npExitArm()]];
     const NP_OPT = { name: 'OPTIONS', c: '#9fc3d8', hint: 'touch a row · EXIT GAME needs a second touch · key bindings are in the main menu OPTIONS',
       row: (P, i) => { const r = npOptRows()[i]; if (r) { try { sound.switchClick(); } catch (e) { } r[2](P); } },
@@ -16088,7 +16086,7 @@ const GAME_VERSION = 'Alpha 1.4';
       row: (P, i) => { const r = NP_SHIP_ROWS[i]; if (r) r[2](P); },
       pads: [{ l: 'LOG', c: '#ffcc00', fn: () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); } }, { l: 'CREW', c: '#ff88cc', fn: () => { try { ncTalk(); } catch (e) { } } }],
       draw: (x, P) => {
-        NP_SHIP_ROWS[7][0] = '3D RADAR: ' + (NH.moved ? 'CENTER' : 'UPPER RIGHT');
+        NP_SHIP_ROWS[4][0] = '3D RADAR: ' + (NH.moved ? 'CENTER' : 'UPPER RIGHT');
         NP_SHIP_ROWS.forEach((r, i) => { const Y = 52 + i * 44; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'; x.fillRect(8, Y, 392, 42); x.fillStyle = r[1]; x.fillRect(8, Y, 6, 42); npText(x, r[0], 26, Y + 29, 'bold 21px monospace', r[1], 360); });
         try { npText(x, 'SYSTEM', 430, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, novaShipDef().name, 430, 120, 'bold 28px monospace', '#e9fbff', 580); } catch (e) { }
         try { npText(x, 'SEAT HEIGHT', 430, 170, 'bold 20px monospace', '#9fc3d8'); npText(x, (seatOffset >= 0 ? '+' : '') + Math.round(seatOffset * 100) + ' cm', 430, 202, 'bold 26px monospace', '#00e5ff'); } catch (e) { }
