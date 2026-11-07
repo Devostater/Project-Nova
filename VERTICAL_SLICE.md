@@ -14,6 +14,10 @@ One complete, polished 25–30 minute session that shows every pillar of Project
 | 8 | Return, sell cores at the Lantern, the crew comments on your choice | Economy / companions | partial |
 | 9 | End card: flight record, morality, stats, "to be continued" | Progression | ❌ A14 |
 
+**Acceptance:** playable start to finish in 2D, gamepad and VR without errors; saves and resumes; no placeholder text; ULTRA looks storefront-ready.
+
+Rules: as in `AI_QUEUE.md` (latest `main`, own branch plus a draft PR, three game files in sync, LF line endings, questions in `OWNER_QUESTIONS.md` with a default, and a handoff in `AI_STATUS.md`).
+
 ## Follow-on social-space slice: first cantina
 
 This slice extends the Cold Run return leg into a believable station stop. It reuses the owner's bar, booth, stool, glasses and bottle assets, with the existing alien-pilot model as the temporary bartender. The layout is deliberately modular so later stations can reuse the room logic with different lighting, emblems, NPCs and services.
@@ -47,7 +51,3 @@ Use a **16 m wide (X) × 22 m deep (Z) × 6 m high** room. The player enters fro
 - The bartender uses the alien-pilot placeholder without changing the source model; later bartender/recruit models can replace it through named spawn anchors.
 - MAX/ULTRA keeps the hero materials and lighting target. Quest receives LOD/instancing/culling, not a reduction of the source-quality art.
 - No per-frame geometry/material creation, no lost cockpit state, no trapped FPS mode, and no terminal that steals flight input after exit.
-
-**Acceptance:** playable start to finish in 2D, gamepad and VR without errors; saves and resumes; no placeholder text; ULTRA looks storefront-ready.
-
-Rules: as in `AI_QUEUE.md` (latest `main`, own branch plus a draft PR, three game files in sync, LF line endings, questions in `OWNER_QUESTIONS.md` with a default, and a handoff in `AI_STATUS.md`).
