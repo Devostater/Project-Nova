@@ -4,7 +4,7 @@
 
 ## ▶ Owner away: work from `AI_QUEUE.md`
 
-Each AI takes the next unclaimed card in its lane (A = GPT/Codex, B = Gemini, C = AI Studio), claims it under Active claims, works on its own branch and opens a draft PR. Claude's open PR: #11 (cockpit tweaks), which is waiting for the owner.
+Each AI takes the next unclaimed card in its lane (A = GPT/Codex, B = Gemini, C = AI Studio), claims it under Active claims, works on its own branch and opens a draft PR. Claude's PR #11 is merged.
 
 ## ⚠ Read first: work from the latest GitHub `main`, never an old local copy
 
@@ -18,7 +18,7 @@ On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Claude (`claude/merge-gpt-cockpit`) until the Alpha 1.3 PR merges.
+**Held by:** Nobody; Codex released the tablet HUD area in draft PR #21.
 
 ## Active claims
 
@@ -32,11 +32,13 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
-| — | — | — | — |
+| Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: tablet touch HUD visibility** ([draft PR #21](https://github.com/Devostater/Project-Nova/pull/21), branch `codex/tablet-touch-hud`). The DOM HUD overlay and version badge are hidden while tablet touch controls are active; auto device detection and manual toggle both update the state. All three game files are synchronized. How to test: on desktop compare controls off/on; on tablet enable and disable touch controls and confirm the HUD follows the state. Checks not run: browser runtime, automated, tablet, gamepad, Quest. Next: review PR #21.
 
 - **Codex + Claude: A3 missile trails + explosion upgrade** (`claude/fx-ultra-wire`, built on `codex/fx-ultra`). Codex wrote `public/modules/fx_ultra.js` (pooled trail and explosion particles, tiers low/mid/high/ultra, Quest forced to low) and ran out of usage before wiring it in. Claude loads it with a dynamic `import()` (copied to root `modules/` for the PC servers, added to the offline cache), feeds **live** missile positions every `nmFrame` (enemy `NF.msl` and player `activeMissiles`; velocity from frame-to-frame motion, because the module dead-reckons and homing missiles turn), stops trails on impact, and adds module explosions from `novaBoom` and missile impacts **except on the low/Quest tier**. Checks: `node --check` on both; headless root and public builds load tier HIGH, fire missiles and explosions, no errors. Not checked: the look in the headset.
 - **Claude: Alpha 1.4 demo polish** (`claude/demo-polish`). Heat cores are listed in CARGO and sellable at every market; the gamepad View/Back button triggers TRACTOR; version Alpha 1.4, cache `nova-alpha-1.4`; `TESTING.md` demo checklist. Audit: headless runs of both builds (all panel tabs, keys, salvage, music) showed **0 errors, warnings or 404s**. **Perf risk for Quest:** flight scene about **282 draw calls, 772k tris, 607 visible meshes, 365 materials, 5 lights** (budget about 150 calls / 300k tris). That's card A7: merge static cockpit meshes, share materials, LOD/cull distant ships and asteroids. Note: commit 6eeda36's message says it adds arena textures, but it only added the station logos.

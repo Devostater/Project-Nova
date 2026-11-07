@@ -31,6 +31,9 @@
       padding: 4px 10px; border-radius: 4px; z-index: 10;
     }
 
+    body.tablet-touch-active #hud-overlay,
+    body.tablet-touch-active #version-badge { display: none !important; }
+
     /* Status Toast */
     #status-toast {
       position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
@@ -7633,6 +7636,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const shouldShow = (tabletCtrl.userToggled ? tabletCtrl.active : isTouchDevice) && !renderer.xr.isPresenting;
       tabletCtrl.active = shouldShow;
       tcEl.style.display = shouldShow ? 'block' : 'none';
+      document.body.classList.toggle('tablet-touch-active', shouldShow);
       const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
       if (toggleBtn) {
         toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (shouldShow ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
@@ -7643,6 +7647,7 @@ const GAME_VERSION = 'Alpha 1.4';
       tabletCtrl.active = (typeof force === 'boolean') ? force : !tabletCtrl.active;
       const tcEl = document.getElementById('tablet-controller');
       if (tcEl) tcEl.style.display = tabletCtrl.active ? 'block' : 'none';
+      document.body.classList.toggle('tablet-touch-active', tabletCtrl.active);
       const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
       if (toggleBtn) toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (tabletCtrl.active ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
       showToast('Tablet Controller ' + (tabletCtrl.active ? 'ENABLED' : 'DISABLED'), 2000, '#00ffcc');
