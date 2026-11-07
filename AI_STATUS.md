@@ -51,7 +51,6 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
-| GPT/Codex | G2 faction emblems | `gpt/g2-faction-emblems` | Root emblem PNGs, mirrored `art/emblems/`, `OWNER_QUESTIONS.md`, AI_STATUS | Active | — |
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
 
 
@@ -59,6 +58,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
+| GPT/Codex | G2 faction emblem normalization | [Draft PR #42](https://github.com/Devostater/Project-Nova/pull/42) | Eight real 512px PNGs plus preserved emblem-02 source; owner mapping/conversion/loader-cleanup decisions recorded. |
 | Gemini | Missile-plume and thruster-glow textures | [Draft PR #33](https://github.com/Devostater/Project-Nova/pull/33) | Four image files only: root and public mirrors; owner approval required before merge. |
 | GPT/Codex | FPS flow, controls and helmet HUD | [Draft PR #38](https://github.com/Devostater/Project-Nova/pull/38) | Range exit, desktop/gamepad/Quest FPS input, helmet visor HUD, boarding lifecycle and drone combat coordinates; awaiting runtime review. |
 | GPT/Codex | Territories and campaign scope plan | [Draft PR #37](https://github.com/Devostater/Project-Nova/pull/37) | Planning only; proposed factions, territory simulation, news, traffic, cinematics and full-release checklist. |
@@ -67,6 +67,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **GPT/Codex: G2 faction emblems** ([draft PR #42](https://github.com/Devostater/Project-Nova/pull/42), branch `gpt/g2-faction-emblems`). Replaces the nine inconsistent root upload names with mirrored neutral `art/emblems/` paths. Eight sources were converted from mislabeled 1024px WebP to real 512×512 PNGs (`emblem_03`–`emblem_10`); the blocked ninth source is preserved losslessly as `emblem_02_source.webp` pending an owner-provided or approved source. Both service workers cache the pack. Q17 asks for faction mapping, Q18 asks permission before deleting stray root r170 Three.js files, and Q19 records the missing conversion. Checks: PNG signature/dimensions, root/public blob identity, service-worker parity, LF/conflict markers. Not tested: browser/offline cache or device runtime. No game HTML/module changes. Next: owner/Claude reviews #42; GPT starts G3 on a separate branch.
 
 - **GPT/Codex: FPS flow, controls, combat and helmet HUD** ([draft PR #38](https://github.com/Devostater/Project-Nova/pull/38), branch `gpt/fps-flow-hud`). Repairs the range EXIT door and all exit inputs; adds pointer-lock mouse look, keyboard/gamepad/Quest controller and hand input; adds a camera-mounted helmet visor HUD; unifies range/boarding entry and return; and places pooled drone combat in the correct interior coordinate space. Root/public copies of `fps_core.js`, `interior.js`, `fps_ai.js` and `boarding.js` match with LF endings. Static review only; browser, physical gamepad, tablet and Quest runtime were not tested. Next: play `?arena=range` and `?arena=boarding` in desktop/gamepad/Quest before merge.
 
