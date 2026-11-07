@@ -321,13 +321,25 @@ def build_high_poly_hero_weapon(col, mats):
     return gun_root
 
 def setup_studio_environment(col):
+    # 1. Single View Hero Perspective Camera
     cam_persp_data = bpy.data.cameras.new("Cam_Perspective_Hero")
     cam_persp_data.lens = 70
     cam_persp = bpy.data.objects.new("Cam_Perspective_Hero", cam_persp_data)
     cam_persp.location = (0.32, 0.30, 0.20)
     cam_persp.rotation_euler = (math.radians(65), 0, math.radians(132))
     col.objects.link(cam_persp)
-    bpy.context.scene.camera = cam_persp
+
+    # 2. Single View Orthographic Side Camera (Pure Profile)
+    cam_side_data = bpy.data.cameras.new("Cam_Side_Profile")
+    cam_side_data.type = 'ORTHO'
+    cam_side_data.ortho_scale = 0.32
+    cam_side = bpy.data.objects.new("Cam_Side_Profile", cam_side_data)
+    cam_side.location = (0.5, 0.02, -0.015)
+    cam_side.rotation_euler = (math.radians(90), 0, math.radians(90))
+    col.objects.link(cam_side)
+    
+    # Default to Side Profile for single-view inspection
+    bpy.context.scene.camera = cam_side
 
     # Key Light (Warm Key)
     light_key_data = bpy.data.lights.new("Light_Key", type='AREA')
@@ -398,7 +410,10 @@ def export_glb():
     shutil.copyfile(GLB_OUT_PATH, PUBLIC_GLB_OUT_PATH)
     print(f"[OK] Copied GLB to: {PUBLIC_GLB_OUT_PATH}")
 
-def render_preview_image(output_path):
+def render_preview_image(output_path, camera_name="Cam_Side_Profile"):
+    cam_obj = bpy.data.objects.get(camera_name)
+    if cam_obj:
+        bpy.context.scene.camera = cam_obj
     bpy.context.scene.render.engine = 'BLENDER_EEVEE'
     bpy.context.scene.render.resolution_x = 1920
     bpy.context.scene.render.resolution_y = 1080
@@ -406,7 +421,7 @@ def render_preview_image(output_path):
     bpy.context.scene.render.image_settings.file_format = 'JPEG'
     bpy.context.scene.render.image_settings.quality = 95
     bpy.ops.render.render(write_still=True)
-    print(f"[OK] Rendered 1080p Hero 3D preview: {output_path}")
+    print(f"[OK] Rendered {camera_name} preview: {output_path}")
 
 def main():
     clear_scene()
@@ -422,7 +437,12 @@ def main():
     print(f"[OK] Saved Blender master workspace: {BLEND_OUT_PATH}")
 
     export_glb()
-    render_preview_image(PREVIEW_OUT_PATH)
+    
+    # Render single-view profile
+    single_view_path = os.path.join(REPO_ROOT, "art_src", "weapons", "nova_fps_pistol_single_view.jpg")
+    render_preview_image(single_view_path, "Cam_Side_Profile")
+    # Also render perspective hero view
+    render_preview_image(PREVIEW_OUT_PATH, "Cam_Perspective_Hero")
 
 if __name__ == "__main__":
     main()
