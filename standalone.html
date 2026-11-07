@@ -5155,7 +5155,6 @@ const GAME_VERSION = 'Alpha 1.4';
       }
       const now = performance.now();
       if (now - lastMissileLaunchTime < 380) return;
-      lastMissileLaunchTime = now;
 
       // FIRE never changes the arm state. Only the dedicated ARM / safety-cover control can arm.
       if (!isMissileLidOpen) {
@@ -5171,6 +5170,7 @@ const GAME_VERSION = 'Alpha 1.4';
         return;
       }
 
+      lastMissileLaunchTime = now;
       missileAmmo--;
       sound.missileLaunch();
       bigRedBtn.position.y = 0.020;
@@ -15236,6 +15236,12 @@ const GAME_VERSION = 'Alpha 1.4';
       mk('TGT BOX (CONSOLE)', new THREE.Vector3(-0.016, 0.331, -0.097), 0.0095, () => novaToggleTgtBox(), null, '#66ffee');
       mk('FLARES (CONSOLE)', new THREE.Vector3(0.015, 0.331, -0.097), 0.0095, act('FLARES'), null, '#ff8833');
       [['BOX', -0.016, '#66ffee'], ['FLARE', 0.015, '#ff8833']].forEach(([t, sx, col]) => { const c = cap(t, col, 0.03, 0.0075); c.position.set(sx, 0.331, -0.097).addScaledVector(down, -0.0165).addScaledVector(n, 0.004); NK.wrap.add(c); });
+      // The replacement 3D missile dome can have an offset mesh origin. Keep a generous,
+      // model-independent hit target centered on the visible FIRE button for VR pokes/rays.
+      const fireHit = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 8), hitMat);
+      fireHit.position.set(0, 0.281, -0.067).addScaledVector(n, 0.006); NK.wrap.add(fireHit);
+      registerCockpitButton(fireHit, 'FIRE MISSILE (CONSOLE)', () => fireHomingMissile(), 0.07);
+      { const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true; }
       const fc = cap('FIRE', '#ff3344', 0.04, 0.01); fc.position.set(0, 0.281, -0.067).addScaledVector(down, 0.034).addScaledVector(n, 0.004); NK.wrap.add(fc);
     }
     // centre pedestal between the knees: a portrait flight-deck screen with three touch pads
@@ -15334,7 +15340,7 @@ const GAME_VERSION = 'Alpha 1.4';
       h.position.set(0, 0.281, -0.067).addScaledVector(n, 0.003);
       h.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
       h.scale.multiplyScalar(0.8);
-      e.radius = 0.04; NKS.fireMoved = true;
+      e.radius = 0.07; NKS.fireMoved = true;
       try { missileConsole.visible = false; } catch (x) { }             // floor block + safety cover removed; FIRE lives on the console now
       NKS.fireMats = []; h.traverse(o => { if (o.isMesh && o.material && o.material.emissive) { o.material = o.material.clone(); NKS.fireMats.push(o.material); } });
       console.log('[NOVA13] fire button moved to the centre console');
