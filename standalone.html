@@ -14559,8 +14559,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         registerCockpitButton(m, label, () => { fn(); P.drawT = 0; }, 0.012); const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
       };
       const TW = cfg.tabs.length > 4 ? 158 : 176; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 4 + i * TW, -40, TW, 92, () => npTab(P, i)));
-      for (let i = 0; i < 8; i++) hit(cfg.id + ' ROW ' + (i + 1), 8, 50 + i * 44, 408, 44, () => { const t = cfg.tabs[P.tab]; if (t.row) t.row(P, i); });
+      for (let i = 0; i < 8; i++) hit(cfg.id + ' ROW ' + (i + 1), 8, 50 + i * 44, 408, 44, () => { const t = cfg.tabs[P.tab]; if (t !== NP_SYSOPT && t.row) t.row(P, i); });
       if (cfg.id === 'R') {
+        for (let i = 0; i < 8; i++) hit('R SYSOPT TILE ' + (i + 1), 8 + (i % 2) * 504, 52 + Math.floor(i / 2) * 88, 496, 80, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) NP_SYSOPT.row(P, i); });
         hit('R SCROLL PREV', 700, 410, 150, 46, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.max(0, P.scroll - 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.max(0, P.scroll - 1); P.drawT = 0; });
         hit('R SCROLL NEXT', 860, 410, 150, 46, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.min(NP_SYSOPT.rows().length - 8, P.scroll + 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.min(Math.max(0, nmkRows(nmkNear()).length - 8), P.scroll + 1); P.drawT = 0; });
         hit('R EMERGENCY MISSILES', 430, 342, 580, 70, () => { if (P.cfg.tabs[P.tab] === NP_WPN) npEmergencyMissileResupply(); });
@@ -14811,13 +14812,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       rows: () => [...NP_SHIP_ROWS, ...npOptRows()],
       draw: (x, P) => {
         const rows = NP_SYSOPT.rows(), max = Math.max(0, rows.length - 8); P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
-        for (let i = 0; i < 8; i++) { const r = rows[P.scroll + i]; if (!r) break; const Y = 52 + i * 44; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'; x.fillRect(8, Y, 520, 42); x.fillStyle = r[1]; x.fillRect(8, Y, 6, 42); npText(x, r[0], 26, Y + 29, 'bold 21px monospace', r[1], 490); }
-        npText(x, 'SYSTEM + OPTIONS', 570, 92, 'bold 24px monospace', '#9fc3d8');
-        npText(x, 'CONTROL ' + (P.scroll + 1) + '–' + Math.min(rows.length, P.scroll + 8) + ' / ' + rows.length, 570, 138, 'bold 22px monospace', '#00e5ff');
-        npText(x, 'Use the forward/back arrows below to scroll.', 570, 182, '20px monospace', '#7fb6d0', 420);
-        npText(x, '3D RADAR: ' + (NH.moved ? 'CENTER COCKPIT' : 'UPPER RIGHT DASH'), 570, 240, 'bold 20px monospace', '#ffd24a', 420);
-        let sv = null; try { sv = JSON.parse(localStorage.getItem('novaSave1') || 'null'); } catch (e) { }
-        npText(x, 'SAVE SLOT: ' + (sv ? sv.sum : 'empty'), 570, 296, '20px monospace', sv ? '#33ff99' : '#5f7d95', 420);
+        for (let i = 0; i < 8; i++) { const r = rows[P.scroll + i]; if (!r) break; const col = i % 2, row = Math.floor(i / 2), X = 8 + col * 504, Y = 52 + row * 88;
+          x.fillStyle = 'rgba(3,18,32,0.94)'; x.fillRect(X, Y, 496, 80); x.strokeStyle = r[1]; x.lineWidth = 4; x.strokeRect(X + 2, Y + 2, 492, 76);
+          x.fillStyle = r[1]; x.fillRect(X + 10, Y + 10, 8, 60); x.fillRect(X + 24, Y + 10, 5, 18); x.fillRect(X + 24, Y + 52, 5, 18);
+          npText(x, r[0], X + 46, Y + 49, 'bold 20px monospace', r[1], 430);
+        }
         npText(x, '◀ PREV', 730, 432, 'bold 19px monospace', '#00e5ff'); npText(x, 'NEXT ▶', 900, 432, 'bold 19px monospace', '#00e5ff');
       } };
     const NPX = { arm: 0, rc: null };
