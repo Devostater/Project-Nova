@@ -15780,7 +15780,7 @@ const GAME_VERSION = 'Alpha 1.4';
           hit('R SCROLL PREV', 520, 410, 240, 66, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.max(0, P.scroll - 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.max(0, P.scroll - 1); P.drawT = 0; }),
           hit('R SCROLL NEXT', 770, 410, 240, 66, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_SYSOPT) P.scroll = Math.min(Math.max(0, NP_SYSOPT.rows().length - 4), P.scroll + 1); else if (T === NP_CARGO && nmkNear()) P.scroll = Math.min(Math.max(0, nmkRows(nmkNear()).length - NMK_VIS), P.scroll + 1); P.drawT = 0; })
         ];
-        P.emergencyHit = hit('R EMERGENCY MISSILES', 430, 342, 580, 70, () => { if (P.cfg.tabs[P.tab] === NP_WPN) npEmergencyMissileResupply(); });
+        P.emergencyHit = hit('R EMERGENCY MISSILES', 8, 342, 1002, 70, () => { if (P.cfg.tabs[P.tab] === NP_WPN) npEmergencyMissileResupply(); });
       }
       if (cfg.id !== 'R') for (let i = 0; i < 4; i++) hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); });
       // holographic buttons floating over the console's physical button row
@@ -15967,15 +15967,15 @@ const GAME_VERSION = 'Alpha 1.4';
         npText(x, `${missileAmmo} / ${cap}`, 200, 206, 'bold 30px monospace', '#ffd24a');
         npBar(x, 20, 252, 380, 22, cargoFlares / 4, '#ff8833', 'FLARES ' + cargoFlares + ' / 4');
         npBar(x, 20, 312, 380, 22, cargoShieldCaps / 4, '#33bbff', 'SHIELD CAPS ' + cargoShieldCaps + ' / 4');
-        npText(x, 'FIRE MODE ' + (window.NFM ? NFM.modes[NFM.i] : 'AUTO'), 20, 372, 'bold 22px monospace', '#ff5566');
-        x.fillStyle = 'rgba(255,45,68,0.24)'; x.fillRect(430, 342, 580, 70); x.strokeStyle = '#ff4455'; x.lineWidth = 4; x.strokeRect(430, 342, 580, 70);
-        npText(x, '⚠ EMERGENCY MISSILE RESUPPLY', 720, 385, 'bold 26px monospace', '#ff7788');
-        npTgtInfo(x, 430, 52, 580);
+        npText(x, 'FIRE MODE', 430, 86, 'bold 20px monospace', '#9fc3d8');
+        npText(x, window.NFM ? NFM.modes[NFM.i] : 'AUTO', 430, 126, 'bold 34px monospace', '#ff5566', 560);
         // nearest threats (from the COMMS list, hostiles only)
-        npText(x, 'THREATS', 430, 214, 'bold 20px monospace', '#9fc3d8');
+        npText(x, 'THREATS', 430, 174, 'bold 20px monospace', '#9fc3d8');
         const th = ((NP.panels[0] && NP.panels[0].list) || []).filter(c => c.isHostile).slice(0, 3);
-        if (!th.length) npText(x, 'none in 4 km', 430, 246, '22px monospace', '#33ff99');
-        th.forEach((c, i) => { npText(x, '● ' + c.name, 430, 246 + i * 32, 'bold 21px monospace', '#ff6677', 430); x.textAlign = 'right'; npText(x, npDist(c.d), 1010, 246 + i * 32, '20px monospace', '#ffd24a'); x.textAlign = 'left'; });
+        if (!th.length) npText(x, 'none in 4 km', 430, 208, '22px monospace', '#33ff99');
+        th.forEach((c, i) => { npText(x, '● ' + c.name, 430, 208 + i * 34, 'bold 21px monospace', '#ff6677', 430); x.textAlign = 'right'; npText(x, npDist(c.d), 1010, 208 + i * 34, '20px monospace', '#ffd24a'); x.textAlign = 'left'; });
+        x.fillStyle = 'rgba(255,45,68,0.24)'; x.fillRect(8, 342, 1002, 70); x.strokeStyle = '#ff4455'; x.lineWidth = 4; x.strokeRect(8, 342, 1002, 70);
+        x.textAlign = 'center'; npText(x, '⚠ EMERGENCY MISSILE RESUPPLY', 509, 385, 'bold 26px monospace', '#ff7788'); x.textAlign = 'left';
       } };
     function npEmergencyMissileResupply() {
       const cap = novaMslCap(); if (missileAmmo >= cap) { showToast('MISSILES ALREADY FULL.', 1700, '#88aacc'); return; }
