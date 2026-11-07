@@ -96,7 +96,6 @@ export function init(nova = {}) {
   const particleCount = quality === 'ultra' ? 300 : quality === 'high' ? 150 : 60;
   const positions = new Float32Array(particleCount * 3);
   const colors = new Float32Array(particleCount * 3);
-  const sizes = new Float32Array(particleCount);
   const particles = [];
   for (let i = 0; i < particleCount; i++) {
     particles.push({ active: false, age: 0, life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, size: 0.1 });
@@ -117,10 +116,8 @@ export function init(nova = {}) {
   scene.add(points);
 
   const missiles = new Map();
-  const tmpPosition = new THREE.Vector3();
-  const tmpScale = new THREE.Vector3();
-  const tmpRotation = new THREE.Euler();
   let trailClock = 0;
+  let activeTrailParticles = 0;
   let boomCursor = 0;
   let ringCursor = 0;
   let debrisCursor = 0;
@@ -137,11 +134,22 @@ export function init(nova = {}) {
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       if (p.active) continue;
-      p.active = true; p.age = 0; p.life = life;
+      p.active = true; p.age = 0; p.life = life; p.kind = 'burst';
       p.x = x; p.y = y; p.z = z; p.vx = vx; p.vy = vy; p.vz = vz; p.size = size;
       return true;
     }
     return false;
+  }
+  function trailParticle(x, y, z, vx, vy, vz, life, size) {
+    if (activeTrailParticles >= cfg.trails) return;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      if (p.active) continue;
+      p.active = true; p.age = 0; p.life = life; p.kind = 'trail';
+      p.x = x; p.y = y; p.z = z; p.vx = vx; p.vy = vy; p.vz = vz; p.size = size;
+      activeTrailParticles++;
+      return;
+    }
   }
   function missileStart(id, position, velocity) {
     if (disposed || id == null) return;
@@ -202,9 +210,10 @@ export function init(nova = {}) {
     if (trailClock >= 0.045) {
       trailClock %= 0.045;
       for (const m of missiles.values()) {
+        m.x += m.vx * delta; m.y += m.vy * delta; m.z += m.vz * delta;
         const speed = Math.hypot(m.vx, m.vy, m.vz) || 1;
         const life = cfg.trailLife;
-        particle(m.x, m.y, m.z, -m.vx / speed * 0.12, -m.vy / speed * 0.12, -m.vz / speed * 0.12, life, 0.1 + speed * 0.006);
+        trailParticle(m.x, m.y, m.z, -m.vx / speed * 0.12, -m.vy / speed * 0.12, -m.vz / speed * 0.12, life, 0.1 + speed * 0.006);
       }
     }
     let drawCount = 0;
@@ -212,10 +221,9 @@ export function init(nova = {}) {
       const p = particles[i];
       if (!p.active) continue;
       p.age += delta;
-      if (p.age >= p.life) { p.active = false; continue; }
+      if (p.age >= p.life) { if (p.kind === 'trail') activeTrailParticles--; p.active = false; continue; }
       const fade = 1 - p.age / p.life;
       positions[drawCount * 3] = p.x; positions[drawCount * 3 + 1] = p.y; positions[drawCount * 3 + 2] = p.z;
-      sizes[drawCount] = p.size * (1.4 - fade * 0.4);
       p.x += p.vx * delta; p.y += p.vy * delta; p.z += p.vz * delta;
       p.vx *= 0.992; p.vy *= 0.992; p.vz *= 0.992;
       drawCount++;
