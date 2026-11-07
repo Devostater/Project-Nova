@@ -108,7 +108,7 @@ export function init(nova = {}) {
   pointsGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   pointsGeo.setDrawRange(0, 0);
   const pointMat = new THREE.PointsMaterial({
-    map: spark, size: quality === 'ultra' ? 0.18 : 0.12, vertexColors: true,
+    map: glow, size: quality === 'ultra' ? 0.24 : 0.16, vertexColors: true,
     transparent: true, opacity: 0, blending: additive, depthWrite: false, sizeAttenuation: true
   });
   const points = new THREE.Points(pointsGeo, pointMat);
@@ -206,11 +206,13 @@ export function init(nova = {}) {
   function tick(dt) {
     if (disposed) return;
     const delta = Math.min(0.05, Math.max(0, Number(dt) || 0));
+    for (const m of missiles.values()) {
+      m.x += m.vx * delta; m.y += m.vy * delta; m.z += m.vz * delta;
+    }
     trailClock += delta;
     if (trailClock >= 0.045) {
       trailClock %= 0.045;
       for (const m of missiles.values()) {
-        m.x += m.vx * delta; m.y += m.vy * delta; m.z += m.vz * delta;
         const speed = Math.hypot(m.vx, m.vy, m.vz) || 1;
         const life = cfg.trailLife;
         trailParticle(m.x, m.y, m.z, -m.vx / speed * 0.12, -m.vy / speed * 0.12, -m.vz / speed * 0.12, life, 0.1 + speed * 0.006);
