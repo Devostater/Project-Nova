@@ -33,11 +33,14 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
+| Codex | A11 on-foot controls | [Draft PR #27](https://github.com/Devostater/Project-Nova/pull/27) | Ready for this pass to add `fps_core.js` after the main range module. |
 | Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A11 on-foot controls** ([draft PR #27](https://github.com/Devostater/Project-Nova/pull/27), branch `codex/a11-fps-controls`). Adds mirrored `fps_core.js` for pistol/target hits, player HP and shield feedback, WASD/gamepad/XR controller and hand-tracking input; fixes pinch toggle and reuses per-frame scratch vectors. A4 loader and the PR #28 range are now in main; this integration pass loads `fps_core.js` after `interior.js`. How to test: 2D WASD/click targets; gamepad left stick/right trigger; Quest controller trigger/left stick and hand pinch/fist movement, then confirm Escape/door exits restore the cockpit. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. Next: A5 enemy drones.
 
 - **Codex: A4 Module system** ([draft PR #24](https://github.com/Devostater/Project-Nova/pull/24), branch `codex/a4-module-system`). Added `window.nova`, tick and event subscriptions, manifest-driven loader, mirrored demo/manifest files, offline cache entries, and API docs; Q3 defaults to the firing range for this vertical slice. Checks: mirror parity confirmed for three builds, mirrored modules and service workers. Not run: runtime, gamepad, tablet, Quest/offline. Next: merge/review A4, then A10 interior/range; A10 module can be prepared against the documented API meanwhile.
 
