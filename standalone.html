@@ -17425,6 +17425,101 @@ const GAME_VERSION = 'Alpha 1.3';
     }
     { const _npt = npTick; npTick = function (dt) { _npt(dt); try { nmsSync(); } catch (e) { if (!window._nmsErr) { window._nmsErr = 1; console.error('[music]', e); } } }; }
     window.novaMusic = { stations: NMS_STATIONS, station: d => nmsStation(d), step: d => nmsStep(d), vol: d => nmsVol(d), state: () => ({ st: NMS.st, idx: bgmTrackIdx, playing: isBgmPlaying, auto: NRM.auto, n: BGM_TRACKS.length }) };
+    // ── SALVAGE (AI_QUEUE A2 / FPS_PLAN §1): drops on kills, greyed targets, TRACTOR pulls them in ──
+    // Lore anchor (owner): humanity is growing colder; heat cores are the prize.
+    const NSV = { pods: [], max: 8, life: 120, range: 500, pulling: null };
+    const NSV_GEO = new THREE.CylinderGeometry(0.55, 0.55, 1.6, 10);
+    const NSV_MAT = new THREE.MeshStandardMaterial({ color: 0x7d8a96, metalness: 0.8, roughness: 0.45, emissive: 0x1a2a36, emissiveIntensity: 0.6 });
+    const NSV_CORE_MAT = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, metalness: 0.6, roughness: 0.4, emissive: 0xff7a22, emissiveIntensity: 1.4 });
+    const NSV_LOOT = [   // [weight, kind, label]
+      [30, 'salvage', 'SALVAGE'], [20, 'credits', 'CREDITS'], [16, 'ore', 'ORE'], [12, 'missile', 'MISSILES'],
+      [10, 'flare', 'FLARES'], [8, 'cap', 'SHIELD CAP'], [4, 'core', 'HEAT CORE'] ];
+    function nsvRoll(big) {
+      if (big && Math.random() < 0.35) return 'core';
+      const tot = NSV_LOOT.reduce((a, l) => a + l[0], 0); let r = Math.random() * tot;
+      for (const l of NSV_LOOT) { if ((r -= l[0]) < 0) return l[1]; } return 'salvage';
+    }
+    function novaSalvageDrop(pos, u) {
+      const size = (u && NF_ASSETS[u.slug] && NF_ASSETS[u.slug].size) || 10, boss = !!(u && u.st && u.st.boss);
+      if (u && /mine|drone/.test(u.slug || '')) return;
+      const chance = boss ? 1 : size > 80 ? 0.6 : 0.25; if (Math.random() > chance) return;
+      const n = boss ? 3 : size > 80 ? 2 : 1;
+      for (let k = 0; k < n && NSV.pods.length < NSV.max; k++) {
+        const kind = nsvRoll(boss || size > 80);
+        const g = new THREE.Group(); const m = new THREE.Mesh(NSV_GEO, kind === 'core' ? NSV_CORE_MAT : NSV_MAT); m.rotation.z = Math.PI / 2; g.add(m);
+        g.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12));
+        g.scale.setScalar(1.6); g.userData.salvage = true; g.userData.radius = 3;
+        scene.add(g);
+        NSV.pods.push({ g, kind, t: 0, vel: new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3),
+          spin: new THREE.Vector3(Math.random(), Math.random(), Math.random()).multiplyScalar(0.6), beacon: 0 });
+      }
+      try { showToast('SALVAGE DETECTED · lock it on COMMS / radar, then TRACTOR', 2600, '#9fb4c8'); } catch (e) { }
+    }
+    function nsvRemove(pod) { scene.remove(pod.g); const i = NSV.pods.indexOf(pod); if (i >= 0) NSV.pods.splice(i, 1); if (currentLockedTarget && currentLockedTarget.targetObj === pod.g) currentLockedTarget = null; }
+    function nsvStow(pod) {
+      const k = pod.kind; let msg = '';
+      if (k === 'credits') { const c = 150 + Math.floor(Math.random() * 450); bankCredits += c; msg = '+' + c + ' CR'; }
+      else if (k === 'ore') { const o = 2 + Math.floor(Math.random() * 4); cargoOre += o; msg = '+' + o + ' t ORE'; }
+      else if (k === 'missile') { missileAmmo += 1; msg = '+1 MISSILE'; }
+      else if (k === 'flare') { cargoFlares += 2; msg = '+2 FLARES'; }
+      else if (k === 'cap') { cargoShieldCaps += 1; msg = '+1 SHIELD CAP'; }
+      else if (k === 'core') { NSV.cores = (NSV.cores || 0) + 1; try { localStorage.setItem('novaHeatCores', String(NSV.cores)); } catch (e) { } msg = '+1 HEAT CORE (' + NSV.cores + ')'; }
+      else { cargoSalvage += 1; msg = '+1 SALVAGE'; }
+      try { showToast('TRACTORED IN: ' + msg, 2400, k === 'core' ? '#ff9a3c' : '#00ff99'); sound.lockTone(); drawInventoryPanel(); drawRightDash(); } catch (e) { }
+    }
+    try { NSV.cores = parseInt(localStorage.getItem('novaHeatCores') || '0', 10) || 0; } catch (e) { NSV.cores = 0; }
+    function novaTractorPress() {
+      const t = currentLockedTarget, pod = t && NSV.pods.find(p => p.g === t.targetObj);
+      if (!pod) { showToast('TRACTOR: lock a SALVAGE contact first (COMMS list or radar)', 2200, '#9fb4c8'); return; }
+      const d = pod.g.position.distanceTo(shipGroup.position);
+      if (d > NSV.range) { showToast('TRACTOR: MOVE CLOSER (' + Math.round(d) + ' m / ' + NSV.range + ' m)', 2000, '#ffaa33'); return; }
+      if (NSV.pulling) return;
+      NSV.pulling = { pod, t: 0, dur: THREE.MathUtils.clamp(d / 150, 1.5, 3.5), from: pod.g.position.clone() };
+      if (!NSV.beam) { NSV.beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 1.4, 1, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0x66ffee, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); try { if (NOVA_VFX.tex.lightning) NSV.beam.material.map = NOVA_VFX.tex.lightning; } catch (e) { } }
+      scene.add(NSV.beam);
+      try { sound.beep(880, 0.12); } catch (e) { }
+      showToast('TRACTOR BEAM LOCKED', 1500, '#66ffee');
+    }
+    window.novaTractorPress = novaTractorPress;
+    window.addEventListener('keydown', e => { if (e.code === 'KeyG' && !e.repeat && !isCommsKeyboardOpen) novaTractorPress(); });
+    function nsvTick(dt) {
+      const sp = shipGroup.position, up = new THREE.Vector3(0, 1, 0), tmp = new THREE.Vector3();
+      for (let i = NSV.pods.length - 1; i >= 0; i--) {
+        const p = NSV.pods[i]; p.t += dt;
+        if (!NSV.pulling || NSV.pulling.pod !== p) { p.g.position.addScaledVector(p.vel, dt); p.vel.multiplyScalar(1 - 0.08 * dt); }
+        p.g.rotation.x += p.spin.x * dt; p.g.rotation.y += p.spin.y * dt; p.g.rotation.z += p.spin.z * dt;
+        p.g.children[0].material.emissiveIntensity = (p.kind === 'core' ? 1.0 : 0.3) + 0.8 * (Math.sin(p.t * 5) > 0.6 ? 1 : 0);
+        if (p.t > NSV.life && (!NSV.pulling || NSV.pulling.pod !== p)) nsvRemove(p);
+      }
+      const P = NSV.pulling;
+      if (P) {
+        if (NSV.pods.indexOf(P.pod) < 0) { NSV.pulling = null; if (NSV.beam) scene.remove(NSV.beam); return; }
+        P.t += dt; const k = Math.min(1, P.t / P.dur), e = k * k * (3 - 2 * k);
+        P.pod.g.position.lerpVectors(P.from, sp, e);
+        const a = sp, b = P.pod.g.position, L = a.distanceTo(b);
+        if (NSV.beam && L > 0.01) { NSV.beam.position.copy(a).add(b).multiplyScalar(0.5); NSV.beam.scale.set(1, L, 1); NSV.beam.quaternion.setFromUnitVectors(up, tmp.copy(b).sub(a).normalize()); try { if (NSV.beam.material.map) NSV.beam.material.map.offset.y -= dt * 2; } catch (e) { } }
+        if (k >= 1 || L < 6) { nsvStow(P.pod); nsvRemove(P.pod); NSV.pulling = null; if (NSV.beam) scene.remove(NSV.beam); }
+      }
+    }
+    { const _nk = nfKill; nfKill = function (u, byPlayer) { const pos = u && u.g ? u.g.position.clone() : null; const r = _nk.apply(this, arguments); try { if (pos && byPlayer !== false) novaSalvageDrop(pos, u); } catch (e) { } return r; }; }
+    { const _ga = getAllTargets; getAllTargets = function () {
+        const list = _ga.apply(this, arguments);
+        try { const sp = shipGroup.position, fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion);
+          NSV.pods.forEach(p => { const v = p.g.position.clone().sub(sp), d = v.length();
+            list.push({ name: p.kind === 'core' ? 'SALVAGE: HEAT CORE' : 'SALVAGE POD', type: 'salvage', targetObj: p.g, dist: d, dot: fwd.dot(v.normalize()), isHostile: false,
+              status: d <= NSV.range ? 'SALVAGE · TRACTOR READY' : 'SALVAGE · MOVE CLOSER' }); }); } catch (e) { }
+        return list; }; }
+    { const _nc = nmContactList; nmContactList = function (range, gate) {
+        const list = _nc.apply(this, arguments);
+        try { const sp = shipGroup.position; NSV.pods.forEach(p => { const d = p.g.position.distanceTo(sp); if (!range || d <= range * 1.5) list.push({ name: p.kind === 'core' ? 'SALVAGE: HEAT CORE' : 'SALVAGE POD', type: 'salvage', obj: p.g, isHostile: false, d }); }); } catch (e) { }
+        return list; }; }
+    try { NH_COL.salvage = 0x8a96a3; } catch (e) { }
+    try { NP.ccol.salvage = '#8a96a3'; } catch (e) { }
+    Object.defineProperty(NP_COMMS, 'pads', { configurable: true, get() {
+      const t = currentLockedTarget; const pod = t && NSV.pods.find(p => p.g === t.targetObj);
+      return pod ? [{ l: '⇩ TRACTOR', c: '#66ffee', fn: () => novaTractorPress() }] : []; }, set(v) { } });
+    setInterval(() => { try { nsvTick(0.05); } catch (e) { if (!window._nsvErr) { window._nsvErr = 1; console.error('[salvage]', e); } } }, 50);
+    window.novaTest = Object.assign(window.novaTest || {}, { salvage: (n = 3) => { const p = shipGroup.position.clone().add(new THREE.Vector3(0, 0, -60).applyQuaternion(shipGroup.quaternion)); for (let i = 0; i < n; i++) novaSalvageDrop(p, { slug: 'pirate_frigate', st: { boss: true } }); return NSV.pods.length; }, lockSalvage: () => { const t = getAllTargets().find(c => c.type === 'salvage'); currentLockedTarget = t || null; return t ? t.name + ' @ ' + Math.round(t.dist) + ' m' : null; }, salvageState: () => ({ pods: NSV.pods.map(p => p.kind), pulling: !!NSV.pulling, cores: NSV.cores, salvage: cargoSalvage, credits: bankCredits }) });
     // start new pilots on the real soundtrack
     try { if (!localStorage.getItem('novaMusicV1')) { bgmTrackIdx = BGM_TRACKS.findIndex(x => x.file); localStorage.setItem('novaMusicV1', '1'); } } catch (e) { }
 
