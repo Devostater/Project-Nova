@@ -6,6 +6,8 @@
     "fps_core.js",
     "fps_ai.js",
     "boarding.js",
+    "boarding_levels.js",
+    "pirate_boarding.js",
     "mission.js",
     "fx_ultra.js",
     "cantina_props.js"
