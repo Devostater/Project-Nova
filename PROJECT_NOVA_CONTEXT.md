@@ -190,7 +190,7 @@ PROJECT_NOVA/
 
 ## 9. Resolved & Open Questions
 
-- **Canonical HTML runtime (Resolved):** Root `index.html` (Vite entry point) and `public/standalone.html` / root `standalone.html` (1-file standalone builds with `./vendor/` importmap) are maintained in lockstep as the canonical NOVA14 + `NOVA_VFX` runtime. Saved files under `public/assets/aistudio/` are historical checkpoints.
+- **Canonical HTML runtime (Resolved):** Root `index.html` (Vite entry point) and `public/standalone.html` / root `standalone.html` (1-file standalone builds with `./vendor/` importmap) are generated from root `standalone.html` (the single source) by `tools/sync_html.mjs` and form the canonical NOVA14 + `NOVA_VFX` runtime. Saved files under `public/assets/aistudio/` are historical checkpoints.
 - **Implemented & Verified Features (Resolved):**
   - Automatic device detection (`window.novaDevice`) with non-mandatory VR/MR entry and streamlined main menu (`PLAY`, `OPTIONS & MODES`, `EXIT`).
   - Gamepad/controller navigation across main/options menus and in-flight 2D/tablet modes.

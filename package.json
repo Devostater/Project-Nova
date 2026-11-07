@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "sync": "node tools/sync_html.mjs",
+    "predev": "node tools/sync_html.mjs",
     "dev": "vite --port=3000 --host=0.0.0.0",
+    "prebuild": "node tools/sync_html.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",

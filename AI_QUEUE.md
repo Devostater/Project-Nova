@@ -6,7 +6,7 @@ The owner is away. Each AI takes the **next unclaimed card in its own lane**, wo
 
 1. **Start from the latest GitHub `main`.** Never an old local copy (twice now, an old copy has wiped other work).
 2. **Work on your own branch** (`codex/<card>`, `gemini/<card>`, `aistudio/<card>`) and open a **draft PR**. Never push to `main`. Never merge.
-3. **Game files:** `standalone.html`, `public/standalone.html` and `index.html` must stay identical (`index.html` = the same file minus the `<script type="importmap">` block). Make the same edit in all three, or edit the root file only and write "NEEDS SYNC" in the PR.
+3. **Game files:** edit `standalone.html` only. `public/standalone.html` and `index.html` are generated from it by `node tools/sync_html.mjs`; never edit or read them. Run the script before committing.
 4. **One AI per game-file area.** Claim the card in `AI_STATUS.md` (Active claims) before starting; only touch the functions the card lists. New systems go in **new module files** (`public/modules/<name>.js`, exporting `init(nova)`) whenever possible.
 5. **LF line endings** (`.gitattributes` enforces this). No whole-file rewrites.
 6. **Graphics target (owner, 2026-11-07): MAX / ULTRA quality.** It runs great at ULTRA; don't reduce model or texture detail for performance. Keep the Quest low tier working but never at the cost of ULTRA quality. Was: **Quest first:** under about 150 draw calls; no new materials or geometry per frame; textures at 1024 px or less unless the ULTRA tier.

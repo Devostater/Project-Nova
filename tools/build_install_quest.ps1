@@ -15,6 +15,9 @@ $Package    = 'com.azi.projectnova'
 
 if (-not (Test-Path $QuestBuild)) { throw "Bubblewrap project missing: $QuestBuild (ask ChatGPT to regenerate it)" }
 
+node (Join-Path $PSScriptRoot 'sync_html.mjs')
+if ($LASTEXITCODE) { throw 'HTML sync failed' }
+
 if (-not $SkipBuild) {
   Push-Location $QuestBuild
   try { .\gradlew.bat assembleRelease; if ($LASTEXITCODE) { throw 'gradle build failed' } } finally { Pop-Location }
