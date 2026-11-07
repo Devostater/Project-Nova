@@ -29,6 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Generate public/standalone.html from standalone.html
+        run: node tools/sync_html.mjs
+
       - name: Build site from public/
         run: |
           mkdir -p _site
