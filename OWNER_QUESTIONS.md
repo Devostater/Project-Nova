@@ -8,6 +8,10 @@ How to add a question: append a row to **Open**, with the next number, your AI n
 
 | # | From | Card | Question | Options | Default in use |
 |---|---|---|---|---|---|
+| Q11 | GPT/Codex | A16 territory drama | Which direction should the new faction names take before they become canon? | keep proposal names / use classic human-vs-pirate names / owner supplies names | keep these names explicitly proposed and revise after owner review |
+| Q12 | GPT/Codex | A16 campaign cinematics | Which codec/container and delivery size should the intro and epilogue videos target? | WebM / MP4 / dual format | locally packaged dual-format video where needed, skippable/captioned, with an in-engine fallback |
+| Q13 | GPT/Codex | A16 anomaly pacing | How often should optional anomalies appear? | rare discoveries / frequent events / mission-only | rare discoveries, telegraphed early, with a safe avoid/return option |
+| Q14 | GPT/Codex | A16 newsfeed | What should the in-universe news card be called and how broad should it report? | NOVA NET / station dispatches / owner names it | use NOVA NET as a provisional fictional network; report only events the world simulation or player has established |
 | Q1 | Claude | A2 salvage | Salvage pods: keep the existing `container.glb` crate, or wait for a new salvage-pod model? | crate now / wait | crate now |
 | Q2 | Claude | A3 explosions | Camera shake on nearby explosions: on in VR (some players get queasy), or only in 2D? | VR + 2D / 2D only / off | 2D only |
 | Q3 | Claude | A4 modules | First module to build on the new loader: salvage (A2) or firing range (FPS M2)? | salvage / range | range for the vertical slice |
