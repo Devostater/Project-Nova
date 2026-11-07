@@ -6273,7 +6273,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // ── Interactive Flight Stick (Joystick) ──
     const stickGroup = new THREE.Group();
-    stickGroup.position.set(0.22, 0.16, -0.14);
+    stickGroup.position.set(0.22, 0.10, -0.14);
     cockpit.add(stickGroup);
 
     const stickBaseMat = new THREE.MeshStandardMaterial({ color: 0x08101a, metalness: 0.9, roughness: 0.2 });
@@ -19459,9 +19459,9 @@ const GAME_VERSION = 'Alpha 1.4';
       // ── the rest ──
       try { nmMissileBase(); } catch (e) { }
       nmVRHands();
-      try {   // stick: back toward the pilot a little and further right; throttle: further left into the open space (tunable ?stx ?stz ?thx ?thz)
+      try {   // stick: lower, back toward the pilot and further right; throttle: further left (tunable ?stx ?sty ?stz ?thx ?thz)
         const q = new URLSearchParams(location.search), f = (k, d) => q.has(k) ? parseFloat(q.get(k)) : d;
-        stickGroup.position.set(f('stx', 0.27), stickGroup.position.y, f('stz', -0.17));
+        stickGroup.position.set(f('stx', 0.27), f('sty', 0.10), f('stz', -0.17));
         throttleGroup.position.set(f('thx', -0.36), throttleGroup.position.y, f('thz', -0.20));
       } catch (e) { }
       try { novaConsoles.forEach((c, i) => {
