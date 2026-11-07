@@ -52,13 +52,13 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
-| GPT/Codex | G5 NOVA NET | `gpt/g5-nova-net` | `modules/novanet.js`, public mirror, manifests, service workers, docs | Active | draft pending |
 
 
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
+| GPT/Codex | G5 interactive NOVA NET feed | [Draft PR #46](https://github.com/Devostater/Project-Nova/pull/46) | Persistent event articles, active-play response windows and VR-sized canvas UI; Claude hooks documented. |
 | Gemini | Missile-plume and thruster-glow textures | [Draft PR #33](https://github.com/Devostater/Project-Nova/pull/33) | Four image files only: root and public mirrors; owner approval required before merge. |
 | GPT/Codex | FPS flow, controls and helmet HUD | [Draft PR #38](https://github.com/Devostater/Project-Nova/pull/38) | Range exit, desktop/gamepad/Quest FPS input, helmet visor HUD, boarding lifecycle and drone combat coordinates; awaiting runtime review. |
 | GPT/Codex | Territories and campaign scope plan | [Draft PR #37](https://github.com/Devostater/Project-Nova/pull/37) | Planning only; proposed factions, territory simulation, news, traffic, cinematics and full-release checklist. |
@@ -67,6 +67,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **GPT/Codex: G5 interactive NOVA NET feed** ([draft PR #46](https://github.com/Devostater/Project-Nova/pull/46), branch `gpt/g5-nova-net`). Adds mirrored `novanet.js`: persistent event articles, labelled source/confidence/consequences, active-play deadlines with warnings and blocking-state pause, response/history states, and a 1024px canvas with VR-sized list/article controls. APIs cover publish/respond/status, UV press, scroll, gamepad navigation, pause and reset; response/contact/contract events let the game apply consequences. Both manifests/service workers include it. Checks: `node --check`, root/public blob parity, JSON manifests, service-worker parity, LF/conflict markers. Not tested: browser, right-panel docking, touch/gamepad, or Quest. Claude hooks: mount the exported canvas/texture on the right media panel, forward UV/navigation inputs, publish real event records, and handle emitted route/contact/contract responses. Next: integrate one Cold Run/territory bulletin and verify deadline pausing across 2D/gamepad/tablet/Quest.
 
 - **GPT/Codex: FPS flow, controls, combat and helmet HUD** ([draft PR #38](https://github.com/Devostater/Project-Nova/pull/38), branch `gpt/fps-flow-hud`). Repairs the range EXIT door and all exit inputs; adds pointer-lock mouse look, keyboard/gamepad/Quest controller and hand input; adds a camera-mounted helmet visor HUD; unifies range/boarding entry and return; and places pooled drone combat in the correct interior coordinate space. Root/public copies of `fps_core.js`, `interior.js`, `fps_ai.js` and `boarding.js` match with LF endings. Static review only; browser, physical gamepad, tablet and Quest runtime were not tested. Next: play `?arena=range` and `?arena=boarding` in desktop/gamepad/Quest before merge.
 
