@@ -2526,6 +2526,8 @@ const GAME_VERSION = 'Alpha 1.4';
         else if (curMission.goalType === 'destroy' && pirateBoss && pirateBoss.visible) { targetPos = pirateBoss.position; targetDesc = `BOUNTY: PIRATE RAIDER [HP: ${pirateHealth}%]`; }
       }
       try { const so = window.novaSiteObjective && window.novaSiteObjective(); if (so) { targetPos = so.pos; targetDesc = so.label; } } catch (e) {}
+      // campaign "dock for debrief" chapters always point home to Nova-1 (mission 0 is the convoy, which sent the arrow to Starlifter-7)
+      try { const cch = CAMPAIGN[campaignChapter]; if (cch && cch.type === 'dock' && campaignIntroDone && !isInsideCantina) { targetPos = stationGroup.position; targetDesc = 'DEBRIEF · DOCK AT NOVA-1'; } } catch (e) {}
       let cLab = 'OBJECTIVE', cCol = '#00ffcc';
       try { const lk = currentLockedTarget; if (lk && lk.targetObj && lk.targetObj.visible !== false) { targetPos = lk.targetObj.getWorldPosition(new THREE.Vector3()); targetDesc = lk.name; cLab = lk.isHostile ? 'TARGET \u00b7 HOSTILE' : 'TARGET'; cCol = lk.isHostile ? '#ff5566' : '#33ff99'; } } catch (e) {}   // the selected target wins over the objective
       const toTarget = targetPos.clone().sub(shipGroup.position);
@@ -9214,6 +9216,7 @@ const GAME_VERSION = 'Alpha 1.4';
       campaignIntroDone = true;
       if (typeof ch.mission === 'number') { activeMissionIdx = ch.mission; if (typeof drawCanopyCompass === 'function') drawCanopyCompass(); }
       showToast(`${ch.title} - ${ch.objective}`, 6000, '#ffcc00');
+      if (ch.type === 'dock') setTimeout(() => { try { showToast('⚓ Follow the OBJECTIVE arrow to NOVA-1, then press DOCK (or use AUTOPILOT).', 5000, '#00f0ff'); } catch (e) {} }, 6500);
       novaChatLog(ch.speaker, ch.intro, '#ffcc00');
       broadcastCommsTransmission(ch.speaker, ch.intro, ch.pitch);
     }
@@ -19579,10 +19582,22 @@ const GAME_VERSION = 'Alpha 1.4';
     const _novaAnnounce = ncAnnounce;
     ncAnnounce = function (line) { const result = _novaAnnounce.apply(this, arguments); const targetName = String(currentLockedTarget?.name || '').toLowerCase(); if (line && targetName.includes('lantern')) novaEmit('crewReaction', { phase: 'lantern', line }); return result; };
     const wantRange = new URLSearchParams(location.search).get('arena') === 'range';
+    // Run fn once the game has really started. A fixed 1.2 s timer lost the race on Quest: the XR permission prompt
+    // delays setSession(), and its recenterPilotView() then snapped the player from the range/mission back into the cockpit.
+    const novaAfterLaunch = (fn) => {
+      const t0 = performance.now();
+      const ready = () => {
+        let starting = false; try { starting = !!isStartingXR; } catch (e) { }
+        const modal = document.getElementById('modal-overlay'), menuUp = !!(modal && modal.style.display !== 'none');
+        return !starting && !menuUp && (renderer.xr.isPresenting || (window.novaDevice && window.novaDevice.detectedMode === '2D') || !navigator.xr);
+      };
+      const poll = () => { if (ready() || performance.now() - t0 > 20000) setTimeout(fn, 700); else setTimeout(poll, 250); };
+      setTimeout(poll, 300);
+    };
     const _play = window.novaPlay;
-    if (_play) window.novaPlay = function () { const r = _play.apply(this, arguments); if (wantRange || window._novaRangeNext) { window._novaRangeNext = 0; setTimeout(() => window.novaRange?.(), 1200); } return r; };
+    if (_play) window.novaPlay = function () { const r = _play.apply(this, arguments); if (wantRange || window._novaRangeNext) { window._novaRangeNext = 0; novaAfterLaunch(() => window.novaRange?.()); } return r; };
     const pb = document.getElementById('btn-play');
-    if (pb && !document.getElementById('btn-coldrun')) { const cb = document.createElement('button'); cb.className = 'modal-btn'; cb.id = 'btn-coldrun'; cb.innerHTML = '&#10052; COLD RUN (MISSION)'; cb.onclick = e => { e.stopPropagation(); window.novaPlay(); setTimeout(() => window.novaColdRunStart?.(), 1500); }; pb.insertAdjacentElement('afterend', cb); }
+    if (pb && !document.getElementById('btn-coldrun')) { const cb = document.createElement('button'); cb.className = 'modal-btn'; cb.id = 'btn-coldrun'; cb.innerHTML = '&#10052; COLD RUN (MISSION)'; cb.onclick = e => { e.stopPropagation(); window.novaPlay(); novaAfterLaunch(() => window.novaColdRunStart?.()); }; pb.insertAdjacentElement('afterend', cb); }
     if (pb && !document.getElementById('btn-range')) { const rb = document.createElement('button'); rb.className = 'modal-btn'; rb.id = 'btn-range'; rb.innerHTML = '&#127919; FIRING RANGE'; rb.onclick = e => { e.stopPropagation(); window._novaRangeNext = 1; window.novaPlay(); }; pb.insertAdjacentElement('afterend', rb); }
     if (wantRange) setTimeout(() => window.novaRange?.(), 1200);
     return modules;

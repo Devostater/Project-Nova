@@ -87,6 +87,10 @@ export function init(nova) {
 
   function joint(hand,name){return hand?.getObjectByName?.(name)||null;}
   function handPoint(hand,name,out){const j=joint(hand,name);if(!j)return false;j.getWorldPosition(out);return true;}
+  // remember which three.js controller slot belongs to which XRInputSource (slots don't follow inputSources order)
+  const slotSource=[];
+  for(let i=0;i<4;i++){const c=renderer?.xr?.getController?.(i);if(!c)continue;c.addEventListener('connected',e=>{slotSource[i]=e.data;});c.addEventListener('disconnected',()=>{slotSource[i]=null;});}
+  function slotOf(src){if(!src)return -1;const i=slotSource.indexOf(src);if(i>=0)return i;const s=[...(renderer?.xr?.getSession?.()?.inputSources||[])];return s.indexOf(src);}
   function stickAxes(gamepad){const a=gamepad?.axes||[];return a.length>=4?[a[a.length-2]||0,a[a.length-1]||0]:[a[0]||0,a[1]||0];}
   function dead(v,z=.17){return Math.abs(v)<z?0:v;}
   function setWeaponParent(parent,hand=false){
@@ -194,7 +198,9 @@ export function init(nova) {
     session=renderer?.xr?.getSession?.()||null;
     if(session){
       const sources=[...session.inputSources],rightSource=sources.find(s=>s.handedness==='right'),leftSource=sources.find(s=>s.handedness==='left');
-      const rightIndex=sources.indexOf(rightSource),leftIndex=sources.indexOf(leftSource);
+      // three.js controller slots are NOT in session.inputSources order (they drift when hands/controllers swap),
+      // so find the slot whose 'connected' event carried this exact input source.
+      const rightIndex=slotOf(rightSource),leftIndex=slotOf(leftSource);
       if(rightIndex>=0){
         rightController=renderer.xr.getController?.(rightIndex)||rightController;
         rightGrip=renderer.xr.getControllerGrip?.(rightIndex)||rightGrip;
@@ -248,7 +254,17 @@ export function init(nova) {
       const rightPinch=handPoint(rightHand,'thumb-tip',thumb)&&handPoint(rightHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.034;
       if(rightPinch&&!rightPinchHeld&&weaponOn)fire();rightPinchHeld=rightPinch;
       const curled=handPoint(leftHand,'middle-finger-tip',middle)&&handPoint(leftHand,'wrist',wrist)&&middle.distanceTo(wrist)<.085;
-      if(curled&&!leftPinch){if(!leftFist){leftAnchor=wrist.clone();leftFist=true;}const dx=wrist.x-leftAnchor.x,dz=wrist.z-leftAnchor.z;if(Math.abs(dx)+Math.abs(dz)>.025)walk(dx*4,dz*4,d);}
+      if(curled&&!leftPinch){
+        if(!leftFist){leftAnchor=wrist.clone();leftFist=true;}
+        // fist joystick: wrist offset from where the fist closed, turned into head-relative strafe/forward
+        const off=wrist.clone().sub(leftAnchor);off.y=0;
+        if(off.length()>.02){
+          camera.getWorldDirection(forward);forward.y=0;if(forward.lengthSq()<.001)forward.set(0,0,-1);forward.normalize();
+          right.crossVectors(forward,up).normalize();
+          const k=1/.06; // 6 cm of travel = full speed
+          walk(T.MathUtils.clamp(off.dot(right)*k,-1,1),T.MathUtils.clamp(-off.dot(forward)*k,-1,1),d);
+        }
+      }
       else{leftFist=false;leftAnchor=null;}
     }else{
       if(pistol.parent!==camera){camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,Math.PI,0);}
