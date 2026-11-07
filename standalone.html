@@ -2777,6 +2777,23 @@ const GAME_VERSION = 'Alpha 1.4';
       }
     }
     registerCockpitButton(domeBtn, 'DOME LIGHT', () => novaCycleCockpitMode());
+    let novaThreatAlertLast = 0;
+    function novaTriggerRedAlert(source) {
+      const now = performance.now();
+      if (lightMode !== 1) {
+        if (isCanopyPolarized) { isCanopyPolarized = false; canopyMat.color.setHex(0x88ccff); canopyMat.opacity = 0.10; }
+        try { if (window.NF && NF.stealth) novaStealthSet(false, 'enemy missile lock'); } catch (e) { }
+        lightMode = 1;
+      }
+      cockpitDomeLight.color.setHex(0xff2233); cockpitDomeLight.intensity = 1.6;
+      domeBtnMat.color.setHex(0xff2233); domeBtnMat.emissive.setHex(0xaa0011);
+      if (now - novaThreatAlertLast > 2200) {
+        novaThreatAlertLast = now;
+        showToast('🚨 MISSILE LOCK · RED ALERT' + (source ? ' · ' + source : ''), 2600, '#ff2233');
+        try { sound.beep(1500, 0.11, 'square'); setTimeout(() => sound.beep(760, 0.16, 'sawtooth'), 130); } catch (e) { }
+      }
+    }
+    window.novaTriggerRedAlert = novaTriggerRedAlert;
 
     // 2. Overhead Shield Boost Button
     const shieldBtnMat = new THREE.MeshStandardMaterial({ color: 0x0088ff, emissive: 0x0044cc, emissiveIntensity: 0.9 });
@@ -17141,7 +17158,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (u.fac === 'pirate' || u.fac === 'alien') novaMissileProto(u.fac === 'pirate' ? 'pirate_missile' : 'alien_missile', 3.4).then(pm => { if (pm && m.parent) { m.add(pm.clone(true)); cone.visible = false; } });
       else nmSkin(m, mslSkin[0], mslSkin[1]).then(w => { if (w) cone.visible = false; });   // owner missile models: pirate / alien / EDF
       NF.msl.push({ m, tgt, spd: 38, life: 14, dmg: m0.dmg, fac: u.fac, dir: new THREE.Vector3(0, 0, -1).applyQuaternion(u.g.quaternion) });
-      if (tgt.player) { try { sound.beep(1600, 0.1, 'square'); } catch (e) { } showToast(`⚠ MISSILE INBOUND from ${u.name}`, 1600, '#ff3344'); }
+      if (tgt.player) novaTriggerRedAlert(u.name || 'HOSTILE');
     }
     function nfSegD(a, b, p) {   // distance from point p to segment a-b
       const ab = nfTmp.a.subVectors(b, a), t = THREE.MathUtils.clamp(nfTmp.b.subVectors(p, a).dot(ab) / Math.max(ab.lengthSq(), 1e-6), 0, 1);
