@@ -10,7 +10,8 @@ export function init(nova) {
   const inverse = new T.Quaternion(), rigQ = new T.Quaternion(), spin = new T.Quaternion();
   const axis = new T.Vector3(1, 0.6, 0.3).normalize();
   const sources = new Map();
-  let time = 0, wasActive = false, disposed = false, bartender = null;
+  let time = 0, wasActive = false, disposed = false, bartender = null, bartenderMixer = null, bartenderAction = null, bartenderAnimTime = 0, bartenderAnimIndex = -1;
+  let bartenderClips = [];
   const cupGeo = new T.CylinderGeometry(radius, radius * 0.75, height, 12, 1, true);
   const bottomGeo = new T.CylinderGeometry(radius * 0.75, radius * 0.75, 0.008, 12);
   const shardGeo = new T.TetrahedronGeometry(0.025, 0);
@@ -57,12 +58,40 @@ export function init(nova) {
     bar.model = model; bar.minX = box.min.x; bar.maxX = box.max.x; bar.minZ = box.min.z; bar.maxZ = box.max.z; bar.top = box.max.y;
     layout();
   }
+  function rigKey(name) {
+    return String(name || '').toLowerCase().replace(/mixamorig|armature|skeleton|rig|bone/g, '').replace(/[^a-z0-9]/g, '');
+  }
+  function retargetClip(clip, model) {
+    const byKey = new Map(); model.traverse(o => { const key = rigKey(o.name); if (key && !byKey.has(key)) byKey.set(key, o); });
+    const tracks = [];
+    for (const source of clip.tracks || []) {
+      let nodeName = '';
+      try { nodeName = T.PropertyBinding.parseTrackName(source.name).nodeName || ''; } catch (_) { nodeName = source.name.slice(0, source.name.lastIndexOf('.')); }
+      const leaf = nodeName.split(/[|/:]/).pop(), target = model.getObjectByName(nodeName) || model.getObjectByName(leaf) || byKey.get(rigKey(leaf));
+      if (!target?.name) continue;
+      const dot = source.name.lastIndexOf('.'); if (dot < 0) continue;
+      const track = source.clone(); track.name = target.name + source.name.slice(dot); tracks.push(track);
+    }
+    return tracks.length ? new T.AnimationClip(clip.name, clip.duration, tracks) : null;
+  }
+  function playBartenderClip(index) {
+    if (!bartenderMixer || !bartenderClips.length) return;
+    bartenderAnimIndex = (index + bartenderClips.length) % bartenderClips.length;
+    const next = bartenderMixer.clipAction(bartenderClips[bartenderAnimIndex]);
+    if (bartenderAction && bartenderAction !== next) bartenderAction.fadeOut(0.45);
+    bartenderAction = next.reset().setLoop(T.LoopRepeat, Infinity).fadeIn(0.45); bartenderAction.play();
+    bartenderAnimTime = Math.max(7, Math.min(15, bartenderClips[bartenderAnimIndex].duration * 2.5));
+  }
   layout();
   const loaded = import(new URL('../vendor/loaders/GLTFLoader.js', import.meta.url).href)
-    .then(({ GLTFLoader }) => new GLTFLoader().loadAsync(new URL('../models/alien_crew.glb', import.meta.url).href))
-    .then(gltf => {
+    .then(async ({ GLTFLoader }) => {
+      const loader = new GLTFLoader(), alien = await loader.loadAsync(new URL('../models/alien_crew.glb', import.meta.url).href);
+      const matrix = await loader.loadAsync(new URL('../models/matrix_character.glb', import.meta.url).href).catch(() => null);
+      return { alien, matrix };
+    })
+    .then(({ alien, matrix }) => {
       if (disposed) return;
-      const model = gltf.scene; model.updateMatrixWorld(true);
+      const model = alien.scene; model.updateMatrixWorld(true);
       box.setFromObject(model); const center = box.getCenter(new T.Vector3());
       const modelHeight = Math.max(0.01, box.max.y - box.min.y);
       model.position.add(new T.Vector3(-center.x, -box.min.y, -center.z));
@@ -70,6 +99,16 @@ export function init(nova) {
       bartender.add(model); bartender.scale.setScalar(Math.max(1.8, bar.top + 0.6) / modelHeight);
       bartender.position.set(0, 0, bar.minZ - 0.55); // GLB faces +Z, toward the room.
       root.add(bartender);
+      if (matrix?.animations?.length) {
+        const calm = matrix.animations.filter(a => !/walk|run|jump|attack|combat|death/i.test(a.name));
+        const source = (calm.length ? calm : matrix.animations).slice().sort((a, b) => {
+          const score = n => /idle/i.test(n) ? 0 : /talk|gesture/i.test(n) ? 1 : /wave|greet/i.test(n) ? 2 : /dance/i.test(n) ? 3 : 4;
+          return score(a.name) - score(b.name);
+        }).slice(0, 5);
+        bartenderClips = source.map(clip => retargetClip(clip, model)).filter(clip => clip && clip.tracks.length >= 3);
+        if (bartenderClips.length) { bartenderMixer = new T.AnimationMixer(model); playBartenderClip(0); }
+        matrix.scene?.traverse(o => { o.geometry?.dispose?.(); const mats = Array.isArray(o.material) ? o.material : [o.material]; mats.forEach(m => m?.dispose?.()); });
+      }
     }).catch(error => console.warn('[cantina_props] Bartender load failed', error));
   function shatter(c) {
     c.state = 'broken'; c.age = 0; c.mesh.visible = false; c.shardAge = 0;
@@ -168,7 +207,10 @@ export function init(nova) {
       wasActive = false; return;
     }
     wasActive = true;
-    if (bartender) { bartender.position.set(0, Math.sin(time * 0.8) * 0.012, bar.minZ - 0.55); bartender.rotation.y = Math.sin(time * 0.35) * 0.1; }
+    if (bartender) {
+      bartender.position.set(0, Math.sin(time * 0.8) * 0.012, bar.minZ - 0.55); bartender.rotation.y = Math.sin(time * 0.35) * 0.1;
+      if (bartenderMixer) { bartenderMixer.update(dt); bartenderAnimTime -= dt; if (bartenderAnimTime <= 0 && bartenderClips.length > 1) playBartenderClip(bartenderAnimIndex + 1); }
+    }
     rig.updateWorldMatrix(true, true); root.updateWorldMatrix(true, true);
     inverse.copy(root.getWorldQuaternion(new T.Quaternion())).invert(); rig.getWorldQuaternion(rigQ);
     const session = xr.getSession(), frame = xr.getFrame?.(), ref = xr.getReferenceSpace();
@@ -191,7 +233,7 @@ export function init(nova) {
   }
   const off = nova.onTick(tick);
   return { ready: true, root, cups, loaded, dispose() {
-    disposed = true; off?.(); root.removeFromParent(); sources.clear();
+    disposed = true; off?.(); root.removeFromParent(); sources.clear(); bartenderMixer?.stopAllAction();
     cupGeo.dispose(); bottomGeo.dispose(); shardGeo.dispose();
     cups.forEach(c => { c.material.dispose(); c.shardMat.dispose(); c.shards.dispose(); });
   } };
