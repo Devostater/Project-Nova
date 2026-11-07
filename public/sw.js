@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.8';
+const VERSION = 'nova-alpha-1.9';
 const FILES = [
 "./art/alien_planet.jpg",
 "./art/asteroid.jpg",
@@ -160,10 +160,10 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
   for (const k of await caches.keys()) if (k !== VERSION) await caches.delete(k);
   self.clients.claim();
 })()));
-// network first for the page (so updates arrive), cache first for models, art and music
+// network first for code (page, modules, json) so updates always arrive; cache first for models, art and music
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url); if (e.request.method !== 'GET' || u.origin !== location.origin) return;
-  const page = u.pathname.endsWith('.html') || u.pathname.endsWith('/');
+  const page = /(\.html|\.js|\.mjs|\.json|\.webmanifest|\/)$/.test(u.pathname);
   e.respondWith((async () => {
     const c = await caches.open(VERSION);
     if (page) { try { const r = await fetch(e.request); c.put(e.request, r.clone()); return r; } catch (err) { return (await c.match(e.request, { ignoreSearch: true })) || Response.error(); } }
