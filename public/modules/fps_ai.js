@@ -5,8 +5,8 @@
 export function init(nova) {
   const T=nova?.THREE,scene=nova?.scene,camera=nova?.camera,rig=nova?.cameraRig;
   if(!T||!scene||!camera||!rig)return{ready:false,start(){},stop(){}};
-  const root=new T.Group();root.name='NOVA_RANGE_DRONES';scene.add(root);
-  const boltsRoot=new T.Group();boltsRoot.name='NOVA_DRONE_BOLTS';scene.add(boltsRoot);
+  const root=new T.Group();root.name='NOVA_RANGE_DRONES';root.visible=false;scene.add(root);
+  const boltsRoot=new T.Group();boltsRoot.name='NOVA_DRONE_BOLTS';boltsRoot.visible=false;scene.add(boltsRoot);
   const droneGeo=new T.SphereGeometry(.34,20,14),lensGeo=new T.SphereGeometry(.13,12,8);
   const coverGeo=new T.BoxGeometry(2.6,1.35,.38),boltGeo=new T.SphereGeometry(.09,10,8);
   const armorMat=new T.MeshStandardMaterial({color:0x283b50,metalness:.88,roughness:.27});
