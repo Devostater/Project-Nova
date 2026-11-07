@@ -30,7 +30,7 @@ export function init(api) {
     root.add(new THREE.HemisphereLight(0x8fb8d8,0x202428,.6));
     const door=new THREE.Mesh(new THREE.PlaneGeometry(2.8,3.5),new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:.35,toneMapped:false,side:THREE.DoubleSide}));
     door.rotation.y=Math.PI;door.position.set(0,1.75,5.9);door.userData.fpsInteract=()=>exit('door');root.add(door);S.door=door;
-    const exitPanel=makeTextPanel('EXIT','RETURN TO COCKPIT',3.5,.88);exitPanel.position.set(0,4.15,5.82);exitPanel.rotation.y=Math.PI;exitPanel.userData.draw();exitPanel.userData.fpsInteract=()=>exit('door');root.add(exitPanel);
+    const exitPanel=makeTextPanel('EXIT',()=> 'RETURN TO COCKPIT',3.5,.88);exitPanel.position.set(0,4.15,5.82);exitPanel.rotation.y=Math.PI;exitPanel.userData.draw();exitPanel.userData.fpsInteract=()=>exit('door');root.add(exitPanel);
     S.sign=makeTextPanel('FIRING RANGE',()=>{const acc=S.shots?Math.round(100*S.hits/S.shots):0;return 'SCORE '+S.score+'   HITS '+S.hits+'/'+S.shots+'   '+acc+'%';});
     S.sign.position.set(0,5.2,-3);root.add(S.sign);S.sign.userData.draw();
     S.targets=[];const spots=[[-5,-10],[0,-14],[5,-10],[-4,-24],[3,-30],[-1,-42],[6,-46],[-6,-36]];
