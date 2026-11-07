@@ -15902,7 +15902,7 @@ const GAME_VERSION = 'Alpha 1.4';
       (window.commsChatLog || []).slice(-8).forEach(it => { const words = (it.s + ': ' + it.m).split(' '); let line = ''; words.forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > W && line) { out.push([line, it.c]); line = w; } else line = t; }); if (line) out.push([line, it.c]); });
       out.slice(-n).forEach(([t, c], i) => { x.fillStyle = c || '#cfefff'; x.fillText(t, X, Y + i * 23); });
     }
-    const NP_TAB_ICON = { COMMS: '\u25C9', CHAT: '\u2709', CREW: '\u2665', FLIGHT: '\u2708', OBJECTIVE: '\u25CE', WARP: '\u27A4', COMBAT: '\u2316', CARGO: '\u25A6', MARKET: '\u25A6', SYSTEM: '\u2699', 'SYSTEM / OPTIONS': '\u2699', MUSIC: '\u266B' };
+    const NP_TAB_ICON = { COMMS: '\u25C9', CHAT: '\u2709', CREW: '\u2665', NEWS: '\u25A4', FLIGHT: '\u2708', OBJECTIVE: '\u25CE', WARP: '\u27A4', COMBAT: '\u2316', CARGO: '\u25A6', MARKET: '\u25A6', SYSTEM: '\u2699', 'SYSTEM / OPTIONS': '\u2699', MUSIC: '\u266B' };
     function npDraw(P) {
       const x = P.cv.getContext('2d'), cfg = P.cfg, T = cfg.tabs[P.tab];
       x.setTransform(1, 0, 0, 1, 0, 0);
@@ -15998,6 +15998,78 @@ const GAME_VERSION = 'Alpha 1.4';
           x.fillStyle = b[3] ? b[2] : 'rgba(255,255,255,0.055)'; x.fillRect(X, Y, 280, 104); x.strokeStyle = b[2]; x.lineWidth = 4; x.strokeRect(X, Y, 280, 104);
           x.textAlign = 'center'; npText(x, b[0], X + 140, Y + 43, 'bold 25px monospace', b[3] ? '#021019' : b[2], 250); npText(x, b[1], X + 140, Y + 76, 'bold 18px monospace', b[3] ? '#021019' : '#9fc3d8', 250); x.textAlign = 'left';
         });
+      } };
+    // NOVA NET: live in-universe headlines assembled from state that already exists in the simulation.
+    // Urgent stories can route the pilot toward the event before its normal game consequence fires.
+    const NNEWS = { i: 0, read: new Set(), lastId: '' };
+    function nnewsLock(name, obj, type, hostile) {
+      if (!obj) { showToast('That contact is no longer on sensors.', 1800, '#88aacc'); return; }
+      try {
+        const c = nmContactList(12000 * NOVA_WORLD_SCALE, true).find(q => q.obj === obj);
+        if (c) novaHoloSelect(c);
+        else { currentLockedTarget = { name, type, targetObj: obj, isHostile: !!hostile, dist: obj.position.distanceTo(shipGroup.position) }; drawRightDash(); drawCommsPanel(); }
+        showToast('NOVA NET TRACKING: ' + name, 2200, hostile ? '#ff4455' : '#00e5ff');
+      } catch (e) { console.warn('[NOVA NET] track', e); }
+    }
+    function nnewsItems() {
+      const out = [], add = q => out.push(q);
+      const fr = (typeof cargoFreighters !== 'undefined' && cargoFreighters) ? cargoFreighters[0] : null;
+      if (novaMayday && fr) add({ id: 'mayday', tag: 'BREAKING · ' + Math.max(0, Math.ceil(novaMayday.t)) + ' S', c: '#ff4455',
+        title: 'FREIGHTER MAYDAY ON LOCAL BAND', deck: 'Starlifter-7 reports a stalled reactor and requests immediate assistance.',
+        body: ['Pilots must approach within 400 m before the emergency window closes.', 'Failure to respond will damage convoy trust.'], action: 'TRACK', fn: () => nnewsLock('STARLIFTER-7', fr, 'freighter', false) });
+      if (pirateBoss && !isPirateDefeated && pirateBoss.visible) add({ id: 'pirate-alert', tag: 'SECURITY ALERT', c: '#ff3344',
+        title: 'CORSAIR CONTACT DISRUPTS LOCAL TRAFFIC', deck: 'Nova-1 Control advises civilian ships to clear the active combat lane.',
+        body: [`Pirate standing: ${Math.round(novaPirRep)} / 100.`, 'The hostile contact can jam nearby warp traffic.'], action: 'TRACK', fn: () => nnewsLock('CORSAIR RAIDER', pirateBoss, 'hostile', true) });
+      try { const m = ncrMission(); if (m && m.active) add({ id: 'cold-run', tag: 'DEEP SPACE', c: '#66e6ff', title: 'COLD RUN SIGNAL REMAINS ACTIVE',
+        deck: String(m.currentObjective || 'A cold-region operation is underway.'), body: ['Heat and fusion cores remain the most valuable cargo in the cooling system.', `Mission step ${m.progress.cursor + 1} of ${m.progress.total + 1}.`],
+        action: 'OBJECTIVE', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } }); } catch (e) { }
+      if (novaContract) add({ id: 'contract-' + novaContract.id, tag: 'CONTRACT WATCH', c: '#33ff99', title: String(novaContract.title).toUpperCase(),
+        deck: `${NOVA_AFF_NAMES[novaContract.giver] || 'Local dispatch'} confirms an active pilot contract.`, body: [`Progress ${Math.floor(novaContract.prog)} / ${novaContract.goal}.`, `Completion pays ${novaContract.pay} credits.`],
+        action: 'OBJECTIVE', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } });
+      const ch = CAMPAIGN[campaignChapter];
+      add({ id: 'chapter-' + campaignChapter, tag: 'SECTOR DESK', c: '#ffcc00', title: ch ? ch.title : 'OPEN SKIES',
+        deck: ch ? ch.objective : 'The sector enters a quieter period of open trade and exploration.', body: ch ? [ch.hint, `Filed by ${ch.speaker || 'Nova-1 Control'}.`] : ['Independent pilots continue mining, trade and patrol operations.'],
+        action: 'BRIEFING', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } });
+      const cores = (typeof NSV !== 'undefined' && NSV) ? (NSV.cores || 0) : 0;
+      add({ id: 'heat-core-market', tag: 'MARKETS', c: '#ff9f43', title: 'HEAT-CORE DEMAND CLIMBS AGAIN',
+        deck: 'Humanity is growing colder. Stations and colonies continue competing for reliable heat.',
+        body: [`Your hold reports ${cores} recovered heat core${cores === 1 ? '' : 's'}.`, 'Fusion cores command high prices, but every sale decides who stays warm.'], action: null });
+      add({ id: 'standing', tag: 'PUBLIC RECORD', c: '#ff88cc', title: 'PILOT RELATIONS SHAPE THE LANES',
+        deck: 'Dispatchers are publishing updated trust and security assessments.',
+        body: [`Nova-1 ${Math.round(novaAff.station)} · Convoy ${Math.round(novaAff.convoy)} · Valkyrie ${Math.round(novaAff.valkyrie)}`, `Corsair network standing ${Math.round(novaPirRep)} / 100.`], action: null });
+      return out;
+    }
+    function nnewsSelect(i) {
+      const L = nnewsItems(); if (!L.length) return;
+      NNEWS.i = (i + L.length) % L.length; NNEWS.read.add(L[NNEWS.i].id); NNEWS.lastId = L[NNEWS.i].id;
+      const P = NP.panels[0]; if (P) P.drawT = 0; try { sound.beep(820 + NNEWS.i * 25, 0.035); } catch (e) { }
+    }
+    function nnewsStep(d) { nnewsSelect(NNEWS.i + d); }
+    function nnewsFirst() { const L = nnewsItems(); return Math.max(0, Math.min(Math.max(0, L.length - 6), NNEWS.i - 2)); }
+    const NP_NEWS = { name: 'NEWS', c: '#66e6ff', get hint() { return 'NOVA NET live feed · tap a headline or swipe · urgent stories can be tracked before consequences'; },
+      get pads() { const L = nnewsItems(), q = L[NNEWS.i] || L[0]; return [
+        { l: '\u25C0 PREV', c: '#66e6ff', fn: () => nnewsStep(-1) },
+        { l: q && q.action ? q.action : 'NO ACTION', c: q && q.action ? q.c : '#39566a', fn: () => { if (q && q.fn) q.fn(); } },
+        { l: 'NEXT \u25B6', c: '#66e6ff', fn: () => nnewsStep(1) },
+        { l: 'OBJECTIVE', c: '#ffcc00', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } }
+      ]; },
+      draw: (x, P) => {
+        const L = nnewsItems(); if (!L.length) return;
+        NNEWS.i = Math.max(0, Math.min(NNEWS.i, L.length - 1)); const q = L[NNEWS.i]; NNEWS.read.add(q.id); NNEWS.lastId = q.id;
+        x.fillStyle = 'rgba(8,28,43,0.92)'; x.fillRect(8, 54, 350, 296); x.strokeStyle = 'rgba(102,230,255,0.4)'; x.lineWidth = 2; x.strokeRect(8, 54, 350, 296);
+        npText(x, 'NOVA NET', 20, 82, 'bold 22px monospace', '#66e6ff');
+        const first = nnewsFirst(); L.slice(first, first + 6).forEach((a, i) => { const Y = 94 + i * 42, on = first + i === NNEWS.i;
+          x.fillStyle = on ? 'rgba(102,230,255,0.20)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(14, Y, 338, 39);
+          if (!NNEWS.read.has(a.id)) { x.fillStyle = a.c; x.beginPath(); x.arc(26, Y + 19, 5, 0, 7); x.fill(); }
+          npText(x, a.title, 38, Y + 26, 'bold 17px monospace', on ? '#ffffff' : a.c, 304);
+        });
+        x.fillStyle = 'rgba(102,230,255,0.35)'; x.fillRect(370, 54, 2, 296);
+        npText(x, q.tag, 392, 82, 'bold 18px monospace', q.c, 610);
+        npText(x, q.title, 392, 122, 'bold 30px monospace', '#ffffff', 610);
+        x.font = '20px sans-serif'; x.fillStyle = '#cfefff'; let y = 158, line = '';
+        const write = text => { String(text).split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 600 && line) { if (y < 318) x.fillText(line, 392, y); y += 25; line = w; } else line = t; }); if (line && y < 318) { x.fillText(line, 392, y); y += 30; line = ''; } };
+        write(q.deck); (q.body || []).forEach(write);
+        x.textAlign = 'right'; npText(x, `${NNEWS.i + 1} / ${L.length}`, 1004, 338, 'bold 18px monospace', '#7fb6d0'); x.textAlign = 'left';
       } };
     const NP_OBJ = { name: 'OBJECTIVE', c: '#ffcc00', hint: 'ROUTE warps you to the objective when the route is known \u00b7 the compass diamond points to it',
       pads: [{ l: 'ROUTE', c: '#ffcc00', fn: () => { try { nsObjectivePick(); } catch (e) { } } }, { l: 'BRIEFING', c: '#b266ff', fn: () => { const ch = CAMPAIGN[campaignChapter]; if (ch) nkIntroStart(true, { k: ch.title, t: ch.objective, b: [ch.hint, '"' + ch.intro + '"', '\u2014 ' + ch.speaker], last: true }); } },
@@ -16189,7 +16261,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function npTick(dt) {
       if (!NP.panels.length) {
         if (!novaConsoles[0] || !novaConsoles[1]) return;
-        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_CREW_TAB, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'MESSAGES' : T === NP_CREW_TAB ? 'CREW / FLEET' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
+        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_CREW_TAB, NP_NEWS, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'MESSAGES' : T === NP_CREW_TAB ? 'CREW / FLEET' : T === NP_NEWS ? `${nnewsItems().length} STORIES` : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
           holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => { if (P.cfg.tabs[P.tab] === NP_COMMS) npOpenTargetChat(P); else npTab(P, P.cfg.tabs.indexOf(NP_COMMS)); } }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
             { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CREW_TAB)) }, { g: '✈', l: 'FLIGHT', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_FLIGHT)) },
             { g: '◎', l: 'OBJECTIVE', c: '#ffcc00', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_OBJ)) }, { g: '➤', l: 'WARP', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_WARP)) }] });
@@ -16318,7 +16390,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const T = P.cfg.tabs[P.tab];
       if (py < 50 || py > 412) return false;                       // tab strip and footer keep their own buttons
       if (T.pads && T.pads.length && py > 338 && (T === NP_WARP || px > 412)) return false;   // pads
-      if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT && T !== NP_CREW_TAB && !(T === NP_CARGO && nmkNear())) return false;
+      if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT && T !== NP_CREW_TAB && T !== NP_NEWS && !(T === NP_CARGO && nmkNear())) return false;
       if (T === NP_COMMS && px > 420) return false;
       if (T === NP_CARGO && px > 560) return false;
       NPG.g = { P, src, x0: px, y0: py, lx: px, ly: py, acc: 0, moved: 0, t: performance.now() }; NPG.vel = 0;
@@ -16344,6 +16416,9 @@ const GAME_VERSION = 'Alpha 1.4';
       } else if (T === NP_WARP) {
         G.acc += dx;
         if (Math.abs(G.acc) > 150) { npWarpStep(G.acc < 0 ? 1 : -1); G.acc = 0; }   // swipe left = next
+      } else if (T === NP_NEWS) {
+        G.acc += dx;
+        if (Math.abs(G.acc) > 120) { nnewsStep(G.acc < 0 ? 1 : -1); G.acc = 0; }
       }
     }
     function npGestureEnd() {
@@ -16352,6 +16427,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (G.moved < 22) {   // tap
         if (T === NP_COMMS) { const r = Math.floor((G.y0 - 52) / 44); const c = r >= 0 && r < 8 ? P.list[P.scroll + r] : null; if (c) { novaHoloSelect(c); P.drawT = 0; } }
         else if (T === NP_CREW_TAB) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) NP_CREW_TAB.row(P, r); }
+        else if (T === NP_NEWS && G.x0 < 360) { const r = Math.floor((G.y0 - 94) / 42); if (r >= 0 && r < Math.min(6, nnewsItems().length)) nnewsSelect(nnewsFirst() + r); }
         else if (T === NP_CARGO && nmkNear()) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) { NP_CARGO.row(P, r); P.drawT = 0; } }
         else if (T === NP_WARP) { if (G.x0 < 140) npWarpStep(-1); else if (G.x0 > 884) npWarpStep(1); }
         else if (T === NP_CHAT) {
