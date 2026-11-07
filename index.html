@@ -5794,6 +5794,8 @@ const GAME_VERSION = 'Alpha 1.4';
       if (isDockingInProgress) return;
       isDockingInProgress = true;
       isAutopilotActive = false;
+      novaAutoDockPending = false;
+      if (novaDock.state !== 'idle') novaDockClear();
 
       // Bring ship to rest at docking port
       setThrottle(0.0);
@@ -5804,7 +5806,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (shipBody.torque) shipBody.torque.set(0, 0, 0);
       }
       if (sound && sound.dockingClamp) sound.dockingClamp();
-      showToast('⚓ DOCKING CLAMP ENGAGED! AIRLOCK SEALED — ENTERING NOVA-1 CANTINA...', 3500, '#00ffcc');
+      showToast('⚓ DOCKING COMPLETE • ENGINES SAFE • AIRLOCK CYCLING', 3500, '#00ffcc');
 
       setTimeout(() => {
         const dockTargetName = String(currentLockedTarget?.name || '').toLowerCase();
@@ -8475,6 +8477,9 @@ const GAME_VERSION = 'Alpha 1.4';
       if (isInsideCantina || isDockingInProgress) return;
       if (novaDock.state === 'approach') { novaDockTractor(); return; }
       if (novaDock.state === 'tractor') return;
+      if (NDK.state !== 'idle') { ndkRelease(true); return; }
+      const lockedObj = currentLockedTarget && currentLockedTarget.targetObj;
+      if (lockedObj && lockedObj !== stationGroup && !currentLockedTarget.isHostile) { ndkBegin(lockedObj, currentLockedTarget.name, currentLockedTarget.type); return; }
       if (isAutopilotActive || novaAutoDockPending) { novaAutoDockPending = false; toggleAutopilot(false); return; }
       const d = stationGroup.position.distanceTo(shipGroup.position);
       if (d <= 2400) { novaDockPress(); if (novaDock.state === 'approach') novaDockTractor(); return; }
@@ -8778,7 +8783,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function novaDockClear() {
       novaDock.rings.forEach(r => scene.remove(r)); novaDock.rings = [];
       if (novaDock.beam) { scene.remove(novaDock.beam); novaDock.beam = null; }
-      novaDock.state = 'idle';
+      novaDock.state = 'idle'; novaDock.t = 0; novaDock.hudT = 0;
     }
     function novaDockPress() {
       if (isDockingInProgress || isInsideCantina) return;
@@ -8811,17 +8816,18 @@ const GAME_VERSION = 'Alpha 1.4';
     window.novaTestPirate = () => { if (!pirateBoss) spawnPirateBoss(); pirateBoss.visible = true; isPirateDefeated = false; pirateBoss.position.copy(shipGroup.position).add(new THREE.Vector3(0, 10, -200)); };
     window.novaTestNearStation = (d) => { const p = stationGroup.position.clone().add(new THREE.Vector3(0, 0, d)); shipGroup.position.copy(p); if (shipBody) { shipBody.position.copy(p); shipBody.velocity.set(0, 0, 0); } };
     function novaDockTractor() {
+      if (novaDock.state !== 'approach' || !novaDock.rings.length) return;
       novaDock.state = 'tractor'; novaDock.t = 0;
       novaDock.from.copy(shipGroup.position); novaDock.fromQ.copy(shipGroup.quaternion);
       const m = new THREE.Matrix4().lookAt(novaDock.port, stationGroup.position, new THREE.Vector3(0, 1, 0));
       novaDock.toQ.setFromRotationMatrix(m);
-      novaDock.dur = THREE.MathUtils.clamp(shipGroup.position.distanceTo(novaDock.port) / 70, 3, 10);
+      novaDock.dur = THREE.MathUtils.clamp(shipGroup.position.distanceTo(novaDock.port) / 55, 3.5, 12);
       isAutopilotActive = false;
       try { setThrottle(0.0); } catch (e) {}
       novaDock.beam = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 6, 1, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x66ffee, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }));
       scene.add(novaDock.beam);
       try { sound.beep(880, 0.12); } catch (e) {}
-      showToast('TRACTOR BEAM LOCKED. Hands off, Nova-1 is bringing you in.', 3000, '#66ffee');
+      showToast('TRACTOR LOCK • CONTROLS SAFE • AUTOMATIC FINAL APPROACH', 3000, '#66ffee');
     }
     function novaDockTick(delta) {
       if (novaDock.state === 'idle') return;
@@ -8835,15 +8841,21 @@ const GAME_VERSION = 'Alpha 1.4';
           r.material.opacity = 0.55 + Math.sin(performance.now() * 0.006) * 0.3;
         });
         const speed = shipBody ? Math.hypot(shipBody.velocity.x, shipBody.velocity.y, shipBody.velocity.z) : 0;
+        const rel = novaDock.from.copy(shipGroup.position).sub(novaDock.port);
+        const along = rel.dot(novaDock.axis);
+        const lateral = rel.addScaledVector(novaDock.axis, -along).length();
         novaDock.hudT -= delta;
         if (novaDock.hudT <= 0) {
-          novaDock.hudT = 1.2;
-          showToast(`DOCKING ${Math.round(dPort)} m | ${Math.round(speed)} m/s ${speed > 40 ? '| SLOW DOWN' : '| GOOD'} | RINGS ${passed}/6 | PRESS DOCK FOR TRACTOR`, 1300, speed > 40 ? '#ffaa00' : '#00ffcc');
+          novaDock.hudT = 0.9;
+          const guide = speed > 40 ? 'SLOW DOWN' : lateral > 24 ? 'CENTER ON RINGS' : dPort < 90 ? 'FINAL APPROACH' : 'CORRIDOR GOOD';
+          showToast(`DOCK ${Math.round(dPort)}m • ${Math.round(speed)}m/s • OFFSET ${Math.round(lateral)}m • ${guide} • DOCK AGAIN = TRACTOR`, 1000, speed > 40 || lateral > 24 ? '#ffaa00' : '#00ffcc');
         }
+        if (dPort < 22 && speed < 8) novaDockTractor();
         if (dPort > 3200) { showToast('Docking aborted: left the approach corridor.', 2500, '#ffaa00'); novaDockClear(); }
       } else if (novaDock.state === 'tractor') {
         novaDock.t += delta;
-        const k = THREE.MathUtils.smoothstep(Math.min(novaDock.t / novaDock.dur, 1), 0, 1);
+        const u = Math.min(novaDock.t / novaDock.dur, 1);
+        const k = u * u * u * (u * (u * 6 - 15) + 10);
         shipGroup.position.lerpVectors(novaDock.from, novaDock.port, k);
         shipGroup.quaternion.slerpQuaternions(novaDock.fromQ, novaDock.toQ, Math.min(1, k * 1.5));
         if (shipBody) {
@@ -14306,7 +14318,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     function ndkRelease(msg) {
       if (NDK.state === 'idle') return;
-      ndkSet('idle'); NDK.obj = null;
+      ndkSet('idle'); NDK.obj = null; NDK.t = 0; NDK.hudT = 0;
       if (msg) { try { showToast('RELEASED. Flying manually.', 1800, '#ffaa00'); sound.beep(700, 0.06); } catch (e) { } }
     }
     function ndkNearest() {
@@ -14325,9 +14337,10 @@ const GAME_VERSION = 'Alpha 1.4';
       NDK.from.copy(shipGroup.position); NDK.fromQ.copy(shipGroup.quaternion);
       NDK.toQ.setFromRotationMatrix(new THREE.Matrix4().lookAt(dest, P, new THREE.Vector3(0, 1, 0)));
       NDK.dur = THREE.MathUtils.clamp(NDK.from.distanceTo(dest) / 110, 3, 22); NDK.t = 0;
+      NDK.hudT = 0;
       isAutopilotActive = false; try { setThrottle(0.0); } catch (e) { }
       ndkSet('approach');
-      try { sound.beep(880, 0.1); showToast('CLOSING IN ON ' + NDK.name + ' (' + Math.round(NDK.from.distanceTo(P)) + ' m). Press DOCK again to cancel.', 3200, '#66ffee'); } catch (e) { }
+      try { sound.beep(880, 0.1); showToast('DOCKING WITH ' + NDK.name + ' • AUTOMATIC APPROACH • DOCK AGAIN TO CANCEL', 3200, '#66ffee'); } catch (e) { }
     }
     function novaDockAny() {
       try {
@@ -14363,10 +14376,13 @@ const GAME_VERSION = 'Alpha 1.4';
       const dest = P.clone().addScaledVector(NDK.dir, NDK.standoff);
       if (NDK.state === 'approach') {
         NDK.t += dt;
-        const k = THREE.MathUtils.smoothstep(Math.min(NDK.t / NDK.dur, 1), 0, 1);
+        const u = Math.min(NDK.t / NDK.dur, 1);
+        const k = u * u * u * (u * (u * 6 - 15) + 10);
         shipGroup.position.lerpVectors(NDK.from, dest, k);
         shipGroup.quaternion.slerpQuaternions(NDK.fromQ, NDK.toQ, Math.min(1, k * 1.6));
         if (shipBody) { shipBody.position.copy(shipGroup.position); shipBody.quaternion.copy(shipGroup.quaternion); shipBody.velocity.set(0, 0, 0); shipBody.angularVelocity.set(0, 0, 0); }
+        NDK.hudT = (NDK.hudT || 0) - dt;
+        if (NDK.hudT <= 0) { NDK.hudT = 1; try { showToast(`APPROACH ${NDK.name} • ${Math.round(shipGroup.position.distanceTo(dest))}m • DOCK = CANCEL`, 1100, '#66ffee'); } catch (e) { } }
         if (NDK.t >= NDK.dur) {
           ndkSet('hold'); NDK.notch0 = currentThrottleNotch;
           const line = NDK_LINES[NDK.type] || 'Docked alongside. Press DOCK to release.';
@@ -14374,6 +14390,7 @@ const GAME_VERSION = 'Alpha 1.4';
         }
       } else {
         shipGroup.position.copy(dest);
+        shipGroup.quaternion.slerp(NDK.toQ, Math.min(1, dt * 2.5));
         if (shipBody) { shipBody.position.copy(shipGroup.position); shipBody.velocity.set(0, 0, 0); shipBody.angularVelocity.set(0, 0, 0); }
         if (currentThrottleNotch > NDK.notch0) ndkRelease(true);
       }
