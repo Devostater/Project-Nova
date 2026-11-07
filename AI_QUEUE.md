@@ -32,6 +32,21 @@ Merge order when the owner returns: open Claude PRs first (#11), then the queue 
 | A9 | **Offline APK check** | `tools/make_quest_apk.bat`, `OFFLINE_PLAY.md` | Owner can build and sideload the APK; it runs offline after the first load |
 | A7 | **Performance pass** (Claude, in progress) | measured: about 282 draw calls / 772k tris in flight; target about 150 / 300k on Quest | Quest-tier draw calls and tris inside budget |
 
+
+### Lane A, vertical slice cards (GPT/Codex). Do them in order; see `VERTICAL_SLICE.md`
+
+| # | Card | Scope / files | Done when |
+|---|---|---|---|
+| **A4** | **Module system** (prerequisite) | `window.nova` API (THREE, scene, camera, cameraRig, renderer, shipGroup, sound, toast, onTick, on/emit: shipDestroyed, missileLaunched, missileImpact, salvageStowed) + a loader for `public/modules/*.js`; mirror to root `modules/`; add to `sw.js` | A demo module logs "ready" |
+| **A10** | **Interior/arena system + firing range** | `public/modules/interior.js`: `novaInterior.enter(def)/exit()`; `?arena=range`; `public/art/textures/tex_metal_*` | Walk the range in 2D and VR, then exit |
+| **A11** | **On-foot controls** (FPS_PLAN §2) | `public/modules/fps_core.js`: right-hand gun, aim-cone auto-fire, pinch gun/hand toggle, left-fist joystick (smooth movement default), fallbacks, comfort vignette | Targets can be shot in every input mode |
+| **A5** | **Enemy drones** | `public/modules/fps_ai.js` + `drone.glb`: patrol → cover → shoot (slow, dodgeable bolts) → retreat; player HP + hit feedback | Two drones fight you in the range |
+| **A12** | **Derelict boarding** | Graveyard wreck → BOARD → corridor arena → loot → airlock exit | Board, fight, loot a heat core, return |
+| **A13** | **Morality meter + the fusion-core choice** | `public/modules/morality.js`; FLIGHT RECORD line; crew reaction lines | The choice changes morality; the crew comment |
+| **A14** | **"Cold Run" mission + end card** | beats 1–9 as one objective chain; end card with stats | Fresh save → end card in one session |
+| **A15** | **Save/load coverage** | heat cores, morality, salvage and slice progress in save/load | Quit mid-slice and resume |
+| **A16** | **Planning: Beta → 1.0** | `ROADMAP.md`: 3 sectors, 6 missions, 4 boardable ship types, store prep | Owner reviews |
+
 ## Lane B: Gemini (art; images only, no code)
 
 **Status 2026-11-07: all of B1–B6 is delivered** (made via the Gemini API by Claude, or by the owner): station logos (in game), arena textures `public/art/textures/tex_*_1024.jpg`, `public/fx/vfx_heat_core.jpg`, `vfx_salvage_beacon.png`, `vfx_shockwave.png`, `vfx_smoke_8x8.jpg`, store art in `art_src/store/`. Planets 2048 are in the owner's Drive `gemini_art_inbox`. New art requests go in `OWNER_QUESTIONS.md` or `ASSET_BACKLOG.md`.
