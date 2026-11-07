@@ -7,6 +7,7 @@
     "fps_ai.js",
     "boarding.js",
     "mission.js",
-    "fx_ultra.js"
+    "fx_ultra.js",
+    "vr_hands.js"
   ]
 }
