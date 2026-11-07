@@ -30,14 +30,19 @@ export function init(nova) {
       loader.load(new URL('../models/nova_gun.glb',import.meta.url).href,gltf=>{
         if(disposed){gltf.scene?.traverse?.(o=>{o.geometry?.dispose?.();if(Array.isArray(o.material))o.material.forEach(m=>m?.dispose?.());else o.material?.dispose?.();});return;}
         const model=gltf.scene;model.name='NOVA_ARC_PISTOL_FULL_QUALITY';
-        // Source model: Z is up and -X points through the muzzle. FPS weapons use Y up / -Z forward.
-        model.setRotationFromMatrix(new T.Matrix4().makeBasis(new T.Vector3(0,0,1),new T.Vector3(1,0,0),new T.Vector3(0,1,0)));
+        // Uploaded source points its barrel along +Z with +Y up. Turn it 180 degrees so the
+        // barrel follows the FPS/controller forward axis (-Z) without the previous 90-degree roll.
+        model.rotation.set(0,Math.PI,0);
         model.updateMatrixWorld(true);
         const box=new T.Box3().setFromObject(model),size=new T.Vector3(),center=new T.Vector3();box.getSize(size);box.getCenter(center);
         const scale=.30/Math.max(size.x,size.y,size.z,1e-6);model.scale.multiplyScalar(scale);model.updateMatrixWorld(true);
         new T.Box3().setFromObject(model).getCenter(center);model.position.sub(center);
         // Put the controller/hand at the grip instead of the model's geometric centre.
         model.position.add(new T.Vector3(0,.045,-.052));
+        const emissive=new T.TextureLoader().load(new URL('../models/texture_emissive.png',import.meta.url).href,()=>{
+          model.traverse(o=>{if(!o.isMesh)return;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;m.emissiveMap=emissive;m.emissive?.set?.(0xffffff);m.emissiveIntensity=1.35;m.needsUpdate=true;});});
+        },undefined,e=>console.warn('[NOVA FPS] Arc-Pistol emissive texture failed to load.',e));
+        emissive.flipY=false;if('colorSpace' in emissive)emissive.colorSpace=T.SRGBColorSpace;
         model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
         importedGun=model;pistol.add(model);fallbackGun.visible=false;
       },undefined,e=>console.warn('[NOVA FPS] Full-quality pistol failed to load; using fallback.',e));
