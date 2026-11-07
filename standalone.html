@@ -523,11 +523,8 @@
           }
           prevFire = fireNow;
 
-          // B button: Launch Homing Missile
+          // B button: launch only. Arming is deliberately limited to the dedicated ARM control.
           if (b1 && !prevMsl && typeof window.fireHomingMissile === 'function') {
-            if (typeof window.isMissileLidOpen === 'function' && !window.isMissileLidOpen() && typeof window.toggleMissileLid === 'function') {
-              window.toggleMissileLid();
-            }
             window.fireHomingMissile();
           }
           prevMsl = b1;
@@ -767,6 +764,7 @@ const GAME_VERSION = 'Alpha 1.4';
     let cargoSalvage = (() => { try { const v = parseInt(localStorage.getItem('novaCargoSalvage'), 10); return isNaN(v) ? 1 : v; } catch (e) { return 1; } })();
     let missileAmmo = novaMslCap();
     let isMissileArmed = false;
+    let missileArmConfirmUntil = 0;
     const IS_TEST_BENCH = false; // Test dialogue menu hidden in standalone game!
     let lastFireTime = 0;
     let lastSeatAdjustTime = 0;
@@ -5001,9 +4999,9 @@ const GAME_VERSION = 'Alpha 1.4';
 
     let novaLidLast = -9999;
     registerCockpitButton(gripTab, 'MISSILE COVER', () => {
-      // Hand tracking: the tab swings through the fingertip as the cover moves, which re-fired the toggle.
+      // Hand tracking: require a deliberate press/hold and ignore the moving tab crossing the fingertip.
       const t = performance.now();
-      if (t - novaLidLast < 1100 || Math.abs(missileLidPivot.rotation.x - targetLidAngle) > 0.25 && t - novaLidLast < 1600) return;
+      if (t - novaLidLast < 420 || Math.abs(missileLidPivot.rotation.x - targetLidAngle) > 0.25 && t - novaLidLast < 900) return;
       novaLidLast = t;
       toggleMissileLid();
     }, 0.04);
@@ -5087,8 +5085,22 @@ const GAME_VERSION = 'Alpha 1.4';
     targetLidAngle = 0.0;
 
     function toggleMissileLid(forceState) {
-      if (forceState !== undefined) isMissileLidOpen = forceState;
-      else isMissileLidOpen = !isMissileLidOpen;
+      const now = performance.now();
+      if (forceState === undefined) {
+        if (now - lastLidToggleTime < 400) return;
+        lastLidToggleTime = now;
+        if (!isMissileLidOpen && now > missileArmConfirmUntil) {
+          missileArmConfirmUntil = now + 1400;
+          sound.beep(850, 0.05);
+          showToast('MISSILE ARM • HOLD 0.4s OR PRESS ARM AGAIN', 1400, '#ffaa22');
+          return;
+        }
+        isMissileLidOpen = !isMissileLidOpen;
+      } else {
+        isMissileLidOpen = !!forceState;
+      }
+      missileArmConfirmUntil = 0;
+      isMissileArmed = isMissileLidOpen;
       targetLidAngle = isMissileLidOpen ? LID_OPEN_ANGLE : 0.0;
       sound.beep(isMissileLidOpen ? 1400 : 700, 0.06);
       showToast(isMissileLidOpen ? '⚠️ MISSILE SAFETY COVER OPEN — ARMED!' : '🔒 MISSILE COVER CLOSED — SAFE', 2000, isMissileLidOpen ? '#ff3344' : '#00ff88');
@@ -5116,9 +5128,11 @@ const GAME_VERSION = 'Alpha 1.4';
       if (now - lastMissileLaunchTime < 380) return;
       lastMissileLaunchTime = now;
 
-      // Auto-Arm on Press: If protective latch is closed, auto-flip latch open and arm system!
+      // FIRE never changes the arm state. Only the dedicated ARM / safety-cover control can arm.
       if (!isMissileLidOpen) {
-        toggleMissileLid(true);
+        sound.beep(300, 0.08);
+        showToast('MISSILES SAFE • USE THE DEDICATED ARM CONTROL', 1800, '#ffaa22');
+        return;
       }
 
       // Strict Ammo: Do not auto-replenish! Must resupply at station or via inventory panel
@@ -6920,12 +6934,34 @@ const GAME_VERSION = 'Alpha 1.4';
     [h1, h2].forEach((hObj) => {
       hObj.userData.handedness = null;
       hObj.addEventListener('connected', (e) => {
-        if (e.data && e.data.handedness) {
+        if (e.data && e.data.hand && e.data.handedness) {
           hObj.userData.handedness = e.data.handedness;
           hObj.userData.inputSource = e.data;
         }
       });
+      hObj.addEventListener('disconnected', () => {
+        hObj.userData.handedness = null;
+        hObj.userData.inputSource = null;
+      });
     });
+
+    function novaBindXRInputSession(session) {
+      if (!session || session._novaInputBound) return;
+      session._novaInputBound = true;
+      session.addEventListener('inputsourceschange', () => {
+        const activeHands = Array.from(session.inputSources || []).filter(src => src.hand);
+        [h1, h2].forEach(hand => {
+          const side = hand.userData.handedness;
+          const src = activeHands.find(s => s === hand.userData.inputSource) || activeHands.find(s => side && s.handedness === side);
+          hand.userData.inputSource = src || null;
+          hand.userData.handedness = src ? src.handedness : null;
+        });
+        if (!activeHands.length) {
+          isGrippingStickHand = false;
+          isGrippingThrottleHand = false;
+        }
+      });
+    }
 
     const handGroupLeft = new THREE.Group();
     const handGroupRight = new THREE.Group();
@@ -7188,10 +7224,23 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // ── Pilot Seat Height & Headset Recenter Calibration ──
     function recenterPilotView() {
-      // 1. Align yaw so user faces straight through forward windshield
-      const headFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-      const headYaw = Math.atan2(headFwd.x, -headFwd.z);
-      cameraRig.rotation.y = -headYaw;
+      // 1. Correct current world-space headset yaw instead of replacing rig yaw with
+      // a local value. This also handles starting almost exactly 180 degrees aft.
+      cameraRig.updateMatrixWorld(true);
+      camera.updateMatrixWorld(true);
+      const headQ = camera.getWorldQuaternion(new THREE.Quaternion());
+      const headFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(headQ);
+      headFwd.y = 0;
+      if (headFwd.lengthSq() > 1e-6) {
+        headFwd.normalize();
+        const headYaw = Math.atan2(headFwd.x, -headFwd.z);
+        const yawFix = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -headYaw);
+        cameraRig.quaternion.premultiply(yawFix);
+        cameraRig.rotation.x = 0;
+        cameraRig.rotation.z = 0;
+        cameraRig.rotation.y = THREE.MathUtils.euclideanModulo(cameraRig.rotation.y + Math.PI, Math.PI * 2) - Math.PI;
+        cameraRig.updateMatrixWorld(true);
+      }
 
       // 2. Anchor seated eye height relative to cockpit floor and back position
       const rotatedHead = camera.position.clone().applyQuaternion(cameraRig.quaternion);
@@ -8026,10 +8075,6 @@ const GAME_VERSION = 'Alpha 1.4';
         triggerLightspeed();
       });
       bindTapButton(btnMsl, () => {
-        // Auto-open safety lid if closed then launch missile
-        if (typeof isMissileLidOpen !== 'undefined' && !isMissileLidOpen) {
-          toggleMissileLid();
-        }
         fireHomingMissile();
       });
       bindTapButton(btnFlr, () => {
@@ -8099,6 +8144,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const session = await navigator.xr.requestSession(sessionMode, {
           optionalFeatures: ['local-floor', 'hand-tracking']
         });
+        novaBindXRInputSession(session);
         session.addEventListener('end', () => {
           isStartingXR = false;
           togglePassthrough(false);
@@ -8115,7 +8161,8 @@ const GAME_VERSION = 'Alpha 1.4';
       } catch (err) {
         console.warn('XR standard request failed, attempting minimal session...', err);
         try {
-          const fallback = await navigator.xr.requestSession(sessionMode);
+          const fallback = await navigator.xr.requestSession(sessionMode, { optionalFeatures: ['hand-tracking'] });
+          novaBindXRInputSession(fallback);
           fallback.addEventListener('end', () => {
             isStartingXR = false;
             togglePassthrough(false);
@@ -8133,6 +8180,7 @@ const GAME_VERSION = 'Alpha 1.4';
             const arFallback = await navigator.xr.requestSession('immersive-ar', {
               optionalFeatures: ['local-floor', 'hand-tracking']
             });
+            novaBindXRInputSession(arFallback);
             arFallback.addEventListener('end', () => {
               isStartingXR = false;
               togglePassthrough(false);
@@ -11108,12 +11156,22 @@ const GAME_VERSION = 'Alpha 1.4';
       // Update VR / MR Controllers and Hands (Bare hand tracking focused)
       const session = renderer.xr.getSession();
       if (session) {
+        const activeHandSources = Array.from(session.inputSources || []).filter(src => src.hand);
+        const claimedHandSources = new Set();
         // Optical Bare Hand Tracking (Primary control mode)
         [h1, h2].forEach((hand, hIdx) => {
           const joints = hand.joints;
           if (!joints) return;
-          // Only real, currently-present hand inputs count (joint data lingers after switching to controllers)
-          if (!Array.from(session.inputSources || []).some(src => src.hand)) return;
+
+          // Bind this Three.js hand to its currently active XRInputSource. Joint objects can
+          // linger after switching back to controllers, so a global "some hand" check is unsafe.
+          let exactSrc = activeHandSources.find(src => src === hand.userData.inputSource && !claimedHandSources.has(src));
+          if (!exactSrc && hand.userData.handedness) exactSrc = activeHandSources.find(src => src.handedness === hand.userData.handedness && !claimedHandSources.has(src));
+          if (!exactSrc) exactSrc = activeHandSources.find(src => !claimedHandSources.has(src));
+          if (!exactSrc) { hand.userData.inputSource = null; hand.userData.handedness = null; return; }
+          claimedHandSources.add(exactSrc);
+          hand.userData.inputSource = exactSrc;
+          hand.userData.handedness = exactSrc.handedness;
 
           const wrist = joints['wrist'];
           const tip = joints['index-finger-tip'];
@@ -11131,15 +11189,7 @@ const GAME_VERSION = 'Alpha 1.4';
           // Deterministic Per-Hand Resolution:
           // Match this specific hand instance with its own inputSource or userData
           let isLeftHand = false;
-          let sourceHandedness = hand.userData ? hand.userData.handedness : null;
-          if (session && session.inputSources) {
-            // Match inputSource whose hand corresponds to this hand's underlying XRHand
-            const exactSrc = Array.from(session.inputSources).find(s => (s.hand === hand) || (hand.userData && s === hand.userData.inputSource));
-            if (exactSrc && exactSrc.handedness) {
-              sourceHandedness = exactSrc.handedness;
-              hand.userData.handedness = exactSrc.handedness;
-            }
-          }
+          const sourceHandedness = exactSrc.handedness;
 
           if (sourceHandedness === 'left') {
             isLeftHand = true;
@@ -15924,7 +15974,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (renderer.xr.isPresenting) {
         const tips = [];
         try { ['left', 'right'].forEach(s => { const h = novaHands[s]; if (h && h.grip && h.grip.visible && h.tip) tips.push({ id: 'c' + s, p: h.tip.getWorldPosition(new THREE.Vector3()) }); }); } catch (e) { }
-        try { const ses = renderer.xr.getSession(); if (ses && Array.from(ses.inputSources || []).some(s => s.hand)) [h1, h2].forEach((h, k) => { const j = h && h.joints && h.joints['index-finger-tip']; if (j && j.visible !== false) tips.push({ id: 'h' + k, p: j.getWorldPosition(new THREE.Vector3()) }); }); } catch (e) { }
+        try { const ses = renderer.xr.getSession(); const handSources = ses ? Array.from(ses.inputSources || []).filter(s => s.hand) : []; [h1, h2].forEach((h, k) => { if (!h || !handSources.includes(h.userData.inputSource)) return; const j = h.joints && h.joints['index-finger-tip']; if (j && j.visible !== false) tips.push({ id: 'h' + k, p: j.getWorldPosition(new THREE.Vector3()) }); }); } catch (e) { }
         let touching = null;
         for (const t of tips) { for (const panel of panels) { if (!novaWorldVisible(panel.scr)) continue; const q = npPx(panel, t.p); if (q.z > -0.02 && q.z < 0.025 && q.px > 0 && q.px < 1024 && q.py > -NP_OFF && q.py < NP_CH - NP_OFF) { touching = { t, q, P: panel }; if (NPG.g && NPG.g.src === t.id) break; } } if (touching && NPG.g && NPG.g.src === t.id) break; }
         if (NPG.g && NPG.g.src !== 'mouse') {
