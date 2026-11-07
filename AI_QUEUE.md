@@ -11,7 +11,8 @@ The owner is away. Each AI takes the **next unclaimed card in its own lane**, wo
 5. **LF line endings** (`.gitattributes` enforces this). No whole-file rewrites.
 6. **Quest first:** under about 150 draw calls; no new materials or geometry per frame; textures at 1024 px or less unless the ULTRA tier.
 7. **Lore:** only the anchor is established ("Humanity is growing colder; heat and fusion cores are sought after"). Anything new is a *proposal* (`AI_CONTEXT.md`).
-8. **Finish:** a handoff in `AI_STATUS.md`: what changed, how to test it (2D, gamepad, Quest), and what wasn't tested.
+8. **Questions:** don't stop and wait; add the question to `OWNER_QUESTIONS.md` with the default you'll use, and keep going.
+9. **Finish:** a handoff in `AI_STATUS.md`: what changed, how to test it (2D, gamepad, Quest), and what wasn't tested.
 
 Merge order when the owner returns: open Claude PRs first (#11), then the queue PRs oldest first. Claude resolves any conflicts.
 
