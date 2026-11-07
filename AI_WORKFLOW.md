@@ -96,6 +96,12 @@ To work at the same time as the game-file owner, write the feature as a **separa
 
 Until the `nova` API exists (see Phase 2), modules can only use the `window.*` globals the game already exposes (e.g. `window.NOVA_VFX`, `window.NFM`).
 
+#### A4 module API and loader
+
+The runtime exposes `window.nova` with `THREE`, `scene`, `camera`, `cameraRig`, `renderer`, `shipGroup`, `sound`, and `toast(message, duration, color)`. Modules can register frame work with `nova.onTick(fn)`; the callback receives delta time in seconds. Event modules use `nova.on(name, fn)` and `nova.emit(name, payload)`. Both registration methods return an unsubscribe function. Events available to feature modules include `shipDestroyed`, `missileLaunched`, `missileImpact`, and `salvageStowed`; the feature integration emits these at the owning gameplay hook.
+
+The loader fetches `modules/manifest.json` relative to the running standalone build, then imports each listed JavaScript file and awaits its `init(nova)` export. A module may return an instance, stored in `nova.modules`. Root-hosted and `public/` builds keep matching `modules/` copies and service-worker cache entries. Add every new module to both manifests and both cache lists until a generated manifest workflow exists. The A4 `demo.js` logs `[NOVA module] demo ready` when loaded.
+
 ### Never do
 
 - Copy a whole file from an older copy, another build, or another tool over a newer one. Merge changes instead.
