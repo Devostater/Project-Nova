@@ -18,4 +18,4 @@ AZI's portfolio combines interactive entertainment, original sci-fi worlds, AI c
 Company registration, team, address, formal mission statement, official logo, brand palette, typography, slogan, and publication rights have not been confirmed. Do not invent them.
 
 ## For AI agents
-Start with the repository's `AI_CONTEXT.md` and `PROJECT_INDEX.md`; use property-specific references for prompt generation. Record new approved decisions as facts, and proposed concepts as proposals.
+Start with the repository's `PROJECT_NOVA_CONTEXT.md` and `PROJECT_NOVA_CONTEXT.md`; use property-specific references for prompt generation. Record new approved decisions as facts, and proposed concepts as proposals.

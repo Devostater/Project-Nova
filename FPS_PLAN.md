@@ -1,6 +1,6 @@
 # VR FPS Combat, Boarding and Salvage Plan
 
-**Status:** the owner answered the design questions on 2026-11-07 (marked **Owner decision** below). Anything else new stays a *proposal* until approved, per [AI_CONTEXT.md](AI_CONTEXT.md).
+**Status:** the owner answered the design questions on 2026-11-07 (marked **Owner decision** below). Anything else new stays a *proposal* until approved, per [PROJECT_NOVA_CONTEXT.md](PROJECT_NOVA_CONTEXT.md).
 
 ## Story anchor (Established, owner-confirmed)
 
@@ -36,7 +36,7 @@ This drives the loot and the boarding objectives: heat and fusion cores are the 
 
 ## Architecture
 
-- **New code as modules** (see `AI_PLAN.md`): `public/modules/salvage.js`, `fps_core.js` (weapons, health, input), `fps_arena.js` (levels), `fps_ai.js` (enemies), `morality.js`. Each exports `init(nova)`. The game file only gains a small `nova` API and a loader, so several AIs can work in parallel.
+- **New code as modules** (see `AI_WORKFLOW.md`): `public/modules/salvage.js`, `fps_core.js` (weapons, health, input), `fps_arena.js` (levels), `fps_ai.js` (enemies), `morality.js`. Each exports `init(nova)`. The game file only gains a small `nova` API and a loader, so several AIs can work in parallel.
 - **`nova` API:** `THREE`, `scene`, `camera`, `cameraRig`, `renderer`, `shipGroup`, `sound`, `toast()`, `onTick(fn)`, `on('shipDestroyed', fn)`, `cargo.add(type, n)`, `targets.add/remove` (so salvage shows in radar and comms), `input` (hands, controllers, keys), `vfx`, `morality.add(delta, reason)`.
 - **Interior system:** generalise the cantina into `novaInterior.enter(def)` / `exit()`.
 - **Levels are data:** small arenas and large multi-deck ships are both built from the same kit pieces and level definitions.

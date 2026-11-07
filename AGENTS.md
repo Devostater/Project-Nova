@@ -1,17 +1,17 @@
 # Agent Instructions (Codex and other AI tools)
 
-Project Nova is a WebXR space-flight sim worked on by several AIs. **Claude is the primary AI**; the owner (Devostater) has final say.
+Project Nova is a WebXR space-flight sim worked on by several AIs. **The lead AI is named in `AI_STATUS.md` (currently GPT/Codex)**; the owner (Devostater) has final say.
 
-Before doing anything, read [AI_WORKFLOW.md](AI_WORKFLOW.md), [AI_PLAN.md](AI_PLAN.md) and [AI_STATUS.md](AI_STATUS.md). For art, also read [ASSET_SPEC.md](ASSET_SPEC.md).
+Before doing anything, read [AI_WORKFLOW.md](AI_WORKFLOW.md) and [AI_STATUS.md](AI_STATUS.md). For art, also read [ASSET_SPEC.md](ASSET_SPEC.md).
 
 ## Rules
 
-- **Game files are held by one AI at a time:** `public/standalone.html`, `standalone.html` and `index.html`. Don't edit them unless `AI_STATUS.md` shows them free and you claim them first.
-- To code in parallel, write a new module in `public/modules/<feature>.js` (see `AI_PLAN.md`).
+- **Only the lead AI edits the game files** (`public/standalone.html`, `standalone.html`, `index.html`). If you are the lead (see `AI_STATUS.md`), you own integration; otherwise put your code in `public/modules/<feature>.js` and list the hooks you need in your PR.
+- To code in parallel, write a new module in `public/modules/<feature>.js` (see `AI_WORKFLOW.md`).
 - Never copy a whole file from an older copy or another build over a newer one. Merge changes instead.
 - `standalone.html` and `public/standalone.html` must stay identical. `index.html` is the same file without the `<script type="importmap">` block.
-- Work on your own branch (`codex/<task>`), open a draft PR, and record a handoff in `AI_STATUS.md`. Never commit to `main` or merge.
-- New lore, characters or mechanics are **proposals** (see `AI_CONTEXT.md`).
+- Work on your own branch (`codex/<task>`), open a draft PR, and record a handoff in `AI_STATUS.md`. Never commit to `main`; merge only when the owner explicitly approves.
+- New lore, characters or mechanics are **proposals** (see `PROJECT_NOVA_CONTEXT.md`).
 
 ## Reviewing pull requests
 

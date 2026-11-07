@@ -1,6 +1,6 @@
 # Asset Spec
 
-Every AI and tool that makes art for Project Nova follows this file. It keeps assets drop-in ready, so Claude (or whoever owns the game code) can wire them in without reworking them. Read [AI_CONTEXT.md](AI_CONTEXT.md) first for creative rules: new lore, names and designs are **proposals** until the owner approves them.
+Every AI and tool that makes art for Project Nova follows this file. It keeps assets drop-in ready, so Claude (or whoever owns the game code) can wire them in without reworking them. Read [PROJECT_NOVA_CONTEXT.md](PROJECT_NOVA_CONTEXT.md) first for creative rules: new lore, names and designs are **proposals** until the owner approves them.
 
 ## Folders and names
 
