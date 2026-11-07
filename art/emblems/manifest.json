@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "playtestDefault": true,
+  "canon": false,
+  "note": "Temporary owner-approved mapping for playtest; safe to revise after visual review.",
+  "emblems": [
+    {
+      "id": "emblem_02",
+      "faction": "nova_defense_compact",
+      "label": "Nova Defense Compact / EDF",
+      "file": "emblem_02_source.webp"
+    },
+    {
+      "id": "emblem_03",
+      "faction": "red_wake",
+      "label": "Red Wake / Pirates",
+      "file": "emblem_03.png"
+    },
+    {
+      "id": "emblem_04",
+      "faction": "veyran_assembly",
+      "label": "Veyran Assembly / Aliens",
+      "file": "emblem_04.png"
+    },
+    {
+      "id": "emblem_05",
+      "faction": "nova_1",
+      "label": "Nova-1 Station Authority",
+      "file": "emblem_05.png"
+    },
+    {
+      "id": "emblem_06",
+      "faction": "meridian_combine",
+      "label": "Meridian Combine",
+      "file": "emblem_06.png"
+    },
+    {
+      "id": "emblem_07",
+      "faction": "lantern_freeports",
+      "label": "Lantern Freeports / Smugglers",
+      "file": "emblem_07.png"
+    },
+    {
+      "id": "emblem_08",
+      "faction": "ceres_mining",
+      "label": "Ceres Mining Cooperative",
+      "file": "emblem_08.png"
+    },
+    {
+      "id": "emblem_09",
+      "faction": "player_fleet",
+      "label": "Player Fleet / Carrier",
+      "file": "emblem_09.png"
+    },
+    {
+      "id": "emblem_10",
+      "faction": "neutral_civilian",
+      "label": "Neutral Civilian Network",
+      "file": "emblem_10.png"
+    }
+  ]
+}
