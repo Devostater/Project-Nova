@@ -8,6 +8,7 @@
     "boarding.js",
     "mission.js",
     "fx_ultra.js",
-    "cantina_props.js"
+    "cantina_props.js",
+    "cinematics.js"
   ]
 }

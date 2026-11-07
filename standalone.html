@@ -19684,6 +19684,18 @@ const GAME_VERSION = 'Alpha 1.4';
     window.novaModulesReady = window.novaLoadModules().then(modules => {
     window.novaInteriorMod = modules.get('interior.js');
     window.novaMorality = modules.get('morality.js');
+    // owner-made intro/epilogue videos (public/video/*.mp4 + .vtt): play them when present, else the in-engine intro/ending
+    const novaCine = modules.get('cinematics.js');
+    if (novaCine && novaCine.play) {
+      const _introStart = nkIntroStart;
+      nkIntroStart = function (force, card) {
+        if (card) return _introStart.apply(this, arguments);
+        const self = this, args = arguments;
+        novaCine.play('intro').then(played => { if (played) { try { localStorage.setItem('novaIntroSeen', '1'); } catch (e) { } } else _introStart.apply(self, args); });
+      };
+      const _ending = nrmPlayEnding;
+      nrmPlayEnding = function () { const self = this, args = arguments; novaCine.play('epilogue').then(played => { if (!played) _ending.apply(self, args); }); };
+    }
     window.novaInterior = window.novaInteriorMod ? { enter: d => window.novaInteriorMod.enter(d), exit: () => window.novaInteriorMod.exit(), state: () => window.novaInteriorMod.state() } : null;
     window.novaRange = () => { const nm = document.getElementById('nc-modal'); if (nm) nm.style.display = 'none'; return window.novaInteriorMod?.enter('range'); };
     novaOn('fusionCoreChosen', e => { if (window.novaMorality) window.novaMorality.choice('fusion_core', e?.choice === 'take' ? 'keep' : 'return'); });

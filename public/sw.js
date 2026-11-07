@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.10';
+const VERSION = 'nova-alpha-1.11';
 const FILES = [
 "./art/alien_planet.jpg",
 "./art/asteroid.jpg",
@@ -163,6 +163,7 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
 // network first for code (page, modules, json) so updates always arrive; cache first for models, art and music
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url); if (e.request.method !== 'GET' || u.origin !== location.origin) return;
+  if (u.pathname.includes('/video/')) return; // stream cinematics straight from the network (range requests can't be cached)
   const page = /(\.html|\.js|\.mjs|\.json|\.webmanifest|\/)$/.test(u.pathname);
   e.respondWith((async () => {
     const c = await caches.open(VERSION);
