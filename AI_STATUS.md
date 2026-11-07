@@ -51,7 +51,6 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
-| GPT/Codex | G3 A15 save/load | `gpt/g3-save-load` | `modules/save.js`, `public/modules/save.js`, manifests/service workers, AI_STATUS | Active | — |
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
 
 
@@ -59,6 +58,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
+| GPT/Codex | G3 A15 versioned save/load | [Draft PR #43](https://github.com/Devostater/Project-Nova/pull/43) | Migrates heat cores, morality, salvage, credits and Cold Run into `novaStateV2`; autosaves on dock/mission events. |
 | Gemini | Missile-plume and thruster-glow textures | [Draft PR #33](https://github.com/Devostater/Project-Nova/pull/33) | Four image files only: root and public mirrors; owner approval required before merge. |
 | GPT/Codex | FPS flow, controls and helmet HUD | [Draft PR #38](https://github.com/Devostater/Project-Nova/pull/38) | Range exit, desktop/gamepad/Quest FPS input, helmet visor HUD, boarding lifecycle and drone combat coordinates; awaiting runtime review. |
 | GPT/Codex | Territories and campaign scope plan | [Draft PR #37](https://github.com/Devostater/Project-Nova/pull/37) | Planning only; proposed factions, territory simulation, news, traffic, cinematics and full-release checklist. |
@@ -67,6 +67,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **GPT/Codex: G3 A15 versioned save/load** ([draft PR #43](https://github.com/Devostater/Project-Nova/pull/43), branch `gpt/g3-save-load`). Adds mirrored `save.js` with one `novaStateV2` object covering heat cores, morality/log, salvage, credits, Cold Run and interior/boarding counts; migrates legacy keys without deleting them; exposes `nova.save/load/reset`; autosaves on dock and mission events without per-frame work. The key is automatically captured by the existing three-slot system. Optional Claude hooks: `nova.get/setCredits` and `nova.get/setSalvage` for immediate in-session application; otherwise existing `novaLoadLive` reload applies them. Checks: both copies passed `node --check`; migration/load/dock-autosave smoke passed; module/manifest/cache mirrors, LF and conflict markers passed. Not tested: browser reload, full Cold Run resume, gamepad/tablet/Quest. Next: Claude reviews/integrates #43; GPT starts G4 separately.
 
 - **GPT/Codex: FPS flow, controls, combat and helmet HUD** ([draft PR #38](https://github.com/Devostater/Project-Nova/pull/38), branch `gpt/fps-flow-hud`). Repairs the range EXIT door and all exit inputs; adds pointer-lock mouse look, keyboard/gamepad/Quest controller and hand input; adds a camera-mounted helmet visor HUD; unifies range/boarding entry and return; and places pooled drone combat in the correct interior coordinate space. Root/public copies of `fps_core.js`, `interior.js`, `fps_ai.js` and `boarding.js` match with LF endings. Static review only; browser, physical gamepad, tablet and Quest runtime were not tested. Next: play `?arena=range` and `?arena=boarding` in desktop/gamepad/Quest before merge.
 
