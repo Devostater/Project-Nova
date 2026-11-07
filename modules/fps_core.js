@@ -27,7 +27,8 @@ export function init(nova) {
     try{
       const mod=await import(new URL('../vendor/loaders/GLTFLoader.js',import.meta.url).href);
       const loader=new mod.GLTFLoader();
-      loader.load(new URL('../models/nova_gun.glb',import.meta.url).href,gltf=>{
+      // Query version prevents Quest Browser/GitHub Pages from reusing the earlier normal-only GLB.
+      loader.load(new URL('../models/nova_gun.glb?v=pbr-128ea3c-2',import.meta.url).href,gltf=>{
         if(disposed){gltf.scene?.traverse?.(o=>{o.geometry?.dispose?.();if(Array.isArray(o.material))o.material.forEach(m=>m?.dispose?.());else o.material?.dispose?.();});return;}
         const model=gltf.scene;model.name='NOVA_ARC_PISTOL_FULL_QUALITY';
         // Uploaded source points its barrel along +Z with +Y up. Turn it 180 degrees so the
@@ -39,8 +40,9 @@ export function init(nova) {
         new T.Box3().setFromObject(model).getCenter(center);model.position.sub(center);
         // Put the controller/hand at the grip instead of the model's geometric centre.
         model.position.add(new T.Vector3(0,.045,-.052));
-        const emissive=new T.TextureLoader().load(new URL('../models/texture_emissive.png',import.meta.url).href,()=>{
-          model.traverse(o=>{if(!o.isMesh)return;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;m.emissiveMap=emissive;m.emissive?.set?.(0xffffff);m.emissiveIntensity=1.35;m.needsUpdate=true;});});
+        model.traverse(o=>{if(!o.isMesh)return;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;if(m.map){m.map.colorSpace=T.SRGBColorSpace;m.map.needsUpdate=true;}else{m.color?.set?.(0x111923);m.metalness=.78;m.roughness=.3;}m.needsUpdate=true;});});
+        const emissive=new T.TextureLoader().load(new URL('../models/texture_emissive.png?v=pbr-128ea3c-2',import.meta.url).href,()=>{
+          model.traverse(o=>{if(!o.isMesh)return;const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>{if(!m)return;m.emissiveMap=emissive;m.emissive?.set?.(0x63e8ff);m.emissiveIntensity=.72;m.needsUpdate=true;});});
         },undefined,e=>console.warn('[NOVA FPS] Arc-Pistol emissive texture failed to load.',e));
         emissive.flipY=false;if('colorSpace' in emissive)emissive.colorSpace=T.SRGBColorSpace;
         model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});

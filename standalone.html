@@ -16195,7 +16195,7 @@ const GAME_VERSION = 'Alpha 1.4';
             { g: '◎', l: 'OBJECTIVE', c: '#ffcc00', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_OBJ)) }, { g: '➤', l: 'WARP', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_WARP)) }] });
         const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SYSOPT, NP_MUSIC], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
           holo: [{ g: '\u2316', l: 'COMBAT', c: '#ff3355', fn: P => npTab(P, 0) }, { g: '\u25A6', l: 'CARGO', c: '#00ff99', fn: P => npTab(P, 1) }, { g: '\u2699', l: 'SYSTEM / OPTIONS', c: '#ffd24a', fn: P => npTab(P, 2) },
-            { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }] });
+            { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }, { g: '\u25C9', l: '3D RADAR', c: '#00e5ff', fn: () => novaRadarPositionToggle() }] });
         try { commsArmRoot.visible = false; invArmRoot.visible = false; } catch (e) { }       // the floating TACCOMS / CARGO screens are folded into these panels
         console.log('[NOVA13] side panels rebuilt: COMMS|FLIGHT and WEAPONS|CARGO');
         return;
