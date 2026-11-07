@@ -61,12 +61,11 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
-| Gemini | Missile-plume and thruster-glow textures | [Draft PR #33](https://github.com/Devostater/Project-Nova/pull/33) | Four image files only: root and public mirrors; owner approval required before merge. |
-| GPT/Codex | FPS flow, controls and helmet HUD | [Draft PR #38](https://github.com/Devostater/Project-Nova/pull/38) | Range exit, desktop/gamepad/Quest FPS input, helmet visor HUD, boarding lifecycle and drone combat coordinates; awaiting runtime review. |
-| GPT/Codex | Territories and campaign scope plan | [Draft PR #37](https://github.com/Devostater/Project-Nova/pull/37) | Planning only; proposed factions, territory simulation, news, traffic, cinematics and full-release checklist. |
-| Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
+| — | (none: #21, #33, #38 were already in main; #37 merged 2026-11-07) | | |
 
 ## Done / handoffs
+
+- **GPT/Codex: territories and campaign scope plan** (PR #37, merged 2026-11-07 by Claude). Planning only: `ROADMAP.md` and `OWNER_QUESTIONS.md`.
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
 
