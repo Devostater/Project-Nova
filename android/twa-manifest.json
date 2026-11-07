@@ -40,7 +40,7 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": true,
-  "horizonOSAppMode": "immersive",
+  "horizonOSAppMode": "panel",
   "fullScopeUrl": "https://devostater.github.io/Project-Nova/",
   "minSdkVersion": 23,
   "orientation": "default",
