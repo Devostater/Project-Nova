@@ -573,7 +573,7 @@
     <div id="hud-controls">STICK: +0.0° PITCH · +0.0° ROLL | THROTTLE: 0% | SEAT: +5cm</div>
   </div>
 
-  <div id="version-badge">Alpha 1.3 · STARFIGHTER SIMULATOR</div>
+  <div id="version-badge">Alpha 1.4 · STARFIGHTER SIMULATOR</div>
   <div id="status-toast"></div>
 
   <!-- Launch Modal -->
@@ -707,7 +707,7 @@ git push -u origin main</pre>
 
         let pirateBoss = null;
     let pirateBossSpawned = false;
-const GAME_VERSION = 'Alpha 1.3';
+const GAME_VERSION = 'Alpha 1.4';
     let passthroughActive = false;
     let seatOffset = 0.12; // Elevated command default (+12cm)
     let throttlePct = 0;
@@ -15412,7 +15412,8 @@ const GAME_VERSION = 'Alpha 1.3';
     const NP_CARGO_ITEMS = () => [
       { k: 0, n: 'TITANIUM ORE', q: `${cargoOre} t`, v: cargoOre * 100, c: '#00ffaa' }, { k: 12, n: 'HYPERDRIVE CELLS', q: '4', v: 1000, c: '#00f0ff' },
       { k: 9, n: 'HOMING MISSILES', q: `${missileAmmo}/6`, v: missileAmmo * 150, c: '#ffaa00' }, { k: 2, n: 'THERMAL FLARES', q: `${cargoFlares}/4`, v: cargoFlares * 75, c: '#ff7733' },
-      { k: 13, n: 'SHIELD CAPACITORS', q: `${cargoShieldCaps}/4`, v: cargoShieldCaps * 300, c: '#33bbff' }, { k: 14, n: 'DERELICT RECORDER', q: `${cargoSalvage}`, v: 1200, c: '#dd88ff' }];
+      { k: 13, n: 'SHIELD CAPACITORS', q: `${cargoShieldCaps}/4`, v: cargoShieldCaps * 300, c: '#33bbff' }, { k: 14, n: 'DERELICT RECORDER', q: `${cargoSalvage}`, v: 1200, c: '#dd88ff' },
+      { k: 2, n: 'HEAT CORES', q: `${window.novaHeatCores ? window.novaHeatCores() : 0}`, v: (window.novaHeatCores ? window.novaHeatCores() : 0) * 2400, c: '#ff9a3c' }];
     const NP_CARGO = { name: 'CARGO', c: '#00ff99', hint: 'touch the ore row to sell · the missile row to resupply',
       row: (P, i) => { if (i === 0) tradeCargoOre(); else if (i === 2) resupplyInventory(); },
       pads: [{ l: 'RESUPPLY', c: '#ffd24a', fn: () => resupplyInventory() }, { l: 'SELL ORE', c: '#00ff99', fn: () => tradeCargoOre() }],
@@ -17114,6 +17115,10 @@ const GAME_VERSION = 'Alpha 1.3';
       if (st.salv) R.push({ l: `SELL SALVAGE x${cargoSalvage}`, r: cargoSalvage ? '+' + st.salv + ' cr ea' : 'none', c: '#dd88ff', fn: () => {
         if (cargoSalvage <= 0) { showToast('No salvage aboard. Try the Graveyard.', 1800, '#ffaa00'); return; }
         cargoSalvage--; bankCredits += st.salv; showToast(`SALVAGE SOLD  +${st.salv} CR`, 2200, '#dd88ff'); try { sound.tradeCash(); } catch (e) { } } });
+      { const hc = window.novaHeatCores ? window.novaHeatCores() : 0, hp = st.salv ? 3200 : 2400;   // heat cores: the system's most wanted cargo
+        R.push({ l: `SELL HEAT CORE x${hc}`, r: hc ? '+' + hp + ' cr ea' : 'none', c: '#ff9a3c', fn: () => {
+          if (!(window.novaHeatCoreSpend && window.novaHeatCoreSpend(1))) { showToast('No heat cores aboard. Tractor them from big wrecks.', 2000, '#ffaa00'); return; }
+          bankCredits += hp; showToast(`HEAT CORE SOLD  +${hp} CR`, 2400, '#ff9a3c'); try { sound.tradeCash(); } catch (e) { } } }); }
       Object.keys(st.items).forEach(k => {
         const cost = st.items[k];
         const full = k === 'msl' ? missileAmmo >= novaMslCap() : k === 'flr' ? cargoFlares >= 4 : k === 'cap' ? cargoShieldCaps >= 4 : k === 'kit' ? (window.novaKits || 0) >= 5 : (NW.core >= novaWarpCap());
@@ -17477,6 +17482,8 @@ const GAME_VERSION = 'Alpha 1.3';
       showToast('TRACTOR BEAM LOCKED', 1500, '#66ffee');
     }
     window.novaTractorPress = novaTractorPress;
+    window.novaHeatCores = () => NSV.cores || 0;
+    window.novaHeatCoreSpend = n => { if ((NSV.cores || 0) < n) return false; NSV.cores -= n; try { localStorage.setItem('novaHeatCores', String(NSV.cores)); } catch (e) { } return true; };
     window.addEventListener('keydown', e => { if (e.code === 'KeyG' && !e.repeat && !isCommsKeyboardOpen) novaTractorPress(); });
     function nsvTick(dt) {
       const sp = shipGroup.position, up = new THREE.Vector3(0, 1, 0), tmp = new THREE.Vector3();
@@ -17514,7 +17521,35 @@ const GAME_VERSION = 'Alpha 1.3';
     Object.defineProperty(NP_COMMS, 'pads', { configurable: true, get() {
       const t = currentLockedTarget; const pod = t && NSV.pods.find(p => p.g === t.targetObj);
       return pod ? [{ l: '⇩ TRACTOR', c: '#66ffee', fn: () => novaTractorPress() }] : []; }, set(v) { } });
+    // Gamepad: View / Back (button 8) = TRACTOR (unused in flight)
+    setInterval(() => { try { const pads = navigator.getGamepads ? navigator.getGamepads() : []; let down = false;
+      for (const g of pads) if (g && g.connected && g.mapping === 'standard' && g.buttons[8] && g.buttons[8].pressed) down = true;
+      if (down && !NSV.gpPrev && cockpit.visible) novaTractorPress(); NSV.gpPrev = down; } catch (e) { } }, 60);
     setInterval(() => { try { nsvTick(0.05); } catch (e) { if (!window._nsvErr) { window._nsvErr = 1; console.error('[salvage]', e); } } }, 50);
+
+    // ── A3 effects module (Codex: public/modules/fx_ultra.js): missile trails + richer explosions ──
+    // Live positions are fed every frame (homing missiles turn, so the module must not dead-reckon).
+    // Quest / low tier: trails only, no extra explosion layers (the flight scene is already over the draw-call budget).
+    const NFX = { fx: null, ids: new Map(), seq: 1, last: performance.now() };
+    import('./modules/fx_ultra.js').then(m => { NFX.fx = m.init({ THREE, scene, renderer }); console.log('[fx_ultra] ready, tier', NFX.fx && NFX.fx.tier); })
+      .catch(e => console.warn('[fx_ultra] not loaded', e && e.message));
+    function nfxFrame() {
+      const fx = NFX.fx; if (!fx || !fx.ready) return;
+      const now = performance.now(), dt = Math.min(0.05, (now - NFX.last) / 1000); NFX.last = now; if (dt <= 0) return;
+      const live = new Set();
+      const feed = (key, pos) => {
+        let r = NFX.ids.get(key);
+        if (!r) { r = { id: NFX.seq++, last: pos.clone(), v: new THREE.Vector3() }; NFX.ids.set(key, r); }
+        r.v.copy(pos).sub(r.last).multiplyScalar(1 / dt); r.last.copy(pos);
+        fx.missileStart(r.id, pos, r.v); live.add(key);
+      };
+      try { NF.msl.forEach(ms => { if (ms && ms.m) feed(ms, ms.m.getWorldPosition(new THREE.Vector3())); }); } catch (e) { }
+      try { activeMissiles.forEach(mm => { if (mm && mm.group) feed(mm, mm.group.getWorldPosition(new THREE.Vector3())); }); } catch (e) { }
+      for (const [key, r] of NFX.ids) if (!live.has(key)) { fx.missileStop(r.id); if (fx.tier !== 'low') fx.explosion(r.last, 0.5, 'missile'); NFX.ids.delete(key); }
+      fx.tick(dt);
+    }
+    { const _nf = nmFrame; nmFrame = function () { const r = _nf.apply(this, arguments); try { nfxFrame(); } catch (e) { if (!window._nfxErr) { window._nfxErr = 1; console.error('[fx_ultra]', e); } } return r; }; window.nmFrame = nmFrame; }
+    { const _nb = novaBoom; novaBoom = function (pos, scale) { const r = _nb.apply(this, arguments); try { if (NFX.fx && NFX.fx.ready && NFX.fx.tier !== 'low' && pos) NFX.fx.explosion(pos, scale || 1, 'ship'); } catch (e) { } return r; }; window.novaBoom = novaBoom; }
     window.novaTest = Object.assign(window.novaTest || {}, { salvage: (n = 3) => { const p = shipGroup.position.clone().add(new THREE.Vector3(0, 0, -60).applyQuaternion(shipGroup.quaternion)); for (let i = 0; i < n; i++) novaSalvageDrop(p, { slug: 'pirate_frigate', st: { boss: true } }); return NSV.pods.length; }, lockSalvage: () => { const t = getAllTargets().find(c => c.type === 'salvage'); currentLockedTarget = t || null; return t ? t.name + ' @ ' + Math.round(t.dist) + ' m' : null; }, salvageState: () => ({ pods: NSV.pods.map(p => p.kind), pulling: !!NSV.pulling, cores: NSV.cores, salvage: cargoSalvage, credits: bankCredits }) });
     // start new pilots on the real soundtrack
     try { if (!localStorage.getItem('novaMusicV1')) { bgmTrackIdx = BGM_TRACKS.findIndex(x => x.file); localStorage.setItem('novaMusicV1', '1'); } } catch (e) { }
@@ -17653,7 +17688,7 @@ const GAME_VERSION = 'Alpha 1.3';
         { k: 'OPEN SKIES', t: rift === 'contact' ? 'The ring is quiet. It listens.' : rift ? 'The rift is closed.' : 'The lanes are open.', b: ['Convoys run again. The colonies have power. Nova-1 sleeps easy.', 'And everyone on the station knows the name Nova Lead.'] },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(0, 4) },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(4).concat([kept]) },
-        { k: 'PROJECT NOVA', t: 'Alpha 1.3', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
+        { k: 'PROJECT NOVA', t: 'Alpha 1.4', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
         { k: 'CREDITS', t: 'Ships, cockpit and crew', b: ['3D models generated for Project Nova (Tripo), optimised for Quest.', 'Faction fleets: Mind Space, the Corsair Line, the EDF.', 'Obi the cat-bot, Nyx, Valkyrie-7, John, Kip, Mother Kestrel, ADA-9.'] },
         { k: 'CREDITS', t: 'Music and art', b: ['Music: ScifiMusicPack (Fab), tracks Voyager, Space Caravan, Battle in the Market.', 'Sky, planets, icons and key art generated for Project Nova.'] },
         { k: 'THANK YOU FOR FLYING', t: 'The sector is yours.', b: ['Free flight continues: contracts, bounties, markets, the reef and the rift.', 'Fly safe, Nova Lead.'], last: true }

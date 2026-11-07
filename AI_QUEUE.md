@@ -9,7 +9,7 @@ The owner is away. Each AI takes the **next unclaimed card in its own lane**, wo
 3. **Game files:** `standalone.html`, `public/standalone.html` and `index.html` must stay identical (`index.html` = the same file minus the `<script type="importmap">` block). Make the same edit in all three, or edit the root file only and write "NEEDS SYNC" in the PR.
 4. **One AI per game-file area.** Claim the card in `AI_STATUS.md` (Active claims) before starting; only touch the functions the card lists. New systems go in **new module files** (`public/modules/<name>.js`, exporting `init(nova)`) whenever possible.
 5. **LF line endings** (`.gitattributes` enforces this). No whole-file rewrites.
-6. **Quest first:** under about 150 draw calls; no new materials or geometry per frame; textures at 1024 px or less unless the ULTRA tier.
+6. **Graphics target (owner, 2026-11-07): MAX / ULTRA quality.** It runs great at ULTRA; don't reduce model or texture detail for performance. Keep the Quest low tier working but never at the cost of ULTRA quality. Was: **Quest first:** under about 150 draw calls; no new materials or geometry per frame; textures at 1024 px or less unless the ULTRA tier.
 7. **Lore:** only the anchor is established ("Humanity is growing colder; heat and fusion cores are sought after"). Anything new is a *proposal* (`AI_CONTEXT.md`).
 8. **Questions:** don't stop and wait; add the question to `OWNER_QUESTIONS.md` with the default you'll use, and keep going.
 9. **Finish:** a handoff in `AI_STATUS.md`: what changed, how to test it (2D, gamepad, Quest), and what wasn't tested.
@@ -28,9 +28,13 @@ Merge order when the owner returns: open Claude PRs first (#11), then the queue 
 | A4 | **`nova` module API + loader** (FPS_PLAN M0) | a small `window.nova` object + `<script type="module">` loader for `public/modules/*.js` | Modules load in both builds; documented in `AI_PLAN.md` |
 | A5 | **Enemy AI module** (FPS_PLAN M4) | `public/modules/fps_ai.js`: drone state machine against the `nova` API | Patrol → cover → shoot → retreat, testable via `?arena=range` |
 | A6 | **Morality meter** (FPS_PLAN §5) | `public/modules/morality.js` + one flight-log line | −100…+100, history list, saved |
-| A7 | **Performance pass** | read-only profiling first; then fix hot spots (allocations per frame) | Report + PR with measured fixes |
+| A8 | **Side panels fit the cockpit mesh** (GPT, in progress) | panel placement/scale only (`npBuild`, `NP_SW/NP_SH`, panel roots) | Panels sit flush on their console screens in 2D and VR |
+| A9 | **Offline APK check** | `tools/make_quest_apk.bat`, `OFFLINE_PLAY.md` | Owner can build and sideload the APK; it runs offline after the first load |
+| A7 | **Performance pass** (Claude, in progress) | measured: about 282 draw calls / 772k tris in flight; target about 150 / 300k on Quest | Quest-tier draw calls and tris inside budget |
 
 ## Lane B: Gemini (art; images only, no code)
+
+**Status 2026-11-07: all of B1–B6 is delivered** (made via the Gemini API by Claude, or by the owner): station logos (in game), arena textures `public/art/textures/tex_*_1024.jpg`, `public/fx/vfx_heat_core.jpg`, `vfx_salvage_beacon.png`, `vfx_shockwave.png`, `vfx_smoke_8x8.jpg`, store art in `art_src/store/`. Planets 2048 are in the owner's Drive `gemini_art_inbox`. New art requests go in `OWNER_QUESTIONS.md` or `ASSET_BACKLOG.md`.
 
 Follow `ASSET_SPEC.md`. Black background for additive effects; no text, labels or borders. Upload to a `gemini/<card>` branch (files go to the folder listed).
 
