@@ -17631,7 +17631,7 @@ const GAME_VERSION = 'Alpha 1.1';
         laser: './fx/vfx_laser.png',
         flare: './fx/vfx_flare.png',
         spark: './fx/vfx_spark.png',
-        shield: './fx/vfx_shield.png',
+        shield: './fx/vfx_shield_hex.png',   // seamless 1024 hex, generated with Gemini
         explosion: './fx/vfx_explosion_8x8.png',   // 8x8 atlas, 56 frames
         lightning: './fx/vfx_lightning.png'
       };
@@ -17650,7 +17650,7 @@ const GAME_VERSION = 'Alpha 1.1';
               tex.wrapT = THREE.RepeatWrapping;
             }
             if (k === 'shield') {
-              tex.repeat.set(3, 2);
+              tex.repeat.set(2, 1);   // hex texture already holds ~30 cells per row
               try {
                 shieldBubbleMat.map = tex;
                 shieldBubbleMat.alphaMap = tex;

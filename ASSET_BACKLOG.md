@@ -17,7 +17,7 @@ The current effects are cut from low-resolution catalog sheets (explosion frames
 |---|---|---|---|---|
 | Large explosion | `public/fx/vfx_explosion_large_8x8.png` | 2048², 8×8 | Fireball → smoke, fades fully to black by the last frame | |
 | Small explosion / hit | `public/fx/vfx_explosion_small_4x4.png` | 1024², 4×4 | Quick spark burst for bullet hits and asteroid chips | |
-| Shield hex (tileable) | `public/fx/vfx_shield_hex.png` | 1024², 1 frame | Seamless honeycomb, white/cyan lines on black | |
+| Shield hex (tileable) | `public/fx/vfx_shield_hex.png` | 1024², 1 frame | Seamless honeycomb, white/cyan lines on black | **Delivered** (Gemini, Claude) |
 | Player laser | `public/fx/vfx_laser_player.png` | 128×512 | Vertical bolt, head at the **bottom**, white core (tinted in game) | |
 | Muzzle flash | `public/fx/vfx_muzzle_4x4.png` | 512², 4×4 | Short, star-shaped | |
 | Engine glow | `public/fx/vfx_engine_glow.png` | 256² | Soft round glow, white/blue | |
