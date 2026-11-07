@@ -694,6 +694,12 @@ git push -u origin main</pre>
     import * as THREE from 'three';
     import * as CANNON from 'cannon-es';
 
+    let novaSalvage = null;
+    let novaSalvageModule = null;
+    const novaSalvagePaths = location.pathname.includes('/public/') ? ['./modules/salvage.js', '../public/modules/salvage.js'] : ['./public/modules/salvage.js', './modules/salvage.js'];
+    for (const path of novaSalvagePaths) { try { novaSalvageModule = await import(new URL(path, location.href)); break; } catch (e) { } }
+    if (!novaSalvageModule) console.warn('[NOVA] salvage module unavailable');
+
     // ── Version & State ──
     // ── Interactive Buttons Array Outside Front Dash ──
     const cockpitInteractables = [];
@@ -748,6 +754,8 @@ const GAME_VERSION = 'Alpha 1.3';
     let cargoFlares = 4;
     let cargoShieldCaps = 2;
     let cargoSalvage = 1;
+    let cargoHeatCores = 0;
+    try { cargoHeatCores = Math.max(0, parseInt(localStorage.getItem('novaHeatCores') || '0', 10) || 0); } catch (e) { }
     let missileAmmo = novaMslCap();
     let isMissileArmed = false;
     const IS_TEST_BENCH = false; // Test dialogue menu hidden in standalone game!
@@ -3361,6 +3369,7 @@ const GAME_VERSION = 'Alpha 1.3';
         }
       });
 
+      try { if (novaSalvage) novaSalvage.contacts().forEach(c => list.push({ id: 'salvage-' + c.obj.userData.salvageId, name: c.name, callsign: 'SALVAGE', type: 'salvage', obj: c.obj, stealth: false, freq: '—', isHostile: false, color: '#9aa7b0' })); } catch (e) { }
       // Sort ascending by range of sensors
       list.sort((a, b) => a.dist - b.dist);
       return list;
@@ -3974,7 +3983,7 @@ const GAME_VERSION = 'Alpha 1.3';
       ctx.fillText('📦 SHIP INVENTORY & CARGO MANIFEST', w / 2, 30);
 
       // ── Capacity Gauge & Bank Balance Banner ──
-      const totalUsedTons = cargoOre + 4 + missileAmmo + cargoFlares + cargoShieldCaps + cargoSalvage;
+      const totalUsedTons = cargoOre + 4 + missileAmmo + cargoFlares + cargoShieldCaps + cargoSalvage + cargoHeatCores;
       const capPct = Math.round((totalUsedTons / 100) * 100);
 
       ctx.fillStyle = 'rgba(10, 36, 26, 0.9)';
@@ -4016,46 +4025,47 @@ const GAME_VERSION = 'Alpha 1.3';
         { icon: '🚀', name: 'HOMING MISSILES', tag: 'AMMO', qty: `${missileAmmo}/6 ARMED`, val: `${missileAmmo * 150} CR`, color: missileAmmo > 0 ? '#ffaa00' : '#ff4444' },
         { icon: '🔥', name: 'THERMAL FLARES', tag: 'DEFENSE', qty: `${cargoFlares}/4 READY`, val: `${cargoFlares * 75} CR`, color: '#ff7733' },
         { icon: '🛡️', name: 'SHIELD CAPACITORS', tag: 'SYS', qty: `${cargoShieldCaps}/4 RESERVE`, val: `${cargoShieldCaps * 300} CR`, color: '#33bbff' },
-        { icon: '💾', name: 'DERELICT RECORDER', tag: 'RELIC', qty: `${cargoSalvage} RELIC`, val: '1,200 CR', color: '#dd88ff' }
+        { icon: '💾', name: 'SALVAGE MATERIAL', tag: 'RELIC', qty: `${cargoSalvage} UNIT${cargoSalvage === 1 ? '' : 'S'}`, val: `${cargoSalvage * 1200} CR`, color: '#9aa7b0' },
+        { icon: '🔥', name: 'HEAT CORES', tag: 'CORE', qty: `${cargoHeatCores} CORE${cargoHeatCores === 1 ? '' : 'S'}`, val: `${cargoHeatCores * 1800} CR`, color: '#ff9955' }
       ];
 
       items.forEach((item, idx) => {
-        const rowY = 82 + idx * 32;
+        const rowY = 82 + idx * 27;
         // Alternating row background
         if (idx % 2 === 0) {
           ctx.fillStyle = 'rgba(0, 255, 170, 0.05)';
-          ctx.fillRect(16, rowY, w - 32, 28);
+          ctx.fillRect(16, rowY, w - 32, 25);
         }
 
         ctx.textAlign = 'left';
         ctx.fillStyle = '#ffffff';
         ctx.font = '14px monospace';
         { const ci = window.NG_ICONS, k = ({ ORE: 0, FUEL: 12, AMMO: 9, DEFENSE: 2, SYS: 13, RELIC: 14 })[item.tag];
-          if (ci && ci.complete && ci.naturalWidth && k !== undefined) { ctx.drawImage(ci, (k % 4) * 96, Math.floor(k / 4) * 96, 96, 96, 22, rowY + 2, 24, 24); ctx.fillText(item.name, 52, rowY + 19); }
-          else ctx.fillText(`${item.icon} ${item.name}`, 24, rowY + 19); }
+          if (ci && ci.complete && ci.naturalWidth && k !== undefined) { ctx.drawImage(ci, (k % 4) * 96, Math.floor(k / 4) * 96, 96, 96, 22, rowY + 2, 24, 24); ctx.fillText(item.name, 52, rowY + 17); }
+          else ctx.fillText(`${item.icon} ${item.name}`, 24, rowY + 17); }
 
         // Category Tag Pill
         ctx.fillStyle = 'rgba(0, 180, 120, 0.25)';
-        ctx.fillRect(230, rowY + 5, 54, 18);
+        ctx.fillRect(230, rowY + 3, 54, 18);
         ctx.strokeStyle = item.color;
         ctx.lineWidth = 1;
-        ctx.strokeRect(230, rowY + 5, 54, 18);
+        ctx.strokeRect(230, rowY + 3, 54, 18);
         ctx.fillStyle = item.color;
         ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(item.tag, 257, rowY + 18);
+        ctx.fillText(item.tag, 257, rowY + 16);
 
         // Qty
         ctx.textAlign = 'left';
         ctx.fillStyle = item.color;
         ctx.font = 'bold 12px monospace';
-        ctx.fillText(item.qty, 298, rowY + 19);
+        ctx.fillText(item.qty, 298, rowY + 17);
 
         // Total Value
         ctx.textAlign = 'right';
         ctx.fillStyle = '#ffcc00';
         ctx.font = 'bold 12px monospace';
-        ctx.fillText(item.val, w - 24, rowY + 19);
+        ctx.fillText(item.val, w - 24, rowY + 17);
       });
 
       // ── Bottom Interactive Action Buttons ──
@@ -8365,15 +8375,15 @@ const GAME_VERSION = 'Alpha 1.3';
         'DOME LIGHT': ['LIGHT', '\u2600', '#ffee88'], 'POLARIZER': ['POLAR', '\u25D0', '#aa88ff'], 'BGM PLAY/PAUSE': ['MUSIC', '\u266B', '#ff66cc'],
         'BGM NEXT TRACK': ['NEXT', '\u23ED', '#ff66cc'], 'MUTE RADIO': ['MUTE', '\u2715', '#ffaa00'], 'QUEST LOG': ['LOG', '\u2630', '#ffcc00'],
         'MENU': ['MENU', '\u2261', '#00e5ff'], 'EXIT VR': ['EXIT', '\u23FB', '#ff3344'],
-        'WARP': ['WARP', '\u27A4', '#b266ff'], 'TGT BOX': ['TGT BOX', '\u25A3', '#66ffee']
+        'WARP': ['WARP', '\u27A4', '#b266ff'], 'TGT BOX': ['TGT BOX', '\u25A3', '#66ffee'], 'TRACTOR': ['TRACTOR', '\u2693', '#9aa7b0']
       };
       const zones = [
         { title: 'FLIGHT', side: -1, rows: 1, cols: 5, col: '#00e5ff',
           cells: [['ROTATION DAMPENERS', 0, 0, 1], ['WARP', 1, 0, 1], ['SLIDE COMMS', 2, 0, 1], ['BGM PLAY/PAUSE', 3, 0, 1], ['QUEST LOG', 4, 0, 1]] },
         { title: 'WEAPONS', side: 1, rows: 1, cols: 5, col: '#ff3355',
           cells: [['NEXT TARGET', 0, 0, 1], ['TGT BOX', 1, 0, 1], ['SHIP INVENTORY', 2, 0, 1], ['MENU', 3, 0, 1], ['EXIT VR', 4, 0, 1]] },
-        { title: 'SYSTEMS', side: 0, rows: 1, cols: 5, col: '#b04cff',
-          cells: [['SHIELD BOOST', 0, 0, 1], ['FLARES', 1, 0, 1], ['AUTO-DOCK', 2, 0, 1], ['DOME LIGHT', 3, 0, 1], ['POLARIZER', 4, 0, 1]] }
+        { title: 'SYSTEMS', side: 0, rows: 1, cols: 6, col: '#b04cff',
+          cells: [['SHIELD BOOST', 0, 0, 1], ['FLARES', 1, 0, 1], ['AUTO-DOCK', 2, 0, 1], ['TRACTOR', 3, 0, 1], ['DOME LIGHT', 4, 0, 1], ['POLARIZER', 5, 0, 1]] }
       ];
       const oldPanels = new Set();
       ['DOME LIGHT'].forEach(l => cockpitInteractables.filter(x => x.label === l && x.mesh && x.mesh.parent && x.mesh.parent !== cockpit).forEach(x => oldPanels.add(x.mesh.parent)));
@@ -8406,6 +8416,7 @@ const GAME_VERSION = 'Alpha 1.3';
         z.cells.forEach(([lab, c, r, wc]) => {
           let act;
           if (lab === 'AUTO-DOCK') act = novaDockPress;
+          else if (lab === 'TRACTOR') act = () => novaSalvage ? novaSalvage.tractor(currentLockedTarget) : showToast('TRACTOR SYSTEM OFFLINE', 2200, '#ffaa55');
           else if (lab === 'BGM PLAY/PAUSE') { act = novaMusicCycle; cockpitInteractables.filter(x => x.label === lab).forEach(x => x.mesh && novaUnregister(x.mesh)); }
           else {
             const e = cockpitInteractables.find(x => x.label === lab);
@@ -9983,7 +9994,7 @@ const GAME_VERSION = 'Alpha 1.3';
     const _novaSpawnPirOrig = spawnPirateBoss;
     spawnPirateBoss = function () { pirateHealth = 100; isPirateDefeated = false; novaPirAgg = 0; return _novaSpawnPirOrig(); };
     function campaignTick(delta) {
-      try { novaCombatTick(delta); novaDockTick(delta); novaConsoleTick(delta); novaHoloTick(delta); novaMissileTick(); novaV13Tick(delta); } catch (e) { console.error('cockpit tick', e); }
+      try { novaCombatTick(delta); novaDockTick(delta); if (novaSalvage) novaSalvage.tick(delta); novaConsoleTick(delta); novaHoloTick(delta); novaMissileTick(); novaV13Tick(delta); } catch (e) { console.error('cockpit tick', e); }
       const ch = CAMPAIGN[campaignChapter];
       if (!ch) return;
       if (cargoOre > novaPilot.lastOre) novaPilot.ore += cargoOre - novaPilot.lastOre;
@@ -13478,6 +13489,23 @@ const GAME_VERSION = 'Alpha 1.3';
     // >>> NOVA10 START: a living system (traffic, wrecks, dust, sun, radio) so space never feels empty
     const novaLife = { t0: performance.now(), last: performance.now(), chatT: 25, ships: [], wrecks: [], dust: null, sun: null, salv: {} };
     try { novaLife.salv = JSON.parse(localStorage.getItem('novaSalv') || '{}') || {}; } catch (e) {}
+    if (novaSalvageModule) novaSalvage = novaSalvageModule.init({
+      THREE, scene, shipGroup,
+      toast: (message, color) => showToast(message, 3200, color),
+      beep: () => { try { sound.lockTone(); } catch (e) { } },
+      canCollect: (items) => cargoOre + 4 + missileAmmo + cargoFlares + cargoShieldCaps + cargoSalvage + cargoHeatCores + items.salvage + items.ore + items.heatCores <= 100,
+      collect: (items) => {
+        cargoSalvage += items.salvage; cargoOre += items.ore; cargoHeatCores += items.heatCores; bankCredits += items.credits;
+        try { localStorage.setItem('novaHeatCores', String(cargoHeatCores)); } catch (e) { }
+        try { drawInventoryPanel(); drawRightDash(); drawCommsPanel(); } catch (e) { }
+      },
+      onRemoved: (obj) => {
+        if (currentLockedTarget && currentLockedTarget.targetObj === obj) {
+          currentLockedTarget = null;
+          try { drawRightDash(); drawMissileTargetScreen(); drawCommsPanel(); } catch (e) { }
+        }
+      }
+    });
     const NLMAT = {
       hull: new THREE.MeshStandardMaterial({ color: 0x59636e, metalness: 0.7, roughness: 0.5 }),
       dark: new THREE.MeshStandardMaterial({ color: 0x252b33, metalness: 0.8, roughness: 0.55 }),
@@ -14105,6 +14133,7 @@ const GAME_VERSION = 'Alpha 1.3';
       try { novaLife.wrecks.forEach(w => add(minor, w.def.name, 'wreck', w.g)); } catch (e) { }
       try { NM.fleet.forEach(f => add(key, f.name, 'allied', f.g)); } catch (e) { }
       try { nfContacts(add, minor, key); } catch (e) { }   // NOVA14 faction ships
+      try { if (novaSalvage) novaSalvage.contacts().forEach(c => add(minor, c.name, 'salvage', c.obj)); } catch (e) { }
       const all = key.slice();
       minor.forEach(c => { c.d = dist(c.obj); });
       minor.sort((a, b) => a.d - b.d);
@@ -14899,7 +14928,7 @@ const GAME_VERSION = 'Alpha 1.3';
     // ── NOVA13: 3D holo-radar over the centre dash screen; touch a contact to lock, touch the range tag to zoom ──
     const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {}, home: null, moved: false, names: false, labelAbove: false };
     window.NH = NH;
-    const NH_COL = { hostile: 0xff3344, allied: 0x33ff88, station: 0x3fa9ff, planet: 0x66ddff, asteroid: 0x9aa6b8, wreck: 0xffaa33 };
+    const NH_COL = { hostile: 0xff3344, allied: 0x33ff88, station: 0x3fa9ff, planet: 0x66ddff, asteroid: 0x9aa6b8, wreck: 0xffaa33, salvage: 0x9aa7b0 };
     function nhMat(type) { const k = NH_COL[type] !== undefined ? type : 'asteroid'; return NH.mats[k] || (NH.mats[k] = new THREE.MeshBasicMaterial({ color: NH_COL[k], toneMapped: false })); }
     function nhLabel(range) {
       const x = NH.lctx; x.clearRect(0, 0, 256, 64);
@@ -15188,7 +15217,7 @@ const GAME_VERSION = 'Alpha 1.3';
     // ═══ NOVA13: the two side panels rebuilt (tabbed screens on the console model + holo buttons on its button row) ═══
     //   left  = COMMS (nearby contacts, info, holo scan, hail / chat) | FLIGHT
     //   right = WEAPONS (missiles, lock, holo scan) | CARGO (manifest, resupply, sell ore)
-    const NP = { panels: [], ccol: { hostile: '#ff3344', allied: '#33ff88', station: '#3fa9ff', asteroid: '#9aa6b8', wreck: '#ffaa33', wingman: '#33ff88', freighter: '#33ff88', ship: '#33ff88' } };
+    const NP = { panels: [], ccol: { hostile: '#ff3344', allied: '#33ff88', station: '#3fa9ff', asteroid: '#9aa6b8', wreck: '#ffaa33', salvage: '#9aa7b0', wingman: '#33ff88', freighter: '#33ff88', ship: '#33ff88' } };
     window.NP = NP;
     const NP_SW = 0.30, NP_SH = 0.133, NP_BX = [-0.151, -0.116, -0.082, -0.047, -0.015, 0.024, 0.060, 0.096, 0.144];
     function npBtnTex(glyph, lab, col) {
@@ -16314,6 +16343,7 @@ const GAME_VERSION = 'Alpha 1.3';
     }
     function nfKill(u, byPlayer) {
       const p = u.g.position.clone();
+      try { if (novaSalvage) novaSalvage.drop({ position: p, slug: u.slug, name: u.name, size: (NF_ASSETS[u.slug] || {}).size || 0, boss: !!u.st.boss }); } catch (e) { }
       try { novaBoom(p); } catch (e) { }
       try { u.st.boss || (NF_ASSETS[u.slug] || {}).size > 80 ? sound.bossExplosion() : sound.explosion(); } catch (e) { }
       if (byPlayer && u.st.bounty) {
