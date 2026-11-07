@@ -1,16 +1,15 @@
-# Matrix Prompt Guide
+# Matrix: AI Prompt Guide
 
-## Identity anchors
-Use only these confirmed anchors unless more canon is provided: Matrix is an AZI AI character, digital personality, and creative-media project.
+Read [CHARACTER_IDENTITY.md](CHARACTER_IDENTITY.md) and [PERSONALITY_AND_MEDIA.md](PERSONALITY_AND_MEDIA.md).
 
-## For dialogue
-Request the intended situation, audience, and tone. No canonical speaking style is currently documented. Label a newly invented voice direction **Proposed**.
+## Image/character prompt starter
+“Matrix, an AZI cyberpunk female AI operative and DJ persona, with a purple-and-black visual direction, futuristic headphones featuring a holographic equalizer, and a lost-transmission aesthetic. Compose [shot] in [setting], with [lighting/camera]. Maintain a coherent recognizable identity. Treat any unspecified facial features, outfit details, emblems, or backstory as proposals.”
 
-## For visual generation
-No canonical appearance, palette, clothing, body, age, or form is documented. Do not treat repository model filenames as sufficient visual specification. Ask for references or frame visual options as proposals.
+## Transmission/intermission starter
+“Create an original short Matrix broadcast for [audience/platform], using a mysterious industrial communications atmosphere, optional train/intermission setting, and a transmission identifier. Keep her voice technically fluent and evocative; this speaking style is proposed, not finalized. Avoid claiming real-world releases or live system access.”
 
-## For music and media
-No genre, tempo, instrumentation, lyrics, release format, or artist credits are confirmed here. Treat generated direction as exploratory. Do not imply that suggested work is released or approved.
+## AI assistant prompt starter
+“Design a proposed Matrix assistant experience under AZI. Distinguish character voice from reliable tool behavior, list actual integrations separately from desired integrations, and never claim actions or abilities that have not been implemented.”
 
-## Reusable instruction
-“Use the confirmed Matrix identity in the AZI reference library. Preserve established details, leave undocumented traits unspecified, and label any new identity, voice, visual, lore, or media decisions as proposals.”
+## Brand constraints
+Use **Absolute Zero Interactive / AZI** for current parent-studio attribution. Zero Horizon Music and Quantum Drop are historical naming context, not automatically current on-screen logos. Do not assume Project Nova's Matrix assets establish final canon.
