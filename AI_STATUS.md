@@ -27,6 +27,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
+| Codex | A10 Interior/arena + firing range | `codex/a10-interior-range` | `public/modules/interior.js` and root mirror | Active | — |
 
 ## Waiting for review / merge
 
