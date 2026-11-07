@@ -55,7 +55,7 @@ export function init(nova) {
   box(3.2,2.5,0.12,trimMat,0,1.35,6.72);
   box(2.5,0.08,0.1,glowMat,0,2.55,6.62);
   const state={active:false, savedPos:null, savedQuat:null, shipVisible:true, keys:new Set()};
-  const forward=new T.Vector3(), right=new T.Vector3(), move=new T.Vector3();
+  const forward=new T.Vector3(), right=new T.Vector3(), move=new T.Vector3(), up=new T.Vector3(0,1,0);
   const keyDown=e=>{ if(e.code==='Escape'&&state.active){e.preventDefault();exit();} else if(['KeyW','KeyA','KeyS','KeyD'].includes(e.code)) state.keys.add(e.code); };
   const keyUp=e=>state.keys.delete(e.code);
   function enter() {
@@ -63,7 +63,7 @@ export function init(nova) {
     state.savedPos=rig.position.clone(); state.savedQuat=rig.quaternion.clone();
     state.shipVisible=nova.shipGroup?.visible ?? true;
     if(nova.shipGroup) nova.shipGroup.visible=false;
-    rig.position.set(0,0,5.5); rig.quaternion.identity();
+    rig.position.set(0,0,-21); rig.quaternion.identity();
     root.visible=true; state.active=true;
     nova.toast?.('FIRING RANGE · WASD TO MOVE · ESC TO EXIT',3000,'#00e5ff');
   }
@@ -87,12 +87,13 @@ export function init(nova) {
     }
     if(Math.abs(x)+Math.abs(z)<0.01) return;
     camera?.getWorldDirection(forward); forward.y=0; forward.normalize();
-    right.crossVectors(forward,new T.Vector3(0,1,0)).normalize();
+    right.crossVectors(forward,up).normalize();
     move.set(0,0,0).addScaledVector(right,x).addScaledVector(forward,-z);
     if(move.lengthSq()>1) move.normalize();
     rig.position.addScaledVector(move,4.2*d);
     rig.position.x=T.MathUtils.clamp(rig.position.x,-7.2,7.2);
     rig.position.z=T.MathUtils.clamp(rig.position.z,-22,6.4);
+    if(rig.position.z>=6.1) exit();
   }
   window.addEventListener('keydown',keyDown);
   window.addEventListener('keyup',keyUp);
