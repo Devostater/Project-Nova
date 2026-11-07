@@ -64,7 +64,7 @@ export function init(nova) {
     state.shipVisible=nova.shipGroup?.visible??true;
     if(nova.shipGroup)nova.shipGroup.visible=false;
     rig.position.set(0,0,8);rig.quaternion.identity();
-    root.visible=true;state.active=true;core.visible=!state.choice;
+    root.visible=true;state.active=true;core.visible=!state.choice;nova.setActive?.(true);
     nova.emit?.('boardingStarted',{target:state.target});
     nova.modules?.fps_core?.enable?.({mode:'BOARDING',speed:2.9,bounds:[-3.5,3.5,-12.2,8.3],onExit:()=>returnToCockpit(),onInteract:()=>interact('take')});
     nova.modules?.fps_ai?.start?.({origin:root.position});
@@ -92,7 +92,7 @@ export function init(nova) {
   function returnToCockpit(){
     if(!state.active)return false;
     root.visible=false;state.active=false;
-    nova.modules?.fps_ai?.stop?.();nova.modules?.fps_core?.disable?.();
+    nova.modules?.fps_ai?.stop?.();nova.modules?.fps_core?.disable?.();nova.setActive?.(false);
     if(nova.shipGroup)nova.shipGroup.visible=state.shipVisible;
     if(state.savedPos)rig.position.copy(state.savedPos);if(state.savedQuat)rig.quaternion.copy(state.savedQuat);
     nova.toast?.(state.choice==='take'?'HEAT CORE RECOVERED · RETURNED TO SHIP':state.choice==='leave'?'CREW PODS SPARED · RETURNED TO SHIP':'BOARDING ABORTED · RETURNED TO SHIP',2400,'#75ffd1');
