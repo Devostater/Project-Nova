@@ -51,7 +51,6 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
-| GPT/Codex | G1 ship roster expansion | `gpt/g1-ship-roster` | `modules/roster.js`, `public/modules/roster.js`, `optimize_nova.py`, manifests/service workers, AI_STATUS | Active | — |
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
 
 
@@ -59,6 +58,7 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
+| GPT/Codex | G1 ship roster expansion | [Draft PR #41](https://github.com/Devostater/Project-Nova/pull/41) | Seven NF registry variants, faction optimizer rules, mirrored manifests/cache; Claude owns spawn hooks. |
 | Gemini | Missile-plume and thruster-glow textures | [Draft PR #33](https://github.com/Devostater/Project-Nova/pull/33) | Four image files only: root and public mirrors; owner approval required before merge. |
 | GPT/Codex | FPS flow, controls and helmet HUD | [Draft PR #38](https://github.com/Devostater/Project-Nova/pull/38) | Range exit, desktop/gamepad/Quest FPS input, helmet visor HUD, boarding lifecycle and drone combat coordinates; awaiting runtime review. |
 | GPT/Codex | Territories and campaign scope plan | [Draft PR #37](https://github.com/Devostater/Project-Nova/pull/37) | Planning only; proposed factions, territory simulation, news, traffic, cinematics and full-release checklist. |
@@ -67,6 +67,8 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **GPT/Codex: G1 ship roster expansion** ([draft PR #41](https://github.com/Devostater/Project-Nova/pull/41), branch `gpt/g1-ship-roster`). Adds mirrored `roster.js` modules with seven idempotent NF asset/stat variants: Alien worker, interceptor and thorn-orb roles; pirate stealth bomber, raider gunship and missile frigate; EDF escort carrier. Reuses existing optimized GLBs, adds no per-frame work, and adds ordered `optimize_nova.py` rules for the owner’s faction source filenames. Both manifests and service-worker caches include the module. Checks: `node --check` passed on both module copies; registration smoke test registered 7 then skipped all 7 on repeat; Python compile passed; mirrors/LF/conflict markers/cache coverage passed. Not tested: browser, spawned models, balance, Blender, gamepad/tablet/Quest. Claude hook: add the documented slugs to sector/mission tables or call `nfSpawn(slug, position, options)`. Next: Claude reviews/integrates #41; GPT starts G2 only as a separate branch/PR.
 
 - **GPT/Codex: FPS flow, controls, combat and helmet HUD** ([draft PR #38](https://github.com/Devostater/Project-Nova/pull/38), branch `gpt/fps-flow-hud`). Repairs the range EXIT door and all exit inputs; adds pointer-lock mouse look, keyboard/gamepad/Quest controller and hand input; adds a camera-mounted helmet visor HUD; unifies range/boarding entry and return; and places pooled drone combat in the correct interior coordinate space. Root/public copies of `fps_core.js`, `interior.js`, `fps_ai.js` and `boarding.js` match with LF endings. Static review only; browser, physical gamepad, tablet and Quest runtime were not tested. Next: play `?arena=range` and `?arena=boarding` in desktop/gamepad/Quest before merge.
 
