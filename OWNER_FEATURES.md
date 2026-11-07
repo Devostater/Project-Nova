@@ -93,3 +93,21 @@ These requests are explicitly recorded as owner decisions in FPS_PLAN.md; detail
 ## Source and status boundaries
 
 Sources consulted: this chat's owner-playtest briefs and explicit merge confirmations; retrieved chats “Find IDE next steps on GitHub”, “Review skybox and add laser impact VFX”, “Remove lines during warp”, “Project Nova GTP”, and “Update Github Reference Data”; FPS_PLAN.md owner-decision sections; OWNER_QUESTIONS.md Decided; PROJECT_NOVA_CONTEXT.md confirmed direction; ROADMAP.md for separately labelled expansion context. Some older chat history was unavailable through retrieval. This list records all requests recovered from those sources; it does not invent wording for unavailable messages. Earlier file status tables can be stale, so unverified larger features stay Partial/Wanted even where prototypes exist. No new game changes or commitments are implied by this inventory.
+
+## Playtest 2026-11-07 (evening): fixes and handoff
+
+| # | Owner note | Status | Who |
+|---|---|---|---|
+| 1 | FPS gun faces the wrong way | **Done** (`claude/playtest-fixes-1`): the pistol was flipped 180°; now muzzle-forward on camera, controller and hand | Claude |
+| 2 | Right side panel should be larger | **Done**: right console scale 1.0 → 1.22 | Claude |
+| 3 | SYSTEM / OPTIONS buttons wide and thin, easy to mis-press | **Done**: 6 tall tiles (496×110) instead of 8 (496×80); 4 options per page | Claude |
+| 4 | NEXT / BACK buttons too small | **Done**: 240×66 BACK / NEXT buttons with a page counter | Claude |
+| 5 | Advanced flight doesn't change the flight; thrusters should yaw | **Wanted** → GPT (wrote the ARCADE/ADVANCED model in b2d277e). Check `NOPT.o.flightMode` is read every frame in the steering block, and in ADVANCED map throttle L/R slide (and gamepad/keys) to real yaw torque, not roll mix | GPT |
+| 6 | Missile arming/firing broken in VR (works on PC) | **Wanted** → GPT. Trace `toggleMissileLid` / `fireHomingMissile` from the VR interactables (lid, `R EMERGENCY MISSILES`, console button) vs the desktop path; likely the XR press never reaches the arm state or the lid hit-mesh is hidden/not registered | GPT |
+| 7 | Autopilot floats past the target instead of stopping | **Done**: aims at the target's world position, stand-off = target size + 40 m, brakes on speed | Claude |
+| 8 | DOCK docks at the station when it isn't the target | **Done**: DOCK needs a selected station/friendly ship, otherwise a toast tells you to pick one | Claude |
+| 9 | Intro video uploaded but never played | **Done**: file moved to `public/video/intro.mp4` (it was inside a folder named `intro.mp4`) | Claude |
+| 10 | Replace the mission button with PLAY INTRO; after the video, play the game | **Done**: menu ▶ PLAY INTRO plays the video then starts the game | Claude |
+| 11 | Remove the other level and its watch button | **Done**: watch "SWITCH SECTOR LEVEL" → ▶ PLAY INTRO | Claude |
+
+Owner questions still open: third-faction name/colours; who tends the Nova-1 bar; switch to seat_v2?
