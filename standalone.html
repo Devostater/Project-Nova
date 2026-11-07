@@ -14553,6 +14553,11 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       };
       const TW = cfg.tabs.length > 4 ? 158 : 176; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 4 + i * TW, -40, TW, 92, () => npTab(P, i)));
       for (let i = 0; i < 8; i++) hit(cfg.id + ' ROW ' + (i + 1), 8, 50 + i * 44, 408, 44, () => { const t = cfg.tabs[P.tab]; if (t.row) t.row(P, i); });
+      if (cfg.id === 'R') {
+        hit('R SYSOPT PREV', 700, 410, 150, 46, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) { P.scroll = Math.max(0, P.scroll - 1); P.drawT = 0; } });
+        hit('R SYSOPT NEXT', 860, 410, 150, 46, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) { P.scroll = Math.min(NP_SYSOPT.rows().length - 8, P.scroll + 1); P.drawT = 0; } });
+        hit('R EMERGENCY MISSILES', 20, 382, 380, 48, () => { if (P.cfg.tabs[P.tab] === NP_WPN) npEmergencyMissileResupply(); });
+      }
       if (cfg.id !== 'R') for (let i = 0; i < 4; i++) hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); });
       // holographic buttons floating over the console's physical button row
       cfg.holo.forEach((b, i) => {
@@ -14574,7 +14579,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       { const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true; }
       NP.panels.push(P); return P;
     }
-    function npTab(P, i) { P.tab = (i + P.cfg.tabs.length) % P.cfg.tabs.length; P.drawT = 0; try { sound.switchClick(); } catch (e) { } }
+    function npTab(P, i) { P.tab = (i + P.cfg.tabs.length) % P.cfg.tabs.length; P.scroll = 0; P.drawT = 0; try { sound.switchClick(); } catch (e) { } }
     function npHoloSet(P, obj, type) {
       const g = P.holo; while (g.children.length) g.remove(g.children[0]);
       P.holoKey = obj || null; if (!obj) return;
@@ -14729,6 +14734,8 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         npBar(x, 20, 252, 380, 22, cargoFlares / 4, '#ff8833', 'FLARES ' + cargoFlares + ' / 4');
         npBar(x, 20, 312, 380, 22, cargoShieldCaps / 4, '#33bbff', 'SHIELD CAPS ' + cargoShieldCaps + ' / 4');
         npText(x, 'FIRE MODE ' + (window.NFM ? NFM.modes[NFM.i] : 'AUTO'), 20, 372, 'bold 22px monospace', '#ff5566');
+        x.fillStyle = 'rgba(255,45,68,0.22)'; x.fillRect(20, 382, 380, 48); x.strokeStyle = '#ff4455'; x.lineWidth = 3; x.strokeRect(20, 382, 380, 48);
+        npText(x, '⚠ EMERGENCY MISSILE RESUPPLY', 210, 414, 'bold 20px monospace', '#ff6677');
         npTgtInfo(x, 430, 52, 580);
         // nearest threats (from the COMMS list, hostiles only)
         npText(x, 'THREATS', 430, 214, 'bold 20px monospace', '#9fc3d8');
@@ -14736,6 +14743,13 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         if (!th.length) npText(x, 'none in 4 km', 430, 246, '22px monospace', '#33ff99');
         th.forEach((c, i) => { npText(x, '● ' + c.name, 430, 246 + i * 32, 'bold 21px monospace', '#ff6677', 430); x.textAlign = 'right'; npText(x, npDist(c.d), 1010, 246 + i * 32, '20px monospace', '#ffd24a'); x.textAlign = 'left'; });
       } };
+    function npEmergencyMissileResupply() {
+      const cap = novaMslCap(); if (missileAmmo >= cap) { showToast('MISSILES ALREADY FULL.', 1700, '#88aacc'); return; }
+      missileAmmo = cap; sound.stationChirp(); drawRightDash();
+      const p = shipGroup.position, up = new THREE.Vector3(0, 1, 0);
+      [up, up.clone().negate(), new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0)].forEach((d, i) => novaTracer(p.clone().addScaledVector(d, 0.18), p.clone().addScaledVector(d, 1.5), i < 2 ? 0xffbb44 : 0xff4455));
+      showToast('EMERGENCY LOAD: MISSILES ' + cap + '/' + cap, 2400, '#ffbb44');
+    }
     const NP_CARGO_ITEMS = () => [
       { k: 0, n: 'TITANIUM ORE', q: `${cargoOre} t`, v: cargoOre * 100, c: '#00ffaa' }, { k: 12, n: 'HYPERDRIVE CELLS', q: '4', v: 1000, c: '#00f0ff' },
       { k: 9, n: 'HOMING MISSILES', q: `${missileAmmo}/6`, v: missileAmmo * 150, c: '#ffaa00' }, { k: 2, n: 'THERMAL FLARES', q: `${cargoFlares}/4`, v: cargoFlares * 75, c: '#ff7733' },
@@ -14782,6 +14796,20 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         npText(x, sv ? sv.sum : 'empty', 560, 208, '20px monospace', sv ? '#33ff99' : '#5f7d95', 450);
         if (sv) npText(x, new Date(sv.at).toLocaleString(), 560, 236, '18px monospace', '#7fb6d0', 450);
         npText(x, 'GRAPHICS ' + String(NOPT.o.gfx).toUpperCase() + '  ·  VOL ' + Math.round(NOPT.o.master * 100) + '%', 560, 290, 'bold 20px monospace', '#b266ff', 450);
+      } };
+    const NP_SYSOPT = { name: 'SYSTEM / OPTIONS', c: '#ffd24a', hint: 'use the arrows to scroll system and options controls',
+      row: (P, i) => { const r = NP_SYSOPT.rows()[P.scroll + i]; if (r) { try { sound.switchClick(); } catch (e) { } r[2](P); } }, pads: [],
+      rows: () => [...NP_SHIP_ROWS, ...npOptRows()],
+      draw: (x, P) => {
+        const rows = NP_SYSOPT.rows(), max = Math.max(0, rows.length - 8); P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
+        for (let i = 0; i < 8; i++) { const r = rows[P.scroll + i]; if (!r) break; const Y = 52 + i * 44; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'; x.fillRect(8, Y, 520, 42); x.fillStyle = r[1]; x.fillRect(8, Y, 6, 42); npText(x, r[0], 26, Y + 29, 'bold 21px monospace', r[1], 490); }
+        npText(x, 'SYSTEM + OPTIONS', 570, 92, 'bold 24px monospace', '#9fc3d8');
+        npText(x, 'CONTROL ' + (P.scroll + 1) + '–' + Math.min(rows.length, P.scroll + 8) + ' / ' + rows.length, 570, 138, 'bold 22px monospace', '#00e5ff');
+        npText(x, 'Use the forward/back arrows below to scroll.', 570, 182, '20px monospace', '#7fb6d0', 420);
+        npText(x, '3D RADAR: ' + (NH.moved ? 'CENTER COCKPIT' : 'UPPER RIGHT DASH'), 570, 240, 'bold 20px monospace', '#ffd24a', 420);
+        let sv = null; try { sv = JSON.parse(localStorage.getItem('novaSave1') || 'null'); } catch (e) { }
+        npText(x, 'SAVE SLOT: ' + (sv ? sv.sum : 'empty'), 570, 296, '20px monospace', sv ? '#33ff99' : '#5f7d95', 420);
+        npText(x, '◀ PREV', 730, 432, 'bold 19px monospace', '#00e5ff'); npText(x, 'NEXT ▶', 900, 432, 'bold 19px monospace', '#00e5ff');
       } };
     const NPX = { arm: 0, rc: null };
     function npExitArm() {
@@ -14848,9 +14876,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'CREW CHANNEL' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
           holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => npTab(P, 0) }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
             { g: '➤', l: 'WARP', c: '#b266ff', fn: () => window.novaNavToggle() }, { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) }] });
-        const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SHIP, NP_MUSIC, NP_OPT], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
-          holo: [{ g: '\u2316', l: 'COMBAT', c: '#ff3355', fn: P => npTab(P, 0) }, { g: '\u25A6', l: 'CARGO', c: '#00ff99', fn: P => npTab(P, 1) }, { g: '\u2699', l: 'SYSTEM', c: '#ffd24a', fn: P => npTab(P, 2) },
-            { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }, { g: '\u2630', l: 'OPTIONS', c: '#9fc3d8', fn: P => npTab(P, 4) }] });
+        const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SYSOPT, NP_MUSIC], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
+          holo: [{ g: '\u2316', l: 'COMBAT', c: '#ff3355', fn: P => npTab(P, 0) }, { g: '\u25A6', l: 'CARGO', c: '#00ff99', fn: P => npTab(P, 1) }, { g: '\u2699', l: 'SYSTEM / OPTIONS', c: '#ffd24a', fn: P => npTab(P, 2) },
+            { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }] });
         try { commsArmRoot.visible = false; invArmRoot.visible = false; } catch (e) { }       // the floating TACCOMS / CARGO screens are folded into these panels
         console.log('[NOVA13] side panels rebuilt: COMMS|FLIGHT and WEAPONS|CARGO');
         return;
@@ -16432,10 +16460,10 @@ const GAME_VERSION = 'Alpha 1.0 RC';
           const k = nmkIcon(r.l);   // item art from the cargo icon sheet
           if (ic && ic.complete && ic.naturalWidth && k >= 0) x.drawImage(ic, (k % 4) * 96, Math.floor(k / 4) * 96, 96, 96, 16, Y + 3, 36, 36);
           npText(x, r.l, 60, Y + 28, 'bold 19px monospace', r.c, 250);
-          x.textAlign = 'right'; npText(x, r.r, 428, Y + 28, 'bold 18px monospace', '#ffd24a'); x.textAlign = 'left';
+          x.textAlign = 'right'; npText(x, r.r, 398, Y + 28, 'bold 18px monospace', '#ffd24a'); x.textAlign = 'left';
           const off = /^(FULL|MAX|none|hold empty|LVL)/.test(r.r), v = /^SELL/.test(r.l) ? 'SELL' : /^REPAIR/.test(r.l) ? 'FIX' : /^DONATE/.test(r.l) ? 'GIVE' : 'BUY';
-          x.fillStyle = off ? 'rgba(255,255,255,0.08)' : (v === 'SELL' ? '#00cc88' : v === 'BUY' ? '#ffcc00' : '#33ff99'); x.fillRect(440, Y + 5, 102, 32);
-          x.textAlign = 'center'; npText(x, off ? '—' : v, 491, Y + 29, 'bold 20px monospace', off ? '#5f7d95' : '#021019'); x.textAlign = 'left';
+          x.fillStyle = off ? 'rgba(255,255,255,0.08)' : (v === 'SELL' ? '#00cc88' : v === 'BUY' ? '#ffcc00' : '#33ff99'); x.fillRect(408, Y + 2, 134, 38);
+          x.textAlign = 'center'; npText(x, off ? '—' : v, 475, Y + 28, 'bold 22px monospace', off ? '#5f7d95' : '#021019'); x.textAlign = 'left';
         });
         npText(x, st.name, 570, 88, 'bold 28px monospace', st.col, 440);
         x.font = '20px monospace'; x.fillStyle = '#9fc3d8'; let y = 124, line = '';
