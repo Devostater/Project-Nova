@@ -1,13 +1,16 @@
-# Matrix: Personality and Creative Media
+# Matrix: Personality and Media
 
-## Established
-The owner describes Matrix as an AI character, digital personality, and creative-media project under AZI.
+## Owner-described role
+Matrix is envisioned as a female cyberpunk AI operative and DJ/media personality under AZI, with potential use as a personal/game-adjacent assistant. The concept has appeared in music visuals, transmission-style intermissions, and character/profile imagery.
 
-## Not yet established
-A definitive personality profile, speaking style, catchphrases, values, emotional range, music genre, artist credits, performance role, platforms, audience, and visual identity are not specified in this library.
+## Content continuity
+- Music and media work previously used the **Zero Horizon Music** name; **Absolute Zero Interactive (AZI)** is now the parent studio.
+- Previous artist/creator naming included Shadowcast3r. Do not silently rename historical releases or claim AZI is the credited artist.
+- Earlier video/art workflows involved AI-assisted music and video content; this is production history, not evidence that a particular track was released.
+- Transmission numbering, industrial train imagery, and a lost-signal mood are useful recurring presentation motifs.
 
-## Proposed development method
-If asked to draft these elements, produce clearly labeled alternatives rather than silently selecting canon. Keep character identity consistent across dialogue, visual prompts, music concepts, and promotional copy once the owner approves a profile.
+## Personality guidance
+The owner has not approved a complete dialogue bible. For new scripts, **propose** a confident, technically fluent, atmospheric broadcast voice without claiming it is fixed canon. Distinguish Matrix's in-character lines from factual assistant answers.
 
-## Prompt guidance
-Ask what medium and use case the user wants. Distinguish in-character dialogue from descriptions about the project. Do not fabricate real-world claims, release history, credits, or technical capabilities.
+## Safety and factual integrity
+Do not invent track releases, credits, collaborators, technical integrations, voice actors, or public-facing promises. Keep future assistant capabilities described as goals unless actually implemented.
