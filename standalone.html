@@ -5754,7 +5754,8 @@ const GAME_VERSION = 'Alpha 1.2';
       opacity: 0.0
     });
     const warpStreakLines = new THREE.LineSegments(warpStreakGeo, warpStreakMat);
-    shipGroup.add(warpStreakLines);
+    warpStreakLines.visible = false;   // removed (owner request): the lines ran through the cockpit and converged over the consoles.
+    // Not added to the scene; hyperspace star particles + backdrop remain. The animation code below still updates it harmlessly.
 
     // Deep Blue Cosmic Hyperspace Backdrop Shell
     const hyperBackdropMat = new THREE.MeshBasicMaterial({
@@ -14803,15 +14804,15 @@ const GAME_VERSION = 'Alpha 1.2';
       else g.position.set(0, 0.36, -0.52);
       cockpit.add(g);
       const add = (geo, col, op, wire) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, wireframe: !!wire, toneMapped: false })); m.raycast = () => { }; g.add(m); return m; };
-      add(new THREE.SphereGeometry(R, 20, 10), 0x00d8ff, 0.09, true);
-      add(new THREE.CircleGeometry(R, 48), 0x0088ff, 0.06).rotation.x = -Math.PI / 2;
-      [1 / 3, 2 / 3, 1].forEach(f => { add(new THREE.RingGeometry(R * f - 0.0007, R * f + 0.0007, 64), 0x00e5ff, 0.6).rotation.x = -Math.PI / 2; });
-      const fw = add(new THREE.PlaneGeometry(0.0014, R), 0x00e5ff, 0.6); fw.rotation.x = -Math.PI / 2; fw.position.z = -R / 2;
+      add(new THREE.SphereGeometry(R, 20, 10), 0x00d8ff, 0.045, true);   // fainter: see the console through it
+      add(new THREE.CircleGeometry(R, 48), 0x0088ff, 0.025).rotation.x = -Math.PI / 2;
+      [1 / 3, 2 / 3, 1].forEach(f => { add(new THREE.RingGeometry(R * f - 0.0007, R * f + 0.0007, 64), 0x00e5ff, 0.32).rotation.x = -Math.PI / 2; });
+      const fw = add(new THREE.PlaneGeometry(0.0014, R), 0x00e5ff, 0.32); fw.rotation.x = -Math.PI / 2; fw.position.z = -R / 2;
       const own = add(new THREE.ConeGeometry(0.0055, 0.016, 8), 0x9ff6ff, 0.95); own.rotation.x = -Math.PI / 2;
       NH.sweep = new THREE.Group(); g.add(NH.sweep);
-      const sw = new THREE.Mesh(new THREE.PlaneGeometry(0.0018, R), new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }));
+      const sw = new THREE.Mesh(new THREE.PlaneGeometry(0.0018, R), new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.38, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }));
       sw.rotation.x = -Math.PI / 2; sw.position.z = -R / 2; sw.raycast = () => { }; NH.sweep.add(sw);
-      if (NK.on) {     // emitter cone from the dash screen up into the sphere
+      if (NK.on && NH.cone) {     // emitter cone from the dash screen up into the sphere (off by default: it covered the console)
         const from = nkC(0, 0.412, -0.153).sub(g.position), v = from.clone().negate(), L = v.length();
         const cone = add(new THREE.CylinderGeometry(R * 0.7, 0.03, L * 0.82, 24, 1, true), 0x00c8ff, 0.045);
         cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().normalize()); cone.position.copy(from).addScaledVector(v, 0.5 * 0.82);
@@ -14821,7 +14822,7 @@ const GAME_VERSION = 'Alpha 1.2';
       NH.ring.rotation.x = -Math.PI / 2; NH.ring.raycast = () => { }; NH.ring.visible = false; g.add(NH.ring);
       const bg = new THREE.SphereGeometry(0.0052, 10, 8), hg = new THREE.SphereGeometry(0.012, 8, 6), stg = new THREE.CylinderGeometry(0.0006, 0.0006, 1, 4);
       const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-      const stalkMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.45, depthWrite: false, toneMapped: false });
+      const stalkMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.3, depthWrite: false, toneMapped: false });
       for (let i = 0; i < 24; i++) {
         const b = new THREE.Mesh(bg, nhMat('asteroid')); b.visible = false; b.add(new THREE.Mesh(hg, hitMat));
         const st = new THREE.Mesh(stg, stalkMat); st.visible = false; st.raycast = () => { }; g.add(st);
@@ -17716,7 +17717,7 @@ const GAME_VERSION = 'Alpha 1.2';
       let src = c.obj; const u = c.obj.userData && c.obj.userData.nfUnit;
       if (u && u.model && u.model.isLOD && u.model.levels.length) src = u.model.levels[u.model.levels.length - 1].object;   // low-poly copy
       let cl; try { cl = src.clone(true); } catch (e) { NH.minis.set(c.obj, null); return null; }
-      const mat = new THREE.MeshBasicMaterial({ color: nhMat(c.type).color, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+      const mat = new THREE.MeshBasicMaterial({ color: nhMat(c.type).color, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
       const drop = []; cl.traverse(o => { if (o.isSprite || o.isPoints || o.isLight || o.isLine) drop.push(o); else if (o.isMesh) { o.material = mat; o.raycast = () => { }; } }); drop.forEach(o => o.parent && o.parent.remove(o));
       cl.position.set(0, 0, 0); cl.quaternion.identity(); cl.scale.setScalar(1); cl.updateMatrixWorld(true);
       const bb = new THREE.Box3().setFromObject(cl); if (bb.isEmpty()) { NH.minis.set(c.obj, null); return null; }
