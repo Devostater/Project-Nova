@@ -1,6 +1,6 @@
 @echo off
 title Project Nova - local test server
-rem Serves THIS repo's latest game (public/) at http://localhost:8000 for testing changes before they are pushed.
+rem Serves THIS repo's latest game (public/) on a dedicated port so an old Nova server cannot answer instead.
 rem Normal play doesn't need this: the live game is https://devostater.github.io/Project-Nova/standalone.html
 cd /d "%~dp0.."
 
@@ -16,8 +16,8 @@ if not defined PY (
 )
 
 echo.
-echo  PROJECT NOVA local server: http://localhost:8000/standalone.html
+echo  PROJECT NOVA local server: http://localhost:8765/standalone.html
 echo  Keep this window open while testing. Close it to stop the server.
 echo.
-start "" "http://localhost:8000/standalone.html"
-%PY% -m http.server 8000 --directory public
+start "" "http://localhost:8765/standalone.html?fresh=%RANDOM%%RANDOM%"
+%PY% -m http.server 8765 --directory public
