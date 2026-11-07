@@ -39,7 +39,7 @@ export function init(nova) {
   const down=new Set();
   let active=false,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=25,yaw=0,pitch=0,hudTimer=0,muzzleTimer=0;
   let rightController=null,leftController=null,rightHand=null,leftHand=null,leftFist=false,leftAnchor=null;
-  let leftPinchHeld=false,rightPinchHeld=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false;
+  let leftPinchHeld=false,rightPinchHeld=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false,pointerWasLocked=false;
   let options={};
 
   function drawHud(){
@@ -141,6 +141,10 @@ export function init(nova) {
     if(document.pointerLockElement!==renderer.domElement){renderer.domElement.requestPointerLock?.();return;}
     if(e.button===0)fire();if(e.button===2)interact();
   }
+  function pointerLockChange(){
+    if(document.pointerLockElement===renderer.domElement){pointerWasLocked=true;return;}
+    if(active&&pointerWasLocked){pointerWasLocked=false;requestExit('keyboard');}
+  }
   function keyDown(e){
     if(!active)return;down.add(e.code);
     if(e.code==='Escape'){e.preventDefault();requestExit('keyboard');}
@@ -201,7 +205,7 @@ export function init(nova) {
     yaw=rig.rotation.y;pitch=camera.rotation.x;hud.visible=true;pistol.visible=true;
     rightController=renderer?.xr?.getController?.(1)||null;leftController=renderer?.xr?.getController?.(0)||null;
     if(renderer?.xr?.isPresenting&&rightController)setWeaponParent(rightController,false);else{camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,Math.PI,0);}
-    window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('mousemove',mouseMove);
+    window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('mousemove',mouseMove);document.addEventListener('pointerlockchange',pointerLockChange);
     renderer.domElement.addEventListener('pointerdown',pointerDown);renderer.domElement.addEventListener('contextmenu',preventMenu);
     rightController?.addEventListener?.('selectstart',selectStart);
     drawHud();nova.toast?.('FPS ACTIVE · WASD/MOUSE · RT FIRE · A USE · B EXIT',2800,'#00e5ff');return true;
@@ -210,7 +214,7 @@ export function init(nova) {
   function disable(){
     if(!active)return false;active=false;down.clear();pistol.visible=false;hud.visible=false;damageOverlay.style.opacity='0';
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
-    window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('mousemove',mouseMove);
+    window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
     renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('contextmenu',preventMenu);
     rightController?.removeEventListener?.('selectstart',selectStart);
     for(const t of tracers){t.life=0;t.mesh.visible=false;}options={};session=null;return true;
