@@ -18698,7 +18698,7 @@ const GAME_VERSION = 'Alpha 1.4';
       setTimeout(() => { try { console.log('[NOVA12] models in:', NM.done.join(', ')); showToast('MODELS: ' + NM.done.length + ' loaded', 2500, '#7fffd4'); } catch (e) { } }, 4000);
     }
     let nmLast = performance.now();
-    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); try { if (!isLightspeedActive) nfmTick(); } catch (e) { } nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); novaVfxTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
+    function nmFrame() { const n = performance.now(), dt = Math.min(0.1, (n - nmLast) / 1000); nmLast = n; novaRunTicks(dt); NM.mixers.forEach(m => m.update(dt)); ncTick(); ntTick(); ndkTick(dt); nmCommsSync(); nmDynamic(dt); nmOverheadTick(); nmPressTick(); try { if (!isLightspeedActive) nfmTick(); } catch (e) { } nmDashTick(dt); try { nkTick(dt); } catch (e) { if (!window._nkErr) { window._nkErr = String(e && e.stack || e); console.error('[NOVA13] tick error', e); } } try { nfTick(dt); nfCrewTick(dt); nyxTick(dt); npadTick(dt); novaVfxTick(dt); } catch (e) { if (!window._nfErr) { window._nfErr = String(e && e.stack || e); console.error('[NOVA14] tick error', e); } } }
     window.nmFrame = nmFrame;
     (function f() { requestAnimationFrame(f); if (!renderer.xr.isPresenting) nmFrame(); })();
     nmBoot();
@@ -18903,6 +18903,67 @@ const GAME_VERSION = 'Alpha 1.4';
         console.error(e);
       }
     };
+
+    // ── A4: shared module API and deterministic module loader ──
+    const novaTickHandlers = new Set();
+    const novaEventHandlers = new Map();
+    const novaModuleInstances = new Map();
+    function novaOnTick(handler) {
+      if (typeof handler !== 'function') throw new TypeError('nova.onTick expects a function');
+      novaTickHandlers.add(handler);
+      return () => novaTickHandlers.delete(handler);
+    }
+    function novaOn(name, handler) {
+      if (typeof handler !== 'function') throw new TypeError('nova.on expects a function');
+      let handlers = novaEventHandlers.get(name);
+      if (!handlers) novaEventHandlers.set(name, handlers = new Set());
+      handlers.add(handler);
+      return () => handlers.delete(handler);
+    }
+    function novaEmit(name, detail = {}) {
+      const handlers = novaEventHandlers.get(name);
+      if (!handlers) return 0;
+      for (const handler of [...handlers]) {
+        try { handler(detail); } catch (error) { console.error('[NOVA module event]', name, error); }
+      }
+      return handlers.size;
+    }
+    function novaRunTicks(dt) {
+      for (const handler of novaTickHandlers) {
+        try { handler(dt); } catch (error) { console.error('[NOVA module tick]', error); }
+      }
+    }
+    window.nova = {
+      THREE, scene, camera, cameraRig, renderer, shipGroup, sound,
+      toast: (...args) => showToast(...args),
+      onTick: novaOnTick, on: novaOn, emit: novaEmit,
+      modules: novaModuleInstances
+    };
+    window.novaLoadModules = async function () {
+      const base = './modules/';
+      try {
+        const response = await fetch(base + 'manifest.json', { cache: 'no-cache' });
+        if (!response.ok) throw new Error('module manifest HTTP ' + response.status);
+        const manifest = await response.json();
+        const names = Array.isArray(manifest) ? manifest : manifest.modules;
+        if (!Array.isArray(names)) throw new Error('manifest must contain a modules array');
+        for (const name of names) {
+          if (typeof name !== 'string' || !/^[a-z0-9_-]+\\.js$/i.test(name)) continue;
+          try {
+            const module = await import(base + name);
+            if (typeof module.init !== 'function') throw new Error('missing init(nova)');
+            const instance = await module.init(window.nova);
+            novaModuleInstances.set(name, instance ?? true);
+            console.info('[NOVA module] ready:', name);
+          } catch (error) { console.error('[NOVA module] failed:', name, error); }
+        }
+        return novaModuleInstances;
+      } catch (error) {
+        console.warn('[NOVA module] loader unavailable:', error);
+        return novaModuleInstances;
+      }
+    };
+    window.novaModulesReady = window.novaLoadModules();
   </script>
 </body>
 </html>

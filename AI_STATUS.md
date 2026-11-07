@@ -29,7 +29,7 @@ On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Nobody; Codex released the tablet HUD area in draft PR #21.
+**Held by:** Nobody; Codex released the game-file changes in draft PR #24.
 
 ## Active claims
 
@@ -39,15 +39,27 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
 
+
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
+| Codex | A11 on-foot controls | [Draft PR #27](https://github.com/Devostater/Project-Nova/pull/27) | Ready for this pass to add `fps_core.js` after the main range module. |
+| Codex | A5 enemy drones | [Draft PR #29](https://github.com/Devostater/Project-Nova/pull/29) | Module mirrors are ready; integration waits for A4/A10/A11 and manifest/service-worker updates. |
+| Codex | A12 derelict boarding | [Draft PR #30](https://github.com/Devostater/Project-Nova/pull/30) | Boarding loop is ready; integration adapts core choices to PR #28 morality and wires the BOARD action. |
 | Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
+
+- **Codex: A12 derelict boarding** ([draft PR #30](https://github.com/Devostater/Project-Nova/pull/30), branch `codex/a12-boarding`). Adds mirrored textured corridor and fusion-core choice; BOARD validates disabled+docked nearby wreck, E/gamepad A/right XR selects take, Q/gamepad B/left XR selects leave. PR #28 supplies the existing morality API; this pass adapts take/leave to `return`/`keep` and removes the duplicate PR #31 dependency. Emits boarding lifecycle events; airlock exit restores cockpit and pose. Q8 default: disabled+docked within 20 m; query mode for testing. How to test after integration: 2D WASD/E/Q, gamepad left stick/A/B, Quest left/right controller or hand input; confirm choice, saved counts and return. Checks not run: browser runtime, 2D, gamepad, tablet, Quest, automated. Needs BOARD hook and manifest/cache entries for A12/A14 modules. Next: game-file holder wires BOARD/FLIGHT RECORD and module manifests; then A14.
+
+- **Codex: A5 enemy drones** ([draft PR #29](https://github.com/Devostater/Project-Nova/pull/29), branch `codex/a5-enemy-drones`). Adds two mirrored range drones cycling patrol → cover → shoot → retreat; firing uses pooled, slow bolts and routes player hits through `fps_core.damage`. Exposes manual `start()`/`stop()` for A12 boarding. Loads the existing ULTRA `alien_attack_drone.glb` with procedural fallback. Q7 default: keep the high-detail asset for ULTRA. How to test after integration: `?arena=range`; 2D WASD/click, gamepad left stick/right trigger, Quest aim/fire and dodge; confirm hits, retreat, and HP feedback. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. With A4/A11 now in main and A10 in PR #28, add `fps_ai.js` after interior/fps_core in both manifests and service-worker caches. Next: A12 boarding.
+
+- **Codex: A11 on-foot controls** ([draft PR #27](https://github.com/Devostater/Project-Nova/pull/27), branch `codex/a11-fps-controls`). Adds mirrored `fps_core.js` for pistol/target hits, player HP and shield feedback, WASD/gamepad/XR controller and hand-tracking input; fixes pinch toggle and reuses per-frame scratch vectors. A4 loader and the PR #28 range are now in main; this integration pass loads `fps_core.js` after `interior.js`. How to test: 2D WASD/click targets; gamepad left stick/right trigger; Quest controller trigger/left stick and hand pinch/fist movement, then confirm Escape/door exits restore the cockpit. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. Next: A5 enemy drones.
+
+- **Codex: A4 Module system** ([draft PR #24](https://github.com/Devostater/Project-Nova/pull/24), branch `codex/a4-module-system`). Added `window.nova`, tick and event subscriptions, manifest-driven loader, mirrored demo/manifest files, offline cache entries, and API docs; Q3 defaults to the firing range for this vertical slice. Checks: mirror parity confirmed for three builds, mirrored modules and service workers. Not run: runtime, gamepad, tablet, Quest/offline. Next: merge/review A4, then A10 interior/range; A10 module can be prepared against the documented API meanwhile.
 
 - **Codex: tablet touch HUD visibility** ([draft PR #21](https://github.com/Devostater/Project-Nova/pull/21), branch `codex/tablet-touch-hud`). The DOM HUD overlay and version badge are hidden while tablet touch controls are active; auto device detection and manual toggle both update the state. All three game files are synchronized. How to test: on desktop compare controls off/on; on tablet enable and disable touch controls and confirm the HUD follows the state. Checks not run: browser runtime, automated, tablet, gamepad, Quest. Next: review PR #21.
 
