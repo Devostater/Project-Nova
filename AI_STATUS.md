@@ -4,12 +4,11 @@
 
 Claude handed the lead to GPT when it hit its usage limit. GPT now owns the three game files, integration, and merges the owner approves.
 
-**State at handoff (`main`):**
-- Merged: #25 (warp tunnel, slower VR combat, pirate missile models), #28 (A10 firing range `modules/interior.js`, A13 morality `modules/morality.js`).
-- Open and ready: #33 (Gemini `vfx_missile_plume.jpg`, `vfx_thruster_glow.jpg`; not wired), #34 (this docs tidy + lead rule).
-- GPT's queue: merge #24 → #27 → #29 → #30 → #32 on top of `interior.js`/`morality.js` (don't replace them), then one integration PR (manifest, both `sw.js` lists, BOARD action, mission events). Then wire #33's plume behind missiles (`nfFireMissile`) and glow on engines, then A15 save/load.
-- Old #9: check whether anything in it is still needed; otherwise ask the owner to close it.
-- Pending owner request for GPT: VR hands with a rigged glove model (see the prompt the owner has).
+**State after the #34 lead handoff:**
+- Merged: #24 (A4 loader), #25 (warp/combat), #27 (A11 controls), #28 (existing firing-range interior and morality modules), #29 (A5 drones), #30 (A12 boarding), #32 (A14 Cold Run), and #34 (lead/docs handoff).
+- Open: #33 adds only the two mirrored missile-plume and thruster-glow images; waiting for owner approval before merge. Draft integration PR #35 contains module wiring, mobile-only touch controls, and desktop gamepad flight actions.
+- Next: owner-approved merge of #33, then wire its missile plume and engine glow. Follow with A15 save/load, then VR hands.
+- Pending owner request: rigged VR glove with finger joints and controller grip poses; cockpit stick and throttle grabs must keep working.
 
 > Read [AI_WORKFLOW.md](AI_WORKFLOW.md) before starting or taking over work.
 
@@ -23,13 +22,13 @@ On 2026-11-07, GPT edited the **repo-root `standalone.html` from the owner's old
 
 ## Primary AI
 
-**Claude** is primary for Project Nova until the owner changes this.
+**GPT/Codex** is the current lead under the owner’s 2026-11-07 handoff; the owner retains final authority.
 
 ## Game file
 
 The game files (`public/standalone.html`, `standalone.html`, `index.html`) are held by **one AI at a time**.
 
-**Held by:** Nobody; Codex released the game-file changes in draft PR #24.
+**Held by:** GPT/Codex, on branch `gpt/integrate-modules` and draft PR #35.
 
 ## Active claims
 
@@ -38,25 +37,28 @@ Several AIs may hold claims at once, as long as their files don't overlap. Add a
 | AI/tool | Task | Branch | Files / behavior owned | State | PR |
 |---|---|---|---|---|---|
 | GPT (ChatGPT) | Docking update | none (GPT can't push; owner pastes the result to Claude) | docking code only: `executeDocking`, `novaDock*`, `ndk*`, `novaAutoDockPress` | Active | — |
+| GPT/Codex | Module integration + touch controls | `gpt/integrate-modules` | Three game files, manifests, service workers, module wiring, AI_STATUS | Active | [Draft PR #35](https://github.com/Devostater/Project-Nova/pull/35) |
 
 
 ## Waiting for review / merge
 
 | AI/tool | Work | PR | Notes |
 |---|---|---|---|
-| Codex | A11 on-foot controls | [Draft PR #27](https://github.com/Devostater/Project-Nova/pull/27) | Ready for this pass to add `fps_core.js` after the main range module. |
-| Codex | A5 enemy drones | [Draft PR #29](https://github.com/Devostater/Project-Nova/pull/29) | Module mirrors are ready; integration waits for A4/A10/A11 and manifest/service-worker updates. |
-| Codex | A12 derelict boarding | [Draft PR #30](https://github.com/Devostater/Project-Nova/pull/30) | Boarding loop is ready; integration adapts core choices to PR #28 morality and wires the BOARD action. |
-| Codex | A14 Cold Run mission/end card | [Draft PR #32](https://github.com/Devostater/Project-Nova/pull/32) | Saveable 9-beat chain/end card; this pass adds its module/cache entries and event wiring. |
+| Gemini | Missile-plume and thruster-glow textures | [Draft PR #33](https://github.com/Devostater/Project-Nova/pull/33) | Four image files only: root and public mirrors; owner approval required before merge. |
+| GPT/Codex | Module integration and mobile touch visibility | [Draft PR #35](https://github.com/Devostater/Project-Nova/pull/35) | Manifest/cache wiring, A11/A5 range, A12 BOARD, A14 events, and touch controls gated to mobile/tablet devices. |
 | Codex | Tablet touch HUD visibility | [Draft PR #21](https://github.com/Devostater/Project-Nova/pull/21) | Three game builds synced; waiting for review. |
 
 ## Done / handoffs
 
 Newest first. Keep each entry short: what changed, the PR, checks run, and the next step.
 
-- **Codex: A14 Cold Run mission/end card** ([draft PR #32](https://github.com/Devostater/Project-Nova/pull/32), branch `codex/a14-cold-run`). Adds mirrored `mission.js`, strict saved 9-beat progress/resume, mission statistics and a 2D/VR canvas end card. Q10 default: all beats in order, save each transition. How to test after integration: start `?mission=cold-run`, complete each beat in 2D/gamepad/Quest, reload mid-run, then close the end card. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. A12 emits boarding events; PR #28 supplies morality. This integration pass wires intro, warp/wave clear and Lantern events plus manifest/cache entries. Next: A15 save/load coverage.
+- **GPT/Codex: lead handoff and module integration** ([draft PR #35](https://github.com/Devostater/Project-Nova/pull/35), branch `gpt/integrate-modules`). PR #34 is merged. #24, #27, #29, #30, and #32 are also merged in the requested order, preserving the existing interior and morality modules. PR #35 adds module manifests/cache entries, A11 range movement, A5 drones, A12 BOARD, A14 mission events, phone/tablet-only touch controls, and desktop gamepad steering/actions. Checks: `node --check` on all eight module files, the A4 loader script, touch visibility handler, desktop gamepad poll, and flight input handler; LF, conflict-marker, game-file parity and manifest/cache checks passed. Not tested: browser/device runtime or mission progression. Next: owner approval to merge image-only #33, then wire missile plume/engine glow, A15 save/load, and VR hands.
 
-- **Codex: A12 derelict boarding** ([draft PR #30](https://github.com/Devostater/Project-Nova/pull/30), branch `codex/a12-boarding`). Adds mirrored textured corridor and fusion-core choice; BOARD validates disabled+docked nearby wreck, E/gamepad A/right XR selects take, Q/gamepad B/left XR selects leave. PR #28 supplies the existing morality API; this pass adapts take/leave to `return`/`keep` and removes the duplicate PR #31 dependency. Emits boarding lifecycle events; airlock exit restores cockpit and pose. Q8 default: disabled+docked within 20 m; query mode for testing. How to test after integration: 2D WASD/E/Q, gamepad left stick/A/B, Quest left/right controller or hand input; confirm choice, saved counts and return. Checks not run: browser runtime, 2D, gamepad, tablet, Quest, automated. Needs BOARD hook and manifest/cache entries for A12/A14 modules. Next: game-file holder wires BOARD/FLIGHT RECORD and module manifests; then A14.
+
+
+- **Codex: A14 Cold Run mission/end card** ([draft PR #32](https://github.com/Devostater/Project-Nova/pull/32), branch `codex/a14-cold-run`). Adds mirrored `mission.js`, strict saved 9-beat progress/resume, mission statistics and a 2D/VR canvas end card. Q10 default: all beats in order, save each transition. How to test after integration: start `?mission=cold-run`, complete each beat in 2D/gamepad/Quest, reload mid-run, then close the end card. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. A12 emits boarding events; PR #28 supplies morality. PR #35 wires the mission events and manifest/cache entries. Next: Claude runtime test, then A15 save/load coverage.
+
+- **Codex: A12 derelict boarding** ([draft PR #30](https://github.com/Devostater/Project-Nova/pull/30), branch `codex/a12-boarding`). Adds mirrored textured corridor and fusion-core choice; BOARD validates disabled+docked nearby wreck, E/gamepad A/right XR selects take, Q/gamepad B/left XR selects leave. PR #28 supplies the existing morality API; this pass adapts take/leave to `return`/`keep` and removes the duplicate PR #31 dependency. Emits boarding lifecycle events; airlock exit restores cockpit and pose. Q8 default: disabled+docked within 20 m; query mode for testing. How to test after integration: 2D WASD/E/Q, gamepad left stick/A/B, Quest left/right controller or hand input; confirm choice, saved counts and return. Checks not run: browser runtime, 2D, gamepad, tablet, Quest, automated. PR #35 adds the BOARD hook and module/cache entries. Next: Claude runtime test.
 
 - **Codex: A5 enemy drones** ([draft PR #29](https://github.com/Devostater/Project-Nova/pull/29), branch `codex/a5-enemy-drones`). Adds two mirrored range drones cycling patrol → cover → shoot → retreat; firing uses pooled, slow bolts and routes player hits through `fps_core.damage`. Exposes manual `start()`/`stop()` for A12 boarding. Loads the existing ULTRA `alien_attack_drone.glb` with procedural fallback. Q7 default: keep the high-detail asset for ULTRA. How to test after integration: `?arena=range`; 2D WASD/click, gamepad left stick/right trigger, Quest aim/fire and dodge; confirm hits, retreat, and HP feedback. Checks not run: runtime, 2D, gamepad, tablet, Quest, automated. With A4/A11 now in main and A10 in PR #28, add `fps_ai.js` after interior/fps_core in both manifests and service-worker caches. Next: A12 boarding.
 

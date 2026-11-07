@@ -44,7 +44,9 @@ export function init(api = {}) {
   }
   function choice(id, opt) {
     const c = CHOICES[id] && CHOICES[id][opt]; if (!c) return null;
-    return add(c.d, c.why, c.crew);
+    const result = add(c.d, c.why, c.crew);
+    api.emit?.('crewReaction', { phase: 'choice', id, option: opt });
+    return result;
   }
   function reset() { value = 0; log = []; save(); }
   function line() { return `MORALITY ${value > 0 ? '+' : ''}${value} · ${label()}`; }

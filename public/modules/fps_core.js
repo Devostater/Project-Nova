@@ -105,6 +105,5 @@ export function init(nova) {
   }
   const off=nova.onTick?.(tick);
   const api={ready:true,enable,disable,damage:setDamage,get health(){return health;},get shield(){return shield;},set comfortVignette(v){comfort=!!v;}};
-  if(new URLSearchParams(location.search).get('arena')==='range')enable();
   return api;
 }

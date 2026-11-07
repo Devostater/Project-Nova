@@ -1,5 +1,12 @@
 {
   "modules": [
-    "demo.js"
+    "demo.js",
+    "interior.js",
+    "morality.js",
+    "fps_core.js",
+    "fps_ai.js",
+    "boarding.js",
+    "mission.js",
+    "fx_ultra.js"
   ]
 }

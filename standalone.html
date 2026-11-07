@@ -389,7 +389,8 @@
     (function initMenuControllerLoop() {
       var lastNavT = 0;
       var prevA = false, prevB = false, prevStart = false;
-      var prevFire = false, prevMsl = false, prevBoost = false, prevTarget = false, prevRadar = false, prevDamp = false, prevWarp = false;
+      var prevFire = false, prevMsl = false, prevBoost = false, prevTarget = false, prevRadar = false, prevDamp = false, prevWarp = false, prevAutopilot = false, prevThrottleDown = false;
+      window.novaDesktopFlightPad = window.novaDesktopFlightPad || { connected: false, pitch: 0, roll: 0 };
 
       window.addEventListener('gamepadconnected', function(e) {
         try {
@@ -398,7 +399,7 @@
             badge.textContent += ' | 🎮 Controller Connected';
           }
           if (typeof window.showToast === 'function') {
-            window.showToast('🎮 CONTROLLER CONNECTED: ' + (e.gamepad.id || 'Gamepad').slice(0, 28), 2500, '#00ffcc');
+            window.showToast('FLIGHT PAD: Right stick fly · A fire · B missile · X target · Y radar · LB damp · RB boost · D-pad throttle · LT slow · ← autopilot · → warp', 6500, '#00ffcc');
           }
           window.novaUpdateMenuFocus();
         } catch (err) {}
@@ -406,13 +407,13 @@
 
       function pollGamepad() {
         requestAnimationFrame(pollGamepad);
-        if (!navigator.getGamepads) return;
+        if (!navigator.getGamepads) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }
         var pads = navigator.getGamepads();
         var gp = null;
         for (var i = 0; i < pads.length; i++) {
           if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
         }
-        if (!gp) return;
+        if (!gp) { window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; return; }
 
         var now = performance.now();
         var overlay = document.getElementById('modal-overlay');
@@ -445,6 +446,7 @@
         prevStart = startBtn;
 
         if (menuOpen) {
+          window.novaDesktopFlightPad.connected = false; window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0;
           // Menu navigation with D-Pad Up/Down or Left Stick Y
           if (now - lastNavT > 200) {
             if (dUp || ay < -0.45) {
@@ -486,22 +488,17 @@
 
         // In-Flight Standard Gamepad Controls (for Tablet / PC Bluetooth Controllers when not in WebXR)
         var inXR = !!(window.renderer && window.renderer.xr && window.renderer.xr.isPresenting);
-        if (!inXR && window.stickPivot) {
+        window.novaDesktopFlightPad.connected = !inXR;
+        if (inXR) { window.novaDesktopFlightPad.pitch = 0; window.novaDesktopFlightPad.roll = 0; }
+        if (!inXR) {
           var DZ = 0.16;
           // Right stick (axes 2,3) or Left stick (axes 0,1) steers Pitch & Roll
           var rx = (gp.axes && Math.abs(gp.axes[2] || 0) > Math.abs(gp.axes[0] || 0)) ? (gp.axes[2] || 0) : (gp.axes ? (gp.axes[0] || 0) : 0);
           var ry = (gp.axes && Math.abs(gp.axes[3] || 0) > Math.abs(gp.axes[1] || 0)) ? (gp.axes[3] || 0) : (gp.axes ? (gp.axes[1] || 0) : 0);
           var nx = Math.abs(rx) > DZ ? Math.sign(rx) * ((Math.abs(rx) - DZ) / (1 - DZ)) : 0;
           var ny = Math.abs(ry) > DZ ? Math.sign(ry) * ((Math.abs(ry) - DZ) / (1 - DZ)) : 0;
-          if (nx !== 0 || ny !== 0) {
-            window.isTestingGripStick = true;
-            window.stickPivot.rotation.x = ny * 0.45;
-            window.stickPivot.rotation.z = -nx * 0.45;
-          } else if (window.isTestingGripStick) {
-            window.isTestingGripStick = false;
-            window.stickPivot.rotation.x = 0;
-            window.stickPivot.rotation.z = 0;
-          }
+          window.novaDesktopFlightPad.pitch = ny * 0.45;
+          window.novaDesktopFlightPad.roll = -nx * 0.45;
 
           // D-Pad Up / Down shifts throttle gates
           if (now - lastNavT > 240) {
@@ -561,6 +558,17 @@
             window.triggerLightspeed();
           }
           prevWarp = dRight;
+
+          // D-Pad Left toggles autopilot; Left Trigger drops throttle one gate on press.
+          if (dLeft && !prevAutopilot && typeof window.toggleAutopilot === 'function') {
+            window.toggleAutopilot();
+          }
+          prevAutopilot = dLeft;
+          var ltDown = lt > 0.25;
+          if (ltDown && !prevThrottleDown && typeof window.shiftThrottleGate === 'function') {
+            window.shiftThrottleGate((window.getThrottleNotch ? window.getThrottleNotch() : 0) - 1, true);
+          }
+          prevThrottleDown = ltDown;
         }
       }
       requestAnimationFrame(pollGamepad);
@@ -3428,6 +3436,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (ent && ent.obj && window.ndkState === 'idle') {
           currentLockedTarget = { name: ent.name, type: ent.type, targetObj: ent.obj, dist: ent.dist, isHostile: ent.isHostile };
         }
+        if (window.nova?.modules?.boarding?.board(currentLockedTarget)) { drawCommsPanel(); return; }
         novaDockAny();
         drawCommsPanel();
         return;
@@ -5709,6 +5718,8 @@ const GAME_VERSION = 'Alpha 1.4';
       showToast('⚓ DOCKING CLAMP ENGAGED! AIRLOCK SEALED — ENTERING NOVA-1 CANTINA...', 3500, '#00ffcc');
 
       setTimeout(() => {
+        const dockTargetName = String(currentLockedTarget?.name || '').toLowerCase();
+        if (dockTargetName.includes('lantern')) window.nova?.emit?.('dockedAtLantern', { target: currentLockedTarget });
         enterCantina();
       }, 1200);
     }
@@ -7337,6 +7348,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function destroyPirateBoss() {
       if (isPirateDefeated || !pirateBoss) return;
       isPirateDefeated = true;
+      window.nova?.emit?.('pirateWaveCleared', { count: 1 });
       sound.bossExplosion();
       showToast('💥 PIRATE FLAGSHIP DESTROYED! TOTAL VICTORY!', 4000, '#00ff88');
 
@@ -7653,27 +7665,43 @@ const GAME_VERSION = 'Alpha 1.4';
       throttleTrackHeight: 160
     };
 
+    function isMobileTouchDevice() {
+      const device = window.novaDevice || {};
+      const ua = navigator.userAgent || '';
+      const ipadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+      return !!device.isMobile || /Android|iPhone|iPad|iPod/i.test(ua) || ipadOS;
+    }
+
     function updateTabletCtrlVisibility() {
       const tcEl = document.getElementById('tablet-controller');
       if (!tcEl) return;
-      const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.novaDevice.isMobile;
-      const shouldShow = (tabletCtrl.userToggled ? tabletCtrl.active : isTouchDevice) && !renderer.xr.isPresenting;
+      const isMobile = isMobileTouchDevice();
+      const canShow = isMobile && !renderer.xr.isPresenting;
+      const shouldShow = canShow && (tabletCtrl.userToggled ? tabletCtrl.active : true);
       tabletCtrl.active = shouldShow;
       tcEl.style.display = shouldShow ? 'block' : 'none';
       document.body.classList.toggle('tablet-touch-active', shouldShow);
       const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
       if (toggleBtn) {
         toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (shouldShow ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
+        toggleBtn.disabled = !canShow;
+        toggleBtn.title = canShow ? '' : 'Touch controls are available on mobile and tablet devices.';
       }
     }
     window.novaToggleTabletCtrl = function(force) {
+      const available = isMobileTouchDevice() && !renderer.xr.isPresenting;
       tabletCtrl.userToggled = true;
-      tabletCtrl.active = (typeof force === 'boolean') ? force : !tabletCtrl.active;
+      tabletCtrl.active = available && ((typeof force === 'boolean') ? force : !tabletCtrl.active);
       const tcEl = document.getElementById('tablet-controller');
       if (tcEl) tcEl.style.display = tabletCtrl.active ? 'block' : 'none';
       document.body.classList.toggle('tablet-touch-active', tabletCtrl.active);
       const toggleBtn = document.getElementById('btn-toggle-touch-ctrl');
-      if (toggleBtn) toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (tabletCtrl.active ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
+      if (toggleBtn) {
+        toggleBtn.textContent = '📱 TABLET CONTROLLER: ' + (tabletCtrl.active ? 'ACTIVE (ON)' : 'INACTIVE (OFF)');
+        toggleBtn.disabled = !available;
+        toggleBtn.title = available ? '' : 'Touch controls are available on mobile and tablet devices.';
+      }
+      if (!available) { showToast('TOUCH CONTROLS ARE FOR MOBILE / TABLET', 2000, '#ffaa00'); return; }
       showToast('Tablet Controller ' + (tabletCtrl.active ? 'ENABLED' : 'DISABLED'), 2000, '#00ffcc');
     };
 
@@ -10135,6 +10163,11 @@ const GAME_VERSION = 'Alpha 1.4';
         if (activeKeys['ArrowUp']) kPitch -= 0.40;   // Push stick forward (dive)
         if (activeKeys['ArrowRight']) kRoll -= 0.40; // Bank right
         if (activeKeys['ArrowLeft']) kRoll += 0.40;  // Bank left
+        const desktopPad = window.novaDesktopFlightPad;
+        if (desktopPad && desktopPad.connected && !renderer.xr.isPresenting) {
+          if (kPitch === 0) kPitch = desktopPad.pitch;
+          if (kRoll === 0) kRoll = desktopPad.roll;
+        }
 
         if (kPitch !== 0 || kRoll !== 0) {
           stickPivot.rotation.x = THREE.MathUtils.lerp(stickPivot.rotation.x, kPitch, 12 * delta);
@@ -17156,7 +17189,7 @@ const GAME_VERSION = 'Alpha 1.4';
       { const hc = window.novaHeatCores ? window.novaHeatCores() : 0, hp = st.salv ? 3200 : 2400;   // heat cores: the system's most wanted cargo
         R.push({ l: `SELL HEAT CORE x${hc}`, r: hc ? '+' + hp + ' cr ea' : 'none', c: '#ff9a3c', fn: () => {
           if (!(window.novaHeatCoreSpend && window.novaHeatCoreSpend(1))) { showToast('No heat cores aboard. Tractor them from big wrecks.', 2000, '#ffaa00'); return; }
-          bankCredits += hp; showToast(`HEAT CORE SOLD  +${hp} CR`, 2400, '#ff9a3c'); try { sound.tradeCash(); } catch (e) { } } }); }
+          bankCredits += hp; showToast(`HEAT CORE SOLD  +${hp} CR`, 2400, '#ff9a3c'); window.nova?.emit?.('coreSold', { count: 1, station: st.name }); try { sound.tradeCash(); } catch (e) { } } }); }
       Object.keys(st.items).forEach(k => {
         const cost = st.items[k];
         const full = k === 'msl' ? missileAmmo >= novaMslCap() : k === 'flr' ? cargoFlares >= 4 : k === 'cap' ? cargoShieldCaps >= 4 : k === 'kit' ? (window.novaKits || 0) >= 5 : (NW.core >= novaWarpCap());
@@ -17588,26 +17621,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     { const _nf = nmFrame; nmFrame = function () { const r = _nf.apply(this, arguments); try { nfxFrame(); } catch (e) { if (!window._nfxErr) { window._nfxErr = 1; console.error('[fx_ultra]', e); } } return r; }; window.nmFrame = nmFrame; }
     { const _nb = novaBoom; novaBoom = function (pos, scale) { const r = _nb.apply(this, arguments); try { if (NFX.fx && NFX.fx.ready && NFX.fx.tier !== 'low' && pos) NFX.fx.explosion(pos, scale || 1, 'ship'); } catch (e) { } return r; }; window.novaBoom = novaBoom; }
-    // ── A10 interiors (modules/interior.js) + A13 morality (modules/morality.js) ──
-    import('./modules/morality.js').then(m => { window.novaMorality = m.init({ toast: showToast, crew: t => { try { ncAnnounce(t); } catch (e) { } } }); })
-      .catch(e => console.warn('[morality] not loaded', e && e.message));
-    import('./modules/interior.js').then(m => {
-      window.novaInteriorMod = m.init({ THREE, scene, camera, cameraRig, renderer, shipGroup, toast: showToast,
-        sound: k => { try { if (k === 'fire') sound.laser(); else sound.miningLaserHit(); } catch (e) { } },
-        setActive: on => { cockpit.visible = !on; try { setThrottle(0); } catch (e) { } } });
-      window.novaInterior = { enter: d => window.novaInteriorMod.enter(d), exit: () => window.novaInteriorMod.exit(), state: () => window.novaInteriorMod.state() };
-      window.novaRange = () => window.novaInteriorMod.enter('range');
-      // ?arena=range: PLAY drops you straight into the range. A FIRING RANGE button sits under PLAY too.
-      const wantRange = new URLSearchParams(location.search).get('arena') === 'range';
-      const _play = window.novaPlay;
-      if (_play) window.novaPlay = function () { const r = _play.apply(this, arguments); if (wantRange || window._novaRangeNext) { window._novaRangeNext = 0; setTimeout(() => window.novaRange(), 1200); } return r; };
-      const pb = document.getElementById('btn-play');
-      if (pb && !document.getElementById('btn-range')) {
-        const rb = document.createElement('button'); rb.className = 'modal-btn'; rb.id = 'btn-range'; rb.innerHTML = '&#127919; FIRING RANGE';
-        rb.onclick = e => { e.stopPropagation(); window._novaRangeNext = 1; window.novaPlay(); };
-        pb.insertAdjacentElement('afterend', rb);
-      }
-    }).catch(e => console.warn('[interior] not loaded', e && e.message));
+    // A10/A13 are loaded once by the A4 manifest; the shared loader below exposes their public APIs.
     window.novaTest = Object.assign(window.novaTest || {}, { salvage: (n = 3) => { const p = shipGroup.position.clone().add(new THREE.Vector3(0, 0, -60).applyQuaternion(shipGroup.quaternion)); for (let i = 0; i < n; i++) novaSalvageDrop(p, { slug: 'pirate_frigate', st: { boss: true } }); return NSV.pods.length; }, lockSalvage: () => { const t = getAllTargets().find(c => c.type === 'salvage'); currentLockedTarget = t || null; return t ? t.name + ' @ ' + Math.round(t.dist) + ' m' : null; }, salvageState: () => ({ pods: NSV.pods.map(p => p.kind), pulling: !!NSV.pulling, cores: NSV.cores, salvage: cargoSalvage, credits: bankCredits }) });
     // start new pilots on the real soundtrack
     try { if (!localStorage.getItem('novaMusicV1')) { bgmTrackIdx = BGM_TRACKS.findIndex(x => x.file); localStorage.setItem('novaMusicV1', '1'); } } catch (e) { }
@@ -18936,6 +18950,9 @@ const GAME_VERSION = 'Alpha 1.4';
     window.nova = {
       THREE, scene, camera, cameraRig, renderer, shipGroup, sound,
       toast: (...args) => showToast(...args),
+      crew: line => { try { ncAnnounce(line); } catch (e) {} },
+      setActive: active => { try { cockpit.visible = !active; setThrottle(0); } catch (e) {} },
+      onExit: detail => novaEmit('interiorExit', detail || {}),
       onTick: novaOnTick, on: novaOn, emit: novaEmit,
       modules: novaModuleInstances
     };
@@ -18948,12 +18965,15 @@ const GAME_VERSION = 'Alpha 1.4';
         const names = Array.isArray(manifest) ? manifest : manifest.modules;
         if (!Array.isArray(names)) throw new Error('manifest must contain a modules array');
         for (const name of names) {
-          if (typeof name !== 'string' || !/^[a-z0-9_-]+\\.js$/i.test(name)) continue;
+          if (typeof name !== 'string' || !/^[a-z0-9_-]+\.js$/i.test(name)) continue;
           try {
             const module = await import(base + name);
             if (typeof module.init !== 'function') throw new Error('missing init(nova)');
             const instance = await module.init(window.nova);
+            const key = name.replace(/\.js$/i, '');
             novaModuleInstances.set(name, instance ?? true);
+            novaModuleInstances.set(key, instance ?? true);
+            novaModuleInstances[key] = instance ?? true;
             console.info('[NOVA module] ready:', name);
           } catch (error) { console.error('[NOVA module] failed:', name, error); }
         }
@@ -18963,7 +18983,24 @@ const GAME_VERSION = 'Alpha 1.4';
         return novaModuleInstances;
       }
     };
-    window.novaModulesReady = window.novaLoadModules();
+    window.novaModulesReady = window.novaLoadModules().then(modules => {
+    window.novaInteriorMod = modules.get('interior.js');
+    window.novaMorality = modules.get('morality.js');
+    window.novaInterior = window.novaInteriorMod ? { enter: d => window.novaInteriorMod.enter(d), exit: () => window.novaInteriorMod.exit(), state: () => window.novaInteriorMod.state() } : null;
+    window.novaRange = () => window.novaInteriorMod?.enter('range');
+    novaOn('fusionCoreChosen', e => { if (window.novaMorality) window.novaMorality.choice('fusion_core', e?.choice === 'take' ? 'keep' : 'return'); });
+    const _novaExitLightspeed = exitLightspeed;
+    exitLightspeed = function () { const wasWarp = !!isLightspeedActive; const result = _novaExitLightspeed.apply(this, arguments); if (wasWarp && !isLightspeedActive) novaEmit('warpComplete', {}); return result; };
+    const _novaAnnounce = ncAnnounce;
+    ncAnnounce = function (line) { const result = _novaAnnounce.apply(this, arguments); const targetName = String(currentLockedTarget?.name || '').toLowerCase(); if (line && targetName.includes('lantern')) novaEmit('crewReaction', { phase: 'lantern', line }); return result; };
+    const wantRange = new URLSearchParams(location.search).get('arena') === 'range';
+    const _play = window.novaPlay;
+    if (_play) window.novaPlay = function () { const r = _play.apply(this, arguments); if (wantRange || window._novaRangeNext) { window._novaRangeNext = 0; setTimeout(() => window.novaRange?.(), 1200); } return r; };
+    const pb = document.getElementById('btn-play');
+    if (pb && !document.getElementById('btn-range')) { const rb = document.createElement('button'); rb.className = 'modal-btn'; rb.id = 'btn-range'; rb.innerHTML = '&#127919; FIRING RANGE'; rb.onclick = e => { e.stopPropagation(); window._novaRangeNext = 1; window.novaPlay(); }; pb.insertAdjacentElement('afterend', rb); }
+    if (wantRange) setTimeout(() => window.novaRange?.(), 1200);
+    return modules;
+  });
   </script>
 </body>
 </html>

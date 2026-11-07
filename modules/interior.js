@@ -1,7 +1,7 @@
 // Project Nova: interior / arena system (AI_QUEUE A10).
 // novaInterior.enter(def) moves the player out of the cockpit into a small walkable arena;
 // exit() puts them back in the seat. While active, the game loop skips flight and calls frame().
-// First arena: the firing range (?arena=range). On-foot controls here are a simple stand-in until A11.
+// First arena: the firing range (?arena=range). Movement and weapons are owned by A11 fps_core.
 //
 // Controls
 //   PC: WASD move, drag mouse (or arrow keys) to look, click / Space to fire, Esc to leave.
@@ -67,7 +67,10 @@ export function init(api) {
       const pivot = new THREE.Group(); pivot.position.set(x, 1.4, z); root.add(pivot);
       const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.08, 32), discM()); disc.rotation.x = Math.PI / 2; disc.position.y = 0.55; pivot.add(disc);
       const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.04, 8, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })); ring.position.set(0, 0.55, 0.05); pivot.add(ring);
-      S.targets.push({ pivot, disc, down: 0, x, z, sway: Math.random() * 6 });
+      const target = { pivot, disc, down: 0, x, z, sway: Math.random() * 6 };
+      disc.userData.rangeTarget = true;
+      disc.userData.onHit = () => { if (target.down > 0) return; target.down = 2; S.hits++; S.score += 100; if (S.sign?.userData.draw) S.sign.userData.draw(); };
+      S.targets.push(target);
     }
     return root;
   }
@@ -82,13 +85,17 @@ export function init(api) {
     S.pos.set(def.start[0], 0, def.start[2]); S.yaw = 0; S.pitch = 0; S.score = S.shots = S.hits = 0;
     S.prevParent = cameraRig.parent; S.prevRigPos = cameraRig.position.clone(); S.prevRigQ = cameraRig.quaternion.clone();
     scene.add(cameraRig); cameraRig.quaternion.identity();
-    S.active = true; api.setActive(true);
+    S.active = true;
+    cameraRig.position.set(ORIGIN.x + S.pos.x, ORIGIN.y + 1.65, ORIGIN.z + S.pos.z); cameraRig.rotation.set(0, 0, 0);
+    api.setActive && api.setActive(true);
+    api.modules?.fps_core?.enable?.(); api.modules?.fps_ai?.start?.();
     toast && toast(`${def.name}: shoot the red targets. Esc / B to leave.`, 4000, '#00e5ff');
   }
 
   function exit() {
     if (!S.active) return;
-    S.active = false; api.setActive(false);
+    api.modules?.fps_ai?.stop?.(); api.modules?.fps_core?.disable?.();
+    S.active = false; api.setActive && api.setActive(false);
     (S.prevParent || shipGroup).add(cameraRig); cameraRig.position.copy(S.prevRigPos || new THREE.Vector3()); cameraRig.quaternion.copy(S.prevRigQ || new THREE.Quaternion());
     camera.rotation.set(0, 0, 0);
     for (const b of S.bolts) S.root.remove(b.m);
@@ -149,6 +156,20 @@ export function init(api) {
   function frame(dt) {
     if (!S.active) return;
     S.cd -= dt;
+    // A11 owns movement, view and firing; A10 keeps the lane targets and score board alive.
+    S.pos.set(cameraRig.position.x - ORIGIN.x, 0, cameraRig.position.z - ORIGIN.z);
+    S.pos.x = THREE.MathUtils.clamp(S.pos.x, S.def.bounds[0], S.def.bounds[1]);
+    S.pos.z = THREE.MathUtils.clamp(S.pos.z, S.def.bounds[2], S.def.bounds[3]);
+    cameraRig.position.x = ORIGIN.x + S.pos.x; cameraRig.position.z = ORIGIN.z + S.pos.z;
+    if (S.pos.z > 5.2 && Math.abs(S.pos.x) < 1.2) { exit(); return; }
+    const tRange = performance.now() * 0.001;
+    for (const t of S.targets) {
+      if (t.down > 0) { t.down -= dt; t.pivot.rotation.x = Math.max(-Math.PI / 2, t.pivot.rotation.x - dt * 8); }
+      else t.pivot.rotation.x = Math.min(0, t.pivot.rotation.x + dt * 4);
+      t.pivot.position.x = t.x + Math.sin(tRange * 0.6 + t.sway) * (Math.abs(t.z) > 20 ? 1.5 : 0.4);
+    }
+    S.door.material.opacity = 0.25 + 0.15 * Math.sin(tRange * 3);
+    return;
     const xr = renderer.xr.isPresenting, session = renderer.xr.getSession && renderer.xr.getSession();
     let mx = 0, mz = 0, turn = 0, fireNow = fireReq; fireReq = false;
     // keyboard
