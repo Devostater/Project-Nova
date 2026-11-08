@@ -329,6 +329,7 @@
         document.getElementById('menu-options').style.display = v === 'opt' ? '' : 'none';
         var gh = document.getElementById('menu-github');
         if (gh) gh.style.display = v === 'github' ? '' : 'none';
+        if (v === 'opt' && typeof window.updateInvertYButton === 'function') window.updateInvertYButton();
         window.novaMenuFocusIdx = 0;
         if (typeof window.novaUpdateMenuFocus === 'function') window.novaUpdateMenuFocus();
       } catch (e) {}
@@ -660,6 +661,9 @@
         <button class="modal-btn btn-mr" id="btn-mr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('MR'); window.launchMR(); event.stopPropagation();">👁️ ENTER PASSTHROUGH MR (QUEST 3 / AR)</button>
         <button class="modal-btn btn-vr" id="btn-vr" style="padding: 12px; margin: 6px 0;" onclick="window.novaSetPreferredMode('VR'); window.launchVR(); event.stopPropagation();">🚀 ENTER IMMERSIVE VR (FULL 360° SPACE)</button>
 
+        <div style="font-size: 14px; font-weight: bold; color: #00e5ff; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Flight Controls &amp; Inversion:</div>
+        <button class="modal-btn" id="btn-invert-flight-y" style="background: rgba(0, 229, 255, 0.15); border-color: #00e5ff; color: #00e5ff; padding: 12px; margin: 6px 0;" onclick="if(window.novaToggleInvertFlightY) window.novaToggleInvertFlightY(); event.stopPropagation();">↕️ FLIGHT Y: INVERTED (PULL BACK = CLIMB)</button>
+
         <div style="font-size: 14px; font-weight: bold; color: #00ffcc; margin-top: 14px; margin-bottom: 6px; text-transform: uppercase;">Tablet / Touch Controls:</div>
         <button class="modal-btn" id="btn-toggle-touch-ctrl" style="background: rgba(0, 255, 204, 0.15); border-color: #00ffcc; color: #00ffcc; padding: 10px; margin: 4px 0;" onclick="window.novaToggleTabletCtrl(); event.stopPropagation();">📱 TABLET CONTROLLER: ON / OFF</button>
 
@@ -811,6 +815,10 @@ const GAME_VERSION = 'Alpha 1.4';
     let isGrippingThrottleHand = false;
     let isGrippingThrottleCtrl = false;
     let isPitchInverted = true; // Inverted controls Y for rotation (Default: true per pilot request)
+    try {
+      const savedInvert = localStorage.getItem('novaPitchInverted');
+      if (savedInvert !== null) isPitchInverted = savedInvert === '1';
+    } catch (e) {}
     let lastLidToggleTime = 0;
     let isRotationDampenerOn = true; // Flight Rotation Dampeners (Default: ON)
     let isAutopilotActive = false;
@@ -12626,16 +12634,32 @@ const GAME_VERSION = 'Alpha 1.4';
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+    function updateInvertYButton() {
+      const btn = document.getElementById('btn-invert-flight-y');
+      if (btn) {
+        btn.innerHTML = isPitchInverted
+          ? '↕️ FLIGHT Y: INVERTED (PULL BACK = CLIMB)'
+          : '↕️ FLIGHT Y: STANDARD (PULL BACK = DIVE)';
+        btn.style.color = isPitchInverted ? '#00e5ff' : '#ffaa00';
+        btn.style.borderColor = isPitchInverted ? '#00e5ff' : '#ffaa00';
+      }
+    }
+    window.updateInvertYButton = updateInvertYButton;
+
     // Exports for test harness
     function toggleInvertPitch(forceState) {
       if (forceState !== undefined) isPitchInverted = forceState;
       else isPitchInverted = !isPitchInverted;
+      try { localStorage.setItem('novaPitchInverted', isPitchInverted ? '1' : '0'); } catch (e) {}
       sound.beep(isPitchInverted ? 900 : 700, 0.05);
       showToast(isPitchInverted ? '✈️ FLIGHT CONTROLS Y: INVERTED (PULL BACK = CLIMB)' : '🎮 FLIGHT CONTROLS Y: STANDARD (PULL BACK = DIVE)', 2000, '#00f0ff');
       drawDebugWatch();
+      updateInvertYButton();
     }
     window.toggleInvertPitch = toggleInvertPitch;
+    window.novaToggleInvertFlightY = toggleInvertPitch;
     window.isPitchInverted = () => isPitchInverted;
+    updateInvertYButton();
 
     // ════════════════════════════════════════════════════════════════
     // ── v0.6: GUIDED TUTORIAL · BUYABLE SHIPS · COMPANION CONVERSATIONS ──
