@@ -12179,7 +12179,7 @@ const GAME_VERSION = 'Alpha 1.4';
       });
       novaHandTurnFrame(frame, now);
       cameraRig.updateWorldMatrix(true, true);
-      renderer.render(scene, camera);
+      novaRender(delta);
     };
 
     // ════════════════════════════════════════════════════════════════
@@ -12476,13 +12476,14 @@ const GAME_VERSION = 'Alpha 1.4';
           novaLastLoopError = msg; novaLastErrorTime = performance.now();
           drawSafePanel(novaSafeReady ? 'READY' : 'LOADING GAME...');
         }
-        try { renderer.render(scene, camera); } catch (e2) {}
+        try { novaRender(0.016); } catch (e2) { try { renderer.render(scene, camera); } catch (e3) {} }
       }
     });
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      try { if (window.novaPostfx?.resize) window.novaPostfx.resize(); } catch (e) {}
     });
 
     // Exports for test harness
@@ -16619,6 +16620,7 @@ const GAME_VERSION = 'Alpha 1.4';
       try { if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(q.xr); } catch (e) { }
       try { renderer.xr.setFoveation(q.fov); } catch (e) { }
       try { if (window.NF) NF.cap = NOPT.o.gfx === 'low' ? 14 : (NOPT.o.gfx === 'high' || NOPT.o.gfx === 'ultra') ? 40 : 26; } catch (e) { }
+      try { if (window.novaPostfx?.setQuality) window.novaPostfx.setQuality(NOPT.o.gfx); } catch (e) { }
     }
 
     // key bindings: a rebound key is replayed to the game as the key it replaces, so every existing control keeps working
