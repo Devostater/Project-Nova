@@ -1,7 +1,7 @@
 # Project Nova Context
 
-> **Purpose:** Portable project memory for ChatGPT, Google Antigravity, Google AI Studio, and future development agents.
-> **Last reviewed:** 2026-11-06
+> **Purpose:** Portable project memory for ChatGPT, Google Antigravity, Google AI Studio, Grok (xAI), and future development agents.
+> **Last reviewed:** 2026-11-07
 > **Repository:** https://github.com/Devostater/Project-Nova
 > **Working branch for this document:** `migration/context-bootstrap`
 > **Default branch at review:** `main`
@@ -132,9 +132,13 @@ Treat these as historical notes. Re-test on the actual Quest 3 browser/runtime a
 
 ## 7. AI collaboration and integration
 
-The project uses Google's AI ecosystem, including Google AI Studio / Gemini. The package includes `@google/genai`, and the project metadata indicates a server-side Gemini API capability.
+The project uses multiple AI collaborators:
+- **Claude** — Lead / integrator.
+- **ChatGPT / Codex** — Primary code implementation.
+- **Antigravity (Gemini)** — Art, storyboard, and some development assistance. Package includes `@google/genai`.
+- **Grok (xAI)** — Independent analysis, technical critique, alternative solutions, research, and risk identification. Prefer Grok when a second opinion or architecture review is needed.
 
-For Google Antigravity and other coding agents:
+For all coding agents:
 - Read this file before editing.
 - Inspect the current working tree and recent commits before proposing changes.
 - Identify the current build and last known working version.
