@@ -36,11 +36,18 @@ export function init(nova = {}) {
       if (typeof import.meta !== 'undefined' && import.meta.url) {
         list.push(new URL('../video/' + name + '.' + ext, import.meta.url).href);
         list.push(new URL('../../public/video/' + name + '.' + ext, import.meta.url).href);
+        list.push(new URL('../news/video/' + name + '.' + ext, import.meta.url).href);
+        list.push(new URL('../news/video/' + name + '/' + name + '.' + ext, import.meta.url).href);
       }
     } catch (_) {}
-    candidateBases.forEach(b => list.push(b + name + '.' + ext));
+    candidateBases.forEach(b => {
+      list.push(b + name + '.' + ext);
+      list.push(b + name + '/' + name + '.' + ext);
+    });
     list.push('public/video/' + name + '/' + name + '.' + ext);
     list.push('video/' + name + '/' + name + '.' + ext);
+    list.push('public/news/video/' + name + '/' + name + '.' + ext);
+    list.push('news/video/' + name + '/' + name + '.' + ext);
     return Array.from(new Set(list));
   }
 
@@ -114,8 +121,20 @@ export function init(nova = {}) {
     const v = document.createElement('video');
     v.src = videoUrl;
     v.playsInline = true;
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
     v.preload = 'auto';
-    // Do not set v.crossOrigin = 'anonymous' for same-origin media to avoid local server CORS rejections
+    // Append to document.body so Meta Quest / Chromium Android hardware video pipeline decodes frames for WebGL in WebXR
+    v.style.position = 'fixed';
+    v.style.top = '0';
+    v.style.left = '0';
+    v.style.width = '1px';
+    v.style.height = '1px';
+    v.style.opacity = '0.001';
+    v.style.pointerEvents = 'none';
+    v.style.zIndex = '-9999';
+    document.body.appendChild(v);
+
     const tr = document.createElement('track');
     tr.kind = 'captions';
     tr.srclang = 'en';
@@ -126,6 +145,9 @@ export function init(nova = {}) {
 
     let done, cleanup = [];
     const finished = new Promise(r => { done = r; });
+    cleanup.push(() => {
+      try { v.remove(); } catch (_) {}
+    });
 
     // ── TOTAL SILENCE: Mute all game sounds, oscillators, engine rumble & BGM ──
     window.novaCinematicPlaying = true;
@@ -207,41 +229,95 @@ export function init(nova = {}) {
       // ══════════════════════════════════════════════════════════════════════════
       // VR / MR CINEMA THEATER (Curved IMAX Screen + Dark Surround Dome)
       // ══════════════════════════════════════════════════════════════════════════
+
+      // ── 1. Hide Player Cockpit, Seat, Canopies & Ship Meshes ──
+      const hiddenObjects = [];
+      const hideMesh = (obj) => {
+        if (obj && obj.visible) {
+          obj.visible = false;
+          hiddenObjects.push(obj);
+        }
+      };
+      if (window.cockpit) hideMesh(window.cockpit);
+      if (window.cannonGroup) hideMesh(window.cannonGroup);
+      if (window.cockpitDashLight) hideMesh(window.cockpitDashLight);
+      if (window.cockpitDomeLight) hideMesh(window.cockpitDomeLight);
+      if (window.seatGroup) hideMesh(window.seatGroup);
+      if (window.shipGroup) {
+        window.shipGroup.children.forEach(c => {
+          if (c !== window.cameraRig && c !== camera && c !== camera.parent) {
+            hideMesh(c);
+          }
+        });
+      }
+
+      cleanup.push(() => {
+        hiddenObjects.forEach(obj => {
+          try { if (obj) obj.visible = true; } catch (_) {}
+        });
+      });
+
       const xrGroup = new T.Group();
       xrGroup.name = 'NOVA_VR_CINEMA';
 
-      // Dark surround backdrop (radius 1.8m) to completely block the cockpit & space
-      const backGeo = new T.SphereGeometry(1.8, 32, 16);
-      const backMat = new T.MeshBasicMaterial({ color: 0x000000, side: T.BackSide, depthWrite: false });
+      // ── 2. Full Surround Dark Cinema Dome (radius 25m, depthWrite = true) ──
+      const backGeo = new T.SphereGeometry(25, 32, 16);
+      const backMat = new T.MeshBasicMaterial({ color: 0x020306, side: T.BackSide, depthWrite: true });
       const backMesh = new T.Mesh(backGeo, backMat);
-      backMesh.renderOrder = -1;
+      backMesh.renderOrder = 0;
       xrGroup.add(backMesh);
 
-      // Curved Cinema Screen (width 3.2m, height 1.8m, distance 2.1m)
+      // ── 3. Curved IMAX Cinema Screen (16:9 aspect, radius 2.3m, arc 66 deg) ──
       const tex = new T.VideoTexture(v);
       tex.colorSpace = T.SRGBColorSpace;
       tex.minFilter = T.LinearFilter;
       tex.magFilter = T.LinearFilter;
+      tex.generateMipmaps = false;
 
-      // Curved cylinder segment centered facing the player
-      const radius = 2.1;
-      const screenH = 1.8;
-      const theta = 1.52; // ~87 degrees horizontal FOV
-      const screenGeo = new T.CylinderGeometry(radius, radius, screenH, 32, 1, true, Math.PI - theta / 2, theta);
-      screenGeo.scale(-1, 1, 1); // Flip inside out so texture maps to interior
+      const radius = 2.3;
+      const screenH = 1.35;
+      const theta = 1.15; // ~66 degree horizontal arc
+      const screenGeo = new T.CylinderGeometry(radius, radius, screenH, 40, 1, true, Math.PI - theta / 2, theta);
+      screenGeo.scale(-1, 1, 1); // Flip inside out so texture maps to interior facing viewer
       const screenMat = new T.MeshBasicMaterial({ map: tex, side: T.DoubleSide, toneMapped: false });
       const screenMesh = new T.Mesh(screenGeo, screenMat);
       screenMesh.position.set(0, 0, 0);
+      screenMesh.renderOrder = 1;
       xrGroup.add(screenMesh);
 
-      // Subtitles canvas plane
+      // ── 4. WebXR Video Texture Frame Update Loop ──
+      let cineLoopActive = true;
+      const updateVideoFrame = () => {
+        if (!cineLoopActive) return;
+        if (v.readyState >= 2) {
+          tex.needsUpdate = true;
+        }
+        if ('requestVideoFrameCallback' in v) {
+          v.requestVideoFrameCallback(updateVideoFrame);
+        }
+      };
+      if ('requestVideoFrameCallback' in v) {
+        v.requestVideoFrameCallback(updateVideoFrame);
+      }
+      const videoInterval = setInterval(() => {
+        if (v.readyState >= 2) {
+          tex.needsUpdate = true;
+        }
+      }, 33);
+      cleanup.push(() => {
+        cineLoopActive = false;
+        clearInterval(videoInterval);
+      });
+
+      // ── 5. Subtitles Canvas Plane ──
       const cv = document.createElement('canvas');
       cv.width = 1024; cv.height = 128;
       const cx = cv.getContext('2d');
       const capTex = new T.CanvasTexture(cv);
       const capMat = new T.MeshBasicMaterial({ map: capTex, transparent: true, depthWrite: false });
       const capMesh = new T.Mesh(new T.PlaneGeometry(2.4, 0.3), capMat);
-      capMesh.position.set(0, -screenH * 0.45, -radius * 0.95);
+      capMesh.position.set(0, -screenH * 0.42, -radius * 0.95);
+      capMesh.renderOrder = 2;
       xrGroup.add(capMesh);
 
       let cues = [];
@@ -264,15 +340,121 @@ export function init(nova = {}) {
         }
         capTex.needsUpdate = true;
       }, 80);
+      cleanup.push(() => clearInterval(capTick));
 
-      // Attach cinema directly to camera so it stays centered and level
-      camera.add(xrGroup);
+      // ── 6. 3D Floating Interactive Exit Button for Hands & Controllers ──
+      const exitBtnCanvas = document.createElement('canvas');
+      exitBtnCanvas.width = 512; exitBtnCanvas.height = 128;
+      const exitCtx = exitBtnCanvas.getContext('2d');
+      const exitTex = new T.CanvasTexture(exitBtnCanvas);
+      const drawExitBtn = (hovered = false) => {
+        exitCtx.clearRect(0, 0, 512, 128);
+        exitCtx.fillStyle = hovered ? 'rgba(255, 40, 70, 0.95)' : 'rgba(40, 12, 22, 0.88)';
+        exitCtx.beginPath();
+        exitCtx.roundRect(16, 16, 480, 96, 24);
+        exitCtx.fill();
+        exitCtx.strokeStyle = hovered ? '#ffffff' : '#ff4466';
+        exitCtx.lineWidth = 6;
+        exitCtx.stroke();
+        exitCtx.fillStyle = hovered ? '#ffffff' : '#ff8899';
+        exitCtx.font = 'bold 38px monospace';
+        exitCtx.textAlign = 'center';
+        exitCtx.fillText('✖ EXIT CINEMA (TOUCH)', 256, 76);
+        exitTex.needsUpdate = true;
+      };
+      drawExitBtn(false);
 
-      // WebXR controller triggers & grips to skip or pause
+      const exitBtnMat = new T.MeshBasicMaterial({ map: exitTex, transparent: true, side: T.DoubleSide });
+      const exitBtnMesh = new T.Mesh(new T.PlaneGeometry(0.85, 0.22), exitBtnMat);
+      exitBtnMesh.position.set(0, -screenH * 0.62, -radius * 0.92);
+      exitBtnMesh.renderOrder = 3;
+      xrGroup.add(exitBtnMesh);
+
+      // ── 7. Anchor Cinema to CameraRig / Scene Facing Viewer ──
+      const host = window.cameraRig || scene;
+      if (host === window.cameraRig) {
+        xrGroup.position.set(camera.position.x, camera.position.y, camera.position.z);
+        xrGroup.rotation.y = camera.rotation.y;
+      } else {
+        const headPos = new T.Vector3();
+        camera.getWorldPosition(headPos);
+        xrGroup.position.copy(headPos);
+        const headEuler = new T.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+        xrGroup.rotation.y = headEuler.y;
+      }
+      host.add(xrGroup);
+
+      // ── 8. Hand Tracking Interaction & Gesture Exit ──
+      let exitHovered = false;
+      let lastPinchTime = 0;
+      const handCheckTick = setInterval(() => {
+        if (!isPresentingVR) return;
+        const exitWorldPos = new T.Vector3();
+        exitBtnMesh.getWorldPosition(exitWorldPos);
+
+        const testPoints = [];
+        const h1 = renderer.xr.getHand ? renderer.xr.getHand(0) : null;
+        const h2 = renderer.xr.getHand ? renderer.xr.getHand(1) : null;
+        [h1, h2].forEach(h => {
+          if (!h || !h.joints) return;
+          ['index-finger-tip', 'thumb-tip', 'wrist'].forEach(jn => {
+            const j = h.joints[jn];
+            if (j && j.visible !== false) {
+              const p = new T.Vector3();
+              j.getWorldPosition(p);
+              testPoints.push({ pos: p, isIndex: jn === 'index-finger-tip', isWrist: jn === 'wrist' });
+            }
+          });
+        });
+
+        const c1 = renderer.xr.getController ? renderer.xr.getController(0) : null;
+        const c2 = renderer.xr.getController ? renderer.xr.getController(1) : null;
+        [c1, c2].forEach(c => {
+          if (c && c.visible !== false) {
+            const p = new T.Vector3();
+            c.getWorldPosition(p);
+            testPoints.push({ pos: p, isIndex: true });
+          }
+        });
+
+        // Touch exit button with finger or controller
+        let touched = false;
+        for (const pt of testPoints) {
+          if (pt.pos.distanceTo(exitWorldPos) < 0.16) {
+            touched = true;
+            break;
+          }
+        }
+        if (touched !== exitHovered) {
+          exitHovered = touched;
+          drawExitBtn(exitHovered);
+        }
+        if (touched) {
+          end();
+          return;
+        }
+
+        // Hand brought to headset / face (< 0.18m from camera) -> intuitive hand exit
+        const camPos = new T.Vector3();
+        camera.getWorldPosition(camPos);
+        for (const pt of testPoints) {
+          if (pt.isIndex && pt.pos.distanceTo(camPos) < 0.18) {
+            end();
+            return;
+          }
+        }
+      }, 50);
+
       const ses = renderer.xr.getSession?.();
       const onSelect = () => {
-        if (v.paused) v.play().catch(() => {});
-        else v.pause();
+        const now = performance.now();
+        if (exitHovered || (now - lastPinchTime < 450)) {
+          end();
+        } else {
+          lastPinchTime = now;
+          if (v.paused) v.play().catch(() => {});
+          else v.pause();
+        }
       };
       const onSqueeze = () => end();
       if (ses) {
@@ -281,15 +463,15 @@ export function init(nova = {}) {
       }
 
       cleanup.push(() => {
-        clearInterval(capTick);
+        clearInterval(handCheckTick);
         if (ses) {
           ses.removeEventListener('selectstart', onSelect);
           ses.removeEventListener('squeezestart', onSqueeze);
         }
-        camera.remove(xrGroup);
-        tex.dispose(); capTex.dispose();
+        host.remove(xrGroup);
+        tex.dispose(); capTex.dispose(); exitTex.dispose();
         backGeo.dispose(); backMat.dispose();
-        screenGeo.dispose(); screenMat.dispose(); capMat.dispose();
+        screenGeo.dispose(); screenMat.dispose(); capMat.dispose(); exitBtnMat.dispose();
       });
     } else {
       // ══════════════════════════════════════════════════════════════════════════

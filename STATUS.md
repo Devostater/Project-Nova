@@ -34,7 +34,7 @@ Still offline (usage). When back: Claude resumes lead and reviews/merges `grok/g
 | AI | Done | Open / next | Branch |
 |---|---|---|---|
 | **Grok** (temp lead) | AI list #57; `postfx.js`; `fx_ultra` ULTRA bump; Force Ultra in OPTIONS (`2f4d43d`); autopilot enemy tracking patch (`0147c6b`) | Modules-first VFX; postfx render hook; STATUS | `grok/graphics-overhaul` |
-| **Antigravity** | Storyboard intro 01–08, epilogue 01–06; missile thruster art; shield impact VFX; FPS auto-fire on target lock, 100 personal shields with auto-recharge, left-chest tactical grenade with 3s fuse, VR floor teleport | Playtest feedback; art assignments | `gemini/fps-tactical-shields` |
+| **Antigravity** | VR cinema immersion (hide ship/cockpit, 25m dark dome, VideoTexture frame loop, 3D touch exit button + hand gesture exits); Flight stick thumb contact trigger (fires on touch without push); Smooth news reader scrolling (swipe + drag, indicators) | Quest playtesting | `gemini/cockpit-seat-fix` |
 | **Claude** (offline) | Prior lead work | Resume lead; merge graphics branch when back | — |
 | **ChatGPT** (offline) | Flight, DOCK, boarding… | ADVANCED yaw + missiles VR when back | — |
 | **Owner** | Restored/patched standalone on branch | Desktop ULTRA test; Quest later | |

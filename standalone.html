@@ -357,7 +357,7 @@
           c = mods?.get?.('cinematics.js');
         }
         if (c && c.play) {
-          await c.play(name, { fromMenu: true });
+          await c.play(name, { fromMenu: !!wasVisible });
         } else {
           if (typeof window.showToast === 'function') window.showToast('Loading cinematic player...', 2000, '#00f0ff');
         }
@@ -12572,13 +12572,14 @@ const GAME_VERSION = 'Alpha 1.4';
               sound.beep(620, 0.05);
             }
 
-            // Pilot's thumb pressing the fire button on top of the stick
+            // Pilot's thumb contacting the fire button on top of the stick (triggers on contact when gripped, no deep push required)
             if (thumbTip && thumbTip.position && thumbFireBtn) {
               const thumbPos = new THREE.Vector3();
               thumbTip.getWorldPosition(thumbPos);
               const btnWorld = new THREE.Vector3();
               thumbFireBtn.getWorldPosition(btnWorld);
-              if (thumbPos.distanceTo(btnWorld) < 0.045 && (now - lastFireTime > 160)) {
+              const contactRadius = isGrippingStickHand ? 0.068 : 0.046;
+              if (thumbPos.distanceTo(btnWorld) < contactRadius && (now - lastFireTime > 140)) {
                 pressThumbFireButton();
               }
             }
@@ -12888,10 +12889,10 @@ const GAME_VERSION = 'Alpha 1.4';
             stickGripPoint.getWorldPosition(stickWorldPos);
             const distStick = cPos.distanceTo(stickWorldPos);
 
-            // Right trigger or A fires lasers while holding the stick; B is reserved for missiles.
+            // Right trigger or A fires lasers while holding the stick (triggers on touch contact or press)
             if (rightGamepad && rightGamepad.buttons) {
               const isTrigger = !!(rightGamepad.buttons[0] && rightGamepad.buttons[0].pressed);
-              const isAButton = !!(rightGamepad.buttons[4] && rightGamepad.buttons[4].pressed);
+              const isAButton = !!(rightGamepad.buttons[4] && (rightGamepad.buttons[4].pressed || rightGamepad.buttons[4].touched));
               if ((isTrigger || isAButton) && isGrippingStickCtrl) {
                 pressThumbFireButton();
               }
@@ -17548,7 +17549,10 @@ const GAME_VERSION = 'Alpha 1.4';
         NNEWS.i = Math.max(0, Math.min(NNEWS.i, L.length - 1)); const q = L[NNEWS.i]; NNEWS.read.add(q.id); NNEWS.lastId = q.id;
         x.fillStyle = 'rgba(8,28,43,0.92)'; x.fillRect(8, 54, 350, 296); x.strokeStyle = 'rgba(102,230,255,0.4)'; x.lineWidth = 2; x.strokeRect(8, 54, 350, 296);
         npText(x, 'NOVA NET', 20, 82, 'bold 22px monospace', '#66e6ff');
-        const first = nnewsFirst(); L.slice(first, first + 6).forEach((a, i) => { const Y = 94 + i * 42, on = first + i === NNEWS.i;
+        const first = nnewsFirst();
+        if (first > 0) npText(x, '▲ MORE', 260, 82, 'bold 13px monospace', '#66e6ff');
+        if (first + 6 < L.length) npText(x, '▼ MORE', 260, 344, 'bold 13px monospace', '#66e6ff');
+        L.slice(first, first + 6).forEach((a, i) => { const Y = 94 + i * 42, on = first + i === NNEWS.i;
           x.fillStyle = on ? 'rgba(102,230,255,0.20)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(14, Y, 338, 39);
           if (!NNEWS.read.has(a.id)) { x.fillStyle = a.c; x.beginPath(); x.arc(26, Y + 19, 5, 0, 7); x.fill(); }
           npText(x, a.title, 38, Y + 26, 'bold 16px monospace', on ? '#ffffff' : a.c, 304);
@@ -17984,8 +17988,19 @@ const GAME_VERSION = 'Alpha 1.4';
         G.acc += dx;
         if (Math.abs(G.acc) > 150) { npWarpStep(G.acc < 0 ? 1 : -1); G.acc = 0; }   // swipe left = next
       } else if (T === NP_NEWS) {
-        G.acc += dx;
-        if (Math.abs(G.acc) > 120) { nnewsStep(G.acc < 0 ? 1 : -1); G.acc = 0; }
+        if (Math.abs(dy) > Math.abs(dx)) {
+          G.accY = (G.accY || 0) + dy;
+          if (Math.abs(G.accY) > 34) {
+            nnewsStep(G.accY < 0 ? 1 : -1);
+            G.accY = 0;
+          }
+        } else {
+          G.acc += dx;
+          if (Math.abs(G.acc) > 38) {
+            nnewsStep(G.acc < 0 ? 1 : -1);
+            G.acc = 0;
+          }
+        }
       }
     }
     function npGestureEnd() {
@@ -18001,9 +18016,15 @@ const GAME_VERSION = 'Alpha 1.4';
         }
         else if (T === NP_CREW_TAB) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) NP_CREW_TAB.row(P, r); }
         else if (T === NP_NEWS) {
-          if (G.x0 < 360) {
-            const r = Math.floor((G.y0 - 94) / 42);
-            if (r >= 0 && r < Math.min(6, nnewsItems().length)) nnewsSelect(nnewsFirst() + r);
+          if (G.x0 < 370) {
+            if (G.y0 < 92 && nnewsFirst() > 0) {
+              nnewsStep(-1);
+            } else if (G.y0 > 336 && nnewsFirst() + 6 < nnewsItems().length) {
+              nnewsStep(1);
+            } else {
+              const r = Math.floor((G.y0 - 94) / 42);
+              if (r >= 0 && r < Math.min(6, nnewsItems().length)) nnewsSelect(nnewsFirst() + r);
+            }
           } else if (G.x0 >= 850 && G.x0 <= 990 && G.y0 >= 58 && G.y0 <= 226) {
             // Tap portrait to toggle voice
             const q = nnewsItems()[NNEWS.i];
@@ -20688,8 +20709,9 @@ const GAME_VERSION = 'Alpha 1.4';
             const m = fireEntries[i].mesh;
             if (!novaWorldVisible(m)) continue;
             m.getWorldPosition(bp);
+            const reach = (isGrippingStickHand || isGrippingStick) ? 0.068 : 0.046;
             for (let k = 0; k < fingerJoints.length; k++) {
-              if (fingerJoints[k].distanceTo(bp) < 0.046) {
+              if (fingerJoints[k].distanceTo(bp) < reach) {
                 NFM.thumb = true;
                 break;
               }
@@ -21790,6 +21812,7 @@ const GAME_VERSION = 'Alpha 1.4';
     window.activePlayerLasers = activePlayerLasers;
     window.activeMissiles = activeMissiles;
     window.cannonGroup = cannonGroup;
+    window.cockpit = cockpit;
     window.planetGroup = planetGroup;
     window.nebulaPoints = nebulaPoints;
 
