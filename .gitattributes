@@ -20,4 +20,5 @@
 *.glb binary
 *.mp3 binary
 *.wav binary
+*.mp4 binary
 *.ico binary
