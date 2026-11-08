@@ -14,6 +14,6 @@
 - **epilogue_01.png** — Shot E01 | 8s | “You came back. The system remembers what you brought with you.”
 - **epilogue_02.png** — Shot E02 | 8s | Protected: “The lights stayed on.” / Lost: “Some lights did not return.” / Neutral: “The work of keeping them lit goes on.”
 - **epilogue_03.png** — Shot E03 | 8s | Supported: “There were people waiting.” / Other: “There were empty places, too.” / Neutral: “Every return has a story.”
-- **epilogue_04.png** *(pending quota reset)* — Shot E04 | 8s | Carrier: “You built a place for others to fly from.” / Other: “One ship was enough to make a difference.” / Neutral: “There is still another flight ahead.”
-- **epilogue_05.png** *(pending quota reset)* — Shot E05 | 8s | “Humanity is still growing colder. The next delivery still matters.”
-- **epilogue_06.png** *(pending quota reset)* — Shot E06 | 8s | “Your flight is recorded. Your choices remain.”
+- **epilogue_04.png** — Shot E04 | 8s | Carrier: “You built a place for others to fly from.” / Other: “One ship was enough to make a difference.” / Neutral: “There is still another flight ahead.”
+- **epilogue_05.png** — Shot E05 | 8s | “Humanity is still growing colder. The next delivery still matters.”
+- **epilogue_06.png** — Shot E06 | 8s | “Your flight is recorded. Your choices remain.”
