@@ -198,6 +198,230 @@ export function init(nova) {
   }
   const leftGlove=createGloveVisual(true);
   const rightGlove=createGloveVisual(false);
+
+  // ── First-Person Armored Pilot Forearm & Glove gripping the pistol ──
+  const armSleeveMat = new T.MeshStandardMaterial({ color: 0x14202e, metalness: 0.72, roughness: 0.35 });
+  const armArmorMat = new T.MeshStandardMaterial({ color: 0x1f364d, metalness: 0.88, roughness: 0.25 });
+  const armGlowMat = new T.MeshBasicMaterial({ color: 0x00f0ff, toneMapped: false });
+  const gloveLeatherMat = new T.MeshStandardMaterial({ color: 0x121b24, metalness: 0.45, roughness: 0.6 });
+
+  const fpArm = new T.Group(); fpArm.name = 'NOVA_FPS_RIGHT_ARM';
+  const forearmMesh = new T.Mesh(new T.CylinderGeometry(0.042, 0.052, 0.38, 12), armSleeveMat);
+  forearmMesh.position.set(-0.012, -0.17, 0.19);
+  forearmMesh.rotation.set(-0.58, 0.22, 0.25);
+  fpArm.add(forearmMesh);
+
+  const forearmPlate = new T.Mesh(new T.BoxGeometry(0.065, 0.24, 0.018), armArmorMat);
+  forearmPlate.position.set(0, 0, 0.046);
+  forearmMesh.add(forearmPlate);
+
+  const forearmStripe = new T.Mesh(new T.BoxGeometry(0.012, 0.19, 0.006), armGlowMat);
+  forearmStripe.position.set(0, 0, 0.01);
+  forearmPlate.add(forearmStripe);
+
+  const gloveHand = new T.Mesh(new T.BoxGeometry(0.068, 0.088, 0.076), gloveLeatherMat);
+  gloveHand.position.set(0, -0.095, 0.038);
+  fpArm.add(gloveHand);
+
+  const knuckleGuard = new T.Mesh(new T.BoxGeometry(0.072, 0.026, 0.022), armArmorMat);
+  knuckleGuard.position.set(0, 0.022, 0.035);
+  gloveHand.add(knuckleGuard);
+
+  const thumbGrip = new T.Mesh(new T.CylinderGeometry(0.011, 0.013, 0.064, 8), armArmorMat);
+  thumbGrip.rotation.set(0.3, 0.4, 1.2);
+  thumbGrip.position.set(-0.032, -0.065, 0.025);
+  fpArm.add(thumbGrip);
+
+  const triggerFinger = new T.Mesh(new T.CylinderGeometry(0.009, 0.011, 0.055, 8), armArmorMat);
+  triggerFinger.rotation.set(1.4, 0.2, -0.2);
+  triggerFinger.position.set(0.026, -0.042, -0.025);
+  fpArm.add(triggerFinger);
+
+  fpArm.userData.isPlayer = true;
+  fpArm.raycast = () => {};
+  fpArm.traverse(o => { o.userData.isPlayer = true; o.raycast = () => {}; if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+  pistol.add(fpArm);
+
+  // ── Full 3D Nova Pilot Character (Look-Down Presence & 3rd Person Showcase) ──
+  function createPilotCharacter() {
+    const g = new T.Group(); g.name = 'NOVA_FPS_PILOT_CHARACTER';
+    const suitMat = new T.MeshStandardMaterial({ color: 0x162232, metalness: 0.72, roughness: 0.32 });
+    const armorMat = new T.MeshStandardMaterial({ color: 0x1f364d, metalness: 0.88, roughness: 0.24 });
+    const cyanGlow = new T.MeshBasicMaterial({ color: 0x00f0ff, toneMapped: false });
+    const goldVisorMat = new T.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00c8ea, emissiveIntensity: 1.5, metalness: 0.9, roughness: 0.1 });
+    const darkMat = new T.MeshStandardMaterial({ color: 0x0a1017, roughness: 0.6 });
+
+    // 1. Torso
+    const torsoGroup = new T.Group(); torsoGroup.name = 'TORSO';
+    const chest = new T.Mesh(new T.BoxGeometry(0.48, 0.54, 0.28), suitMat);
+    chest.position.y = 1.18;
+    torsoGroup.add(chest);
+
+    const chestPlateL = new T.Mesh(new T.BoxGeometry(0.20, 0.24, 0.04), armorMat);
+    chestPlateL.position.set(-0.11, 1.25, 0.14);
+    torsoGroup.add(chestPlateL);
+    const chestPlateR = new T.Mesh(new T.BoxGeometry(0.20, 0.24, 0.04), armorMat);
+    chestPlateR.position.set(0.11, 1.25, 0.14);
+    torsoGroup.add(chestPlateR);
+
+    const reactorCore = new T.Mesh(new T.CylinderGeometry(0.038, 0.038, 0.02, 16), cyanGlow);
+    reactorCore.rotation.x = Math.PI / 2;
+    reactorCore.position.set(0, 1.26, 0.155);
+    torsoGroup.add(reactorCore);
+
+    const belt = new T.Mesh(new T.CylinderGeometry(0.22, 0.22, 0.07, 16), darkMat);
+    belt.position.y = 0.92;
+    torsoGroup.add(belt);
+    [-0.14, 0.14].forEach(x => {
+      const pouch = new T.Mesh(new T.BoxGeometry(0.08, 0.09, 0.05), armorMat);
+      pouch.position.set(x, 0.92, 0.21);
+      torsoGroup.add(pouch);
+    });
+    const holster = new T.Mesh(new T.BoxGeometry(0.08, 0.20, 0.09), darkMat);
+    holster.position.set(0.24, 0.82, 0);
+    torsoGroup.add(holster);
+
+    const jetpack = new T.Group(); jetpack.name = 'JETPACK'; jetpack.position.set(0, 1.22, -0.19);
+    const packBody = new T.Mesh(new T.BoxGeometry(0.34, 0.42, 0.12), armorMat);
+    jetpack.add(packBody);
+    [-0.11, 0.11].forEach(x => {
+      const nozzle = new T.Mesh(new T.CylinderGeometry(0.04, 0.055, 0.14, 12), darkMat);
+      nozzle.position.set(x, -0.22, 0);
+      jetpack.add(nozzle);
+      const nozzleGlow = new T.Mesh(new T.CircleGeometry(0.035, 12), cyanGlow);
+      nozzleGlow.rotation.x = Math.PI / 2;
+      nozzleGlow.position.set(x, -0.29, 0);
+      jetpack.add(nozzleGlow);
+    });
+    torsoGroup.add(jetpack);
+    g.add(torsoGroup);
+
+    // 2. Helmet & Visor
+    const headGroup = new T.Group(); headGroup.name = 'HEAD';
+    headGroup.position.set(0, 1.58, 0);
+    const helmetBase = new T.Mesh(new T.SphereGeometry(0.14, 20, 16), armorMat);
+    headGroup.add(helmetBase);
+    const crest = new T.Mesh(new T.BoxGeometry(0.05, 0.08, 0.24), armorMat);
+    crest.position.set(0, 0.10, -0.02);
+    headGroup.add(crest);
+    const visor = new T.Mesh(new T.SphereGeometry(0.125, 20, 12, 0, Math.PI, 0, Math.PI * 0.55), goldVisorMat);
+    visor.rotation.x = 0.22;
+    visor.position.set(0, 0.02, 0.045);
+    headGroup.add(visor);
+    const neckRing = new T.Mesh(new T.TorusGeometry(0.11, 0.022, 8, 20), darkMat);
+    neckRing.rotation.x = Math.PI / 2;
+    neckRing.position.y = -0.12;
+    headGroup.add(neckRing);
+    g.add(headGroup);
+
+    // 3. Legs & Boots
+    const leftLegGroup = new T.Group(); leftLegGroup.name = 'LEG_L'; leftLegGroup.position.set(-0.13, 0.88, 0);
+    const rightLegGroup = new T.Group(); rightLegGroup.name = 'LEG_R'; rightLegGroup.position.set(0.13, 0.88, 0);
+
+    [leftLegGroup, rightLegGroup].forEach((legGrp) => {
+      const thigh = new T.Mesh(new T.CylinderGeometry(0.085, 0.07, 0.38, 12), suitMat);
+      thigh.position.y = -0.19;
+      legGrp.add(thigh);
+      const thighArmor = new T.Mesh(new T.BoxGeometry(0.12, 0.22, 0.035), armorMat);
+      thighArmor.position.set(0, -0.18, 0.065);
+      legGrp.add(thighArmor);
+      const knee = new T.Mesh(new T.BoxGeometry(0.11, 0.09, 0.07), armorMat);
+      knee.position.set(0, -0.40, 0.05);
+      legGrp.add(knee);
+      const shin = new T.Mesh(new T.CylinderGeometry(0.068, 0.062, 0.36, 12), suitMat);
+      shin.position.y = -0.58;
+      legGrp.add(shin);
+      const shinArmor = new T.Mesh(new T.BoxGeometry(0.10, 0.24, 0.025), armorMat);
+      shinArmor.position.set(0, -0.58, 0.055);
+      legGrp.add(shinArmor);
+      const boot = new T.Mesh(new T.BoxGeometry(0.11, 0.10, 0.22), darkMat);
+      boot.position.set(0, -0.82, 0.04);
+      legGrp.add(boot);
+      const soleGlow = new T.Mesh(new T.BoxGeometry(0.09, 0.015, 0.18), cyanGlow);
+      soleGlow.position.set(0, -0.87, 0.04);
+      legGrp.add(soleGlow);
+      g.add(legGrp);
+    });
+
+    // 4. Arms
+    const leftArmGroup = new T.Group(); leftArmGroup.name = 'ARM_L'; leftArmGroup.position.set(-0.29, 1.40, 0);
+    const rightArmGroup = new T.Group(); rightArmGroup.name = 'ARM_R'; rightArmGroup.position.set(0.29, 1.40, 0);
+
+    const lShoulder = new T.Mesh(new T.SphereGeometry(0.095, 12, 10), armorMat);
+    leftArmGroup.add(lShoulder);
+    const lUpper = new T.Mesh(new T.CylinderGeometry(0.055, 0.048, 0.28, 10), suitMat);
+    lUpper.position.set(-0.02, -0.15, 0.04);
+    lUpper.rotation.set(0.4, 0, 0.2);
+    leftArmGroup.add(lUpper);
+    const lForearm = new T.Mesh(new T.CylinderGeometry(0.048, 0.042, 0.28, 10), suitMat);
+    lForearm.position.set(-0.01, -0.32, 0.18);
+    lForearm.rotation.set(1.2, 0.1, -0.3);
+    leftArmGroup.add(lForearm);
+    const lWristPad = new T.Mesh(new T.BoxGeometry(0.08, 0.015, 0.09), cyanGlow);
+    lWristPad.position.set(0, 0.045, 0);
+    lForearm.add(lWristPad);
+    g.add(leftArmGroup);
+
+    const rShoulder = new T.Mesh(new T.SphereGeometry(0.095, 12, 10), armorMat);
+    rightArmGroup.add(rShoulder);
+    const rUpper = new T.Mesh(new T.CylinderGeometry(0.055, 0.048, 0.28, 10), suitMat);
+    rUpper.position.set(0.02, -0.14, -0.06);
+    rUpper.rotation.set(-1.1, 0.1, -0.2);
+    rightArmGroup.add(rUpper);
+    const rForearm = new T.Mesh(new T.CylinderGeometry(0.048, 0.042, 0.30, 10), suitMat);
+    rForearm.position.set(0.01, -0.22, -0.28);
+    rForearm.rotation.set(-1.4, 0, 0);
+    rightArmGroup.add(rForearm);
+
+    // Blaster in right glove for 3rd-person showcase
+    const rHandGlove = new T.Mesh(new T.BoxGeometry(0.065, 0.08, 0.07), gloveLeatherMat);
+    rHandGlove.position.set(0, -0.16, 0.02);
+    rForearm.add(rHandGlove);
+    const charBlaster = new T.Mesh(new T.BoxGeometry(0.045, 0.08, 0.22), armorMat);
+    charBlaster.position.set(0, -0.04, -0.11);
+    rHandGlove.add(charBlaster);
+    const charBlasterBarrel = new T.Mesh(new T.CylinderGeometry(0.012, 0.012, 0.12, 8), darkMat);
+    charBlasterBarrel.rotation.x = Math.PI / 2;
+    charBlasterBarrel.position.set(0, 0.02, -0.14);
+    charBlaster.add(charBlasterBarrel);
+    const charBlasterGlow = new T.Mesh(new T.BoxGeometry(0.015, 0.015, 0.12), cyanGlow);
+    charBlasterGlow.position.set(0, 0.038, -0.02);
+    charBlaster.add(charBlasterGlow);
+
+    g.add(rightArmGroup);
+
+    g.userData.isPlayer = true;
+    g.raycast = () => {};
+    g.traverse(o => { o.userData.isPlayer = true; o.raycast = () => {}; if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+    return {
+      group: g,
+      torso: torsoGroup,
+      head: headGroup,
+      leftLeg: leftLegGroup,
+      rightLeg: rightLegGroup,
+      leftArm: leftArmGroup,
+      rightArm: rightArmGroup
+    };
+  }
+  const pilotChar = createPilotCharacter();
+  pilotChar.group.visible = false;
+  rig.add(pilotChar.group);
+
+  let isThirdPerson = false, walkCycleTimer = 0;
+  function toggleThirdPerson(force){
+    if(!active || renderer?.xr?.isPresenting) return;
+    isThirdPerson = (typeof force === 'boolean') ? force : !isThirdPerson;
+    if(isThirdPerson){
+      pilotChar.head.visible = true;
+      camera.position.set(0.42, 0.24, 2.15);
+      nova.toast?.('🎥 THIRD-PERSON SHOWCASE CAM (Key C / V)', 2200, '#00f0ff');
+    }else{
+      pilotChar.head.visible = false;
+      camera.position.set(0, 0, 0);
+      nova.toast?.('🎯 FIRST-PERSON VIEW (Key C / V)', 1800, '#00ffcc');
+    }
+  }
+  window.novaToggleFPSCamera = toggleThirdPerson;
   const leftHandAnchor=new T.Group(),rightHandAnchor=new T.Group();leftHandAnchor.name='NOVA_FPS_HAND_ANCHOR_L';rightHandAnchor.name='NOVA_FPS_HAND_ANCHOR_R';
   leftHandAnchor.raycast=()=>{};rightHandAnchor.raycast=()=>{};scene.add(leftHandAnchor,rightHandAnchor);
   const leftAnchorState={ready:false},rightAnchorState={ready:false},anchorPos=new T.Vector3(),anchorQ=new T.Quaternion();
@@ -435,19 +659,29 @@ export function init(nova) {
     recoilKick=.026;recoilPitch=.052;
   }
 
-  const spawnPos=new T.Vector3(),spawnDir=new T.Vector3(),camWorldPos=new T.Vector3(),camRightVec=new T.Vector3(),camUpVec=new T.Vector3();
-  function launchProjectile(){
+  const spawnPos=new T.Vector3(),spawnDir=new T.Vector3(),camWorldPos=new T.Vector3(),camRightVec=new T.Vector3(),camUpVec=new T.Vector3(),projRightVec=new T.Vector3();
+  function launchProjectile(sideOffset=0){
     if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
       pistol.getWorldPosition(spawnPos);
       pistol.getWorldQuaternion(controllerQ);
       spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+      projRightVec.set(1,0,0).applyQuaternion(controllerQ);
       spawnPos.addScaledVector(spawnDir,.22);
+      if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
     }else if(renderer?.xr?.isPresenting&&session&&(rightGrip||rightController)){
       const src=rightGrip||rightController;
       src.getWorldPosition(spawnPos);
       src.getWorldQuaternion(controllerQ);
       spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+      projRightVec.set(1,0,0).applyQuaternion(controllerQ);
       spawnPos.addScaledVector(spawnDir,.22);
+      if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
+    }else if(isThirdPerson){
+      pilotChar.rightArm.getWorldPosition(spawnPos);
+      camera.getWorldDirection(spawnDir).normalize();
+      projRightVec.set(1,0,0).applyQuaternion(camera.quaternion);
+      spawnPos.addScaledVector(spawnDir,.42);
+      if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
     }else{
       camera.getWorldPosition(camWorldPos);
       camera.getWorldQuaternion(controllerQ);
@@ -455,7 +689,7 @@ export function init(nova) {
       camUpVec.set(0,1,0).applyQuaternion(controllerQ);
       camera.getWorldDirection(spawnDir).normalize();
       spawnPos.copy(camWorldPos)
-        .addScaledVector(camRightVec,.24)
+        .addScaledVector(camRightVec,.24 + sideOffset)
         .addScaledVector(camUpVec,-.18)
         .addScaledVector(spawnDir,.42);
     }
@@ -473,7 +707,7 @@ export function init(nova) {
     p.prevPos.copy(spawnPos);
     p.spawnPos.copy(spawnPos);
     p.dir.copy(spawnDir);
-    p.vel.copy(spawnDir).multiplyScalar(48);
+    p.vel.copy(spawnDir).multiplyScalar(window.novaPewPewOverdrive ? 68 : 48);
     p.lockedTarget=targetLocked?currentLockedTargetObj:null;
     p.lockedPos=targetLocked?crosshairGroup.position.clone():null;
     p.mesh.position.copy(spawnPos);
@@ -482,11 +716,14 @@ export function init(nova) {
   }
 
   function fire(){
-    const now=performance.now();if(!active||!weaponOn||now-lastFire<160)return false;lastFire=now;
+    const overdrive=!!window.novaPewPewOverdrive;
+    const cooldown=overdrive?70:160;
+    const now=performance.now();if(!active||!weaponOn||now-lastFire<cooldown)return false;lastFire=now;
     playLaserSound();
     try{options.onShot?.();}catch(_){}
     aimRay(); // updates origin and direction cleanly
-    launchProjectile();
+    launchProjectile(overdrive ? 0.045 : 0);
+    if(overdrive)launchProjectile(-0.045);
     triggerMuzzleFlash();
     nova.emit?.('fpsWeaponFired',{mode:options.mode||'fps'});
     return true;
@@ -618,6 +855,7 @@ export function init(nova) {
     else if(e.code==='Space'){e.preventDefault();fire();}
     else if(e.code==='KeyE'||e.code==='Enter'){e.preventDefault();interact();}
     else if(e.code==='KeyG'){e.preventDefault();throwGrenadeForward();}
+    else if(e.code==='KeyC'||e.code==='KeyV'){e.preventDefault();toggleThirdPerson();}
   }
   function keyUp(e){down.delete(e.code);}
   function onXRSelect(e){
@@ -897,11 +1135,23 @@ export function init(nova) {
         }
       }
       else{leftFist=false;leftAnchor=null;}
+      const vrWalking = (Math.abs(mx) + Math.abs(mz) > 0.01) || leftFist;
+      if(vrWalking){
+        walkCycleTimer += d * 8.0;
+        const stride = Math.sin(walkCycleTimer) * 0.38;
+        pilotChar.leftLeg.rotation.x = stride;
+        pilotChar.rightLeg.rotation.x = -stride;
+      }else{
+        pilotChar.leftLeg.rotation.x = T.MathUtils.lerp(pilotChar.leftLeg.rotation.x, 0, d * 8);
+        pilotChar.rightLeg.rotation.x = T.MathUtils.lerp(pilotChar.rightLeg.rotation.x, 0, d * 8);
+      }
       correctRoomScale();
+      pilotChar.group.position.set(camera.position.x, 0, camera.position.z);
+      pilotChar.group.rotation.y = camera.rotation.y;
+      pilotChar.head.visible = false;
+      fpArm.visible = false;
     }else{
       if(pistol.parent!==camera){camera.add(pistol);}
-      pistol.position.set(.28,-.24+recoilPitch*.04,-.62+recoilKick);
-      pistol.rotation.set(-recoilPitch,0,0);
       let x=(down.has('KeyD')?1:0)-(down.has('KeyA')?1:0),z=(down.has('KeyS')?1:0)-(down.has('KeyW')?1:0);
       const pads=navigator.getGamepads?.()||[],pad=[...pads].find(p=>p?.connected&&p.mapping==='standard')||[...pads].find(p=>p?.connected&&p.axes?.length>=2);
       let use=false,leave=false;
@@ -912,6 +1162,39 @@ export function init(nova) {
       }
       rig.rotation.set(0,yaw,0);camera.rotation.set(pitch,0,0,"YXZ");walk(x,z,d);
       if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('gamepad');padUseHeld=use;padExitHeld=leave;
+
+      pilotChar.group.position.set(0, -1.65, 0);
+      pilotChar.group.rotation.set(0, 0, 0);
+      pilotChar.head.visible = isThirdPerson;
+
+      const isWalking = (Math.abs(x) + Math.abs(z)) > 0.01;
+      if(isWalking){
+        walkCycleTimer += d * 9.0;
+        const stride = Math.sin(walkCycleTimer) * 0.42;
+        pilotChar.leftLeg.rotation.x = stride;
+        pilotChar.rightLeg.rotation.x = -stride;
+        pilotChar.leftArm.rotation.x = -stride * 0.35;
+      }else{
+        pilotChar.leftLeg.rotation.x = T.MathUtils.lerp(pilotChar.leftLeg.rotation.x, 0, d * 10);
+        pilotChar.rightLeg.rotation.x = T.MathUtils.lerp(pilotChar.rightLeg.rotation.x, 0, d * 10);
+        pilotChar.leftArm.rotation.x = T.MathUtils.lerp(pilotChar.leftArm.rotation.x, 0, d * 10);
+      }
+      pilotChar.torso.rotation.x = pitch * 0.35;
+      pilotChar.rightArm.rotation.x = -1.1 + pitch * 0.75;
+
+      if(isThirdPerson){
+        pistol.visible = false;
+        fpArm.visible = false;
+        camera.position.set(0.42, 0.24, 2.15);
+      }else{
+        if(weaponOn) pistol.visible = true;
+        fpArm.visible = true;
+        camera.position.set(0, 0, 0);
+        const bobX = isWalking ? Math.sin(walkCycleTimer * 0.5) * 0.007 : 0;
+        const bobY = isWalking ? Math.abs(Math.sin(walkCycleTimer)) * 0.008 : 0;
+        pistol.position.set(.28 + bobX, -.24 + recoilPitch * .04 - bobY, -.62 + recoilKick);
+        pistol.rotation.set(-recoilPitch, 0, 0);
+      }
     }
 
     // ── Update Chest Grenade (Grab from left chest, throw, 3s fuse, explosion) ──
@@ -1052,6 +1335,8 @@ export function init(nova) {
     if(active){options={...options,...next};drawHud();return true;}
     options=next||{};active=true;exiting=false;weaponOn=true;health=100;shield=100;maxShield=100;lastDamage=0;timeSinceDamage=0;grenadeState='holstered';grenadeFuse=3.0;grenadeCooldown=0;
     yaw=rig.rotation.y;pitch=camera.rotation.x;hud.visible=true;pistol.visible=true;
+    pilotChar.group.visible=true;pilotChar.head.visible=isThirdPerson;
+    if(isThirdPerson)camera.position.set(0.42,0.24,2.15);
     rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;
     leftPinchHeld=rightPinchHeld=leftPinchUsed=bothPinchExit=false;leftPinchTime=bothPinchTime=0;
     if(renderer?.xr?.isPresenting&&(rightGrip||rightController))setWeaponParent(rightGrip||rightController,false);else{camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,0,0);}
@@ -1069,7 +1354,7 @@ export function init(nova) {
         b.style.cssText=`width:${size}px;height:${size}px;border-radius:50%;border:3px solid ${col};background:rgba(4,18,28,.72);color:${col};font:inherit;cursor:pointer;box-shadow:0 0 18px ${col}55`;
         let rep=null;const start=e=>{e.preventDefault();e.stopPropagation();fn();if(label==='FIRE'){clearInterval(rep);rep=setInterval(fn,180);}};const stop=()=>{clearInterval(rep);rep=null;};
         b.addEventListener('pointerdown',start);b.addEventListener('pointerup',stop);b.addEventListener('pointerleave',stop);b.addEventListener('pointercancel',stop);btnBar.appendChild(b);return b;};
-      mk('EXIT','#ff6b7d',64,()=>requestExit('button'));mk('USE','#ffd166',78,()=>interact());mk('GRENADE','#ff9933',78,()=>throwGrenadeForward());mk('FIRE','#00e5ff',118,()=>fire());
+      mk('EXIT','#ff6b7d',64,()=>requestExit('button'));mk('CAM','#00f0ff',68,()=>toggleThirdPerson());mk('USE','#ffd166',78,()=>interact());mk('GRENADE','#ff9933',78,()=>throwGrenadeForward());mk('FIRE','#00e5ff',118,()=>fire());
       document.body.appendChild(btnBar);
     }
     if(btnBar)btnBar.style.display=on&&!renderer?.xr?.isPresenting?'flex':'none';
@@ -1077,6 +1362,7 @@ export function init(nova) {
   function preventMenu(e){if(active)e.preventDefault();}
   function disable(){
     if(!active)return false;active=false;down.clear();pistol.visible=false;hud.visible=false;damageOverlay.style.opacity='0';
+    pilotChar.group.visible=false;isThirdPerson=false;camera.position.set(0,0,0);
     leftGlove.visible=false;rightGlove.visible=false;crosshairGroup.visible=false;grenadeGroup.visible=false;grenadeState='holstered';
     if(tpMarker)tpMarker.visible=false;tpValid=false;
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
