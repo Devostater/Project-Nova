@@ -1,0 +1,33 @@
+--- standalone.html
++++ standalone.html
+@@ -15953,6 +15953,7 @@
+       ['SAVE GAME', '#33ff99', () => nsvSave(1)], ['LOAD GAME', '#ffd24a', () => nsvLoad(1)],
+       ['MASTER VOLUME ' + Math.round(NOPT.o.master * 100) + '%', '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }],
+       ['JOYSTICK DEADZONE ' + Math.round((NOPT.o.deadzone ?? 0.12) * 100) + '%', '#33ff99', () => { const D = [0.05, 0.08, 0.12, 0.16, 0.20]; const i = D.findIndex(v => Math.abs(v - (NOPT.o.deadzone ?? 0.12)) < 0.01); NOPT.o.deadzone = D[(i + 1) % D.length]; noptSave(); showToast('JOYSTICK DEADZONE ' + Math.round(NOPT.o.deadzone * 100) + '%', 1800, '#33ff99'); }],
++      ['FORCE ULTRA: ' + (NOPT.o.forceUltra ? 'ON' : 'OFF'), '#ff66ff', () => { NOPT.o.forceUltra = !NOPT.o.forceUltra; if (NOPT.o.forceUltra) NOPT.o.gfx = 'ultra'; noptSave(); noptApplyGfx(); showToast('FORCE ULTRA: ' + (NOPT.o.forceUltra ? 'ON' : 'OFF'), 1800, '#ff66ff'); }],
+       ['GRAPHICS ' + String(NOPT.o.gfx).toUpperCase(), '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); showToast('GRAPHICS ' + NOPT.o.gfx.toUpperCase() + (renderer.xr.isPresenting ? ' (VR resolution changes next launch)' : ''), 2000, '#b266ff'); }],
+       [(localStorage.getItem('novaEndingSeen') === '1') ? 'WATCH ENDING & CREDITS' : 'STORY INTRO', '#b266ff', () => { if (localStorage.getItem('novaEndingSeen') === '1') nrmPlayEnding(); else nkIntroStart(true); }],
+       ['EXIT GAME', '#ff3344', () => npExitArm()]];
+@@ -16558,8 +16559,9 @@
+       ['inv', 'Inventory', 'KeyI'], ['wing', 'Drone wing', 'KeyK'], ['talk', 'Talk to companion', 'KeyC'], ['kb', 'Comms keyboard', 'KeyT'],
+       ['tgt', 'Target box', 'KeyB'], ['mr', 'MR passthrough', 'KeyP'], ['reset', 'Reset controls', 'KeyR'], ['galaxy', 'Galaxy map', 'KeyG']
+     ];
+-    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'mid', deadzone: 0.12, flightMode: 'arcade', keys: {} }, wait: null, resetArm: 0 };
++    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'ultra', forceUltra: true, deadzone: 0.12, flightMode: 'arcade', keys: {} }, wait: null, resetArm: 0 };
+     try { Object.assign(NOPT.o, JSON.parse(localStorage.getItem('novaOpts') || '{}')); } catch (e) { }
++    if (NOPT.o.forceUltra === undefined) NOPT.o.forceUltra = true;
+     NOPT.o.deadzone = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12));
+     NOPT.o.flightMode = NOPT.o.flightMode === 'advanced' ? 'advanced' : 'arcade';
+     window.NOPT = NOPT;
+@@ -16590,8 +16592,9 @@
+     // graphics level: render resolution, VR resolution and foveation, effect counts
+     const NOPT_GFX = {
+       low: { pr: 0.75, xr: 0.75, fov: 1, fx: 0.5, label: 'LOW: best frame rate' },
+-      mid: { pr: 1.25, xr: 1.0, fov: 0.6, fx: 1, label: 'MID: balanced (default)' },
+-      high: { pr: 2, xr: 1.3, fov: 0.2, fx: 1, label: 'HIGH: sharpest, needs Quest 3' }
++      mid: { pr: 1.25, xr: 1.0, fov: 0.6, fx: 1, label: 'MID: balanced' },
++      high: { pr: 2, xr: 1.3, fov: 0.2, fx: 1.2, label: 'HIGH: sharp' },
++      ultra: { pr: 2, xr: 1.5, fov: 0.1, fx: 1.5, label: 'ULTRA: max graphics (desktop)' }
+     };
+     function noptApplyGfx() {
+       const q = NOPT_GFX[NOPT.o.gfx] || NOPT_GFX.mid;

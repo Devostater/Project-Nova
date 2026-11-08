@@ -1,26 +1,25 @@
-# Graphics overhaul — standalone.html patch notes
+# Graphics overhaul (branch `grok/graphics-overhaul`)
 
-Branch: `grok/graphics-overhaul`
+## Status
+Grok is temporary lead (Claude + ChatGPT at weekly limits).
 
-## Changes prepared for standalone.html
+## Already on branch
+- `postfx.js` (public + root modules) — bloom, vignette, grain, quality tiers
+- Upgraded `fx_ultra.js` — aggressive ULTRA particle/light/debris counts
+- Manifests include `postfx.js`
+- STATUS.md updated
 
-1. **NOPT default** — `gfx: 'ultra'`, `forceUltra: true`
-2. **After localStorage load** — `if (NOPT.o.forceUltra === undefined) NOPT.o.forceUltra = true;`
-3. **OPTIONS menu** — new row **FORCE ULTRA: ON/OFF** (toggles flag; when ON sets gfx to ultra)
-4. **NOPT_GFX** — added `ultra` preset: `{ pr: 2, xr: 1.5, fov: 0.1, fx: 1.5, label: 'ULTRA: max graphics (desktop)' }`
+## Apply FORCE ULTRA to standalone.html
+From repo root:
+```bash
+patch -p0 < tools/patches/standalone_force_ultra.patch
+# or apply the three hunks manually (NOPT default, forceUltra guard, OPTIONS row + NOPT_GFX ultra)
+node tools/sync_html.mjs
+```
 
-## Modules already committed on this branch
-- `public/modules/postfx.js` + `modules/postfx.js` (bloom / vignette / grain / quality tiers)
-- Upgraded `fx_ultra.js` (both trees) — higher ULTRA particle/light/debris counts
-- Manifests updated to include `postfx.js`
+Then test in browser. FORCE ULTRA should appear in OPTIONS and default ON.
 
-## Still needed
-- Wire `postfx.render()` into the main render loop
-- Vendor Three.js postprocessing addons for offline/APK (CDN fallback works for browser testing)
-- Desktop playtest of ULTRA, then Quest scaling
-
-## How to test
-1. Checkout `grok/graphics-overhaul`
-2. Serve `public/` or open standalone after sync
-3. OPTIONS → FORCE ULTRA should show ON
-4. Blow things up / fly — richer VFX when forceUltra/gfx ultra
+## Still open
+1. Wire postfx into main render loop
+2. Vendor Three postprocessing addons for APK/offline
+3. More VFX polish after desktop test
