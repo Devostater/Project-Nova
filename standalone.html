@@ -5560,8 +5560,26 @@ const GAME_VERSION = 'Alpha 1.4';
         });
       });
 
-      // Sort by proximity: closest targets first
-      candidates.sort((a, b) => a.dist - b.dist);
+      // Prioritize forward-facing targets & hostiles in reticle view
+      candidates.sort((a, b) => {
+        // Threat priority: hostiles in forward arc come first
+        const aHostileFwd = a.isHostile && ((a.dot !== undefined ? a.dot : 0) > -0.2);
+        const bHostileFwd = b.isHostile && ((b.dot !== undefined ? b.dot : 0) > -0.2);
+        if (aHostileFwd !== bHostileFwd) return aHostileFwd ? -1 : 1;
+
+        // Reticle alignment: objects in front of crosshair (dot > 0.6)
+        const aInReticle = (a.dot !== undefined ? a.dot : 0) > 0.6;
+        const bInReticle = (b.dot !== undefined ? b.dot : 0) > 0.6;
+        if (aInReticle !== bInReticle) return aInReticle ? -1 : 1;
+
+        // If both in reticle, prioritize higher dot product (closer to reticle center)
+        if (aInReticle && bInReticle) {
+          return b.dot - a.dot;
+        }
+
+        // Otherwise proximity
+        return a.dist - b.dist;
+      });
       return candidates;
     }
 
@@ -5585,7 +5603,12 @@ const GAME_VERSION = 'Alpha 1.4';
         return;
       }
 
-      lockedTargetIndex = (lockedTargetIndex + 1) % candidates.length;
+      // Smart cycling: advance to next candidate in prioritised list
+      let currentIndex = -1;
+      if (currentLockedTarget && currentLockedTarget.targetObj) {
+        currentIndex = candidates.findIndex(c => c.targetObj === currentLockedTarget.targetObj);
+      }
+      lockedTargetIndex = (currentIndex + 1) % candidates.length;
       currentLockedTarget = candidates[lockedTargetIndex];
       sound.lockTone();
 
@@ -5831,11 +5854,9 @@ const GAME_VERSION = 'Alpha 1.4';
       const now = performance.now();
       if (now - lastMissileLaunchTime < 380) return;
 
-      // If missiles are SAFE, pressing FIRE safely opens the cover and arms ordnance!
+      // If missiles are SAFE, pressing FIRE safely opens the cover and launches immediately!
       if (!isMissileLidOpen) {
         toggleMissileLid(true);
-        showToast('⚠️ MISSILE ARMED — PRESS AGAIN TO LAUNCH', 2000, '#ffaa22');
-        return;
       }
 
       // Strict Ammo: Do not auto-replenish! Must resupply at station or via inventory panel
@@ -6571,8 +6592,12 @@ const GAME_VERSION = 'Alpha 1.4';
       const dist = stationGroup.position.distanceTo(shipGroup.position);
       if (!fromTractorLanding && dist > DOCKING_MAX_RANGE) {
         if (sound && sound.beep) sound.beep(350, 0.1);
-        showToast(`⚠️ OUT OF DOCKING RANGE (${Math.round(dist)}m / ${DOCKING_MAX_RANGE}m) — Flying closer via Autopilot...`, 3000, '#ffaa00');
-        toggleAutopilot(true);
+        if (typeof novaAutoDockPress === 'function') {
+          novaAutoDockPress();
+        } else {
+          showToast(`⚠️ OUT OF DOCKING RANGE (${Math.round(dist)}m / ${DOCKING_MAX_RANGE}m) — Flying closer via Autopilot...`, 3000, '#ffaa00');
+          toggleAutopilot(true);
+        }
         return;
       }
 
@@ -7888,7 +7913,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const clampedV = THREE.MathUtils.clamp(v, 0.0, 1.0);
       const cx = clampedU * 512;
       const cy = (1 - clampedV) * 512;
-      const PAD = 10; // 10px generous hitbox padding around button edges
+      const PAD = 18; // Generous 18px hitbox padding around button edges for simplified VR touch
 
       for (const btn of debugWatchButtons) {
         if (cx >= (btn.x - PAD) && cx <= (btn.x + btn.w + PAD) &&
@@ -12574,6 +12599,7 @@ const GAME_VERSION = 'Alpha 1.4';
             const thumbWorld = filter.thumb;
             isPinching = tipWorld.distanceTo(thumbWorld) < 0.055;
           }
+          if (!isLeftHand) window._novaRightPinching = isPinching;
 
           // Render ghost joints & skeleton
           let jIdx = 0;
@@ -12762,14 +12788,19 @@ const GAME_VERSION = 'Alpha 1.4';
               sound.beep(620, 0.05);
             }
 
-            // Pilot's thumb contacting the fire button on top of the stick (triggers on contact when gripped, no deep push required)
-            if (thumbTip && thumbTip.position && thumbFireBtn) {
-              const thumbPos = new THREE.Vector3();
-              thumbTip.getWorldPosition(thumbPos);
-              const btnWorld = new THREE.Vector3();
-              thumbFireBtn.getWorldPosition(btnWorld);
-              const contactRadius = isGrippingStickHand ? 0.068 : 0.046;
-              if (thumbPos.distanceTo(btnWorld) < contactRadius && (now - lastFireTime > 140)) {
+            // Pilot's thumb contacting fire button OR pinching index while gripping stick (simplified instant firing)
+            if (thumbFireBtn) {
+              let shouldFire = false;
+              if (thumbTip && thumbTip.position) {
+                const thumbPos = new THREE.Vector3();
+                thumbTip.getWorldPosition(thumbPos);
+                const btnWorld = new THREE.Vector3();
+                thumbFireBtn.getWorldPosition(btnWorld);
+                const contactRadius = isGrippingStickHand ? 0.082 : 0.048;
+                if (thumbPos.distanceTo(btnWorld) < contactRadius) shouldFire = true;
+              }
+              if (isGrippingStickHand && isPinching) shouldFire = true;
+              if (shouldFire && (now - lastFireTime > 130)) {
                 pressThumbFireButton();
               }
             }
@@ -13079,12 +13110,14 @@ const GAME_VERSION = 'Alpha 1.4';
             stickGripPoint.getWorldPosition(stickWorldPos);
             const distStick = cPos.distanceTo(stickWorldPos);
 
-            // Right trigger or A fires lasers while holding the stick (triggers on touch contact or press)
+            // Right trigger or A fires lasers (while holding stick, steering with thumbstick, or in flight)
             if (rightGamepad && rightGamepad.buttons) {
               const isTrigger = !!(rightGamepad.buttons[0] && rightGamepad.buttons[0].pressed);
               const isAButton = !!(rightGamepad.buttons[4] && (rightGamepad.buttons[4].pressed || rightGamepad.buttons[4].touched));
-              if ((isTrigger || isAButton) && isGrippingStickCtrl) {
-                pressThumbFireButton();
+              if (isTrigger || ((isTrigger || isAButton) && isGrippingStickCtrl)) {
+                if (!isInsideCantina && !novaOnFoot()) {
+                  pressThumbFireButton();
+                }
               }
             }
 
@@ -21380,12 +21413,15 @@ const GAME_VERSION = 'Alpha 1.4';
             const m = fireEntries[i].mesh;
             if (!novaWorldVisible(m)) continue;
             m.getWorldPosition(bp);
-            const reach = (isGrippingStickHand || isGrippingStick) ? 0.068 : 0.046;
+            const reach = (isGrippingStickHand || isGrippingStick) ? 0.082 : 0.048;
             for (let k = 0; k < fingerJoints.length; k++) {
               if (fingerJoints[k].distanceTo(bp) < reach) {
                 NFM.thumb = true;
                 break;
               }
+            }
+            if (isGrippingStickHand && (typeof window !== 'undefined' && window._novaRightPinching)) {
+              NFM.thumb = true;
             }
           }
         }
