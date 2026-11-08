@@ -28,7 +28,26 @@ export function init(nova) {
   tpBeam.position.y=.6;tpMarker.add(tpBeam);
   const tpDot=new T.Mesh(new T.CircleGeometry(.06,16),new T.MeshBasicMaterial({color:0xffffff,side:T.DoubleSide}));
   tpDot.rotation.x=-Math.PI/2;tpDot.position.y=.01;tpMarker.add(tpDot);
-  tpMarker.visible=false;scene.add(tpMarker);
+  tpMarker.visible=false;tpMarker.raycast=()=>{};tpMarker.traverse(o=>{o.raycast=()=>{};});scene.add(tpMarker);
+
+  // Dynamic 3D crosshair separate from the helmet HUD, tracking where the gun will hit in the world
+  const crosshairGroup=new T.Group();crosshairGroup.name='NOVA_FPS_CROSSHAIR';
+  const chRingGeo=new T.RingGeometry(.032,.042,32);
+  const chRingMat=new T.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:.9,side:T.DoubleSide,depthTest:false,depthWrite:false,toneMapped:false});
+  const chRing=new T.Mesh(chRingGeo,chRingMat);chRing.renderOrder=10001;crosshairGroup.add(chRing);
+  const chDotGeo=new T.CircleGeometry(.007,16);
+  const chDotMat=new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.95,side:T.DoubleSide,depthTest:false,depthWrite:false,toneMapped:false});
+  const chDot=new T.Mesh(chDotGeo,chDotMat);chDot.renderOrder=10001;crosshairGroup.add(chDot);
+  const chTickGeo=new T.PlaneGeometry(.005,.02);
+  const chTickMat=new T.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:.85,side:T.DoubleSide,depthTest:false,depthWrite:false,toneMapped:false});
+  for(let i=0;i<4;i++){
+    const tick=new T.Mesh(chTickGeo,chTickMat);tick.renderOrder=10001;
+    tick.rotation.z=i*Math.PI/2;
+    tick.position.set(0,.054,0).applyAxisAngle(new T.Vector3(0,0,1),i*Math.PI/2);
+    crosshairGroup.add(tick);
+  }
+  crosshairGroup.visible=false;crosshairGroup.raycast=()=>{};crosshairGroup.traverse(o=>{o.raycast=()=>{};});scene.add(crosshairGroup);
+  const crosshairPos=new T.Vector3();let chLocked=false;
 
   // Load the owner's full-resolution Arc-Pistol unchanged. The simple meshes above remain only
   // as an offline/loading fallback; no LOD or geometry reduction is applied to the GLB.
@@ -125,7 +144,6 @@ export function init(nova) {
     c.strokeStyle=hit?'rgba(255,45,65,.95)':'rgba(0,229,255,.58)';c.lineWidth=8;
     c.beginPath();c.moveTo(46,92);c.lineTo(46,40);c.lineTo(210,40);c.moveTo(814,40);c.lineTo(978,40);c.lineTo(978,92);
     c.moveTo(46,420);c.lineTo(46,472);c.lineTo(210,472);c.moveTo(814,472);c.lineTo(978,472);c.lineTo(978,420);c.stroke();
-    c.strokeStyle=weaponOn?'#7ffcff':'#607b86';c.lineWidth=4;c.beginPath();c.arc(512,256,18,0,Math.PI*2);c.moveTo(482,256);c.lineTo(501,256);c.moveTo(523,256);c.lineTo(542,256);c.moveTo(512,226);c.lineTo(512,245);c.moveTo(512,267);c.lineTo(512,286);c.stroke();
     c.fillStyle='rgba(3,18,28,.78)';c.fillRect(48,406,928,68);
     c.font='bold 25px monospace';c.textAlign='left';c.fillStyle='#7ffcff';c.fillText('HELMET · '+String(options.mode||'FPS').toUpperCase(),70,438);
     c.fillStyle=health>35?'#65ffad':'#ff596d';c.fillText('HULL '+Math.round(health)+'%',360,438);
@@ -192,7 +210,7 @@ export function init(nova) {
   }
   function fire(){
     const now=performance.now();if(!active||!weaponOn||now-lastFire<160)return false;lastFire=now;
-    const hits=aimRay();let targetHit=null,hitDistance=14;
+    const hits=aimRay();let targetHit=null,hitDistance=22;
     options.onShot?.();
     for(const hit of hits){
       const target=findUserData(hit.object,'rangeTarget');
@@ -406,6 +424,33 @@ export function init(nova) {
       rig.rotation.set(0,yaw,0);camera.rotation.set(pitch,0,0,"YXZ");walk(x,z,d);
       if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('gamepad');padUseHeld=use;padExitHeld=leave;
     }
+    // Update dynamic 3D crosshair at the point where the gun will hit
+    if(active&&weaponOn){
+      const hits=aimRay();
+      let hitDist=22,targetLocked=false;
+      for(const hit of hits){
+        if(findUserData(hit.object,'rangeTarget')){
+          hitDist=Math.max(.2,hit.distance);targetLocked=true;break;
+        }
+        if(isOccluder(hit.object)){
+          hitDist=Math.max(.2,hit.distance);break;
+        }
+      }
+      crosshairPos.copy(origin).addScaledVector(direction,hitDist);
+      crosshairGroup.position.copy(crosshairPos);
+      crosshairGroup.quaternion.copy(camera.quaternion);
+      const chScale=Math.max(.35,Math.min(2.5,hitDist*.11));
+      crosshairGroup.scale.setScalar(chScale);
+      if(targetLocked!==chLocked){
+        chLocked=targetLocked;
+        const col=targetLocked?0xff2844:0x00e5ff;
+        chRingMat.color.setHex(col);
+        chTickMat.color.setHex(col);
+      }
+      crosshairGroup.visible=true;
+    }else{
+      crosshairGroup.visible=false;
+    }
     hudTimer-=d;if(hudTimer<=0){hudTimer=.1;drawHud();}
   }
 
@@ -438,7 +483,7 @@ export function init(nova) {
   function preventMenu(e){if(active)e.preventDefault();}
   function disable(){
     if(!active)return false;active=false;down.clear();pistol.visible=false;hud.visible=false;damageOverlay.style.opacity='0';
-    leftGlove.visible=false;rightGlove.visible=false;
+    leftGlove.visible=false;rightGlove.visible=false;crosshairGroup.visible=false;
     if(tpMarker)tpMarker.visible=false;tpValid=false;
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
     window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
@@ -453,6 +498,7 @@ export function init(nova) {
   return{ready:true,enable,disable,fire,interact,damage,state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
     disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(tracerRoot);damageOverlay.remove();
     scene.remove(leftGlove);scene.remove(rightGlove);scene.remove(leftHandAnchor);scene.remove(rightHandAnchor);
+    scene.remove(crosshairGroup);chRingGeo.dispose();chRingMat.dispose();chDotGeo.dispose();chDotMat.dispose();chTickGeo.dispose();chTickMat.dispose();
     if(tpMarker){scene.remove(tpMarker);tpRing.geometry?.dispose?.();tpRing.material?.dispose?.();tpBeam.geometry?.dispose?.();tpBeam.material?.dispose?.();tpDot.geometry?.dispose?.();tpDot.material?.dispose?.();}
     leftGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
     rightGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
