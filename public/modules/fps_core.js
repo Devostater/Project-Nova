@@ -295,7 +295,7 @@ export function init(nova) {
       const rightPinch=rightIsHand&&handPoint(rightHand,'thumb-tip',thumb)&&handPoint(rightHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.034;
       if(leftPinch&&!leftPinchHeld){leftPinchTime=0;leftPinchUsed=false;}if(leftPinch)leftPinchTime+=d;
       if(leftPinch&&rightPinch){bothPinchTime+=d;if(bothPinchTime>=1.0&&!bothPinchExit){bothPinchExit=true;requestExit('hands');}}else{bothPinchTime=0;bothPinchExit=false;}
-      if(leftPinch&&!rightPinch&&leftPinchTime>=.32&&!leftPinchUsed){leftPinchUsed=interact();}
+      if(leftPinch&&!rightPinch&&leftPinchTime>=.32&&!leftPinchUsed){interact();leftPinchUsed=true;}
       if(!leftPinch&&leftPinchHeld&&!leftPinchUsed&&leftPinchTime<.32){weaponOn=!weaponOn;pistol.visible=weaponOn;drawHud();}
       if(rightPinch&&!rightPinchHeld&&weaponOn&&!leftPinch)fire();leftPinchHeld=leftPinch;rightPinchHeld=rightPinch;
       const curled=leftIsHand&&handPoint(leftHand,'middle-finger-tip',middle)&&handPoint(leftHand,'wrist',wrist)&&middle.distanceTo(wrist)<.085;

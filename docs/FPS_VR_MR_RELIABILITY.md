@@ -49,3 +49,9 @@ Make every on-foot sequence reliable with desktop, tracked controllers, and opti
 - Pirate boarding setup: `window.novaTest.pirateBoarding()`
 - FPS diagnostic snapshot: `window.novaTest.fpsState()`
 
+## Build status
+
+- Implemented on `codex/fps-vr-mr`: source-aware hot-swap, hand-only USE/EXIT, cockpit visual ownership, declared collision volumes, shot/bolt occlusion, and MR-safe combat blending.
+- Automated checks cover synchronized files and JavaScript syntax.
+- Physical Quest VR/MR checks remain required because desktop automation cannot supply optical hand joints or a real passthrough compositor.
+

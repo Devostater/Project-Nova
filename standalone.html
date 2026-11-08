@@ -7510,6 +7510,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (typeof nebulaPoints !== "undefined") nebulaPoints.visible = true;
         showToast('🌌 Immersive VR Space Active!', 2500, '#00f0ff');
       }
+      window.isPassthroughActive = passthroughActive;
       drawHUD();
       drawDebugWatch();
     }
@@ -8299,6 +8300,7 @@ const GAME_VERSION = 'Alpha 1.4';
         novaBindXRInputSession(session);
         session.addEventListener('end', () => {
           isStartingXR = false;
+          window.xrSessionType = null;
           togglePassthrough(false);
           const m = document.getElementById('modal-overlay');
           if (m) m.style.display = 'flex';
@@ -8306,6 +8308,7 @@ const GAME_VERSION = 'Alpha 1.4';
         });
         renderer.xr.setReferenceSpaceType('local-floor');
         await renderer.xr.setSession(session);
+        window.xrSessionType = sessionMode;
         togglePassthrough(passthrough);
         dismissModal();
         recenterPilotView();
@@ -8317,11 +8320,13 @@ const GAME_VERSION = 'Alpha 1.4';
           novaBindXRInputSession(fallback);
           fallback.addEventListener('end', () => {
             isStartingXR = false;
+            window.xrSessionType = null;
             togglePassthrough(false);
             const m = document.getElementById('modal-overlay');
             if (m) m.style.display = 'flex';
           });
           await renderer.xr.setSession(fallback);
+          window.xrSessionType = sessionMode;
           togglePassthrough(passthrough);
           dismissModal();
           recenterPilotView();
@@ -8335,11 +8340,13 @@ const GAME_VERSION = 'Alpha 1.4';
             novaBindXRInputSession(arFallback);
             arFallback.addEventListener('end', () => {
               isStartingXR = false;
+              window.xrSessionType = null;
               togglePassthrough(false);
               const m = document.getElementById('modal-overlay');
               if (m) m.style.display = 'flex';
             });
             await renderer.xr.setSession(arFallback);
+            window.xrSessionType = 'immersive-ar';
             togglePassthrough(passthrough);
             dismissModal();
             recenterPilotView();
@@ -20079,11 +20086,25 @@ const GAME_VERSION = 'Alpha 1.4';
         try { handler(dt); } catch (error) { console.error('[NOVA module tick]', error); }
       }
     }
+    function novaSetOnFootVisualOwnership(active) {
+      if (!active) return; // the normal cockpit input frame restores whichever source is live
+      try {
+        handMeshes1.forEach(m => m.visible = false); handMeshes2.forEach(m => m.visible = false);
+        boneMeshes1.forEach(m => m.visible = false); boneMeshes2.forEach(m => m.visible = false);
+        controllerGhostLeft.visible = false; controllerGhostRight.visible = false;
+        c1Laser.visible = false; c2Laser.visible = false;
+        wristBeaconGroup.visible = false;
+        ['left', 'right'].forEach(side => {
+          const h = novaHands[side]; if (!h) return;
+          if (h.grip) h.grip.visible = false; if (h.ray) h.ray.visible = false; if (h.dot) h.dot.visible = false;
+        });
+      } catch (e) { console.warn('[NOVA FPS] Could not hide a cockpit input visual.', e); }
+    }
     window.nova = {
       THREE, scene, camera, cameraRig, renderer, shipGroup, shipBody, sound,
       toast: (...args) => showToast(...args),
       crew: line => { try { ncAnnounce(line); } catch (e) {} },
-      setActive: active => { try { cockpit.visible = !active; setThrottle(0); } catch (e) {} },
+      setActive: active => { try { cockpit.visible = !active; setThrottle(0); novaSetOnFootVisualOwnership(active); } catch (e) {} },
       onExit: detail => novaEmit('interiorExit', detail || {}),
       onTick: novaOnTick, on: novaOn, emit: novaEmit,
       combatUnits: () => NF.units,
