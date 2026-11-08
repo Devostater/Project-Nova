@@ -16728,7 +16728,7 @@ const GAME_VERSION = 'Alpha 1.4';
           P.sysHits.push(hit('R SYSOPT TILE L ' + (i + 1), 120, 52 + i * 118, 384, 108, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) NP_SYSOPT.row(P, i, 'left'); }));
           P.sysHits.push(hit('R SYSOPT TILE R ' + (i + 1), 520, 52 + i * 118, 384, 108, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) NP_SYSOPT.row(P, i, 'right'); }));
         }
-        { const mk = (lab, y, d) => { hit(lab, 892, y, 120, 170, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_CARGO && nmkNear()) { P.scroll = Math.max(0, Math.min(Math.max(0, nmkRows(nmkNear()).length - NMK_VIS), P.scroll + d)); P.scrollF = P.scroll; try { sound.switchClick(); } catch (e) { } } }); const e = cockpitInteractables[cockpitInteractables.length - 1]; (P.mkArrows = P.mkArrows || []).push(e.mesh); }; mk('R MARKET UP', 52, -1); mk('R MARKET DOWN', 234, 1); }
+        { const mk = (lab, y, d) => { hit(lab, 892, y, 120, 170, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_CARGO) { const st = nmkNear(); const total = st ? nmkRows(st).length : 8; const max = Math.max(0, total - NMK_VIS); P.scroll = Math.max(0, Math.min(max, (P.scroll || 0) + d)); P.scrollF = P.scroll; P.drawT = 0; try { sound.switchClick(); } catch (e) { } } }); const e = cockpitInteractables[cockpitInteractables.length - 1]; (P.mkArrows = P.mkArrows || []).push(e.mesh); }; mk('R CARGO UP', 52, -1); mk('R CARGO DOWN', 234, 1); }
         P.scrollHits = [
           hit('R SCROLL PREV', 8, 52, 96, 344, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) P.scroll = Math.max(0, P.scroll - 3); P.drawT = 0; }),
           hit('R SCROLL NEXT', 920, 52, 96, 344, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) P.scroll = Math.min(Math.floor((NP_SYSOPT.rows().length - 1) / 3) * 3, P.scroll + 3); P.drawT = 0; })
@@ -16850,7 +16850,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function npDraw(P) {
       const x = P.cv.getContext('2d'), cfg = P.cfg, T = cfg.tabs[P.tab];
       x.setTransform(1, 0, 0, 1, 0, 0);
-      if (P.mkArrows) { let on = false; try { on = T === NP_CARGO && !!nmkNear(); } catch (e) { } P.mkArrows.forEach(m => { m.visible = on; }); }
+      if (P.mkArrows) { let on = false; try { on = T === NP_CARGO; } catch (e) { } P.mkArrows.forEach(m => { m.visible = on; }); }
       x.fillStyle = '#030a14'; x.fillRect(0, 0, 1024, NP_CH); x.textBaseline = 'alphabetic'; x.textAlign = 'left';
       // the existing layout, moved below the header
       x.save(); x.translate(0, NP_OFF);
@@ -17276,7 +17276,7 @@ const GAME_VERSION = 'Alpha 1.4';
           (P.rowHits || []).forEach(m => { m.visible = T !== NP_SYSOPT && T !== NP_MUSIC && typeof T.row === 'function'; });
           (P.sysHits || []).forEach(m => { m.visible = T === NP_SYSOPT; });
           (P.scrollHits || []).forEach(m => { m.visible = T === NP_SYSOPT; });
-          (P.mkArrows || []).forEach(m => { m.visible = market; });
+          (P.mkArrows || []).forEach(m => { m.visible = T === NP_CARGO; });
           (P.mkBuy || []).forEach(m => { m.visible = market; });
           if (P.emergencyHit) P.emergencyHit.visible = T === NP_WPN;
         }
@@ -17399,8 +17399,9 @@ const GAME_VERSION = 'Alpha 1.4';
           NPCH.contactScroll = Math.max(0, Math.min(mx, NPCH.contactScroll - dy / 51));
         } else NPCH.scroll = Math.max(0, NPCH.scroll + dy / 25);   // drag down = read older lines
         G.P.drawT = 0;
-      } else if (T === NP_CARGO && nmkNear()) {
-        G.P.scrollF = (G.P.scrollF ?? G.P.scroll) - dy / 88; const mx = Math.max(0, nmkRows(nmkNear()).length - NMK_VIS);
+      } else if (T === NP_CARGO) {
+        const st = nmkNear(); const total = st ? nmkRows(st).length : 8; const mx = Math.max(0, total - NMK_VIS);
+        G.P.scrollF = (G.P.scrollF ?? G.P.scroll) - dy / 88;
         G.P.scrollF = Math.max(0, Math.min(mx, G.P.scrollF)); NPG.vel = -dy / 88; const s = Math.round(G.P.scrollF); if (s !== G.P.scroll) { G.P.scroll = s; G.P.drawT = 0; }
       } else if (T === NP_WARP) {
         G.acc += dx;
@@ -17472,7 +17473,7 @@ const GAME_VERSION = 'Alpha 1.4';
         P.scrollF = Math.max(0, Math.min(mx, (P.scrollF ?? P.scroll) + NPG.vel)); NPG.vel *= Math.pow(0.02, dt);
         const s = Math.round(P.scrollF); if (s !== P.scroll) { P.scroll = s; P.drawT = 0; }
       }
-      const RP = panels[1]; if (!NPG.g && RP && Math.abs(NPG.vel) > 0.01 && RP.cfg.tabs[RP.tab] === NP_CARGO && nmkNear()) { const mx = Math.max(0, nmkRows(nmkNear()).length - NMK_VIS); RP.scrollF = Math.max(0, Math.min(mx, (RP.scrollF ?? RP.scroll) + NPG.vel)); NPG.vel *= Math.pow(0.02, dt); const s = Math.round(RP.scrollF); if (s !== RP.scroll) { RP.scroll = s; RP.drawT = 0; } }
+      const RP = panels[1]; if (!NPG.g && RP && Math.abs(NPG.vel) > 0.01 && RP.cfg.tabs[RP.tab] === NP_CARGO) { const st = nmkNear(); const total = st ? nmkRows(st).length : 8; const mx = Math.max(0, total - NMK_VIS); RP.scrollF = Math.max(0, Math.min(mx, (RP.scrollF ?? RP.scroll) + NPG.vel)); NPG.vel *= Math.pow(0.02, dt); const s = Math.round(RP.scrollF); if (s !== RP.scroll) { RP.scroll = s; RP.drawT = 0; } }
       if (NPG.g) P.drawT = Math.min(P.drawT, 0.05);
     }
     // desktop: mouse wheel over the panel scrolls / flips, click-drag swipes
@@ -17487,7 +17488,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const h = npMouseHit(e); if (!h) return;
       const T = h.P.cfg.tabs[h.P.tab];
       if (T === NP_COMMS) { const mx = Math.max(0, h.P.list.length - 8); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
-      else if (T === NP_CARGO && nmkNear()) { const mx = Math.max(0, nmkRows(nmkNear()).length - NMK_VIS); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
+      else if (T === NP_CARGO) { const st = nmkNear(); const total = st ? nmkRows(st).length : 8; const mx = Math.max(0, total - NMK_VIS); h.P.scroll = Math.max(0, Math.min(mx, (h.P.scroll || 0) + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
       else if (T === NP_WARP) { npWarpStep(Math.sign(e.deltaY || e.deltaX)); e.preventDefault(); }
       else if (T === NP_CHAT) {
         if (h.px < 320) { const mx = Math.max(0, npChatContacts().length - 6); NPCH.contactScroll = Math.max(0, Math.min(mx, Math.round(NPCH.contactScroll) + Math.sign(e.deltaY))); }
@@ -19219,9 +19220,15 @@ const GAME_VERSION = 'Alpha 1.4';
             { l: 'TITANIUM ORE', r: '100 CR / t', c: '#00ffaa', k: 0, hold: `${cargoOre} t` },
             { l: 'HOMING MISSILES', r: '150 CR', c: '#ffaa00', k: 9, hold: `${missileAmmo} / 6` },
             { l: 'THERMAL FLARES', r: '75 CR', c: '#ff7733', k: 2, hold: `${cargoFlares} / 4` },
-            { l: 'SHIELD CAPACITORS', r: '300 CR', c: '#33bbff', k: 13, hold: `${cargoShieldCaps} / 4` }
+            { l: 'SHIELD CAPACITORS', r: '300 CR', c: '#33bbff', k: 13, hold: `${cargoShieldCaps} / 4` },
+            { l: 'REPAIR NANOKITS', r: '250 CR', c: '#33ff99', k: 1, hold: `${window.novaKits || 0} / 5` },
+            { l: 'HEAT CORES', r: '2,400 CR', c: '#ff9a3c', k: 2, hold: `${window.novaHeatCores ? window.novaHeatCores() : 0}` },
+            { l: 'DERELICT RECORDER', r: '1,200 CR', c: '#dd88ff', k: 14, hold: `${cargoSalvage || 0}` },
+            { l: 'HYPERDRIVE CELLS', r: '1,000 CR', c: '#00f0ff', k: 12, hold: '4' }
           ];
-          baseQuotes.forEach((q, i) => {
+          const all = baseQuotes, max = Math.max(0, all.length - NMK_VIS);
+          P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
+          all.slice(P.scroll, P.scroll + NMK_VIS).forEach((q, i) => {
             const Y = 52 + i * 88; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)'; x.fillRect(8, Y, 548, 84); x.fillStyle = q.c; x.fillRect(8, Y, 7, 84);
             x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(22, Y + 6, 72, 72); x.strokeStyle = q.c; x.lineWidth = 2; x.strokeRect(22, Y + 6, 72, 72);
             if (ic && ic.complete && ic.naturalWidth && q.k >= 0) x.drawImage(ic, (q.k % 4) * 96, Math.floor(q.k / 4) * 96, 96, 96, 26, Y + 10, 64, 64);
@@ -19231,6 +19238,13 @@ const GAME_VERSION = 'Alpha 1.4';
             x.strokeStyle = '#29455a'; x.lineWidth = 2; x.strokeRect(360, Y + 8, 188, 68);
             x.textAlign = 'center'; npText(x, q.r, 454, Y + 50, 'bold 22px monospace', '#ffd24a', 176); x.textAlign = 'left';
           });
+          // big scroll buttons
+          const canUp = P.scroll > 0, canDn = P.scroll < max;
+          [[52, '\u25B2', canUp], [234, '\u25BC', canDn]].forEach(([y, g, on]) => {
+            x.fillStyle = on ? 'rgba(0,229,255,0.18)' : 'rgba(255,255,255,0.04)'; x.fillRect(892, y, 120, 170); x.strokeStyle = on ? '#00e5ff' : '#33515f'; x.lineWidth = 4; x.strokeRect(892, y, 120, 170);
+            x.textAlign = 'center'; npText(x, g, 952, y + 112, 'bold 72px sans-serif', on ? '#00e5ff' : '#33515f'); x.textAlign = 'left';
+          });
+          x.textAlign = 'center'; npText(x, `${Math.min(all.length, P.scroll + 1)}-${Math.min(all.length, P.scroll + NMK_VIS)} / ${all.length}`, 952, 432, 'bold 20px monospace', '#7fb6d0'); x.textAlign = 'left';
           npText(x, 'COMMODITY MARKET', 570, 88, 'bold 28px monospace', '#00ff99', 310);
           npText(x, 'OUT OF DOCK RANGE', 570, 124, 'bold 21px monospace', '#ffaa00', 310);
           x.font = '19px monospace'; x.fillStyle = '#9fc3d8';
