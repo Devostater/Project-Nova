@@ -43,6 +43,50 @@
       opacity: 0; transition: opacity 0.3s; z-index: 100;
     }
 
+    /* Desktop Voice HUD Controls */
+    #desktop-voice-bar {
+      position: absolute; top: 14px; right: 18px;
+      display: flex; gap: 8px; align-items: center;
+      z-index: 40; font-family: 'Courier New', monospace; user-select: none;
+    }
+    .voice-hud-btn {
+      background: rgba(8, 24, 40, 0.85);
+      border: 1.5px solid #00f0ff;
+      color: #00f0ff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: all 0.2s ease;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+    .voice-hud-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+    }
+    .voice-hud-btn.active {
+      background: rgba(0, 255, 170, 0.25);
+      border-color: #00ffaa;
+      color: #00ffaa;
+      box-shadow: 0 0 15px rgba(0, 255, 170, 0.5);
+    }
+    #voice-prompt-overlay {
+      position: absolute; top: 54px; right: 18px;
+      width: 380px; max-width: 92vw;
+      background: rgba(6, 18, 30, 0.94);
+      border: 1.5px solid #00f0ff;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.35);
+      display: none; flex-direction: column; gap: 10px;
+      z-index: 45; font-family: 'Courier New', monospace;
+    }
+    body.tablet-touch-active #desktop-voice-bar,
+    body.tablet-touch-active #voice-prompt-overlay { display: none !important; }
+
     /* Modal Launcher Dialog - Whole Page Scrollable */
     #modal-overlay {
       position: fixed; inset: 0;
@@ -710,6 +754,34 @@
 
   <div id="version-badge">Alpha 1.4 · STARFIGHTER SIMULATOR</div>
   <div id="status-toast"></div>
+
+  <!-- Desktop / PC Voice HUD -->
+  <div id="desktop-voice-bar">
+    <button id="btn-desktop-voice-mic" class="voice-hud-btn" title="Toggle Always-Listening Voice Comms Mic (Key V)">🎙️ MIC: ACTIVE</button>
+    <button id="btn-desktop-voice-tester" class="voice-hud-btn" title="Open Quick Voice Command Prompt (Key ~ / `)">🗣️ VOICE CMD</button>
+  </div>
+  <div id="voice-prompt-overlay">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;font-weight:bold;color:#00f0ff;">🗣️ PILOT VOICE COMMAND TESTER</span>
+      <button id="btn-close-voice-prompt" style="background:none;border:none;color:#ff6677;cursor:pointer;font-weight:bold;font-size:14px;">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <input id="input-voice-cmd" type="text" placeholder='Type voice cmd e.g. "dock with station"...' style="flex:1;background:rgba(10,30,50,0.8);border:1px solid #00f0ff;border-radius:4px;color:#fff;padding:6px 10px;font-family:inherit;font-size:12px;outline:none;" />
+      <button id="btn-submit-voice-cmd" class="voice-hud-btn" style="padding:6px 10px;">EXEC</button>
+    </div>
+    <div style="font-size:10px;color:#88bbdd;letter-spacing:1px;text-transform:uppercase;">Quick Presets (Click to test):</div>
+    <div id="voice-preset-pills" style="display:flex;flex-wrap:wrap;gap:6px;">
+      <button class="voice-pill" data-cmd="new target" style="background:rgba(0,240,255,0.12);border:1px solid #00f0ff;border-radius:4px;color:#cfe8ff;font-size:11px;padding:3px 8px;cursor:pointer;">🎯 New Target</button>
+      <button class="voice-pill" data-cmd="dock with station" style="background:rgba(0,240,255,0.12);border:1px solid #00f0ff;border-radius:4px;color:#cfe8ff;font-size:11px;padding:3px 8px;cursor:pointer;">🛸 Dock with Station</button>
+      <button class="voice-pill" data-cmd="fire missles" style="background:rgba(255,60,80,0.15);border:1px solid #ff4466;border-radius:4px;color:#ffb3ba;font-size:11px;padding:3px 8px;cursor:pointer;">🚀 Fire Missiles</button>
+      <button class="voice-pill" data-cmd="enter stealth mode" style="background:rgba(180,100,255,0.15);border:1px solid #b266ff;border-radius:4px;color:#dfc2ff;font-size:11px;padding:3px 8px;cursor:pointer;">👻 Stealth Mode</button>
+      <button class="voice-pill" data-cmd="play music" style="background:rgba(0,255,170,0.12);border:1px solid #00ffaa;border-radius:4px;color:#99ffd6;font-size:11px;padding:3px 8px;cursor:pointer;">🎵 Play Music</button>
+      <button class="voice-pill" data-cmd="mute music" style="background:rgba(255,170,0,0.12);border:1px solid #ffaa00;border-radius:4px;color:#ffe699;font-size:11px;padding:3px 8px;cursor:pointer;">🔇 Mute Music</button>
+      <button class="voice-pill" data-cmd="repair ship" style="background:rgba(0,255,170,0.12);border:1px solid #00ffaa;border-radius:4px;color:#99ffd6;font-size:11px;padding:3px 8px;cursor:pointer;">🛡️ Repair Ship</button>
+      <button class="voice-pill" data-cmd="warp drive" style="background:rgba(0,240,255,0.12);border:1px solid #00f0ff;border-radius:4px;color:#cfe8ff;font-size:11px;padding:3px 8px;cursor:pointer;">⚡ Warp Drive</button>
+    </div>
+    <div style="font-size:10px;color:#668899;text-align:right;">Console: <code>say("command")</code> · Close: [Esc]</div>
+  </div>
 
   <!-- Launch Modal -->
   <div id="modal-overlay">
@@ -1700,6 +1772,12 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // ── Three.js Scene Setup ──
     const canvas = document.getElementById('game-canvas');
+    if (canvas) {
+      canvas.setAttribute('tabindex', '0');
+      canvas.style.outline = 'none';
+      canvas.addEventListener('mousedown', () => { canvas.focus(); });
+      canvas.addEventListener('click', () => { canvas.focus(); });
+    }
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -3592,6 +3670,7 @@ const GAME_VERSION = 'Alpha 1.4';
           } catch (_) {}
           drawCommsPanel();
           if (typeof drawDebugWatch === 'function') drawDebugWatch();
+          if (typeof updateDesktopVoiceBar === 'function') updateDesktopVoiceBar();
         }
       }, 180);
     }
@@ -3617,6 +3696,7 @@ const GAME_VERSION = 'Alpha 1.4';
             }
           }
           drawCommsPanel();
+          if (typeof updateDesktopVoiceBar === 'function') updateDesktopVoiceBar();
         };
         commsRecognition.onerror = (err) => {
           console.warn('[VOICE MIC] error:', err?.error);
@@ -3627,10 +3707,12 @@ const GAME_VERSION = 'Alpha 1.4';
               isCommsMicListening = false;
               isVoiceAlwaysListening = false;
               drawCommsPanel();
+              if (typeof updateDesktopVoiceBar === 'function') updateDesktopVoiceBar();
             }
           } else {
             isCommsMicListening = false;
             drawCommsPanel();
+            if (typeof updateDesktopVoiceBar === 'function') updateDesktopVoiceBar();
           }
         };
         commsRecognition.onend = () => {
@@ -3639,6 +3721,7 @@ const GAME_VERSION = 'Alpha 1.4';
           } else {
             isCommsMicListening = false;
             drawCommsPanel();
+            if (typeof updateDesktopVoiceBar === 'function') updateDesktopVoiceBar();
           }
         };
       }
@@ -3656,6 +3739,7 @@ const GAME_VERSION = 'Alpha 1.4';
           showToast('🎙️ ALWAYS-LISTENING ACTIVE — SPEAK COMMANDS AT ANY TIME', 3000, '#00ffcc');
           drawCommsPanel();
           if (typeof drawDebugWatch === 'function') drawDebugWatch();
+          if (typeof updateDesktopVoiceBar === 'function') updateDesktopVoiceBar();
         } catch (err) {
           console.warn('[VOICE] Gesture start error:', err);
         }
@@ -4241,9 +4325,28 @@ const GAME_VERSION = 'Alpha 1.4';
       return false;
     }
 
+    function updateDesktopVoiceBar() {
+      const btn = document.getElementById('btn-desktop-voice-mic');
+      if (!btn) return;
+      if (isCommsMicListening) {
+        btn.textContent = '🎙️ MIC: ACTIVE';
+        btn.classList.add('active');
+        btn.style.borderColor = '#00ffaa';
+        btn.style.color = '#00ffaa';
+      } else {
+        btn.textContent = '🔇 MIC: MUTED';
+        btn.classList.remove('active');
+        btn.style.borderColor = '#ffaa44';
+        btn.style.color = '#ffaa44';
+      }
+    }
+    window.updateDesktopVoiceBar = updateDesktopVoiceBar;
+
     function toggleCommsMic() {
       if (!commsRecognition) {
-        showToast('🎙️ SPEECH RECOGNITION NOT SUPPORTED BY BROWSER — USE VIRTUAL KEYBOARD', 2500, '#ffaa00');
+        showToast('🎙️ SPEECH RECOGNITION NOT SUPPORTED BY BROWSER — USE VOICE CMD / VIRTUAL KB', 2500, '#ffaa00');
+        if (typeof novaToggleVoiceTester === 'function') novaToggleVoiceTester(true);
+        updateDesktopVoiceBar();
         return;
       }
       try {
@@ -4264,7 +4367,22 @@ const GAME_VERSION = 'Alpha 1.4';
       }
       drawCommsPanel();
       if (typeof drawDebugWatch === 'function') drawDebugWatch();
+      updateDesktopVoiceBar();
     }
+    window.toggleCommsMic = toggleCommsMic;
+
+    window.say = function(text) {
+      if (!text) return false;
+      const str = String(text).trim();
+      console.log('[SAY VOICE COMMAND]:', str);
+      showToast(`🗣️ COMMAND: "${str}"`, 2200, '#00ffcc');
+      try { if (sound && sound.beep) sound.beep(1100, 0.05); } catch(e) {}
+      if (!handlePilotVoiceCommand(str)) {
+        transmitPilotText(str);
+      }
+      return true;
+    };
+    window.voice = window.say;
 
     function transmitPilotText(textToSend) {
       if (!textToSend || !textToSend.trim()) return;
@@ -9382,6 +9500,24 @@ const GAME_VERSION = 'Alpha 1.4';
       activeDragTarget = null;
     });
 
+    // Global capture listener to ensure Voice Mic (KeyV) and Voice Tester (Backquote)
+    // are NEVER swallowed by canvas focus, pointer-lock, or other child elements on PC.
+    window.addEventListener('keydown', (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+      if (e.code === 'Backquote') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof novaToggleVoiceTester === 'function') novaToggleVoiceTester();
+      } else if (e.code === 'KeyV' && !e.repeat) {
+        e._voiceHandled = true;
+        toggleCommsMic();
+        if (!commsRecognition && typeof novaToggleVoiceTester === 'function') {
+          novaToggleVoiceTester(true);
+        }
+      }
+    }, true);
+
     window.addEventListener('keydown', (e) => {
       sound.init();
       activeKeys[e.code] = true;
@@ -9410,8 +9546,18 @@ const GAME_VERSION = 'Alpha 1.4';
         toggleRotationDampeners();
       } else if (e.code === 'KeyP') {
         togglePassthrough();
-      } else if (e.code === 'KeyV') {
-        toggleCommsMic();
+      } else if (e.code === 'KeyV' || e.code === 'Backquote') {
+        if (!e._voiceHandled) {
+          if (e.code === 'Backquote') {
+            e.preventDefault();
+            if (typeof novaToggleVoiceTester === 'function') novaToggleVoiceTester();
+          } else {
+            toggleCommsMic();
+            if (!commsRecognition && typeof novaToggleVoiceTester === 'function') {
+              novaToggleVoiceTester(true);
+            }
+          }
+        }
       } else if (e.code === 'ArrowUp') {
         adjustSeat(0.05);
       } else if (e.code === 'ArrowDown') {
@@ -9660,6 +9806,95 @@ const GAME_VERSION = 'Alpha 1.4';
       });
     }
 
+    function novaToggleVoiceTester(force) {
+      const overlay = document.getElementById('voice-prompt-overlay');
+      const input = document.getElementById('input-voice-cmd');
+      if (!overlay) return;
+      const open = force !== undefined ? !!force : (overlay.style.display !== 'flex');
+      overlay.style.display = open ? 'flex' : 'none';
+      if (open && input) {
+        setTimeout(() => { input.focus(); input.select(); }, 60);
+      } else if (!open && canvas) {
+        canvas.focus();
+      }
+    }
+    window.novaToggleVoiceTester = novaToggleVoiceTester;
+
+    function novaSubmitVoiceTester() {
+      const input = document.getElementById('input-voice-cmd');
+      if (!input) return;
+      const val = input.value.trim();
+      if (val) {
+        window.say(val);
+        input.value = '';
+      }
+      novaToggleVoiceTester(false);
+    }
+    window.novaSubmitVoiceTester = novaSubmitVoiceTester;
+
+    function initDesktopVoiceHUD() {
+      const micBtn = document.getElementById('btn-desktop-voice-mic');
+      const testBtn = document.getElementById('btn-desktop-voice-tester');
+      const closeBtn = document.getElementById('btn-close-voice-prompt');
+      const submitBtn = document.getElementById('btn-submit-voice-cmd');
+      const input = document.getElementById('input-voice-cmd');
+      const pills = document.querySelectorAll('.voice-pill');
+
+      if (micBtn) {
+        micBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleCommsMic();
+        });
+      }
+      if (testBtn) {
+        testBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          novaToggleVoiceTester();
+        });
+      }
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          novaToggleVoiceTester(false);
+        });
+      }
+      if (submitBtn) {
+        submitBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          novaSubmitVoiceTester();
+        });
+      }
+      if (input) {
+        input.addEventListener('keydown', (e) => {
+          e.stopPropagation(); // prevent flight keys while typing in prompt
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            novaSubmitVoiceTester();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            novaToggleVoiceTester(false);
+          }
+        });
+      }
+      pills.forEach((p) => {
+        p.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const cmd = p.getAttribute('data-cmd');
+          if (cmd) {
+            window.say(cmd);
+            novaToggleVoiceTester(false);
+          }
+        });
+      });
+      if (typeof updateDesktopVoiceBar === 'function') updateDesktopVoiceBar();
+    }
+    initDesktopVoiceHUD();
+
     // ── WebXR Session Startup Handlers ──
     let isStartingXR = false;
 
@@ -9667,6 +9902,8 @@ const GAME_VERSION = 'Alpha 1.4';
       const m = document.getElementById('modal-overlay');
       if (m) m.style.display = 'none';
       updateTabletCtrlVisibility();
+      if (typeof updateDesktopVoiceBar === 'function') updateDesktopVoiceBar();
+      if (canvas) canvas.focus();
     };
 
     window.sound = sound;
@@ -13949,6 +14186,10 @@ const GAME_VERSION = 'Alpha 1.4';
     renderer.xr.addEventListener('sessionstart', () => {
       novaSafeZoneActive = true;
       novaSafeReady = false;
+      const vb = document.getElementById('desktop-voice-bar');
+      if (vb) vb.style.display = 'none';
+      const vp = document.getElementById('voice-prompt-overlay');
+      if (vp) vp.style.display = 'none';
       drawSafePanel('LOADING GAME...');
       const ses = renderer.xr.getSession();
       if (ses) {
@@ -13963,7 +14204,12 @@ const GAME_VERSION = 'Alpha 1.4';
       } catch (e) { done(); }
       setTimeout(() => { if (!novaSafeReady) done(); }, 8000);
     });
-    renderer.xr.addEventListener('sessionend', () => { novaSafeZoneActive = false; });
+    renderer.xr.addEventListener('sessionend', () => {
+      novaSafeZoneActive = false;
+      const vb = document.getElementById('desktop-voice-bar');
+      if (vb) vb.style.display = 'flex';
+      if (typeof updateDesktopVoiceBar === 'function') updateDesktopVoiceBar();
+    });
     // ════════════════════════════════════════════════════════════════
     // Hand-only comfort turn: hold a left pinch with palm sideways for 350ms;
     // release to rearm. Wrist buttons require a fresh fingertip entry, never auto-repeat.
@@ -19723,7 +19969,8 @@ const GAME_VERSION = 'Alpha 1.4';
       ['pitchDn', 'Nose down', 'ArrowUp'], ['pitchUp', 'Nose up', 'ArrowDown'], ['rollL', 'Bank left', 'ArrowLeft'], ['rollR', 'Bank right', 'ArrowRight'],
       ['auto', 'Autopilot', 'KeyA'], ['damp', 'Dampeners', 'KeyD'], ['nav', 'Warp nav', 'KeyN'], ['menu', 'Wrist menu', 'KeyM'],
       ['inv', 'Inventory', 'KeyI'], ['wing', 'Drone wing', 'KeyK'], ['talk', 'Talk to companion', 'KeyC'], ['kb', 'Comms keyboard', 'KeyT'],
-      ['tgt', 'Target box', 'KeyB'], ['mr', 'MR passthrough', 'KeyP'], ['reset', 'Reset controls', 'KeyR'], ['galaxy', 'Galaxy map', 'KeyG']
+      ['tgt', 'Target box', 'KeyB'], ['mr', 'MR passthrough', 'KeyP'], ['reset', 'Reset controls', 'KeyR'], ['galaxy', 'Galaxy map', 'KeyG'],
+      ['voice', 'Voice mic', 'KeyV']
     ];
     const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'ultra', forceUltra: true, deadzone: 0.12, flightMode: 'arcade', bloom: true, bloomStrength: 0.35, bloomThreshold: 0.82, vignette: true, keys: {} }, wait: null, resetArm: 0, keysOpen: false };
     try { Object.assign(NOPT.o, JSON.parse(localStorage.getItem('novaOpts') || '{}')); } catch (e) { }
@@ -21609,12 +21856,12 @@ const GAME_VERSION = 'Alpha 1.4';
       return !!B.board(d, { force: true });
     }
     window.novaColdRunBoard = ncrTryBoard;
-    addEventListener('keydown', e => { if (e.code === 'KeyV' && ncrCur() === 'distress') ncrTryBoard(); });
+    addEventListener('keydown', e => { if ((e.code === 'KeyV' || e.code === 'KeyB' || e.code === 'KeyE') && ncrCur() === 'distress') ncrTryBoard(); });
     // derelict shows up in target cycle / COMMS / radar
     { const _ga2 = getAllTargets; getAllTargets = function () {
         const list = _ga2.apply(this, arguments);
         try { const d = NCR.derelict; if (d && d.userData.boardingReady) { const v = d.position.clone().sub(shipGroup.position), dist = v.length(), fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion);
-          list.push({ name: 'DERELICT: COLD HAULER', type: 'derelict', targetObj: d, dist, dot: fwd.dot(v.normalize()), isHostile: false, status: dist <= 150 ? 'BOARD READY · COMMS DOCK / V' : 'DERELICT · MOVE CLOSER' }); } } catch (e) { }
+          list.push({ name: 'DERELICT: COLD HAULER', type: 'derelict', targetObj: d, dist, dot: fwd.dot(v.normalize()), isHostile: false, status: dist <= 150 ? 'BOARD READY · COMMS DOCK / V / B' : 'DERELICT · MOVE CLOSER' }); } } catch (e) { }
         return list; }; }
     // pirate kills during the ambush
     { const _k3 = nfKill; nfKill = function (u) { const r = _k3.apply(this, arguments);
