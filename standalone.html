@@ -7516,6 +7516,9 @@ const GAME_VERSION = 'Alpha 1.4';
         showToast('🌌 Immersive VR Space Active!', 2500, '#00f0ff');
       }
       window.isPassthroughActive = passthroughActive;
+      if (typeof isInsideCantina !== 'undefined' && isInsideCantina && typeof novaCantinaRoomSync === 'function') {
+        novaCantinaRoomSync();
+      }
       drawHUD();
       drawDebugWatch();
     }
