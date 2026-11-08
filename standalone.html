@@ -50,12 +50,33 @@
       display: flex; justify-content: center; align-items: center;
       z-index: 50;
       cursor: pointer;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: 16px 0;
+      box-sizing: border-box;
     }
     .modal-box {
       background: #081424; border: 2px solid #00f0ff; border-radius: 14px;
-      padding: 32px 36px; max-width: 640px; width: 92%; text-align: center;
+      padding: 24px 28px; max-width: 640px; width: 92%; text-align: center;
       box-shadow: 0 0 35px rgba(0, 240, 255, 0.35);
       cursor: default;
+      max-height: 86vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      margin: auto;
+      touch-action: pan-y;
+      scrollbar-width: thin;
+      scrollbar-color: #00f0ff #081424;
+    }
+    .modal-box::-webkit-scrollbar {
+      width: 6px;
+    }
+    .modal-box::-webkit-scrollbar-thumb {
+      background: #00e5ff;
+      border-radius: 3px;
     }
     .modal-title {
       font-size: 24px; font-weight: 800; color: #00f0ff; margin-bottom: 8px;
@@ -603,7 +624,7 @@
 
   <!-- Launch Modal -->
   <div id="modal-overlay" onclick="window.dismissModal()">
-    <div class="modal-box">
+    <div class="modal-box" onclick="event.stopPropagation();">
       <div class="modal-title">🚀 PROJECT NOVA: STARFIGHTER SIM</div>
       <div class="modal-subtitle">
         6DOF Space Flight Simulator • Newtonian HOTAS Flight Model • Proportional Navigation Dogfights • Hyperspace Drive
@@ -614,6 +635,9 @@
       <!-- Clean, focused Main Menu -->
       <div id="menu-main">
         <button class="modal-btn btn-2d" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
+        <button class="modal-btn" id="btn-intro" style="border-color: #ffd24d; color: #ffe680; background: rgba(255, 210, 77, 0.15);" onclick="if(window.novaPlayIntro) window.novaPlayIntro(event); else window.novaPlay(); event.stopPropagation();">&#9654; PLAY INTRO</button>
+        <button class="modal-btn" id="btn-epilogue" style="border-color: #ff9933; color: #ffcc66; background: rgba(255, 153, 51, 0.15);" onclick="if(window.novaPlayEpilogue) window.novaPlayEpilogue(event); event.stopPropagation();">&#9654; PLAY EPILOGUE</button>
+        <button class="modal-btn" id="btn-range" style="border-color: #ff3377; color: #ff88aa; background: rgba(255, 51, 119, 0.15);" onclick="if(window.novaStartRange) window.novaStartRange(event); event.stopPropagation();">&#127919; FIRING RANGE</button>
         <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS &amp; MODES</button>
         <button class="modal-btn" id="btn-exit" style="border-color:#885566;color:#cc8899;background:rgba(120,30,50,0.15);" onclick="window.novaExit(); event.stopPropagation();">&#10006; EXIT</button>
       </div>
@@ -8414,6 +8438,7 @@ const GAME_VERSION = 'Alpha 1.4';
     const modalOverlay = document.getElementById('modal-overlay');
     if (modalOverlay) {
       modalOverlay.addEventListener('click', (e) => {
+        if (e.target !== modalOverlay) return;
         sound.init();
         if (typeof window.novaPlay === 'function') {
           window.novaPlay();
@@ -11382,7 +11407,7 @@ const GAME_VERSION = 'Alpha 1.4';
       // ── Rigid Cockpit Seat Anchor (Fixes "Seat is too low"!) ──
       if (renderer.xr.isPresenting && isInsideCantina) {
         novaCantinaRigApply();
-      } else if (renderer.xr.isPresenting) {
+      } else if (renderer.xr.isPresenting && !novaOnFoot() && !(window.novaInteriorMod && window.novaInteriorMod.active)) {
         const rotatedHead = camera.position.clone().applyQuaternion(cameraRig.quaternion);
         cameraRig.position.x = -rotatedHead.x;
         cameraRig.position.z = -rotatedHead.z + PILOT_SEAT_Z;
@@ -20178,7 +20203,19 @@ const GAME_VERSION = 'Alpha 1.4';
       spawnBoardingTestTarget: () => nfSpawn('pirate_frigate',shipGroup.position.clone().add(new THREE.Vector3(0,0,-140).applyQuaternion(shipGroup.quaternion)),{force:true,name:'BOARDING TEST FRIGATE',quat:shipGroup.quaternion}),
       awardBoardingLoot: loot => { const credits=Math.max(0,Math.round(loot?.credits||0)),cargo=Math.max(0,Math.round(loot?.cargo||0)),cores=Math.max(0,Math.round(loot?.cores||0));bankCredits+=credits;cargoSalvage+=cargo;NSV.cores=(NSV.cores||0)+cores;try { localStorage.setItem('novaCargoSalvage',String(cargoSalvage));localStorage.setItem('novaHeatCores',String(NSV.cores));drawInventoryPanel();drawRightDash(); } catch (e) {} return {credits:bankCredits,cargo:cargoSalvage,cores:NSV.cores}; },
       destroyBoardedPirate: u => { if (!u?.alive) return false; try { novaBoom(u.g.position.clone(),1.8);sound.bossExplosion(); } catch (e) {} if (NF.units.includes(u)) nfRemove(u); else { scene.remove(u.g);u.alive=false; } return true; },
-      modules: novaModuleInstances
+      modules: new Proxy(novaModuleInstances, {
+        get(target, prop) {
+          if (typeof prop === 'string') {
+            if (target.has(prop)) return target.get(prop);
+            const withJs = prop.endsWith('.js') ? prop : prop + '.js';
+            if (target.has(withJs)) return target.get(withJs);
+            const withoutJs = prop.replace(/\.js$/i, '');
+            if (target.has(withoutJs)) return target.get(withoutJs);
+          }
+          const val = Reflect.get(target, prop);
+          return typeof val === 'function' ? val.bind(target) : val;
+        }
+      })
     };
     window.novaLoadModules = async function () {
       const base = './modules/';
@@ -20223,7 +20260,19 @@ const GAME_VERSION = 'Alpha 1.4';
       nrmPlayEnding = function () { const self = this, args = arguments; novaCine.play('epilogue').then(played => { if (!played) _ending.apply(self, args); }); };
     }
     window.novaInterior = window.novaInteriorMod ? { enter: d => window.novaInteriorMod.enter(d), exit: () => window.novaInteriorMod.exit(), state: () => window.novaInteriorMod.state() } : null;
-    window.novaRange = () => { const nm = document.getElementById('nc-modal'); if (nm) nm.style.display = 'none'; return window.novaInteriorMod?.enter('range'); };
+    window.novaRange = () => {
+      const nm = document.getElementById('nc-modal');
+      if (nm) nm.style.display = 'none';
+      if (typeof window.dismissModal === 'function') window.dismissModal();
+      const mod = window.novaInteriorMod || (window.nova?.modules?.get ? window.nova.modules.get('interior.js') || window.nova.modules.get('interior') : null);
+      if (mod && mod.enter) return mod.enter('range');
+      if (window.novaModulesReady) {
+        return window.novaModulesReady.then(modules => {
+          const im = modules.get('interior.js') || modules.get('interior') || window.novaInteriorMod;
+          return im?.enter?.('range');
+        });
+      }
+    };
     novaOn('fusionCoreChosen', e => { if (window.novaMorality) window.novaMorality.choice('fusion_core', e?.choice === 'take' ? 'keep' : 'return'); });
     const _novaExitLightspeed = exitLightspeed;
     exitLightspeed = function () { const wasWarp = !!isLightspeedActive; const result = _novaExitLightspeed.apply(this, arguments); if (wasWarp && !isLightspeedActive) novaEmit('warpComplete', {}); return result; };
@@ -20237,20 +20286,89 @@ const GAME_VERSION = 'Alpha 1.4';
       const ready = () => {
         let starting = false; try { starting = !!isStartingXR; } catch (e) { }
         const modal = document.getElementById('modal-overlay'), menuUp = !!(modal && modal.style.display !== 'none');
-        return !starting && !menuUp && !novaSafeZoneActive && (renderer.xr.isPresenting || (window.novaDevice && window.novaDevice.detectedMode === '2D') || !navigator.xr);
+        if (renderer.xr.isPresenting) return !starting && !menuUp && !novaSafeZoneActive;
+        return !starting && !menuUp;
       };
-      const poll = () => { if (ready() || (performance.now() - t0 > 20000 && !renderer.xr.isPresenting)) setTimeout(fn, 700); else setTimeout(poll, 250); };
-      setTimeout(poll, 300);
+      const poll = () => {
+        if (ready() || (performance.now() - t0 > 2500)) setTimeout(fn, 80);
+        else setTimeout(poll, 120);
+      };
+      setTimeout(poll, 80);
     };
+    window.novaAfterLaunch = novaAfterLaunch;
+
+    window.novaPlayIntro = async function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      let played = false;
+      try {
+        const c = novaCine || (window.nova?.modules?.get ? window.nova.modules.get('cinematics.js') : null);
+        if (c && c.play) played = await c.play('intro');
+      } catch (er) { }
+      if (!played) {
+        try {
+          if (typeof nkIntroStart === 'function') {
+            window.dismissModal();
+            nkIntroStart(true);
+            played = true;
+          }
+        } catch (er) { }
+      }
+      if (!played && typeof showToast === 'function') {
+        showToast('Intro video not found (public/video/intro.mp4)', 2500, '#ff8866');
+      } else {
+        try { localStorage.setItem('novaIntroSeen', '1'); } catch (er) { }
+      }
+      window.novaPlay();
+    };
+
+    window.novaPlayEpilogue = async function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      let played = false;
+      try {
+        const c = novaCine || (window.nova?.modules?.get ? window.nova.modules.get('cinematics.js') : null);
+        if (c && c.play) played = await c.play('epilogue');
+      } catch (er) { }
+      if (!played) {
+        try {
+          if (typeof window.novaPlayEnding === 'function') {
+            window.dismissModal();
+            window.novaPlayEnding();
+            played = true;
+          }
+        } catch (er) { }
+      }
+      if (!played && typeof showToast === 'function') {
+        showToast('Epilogue video not found (public/video/epilogue.mp4)', 2500, '#ff8866');
+      }
+    };
+
+    window.novaStartRange = function (e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      window._novaRangeNext = 1;
+      window.dismissModal();
+      window.novaPlay();
+      novaAfterLaunch(() => window.novaRange?.());
+    };
+
     const _play = window.novaPlay;
-    if (_play) window.novaPlay = function () { const r = _play.apply(this, arguments); if (wantRange || window._novaRangeNext) { window._novaRangeNext = 0; novaAfterLaunch(() => window.novaRange?.()); } return r; };
-    const pb = document.getElementById('btn-play');
-    // owner: the mission button is replaced by PLAY INTRO (testing): the intro video plays, then the game starts
-    if (pb && !document.getElementById('btn-intro')) { const ib = document.createElement('button'); ib.className = 'modal-btn'; ib.id = 'btn-intro'; ib.innerHTML = '&#9654; PLAY INTRO';
-      ib.onclick = async e => { e.stopPropagation(); let played = false; try { if (novaCine && novaCine.play) played = await novaCine.play('intro'); } catch (er) { } if (!played) showToast('Intro video not found (public/video/intro.mp4)', 2500, '#ff8866'); else { try { localStorage.setItem('novaIntroSeen', '1'); } catch (er) { } } window.novaPlay(); };
-      pb.insertAdjacentElement('afterend', ib); }
-    if (pb && !document.getElementById('btn-range')) { const rb = document.createElement('button'); rb.className = 'modal-btn'; rb.id = 'btn-range'; rb.innerHTML = '&#127919; FIRING RANGE'; rb.onclick = e => { e.stopPropagation(); window._novaRangeNext = 1; window.novaPlay(); }; pb.insertAdjacentElement('afterend', rb); }
-    if (wantRange) setTimeout(() => window.novaRange?.(), 1200);
+    if (_play) window.novaPlay = function () {
+      const r = _play.apply(this, arguments);
+      if (wantRange || window._novaRangeNext) {
+        window._novaRangeNext = 0;
+        novaAfterLaunch(() => window.novaRange?.());
+      }
+      return r;
+    };
+
+    // Attach handlers to menu buttons if present in DOM
+    const introBtn = document.getElementById('btn-intro');
+    if (introBtn) introBtn.onclick = window.novaPlayIntro;
+    const epilogueBtn = document.getElementById('btn-epilogue');
+    if (epilogueBtn) epilogueBtn.onclick = window.novaPlayEpilogue;
+    const rangeBtn = document.getElementById('btn-range');
+    if (rangeBtn) rangeBtn.onclick = window.novaStartRange;
+
+    if (wantRange) setTimeout(() => window.novaRange?.(), 1000);
     return modules;
   });
   </script>

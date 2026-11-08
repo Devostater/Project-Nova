@@ -59,13 +59,19 @@ export function init(api) {
     const floorY=renderer?.xr?.isPresenting?0:1.65;
     cameraRig.position.set(ORIGIN.x+S.pos.x,ORIGIN.y+floorY,ORIGIN.z+S.pos.z);api.setActive?.(true);
     const colliders=[[-4.55,-1.95,-10.19,-9.81],[1.95,4.55,-10.19,-9.81]].map(c=>({minX:ORIGIN.x+c[0],maxX:ORIGIN.x+c[1],minZ:ORIGIN.z+c[2],maxZ:ORIGIN.z+c[3]}));
-    api.modules?.fps_core?.enable?.({mode:'RANGE',speed:3.2,bounds:[ORIGIN.x+def.bounds[0],ORIGIN.x+def.bounds[1],ORIGIN.z+def.bounds[2],ORIGIN.z+def.bounds[3]],colliders,onExit:()=>exit('input'),onShot:()=>{S.shots++;S.sign?.userData.draw?.();}});
-    api.modules?.fps_ai?.start?.({origin:S.root.position});
+    const fps=api.modules?.get?.('fps_core')||api.modules?.fps_core;
+    fps?.enable?.({mode:'RANGE',speed:3.2,bounds:[ORIGIN.x+def.bounds[0],ORIGIN.x+def.bounds[1],ORIGIN.z+def.bounds[2],ORIGIN.z+def.bounds[3]],colliders,onExit:()=>exit('input'),onShot:()=>{S.shots++;S.sign?.userData.draw?.();}});
+    const fpsAi=api.modules?.get?.('fps_ai')||api.modules?.fps_ai;
+    fpsAi?.start?.({origin:S.root.position});
     toast?.(def.name+': WASD/mouse or sticks. Walk through EXIT, Esc or B to leave.',4200,'#00e5ff');return true;
   }
   function exit(reason='exit'){
     if(!S.active||S.exiting)return false;S.exiting=true;S.active=false;
-    api.modules?.fps_ai?.stop?.();api.modules?.fps_core?.disable?.();api.setActive?.(false);
+    const fpsAi=api.modules?.get?.('fps_ai')||api.modules?.fps_ai;
+    fpsAi?.stop?.();
+    const fps=api.modules?.get?.('fps_core')||api.modules?.fps_core;
+    fps?.disable?.();
+    api.setActive?.(false);
     (S.prevParent||shipGroup).add(cameraRig);cameraRig.position.copy(S.prevRigPos||new THREE.Vector3());cameraRig.quaternion.copy(S.prevRigQ||new THREE.Quaternion());camera.rotation.set(0,0,0);
     const root=S.root;S.root=null;if(root){scene.remove(root);root.traverse(o=>{o.geometry?.dispose?.();if(o.material){o.material.map?.dispose?.();o.material.dispose?.();}});}
     toast?.('Left the range. Score '+S.score+', '+S.hits+'/'+S.shots+' hits.',3000,'#00e5ff');api.onExit?.({reason,score:S.score,hits:S.hits,shots:S.shots});S.exiting=false;return true;
@@ -73,7 +79,7 @@ export function init(api) {
   function frame(dt){
     if(!S.active||!S.root){if(S.active)exit('root_missing');return;}
     const floorY=renderer?.xr?.isPresenting?0:1.65;
-    if(cameraRig.position.y<ORIGIN.y+floorY-2.5||cameraRig.position.y>ORIGIN.y+floorY+10){exit('out_of_bounds');return;}
+    if(cameraRig.position.y<ORIGIN.y+floorY-8||cameraRig.position.y>ORIGIN.y+floorY+25){exit('out_of_bounds');return;}
     S.pos.set(cameraRig.position.x-ORIGIN.x,0,cameraRig.position.z-ORIGIN.z);
     const B=S.def.bounds;
     if(S.pos.x<B[0]-6||S.pos.x>B[1]+6||S.pos.z<B[2]-8||S.pos.z>B[3]+8){exit('out_of_bounds');return;}
