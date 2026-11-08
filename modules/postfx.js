@@ -98,6 +98,7 @@ export function init(nova = {}) {
   let settings = { ...PRESETS[tier] };
 
   // ---------- Try to load postprocessing addons ----------
+  // We support several common ways the project might expose them.
   let EffectComposer, RenderPass, UnrealBloomPass, OutputPass, ShaderPass;
 
   const addons = nova.postprocessing || globalThis.THREE_POST || {};
@@ -107,6 +108,7 @@ export function init(nova = {}) {
   OutputPass     = addons.OutputPass     || THREE.OutputPass;
   ShaderPass     = addons.ShaderPass     || THREE.ShaderPass;
 
+  // If still missing, try dynamic import (works if import map or CDN is set up)
   let composer = null;
   let bloomPass = null;
   let vignettePass = null;
@@ -116,8 +118,26 @@ export function init(nova = {}) {
   async function tryLoadAddons() {
     if (EffectComposer && RenderPass && UnrealBloomPass) return true;
 
+    // 1. Try local vendored postprocessing addons (offline / APK)
     try {
-      const base = 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/';
+      const local = await import('../vendor/postprocessing.js').catch(() =>
+        import('./vendor/postprocessing.js').catch(() => null)
+      );
+      if (local && local.EffectComposer && local.RenderPass && local.UnrealBloomPass) {
+        EffectComposer = local.EffectComposer;
+        RenderPass     = local.RenderPass;
+        UnrealBloomPass= local.UnrealBloomPass;
+        OutputPass     = local.OutputPass || null;
+        ShaderPass     = local.ShaderPass || null;
+        return true;
+      }
+    } catch (e) {
+      // ignore and try CDN fallback
+    }
+
+    // 2. Fallback: CDN (r187 to match project Three.js revision)
+    try {
+      const base = 'https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/postprocessing/';
       const [
         { EffectComposer: EC },
         { RenderPass: RP },
@@ -140,6 +160,7 @@ export function init(nova = {}) {
     }
   }
 
+  // Simple vignette + grain shader (no extra dependency)
   function makeVignetteGrainShader(THREE) {
     return {
       uniforms: {
@@ -169,11 +190,13 @@ export function init(nova = {}) {
         void main() {
           vec4 color = texture2D(tDiffuse, vUv);
 
+          // Vignette
           vec2 uv = vUv - 0.5;
           float dist = length(uv);
           float vig = smoothstep(0.8, 0.2, dist * (0.6 + vignette * 1.4));
           color.rgb *= mix(1.0 - vignette * 0.85, 1.0, vig);
 
+          // Film grain
           if (grain > 0.001) {
             float g = (rand(vUv + fract(time)) - 0.5) * grain;
             color.rgb += g;
@@ -214,6 +237,7 @@ export function init(nova = {}) {
     );
     composer.addPass(bloomPass);
 
+    // Vignette + grain
     if (ShaderPass || THREE.ShaderPass) {
       const SP = ShaderPass || THREE.ShaderPass;
       const shader = makeVignetteGrainShader(THREE);
@@ -227,10 +251,12 @@ export function init(nova = {}) {
       composer.addPass(vignettePass);
     }
 
+    // Output / tone mapping if available
     if (OutputPass) {
       composer.addPass(new OutputPass());
     }
 
+    // Encourage the renderer toward a cinematic look
     if (renderer.toneMapping !== undefined) {
       renderer.toneMapping = THREE.ACESFilmicToneMapping || THREE.LinearToneMapping;
       renderer.toneMappingExposure = settings.exposure;
@@ -243,8 +269,10 @@ export function init(nova = {}) {
     console.log(`[postfx] Ready — tier: ${tier} (aggressive max-graphics pass)`);
   }
 
+  // Kick off loading
   const loadPromise = buildComposer();
 
+  // ---------- Public API ----------
   function applySettings() {
     if (bloomPass) {
       bloomPass.strength = settings.bloomStrength;
@@ -266,7 +294,7 @@ export function init(nova = {}) {
     tier = t;
     settings = { ...PRESETS[tier] };
     applySettings();
-    resize();
+    resize(); // resolution scale may have changed
     console.log(`[postfx] Quality set to ${tier}`);
   }
 
@@ -283,7 +311,8 @@ export function init(nova = {}) {
   let time = 0;
   function render(delta = 0.016) {
     if (disposed) return;
-    if (!ready || !composer) {
+    if (!ready || !composer || (renderer.xr && renderer.xr.isPresenting)) {
+      // Fallback: normal render (also required for WebXR stereo)
       renderer.render(scene, camera);
       return;
     }
@@ -307,25 +336,38 @@ export function init(nova = {}) {
     vignettePass = null;
   }
 
+  // Optional auto-hook if nova provides a way to replace the render function
   if (typeof nova.setRenderFunction === 'function') {
     loadPromise.then(() => {
       if (ready) nova.setRenderFunction(render);
     });
   }
+  if (typeof nova.onTick === 'function') {
+    // Some modules use onTick; we don't render here, only update uniforms if needed
+  }
 
+  // Listen for resize if possible
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', () => resize());
   }
 
-  return {
+  const api = {
     ready: () => ready,
     tier: () => tier,
     render,
     setQuality,
     resize,
     dispose,
+    /** Promise that resolves when addons are loaded (or failed) */
     whenReady: () => loadPromise,
+    /** Expose for debugging */
     _composer: () => composer,
     _settings: () => ({ ...settings })
   };
+
+  if (typeof window !== 'undefined') {
+    window.novaPostfx = api;
+  }
+
+  return api;
 }

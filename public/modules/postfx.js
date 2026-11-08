@@ -118,9 +118,26 @@ export function init(nova = {}) {
   async function tryLoadAddons() {
     if (EffectComposer && RenderPass && UnrealBloomPass) return true;
 
+    // 1. Try local vendored postprocessing addons (offline / APK)
     try {
-      // Common CDN / import-map paths
-      const base = 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/';
+      const local = await import('../vendor/postprocessing.js').catch(() =>
+        import('./vendor/postprocessing.js').catch(() => null)
+      );
+      if (local && local.EffectComposer && local.RenderPass && local.UnrealBloomPass) {
+        EffectComposer = local.EffectComposer;
+        RenderPass     = local.RenderPass;
+        UnrealBloomPass= local.UnrealBloomPass;
+        OutputPass     = local.OutputPass || null;
+        ShaderPass     = local.ShaderPass || null;
+        return true;
+      }
+    } catch (e) {
+      // ignore and try CDN fallback
+    }
+
+    // 2. Fallback: CDN (r187 to match project Three.js revision)
+    try {
+      const base = 'https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/postprocessing/';
       const [
         { EffectComposer: EC },
         { RenderPass: RP },
@@ -294,8 +311,8 @@ export function init(nova = {}) {
   let time = 0;
   function render(delta = 0.016) {
     if (disposed) return;
-    if (!ready || !composer) {
-      // Fallback: normal render
+    if (!ready || !composer || (renderer.xr && renderer.xr.isPresenting)) {
+      // Fallback: normal render (also required for WebXR stereo)
       renderer.render(scene, camera);
       return;
     }
@@ -334,7 +351,7 @@ export function init(nova = {}) {
     window.addEventListener('resize', () => resize());
   }
 
-  return {
+  const api = {
     ready: () => ready,
     tier: () => tier,
     render,
@@ -347,4 +364,10 @@ export function init(nova = {}) {
     _composer: () => composer,
     _settings: () => ({ ...settings })
   };
+
+  if (typeof window !== 'undefined') {
+    window.novaPostfx = api;
+  }
+
+  return api;
 }

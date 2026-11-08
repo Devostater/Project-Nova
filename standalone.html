@@ -162,7 +162,8 @@
     {
       "imports": {
         "three": "./vendor/three.module.js",
-        "cannon-es": "./vendor/cannon-es.js"
+        "cannon-es": "./vendor/cannon-es.js",
+        "three/addons/": "./vendor/"
       }
     }
   </script>
@@ -2632,10 +2633,14 @@ const GAME_VERSION = 'Alpha 1.4';
       if (typeof drawDebugWatch === 'function') drawDebugWatch();
     }
 
-    // Interior Cockpit Dome Light
+    // Interior Cockpit Dome Light & Console Underglow
     const cockpitDomeLight = new THREE.PointLight(0x00f0ff, 1.2, 3.5);
     cockpitDomeLight.position.set(0, 0.75, -0.12);
     cockpit.add(cockpitDomeLight);
+    const cockpitDashLight = new THREE.PointLight(0x00e5ff, 0.45, 1.8);
+    cockpitDashLight.position.set(0, -0.12, -0.42);
+    cockpit.add(cockpitDashLight);
+    window.cockpitDashLight = cockpitDashLight;
 
     // Cockpit Translucent Canopy Glass Arch
     const canopyMat = new THREE.MeshStandardMaterial({
@@ -10430,12 +10435,23 @@ const GAME_VERSION = 'Alpha 1.4';
     let hasAutoRecenteredOnFirstFrame = false;
     function novaOnFoot() { try { const f = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('fps_core'); return !!(f && f.active); } catch (e) { return false; } }
     window.novaOnFoot = novaOnFoot;
+    function novaRender(delta = 0.016) {
+      if (!renderer.xr?.isPresenting) {
+        if (typeof window.novaRenderFn === 'function') {
+          try { window.novaRenderFn(delta); return; } catch (e) { window.novaRenderFn = null; }
+        } else if (window.novaPostfx && typeof window.novaPostfx.render === 'function') {
+          try { window.novaPostfx.render(delta); return; } catch (e) {}
+        }
+      }
+      renderer.render(scene, camera);
+    }
+    window.novaRender = novaRender;
     const novaGameLoop = (timestamp, frame) => {
       const now = performance.now();
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
-      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) { novaCruiseStop('INTERIOR'); try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } novaHandTurnFrame(frame, now); cameraRig.updateWorldMatrix(true, true); renderer.render(scene, camera); return; }   // on foot: flight is fully off
+      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) { novaCruiseStop('INTERIOR'); try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } novaHandTurnFrame(frame, now); cameraRig.updateWorldMatrix(true, true); novaRender(delta); return; }   // on foot: flight is fully off
 
       // Starfield follows ship so stars are always visible to infinity
       if (starfieldGroup && shipGroup) {
