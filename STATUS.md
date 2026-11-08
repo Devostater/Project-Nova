@@ -3,37 +3,46 @@
 Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. Don't read anything in `docs/archive/` unless asked.
 
 ## Now
-- **Lead / integrator:** Claude. It reviews, merges and pushes to `main`. ChatGPT (Codex), Antigravity (Gemini), and Grok (xAI) work on their own branches, then Claude merges.
-- **Live game:** https://devostater.github.io/Project-Nova/standalone.html. GitHub Pages redeploys on every push to `main`; check `version.txt` for the deployed commit.
-- **Quest app:** `com.azi.projectnova` 1.0.3 is a launcher that opens the live game in the full Quest Browser. Build it with `powershell -File tools\build_install_quest.ps1`.
-- **Live build:** `7f7d257` (2026-11-07). Everything below is merged into `main` and deployed; none of it has been playtested on the Quest yet.
+- **Temporary lead:** **Grok (xAI)** — Claude and ChatGPT are at weekly usage limits. Grok is acting as lead/integrator until they return.
+- **Active branch:** `grok/graphics-overhaul` — aggressive max-graphics pass (ULTRA-first).
+- **Live game:** https://devostater.github.io/Project-Nova/standalone.html (still on last main deploy until this branch is merged).
+- **Quest app:** `com.azi.projectnova` 1.0.3 launcher. Build with `powershell -File tools\build_install_quest.ps1`.
 
-## Handoff (2026-11-07, end of Claude session): Claude is OFF, nothing scheduled
+## Handoff (2026-11-07/08): Grok graphics overhaul
 
-**Merged today by Claude (PRs):** #39 fixed main (module tick crash), #40 Cold Run end to end, #44 on-foot fixes + side panels fill glass + big market, #48 owner models (cantina furniture/poster, gunship, civ traffic, cruiser, clanker yard, containers, faction missiles), #50 COMMS hologram / names on / overhead DOCK / vertical sites / simpler WARP, #52 asteroid boost, #53 cantina room rebuild + plan, #54 playtest fixes (gun, right panel 1.22, SYS/OPT tall tiles, big BACK/NEXT, autopilot stand-off, DOCK needs target, intro video path, PLAY INTRO on menu + watch).
+**Grok is doing:**
+- Aggressive graphics overhaul (post-processing + richer VFX). Goal: make drifting in space look as pretty / AAA as possible, then scale down later for Quest.
+- New module: `public/modules/postfx.js` (+ root `modules/postfx.js`) — UnrealBloomPass, vignette, grain, quality tiers. Loads Three.js postprocessing addons from CDN if not vendored.
+- Upgraded `fx_ultra.js` — higher particle counts, more lights/debris/trails on ULTRA.
+- `forceUltra` defaults to **true**. Menu toggle **FORCE ULTRA: ON/OFF** added in OPTIONS (alongside GRAPHICS).
+- `NOPT.o` defaults: `gfx: 'ultra'`, `forceUltra: true`. `NOPT_GFX` now includes an `ultra` preset.
 
-**Open for GPT (next):** `OWNER_FEATURES.md` → "Playtest 2026-11-07" items 5 (ADVANCED flight yaw thrust) and 6 (missiles in VR). Then its own open PRs #41–#47, #49 one at a time on current `main` (they predate the one-game-file clean-up: rebase, edit `standalone.html` only).
-**Owner:** playtest on Quest (intro video, cantina, autopilot, DOCK, range gun); answer: third-faction name, bartender, seat_v2.
-**Whoever leads next** updates this section first.
+**Still needed / next:**
+1. Wire `postfx.render()` into the main render loop in `standalone.html` (replace or wrap `renderer.render`).
+2. Vendor Three.js postprocessing addons for offline/APK (currently CDN fallback).
+3. Continue visual polish: thruster plumes, shield hits, cockpit lighting, better explosions.
+4. After Quest playtest reports, dial quality tiers down as needed.
 
-## Handoff (2026-11-07): who did what, and what's next
+**Owner:** Test on desktop/browser first (FORCE ULTRA on). Report frame rate and any issues. Quest scaling comes after.
+
+## Handoff table
 | AI | Done and merged | Open / next | Working copy |
 |---|---|---|---|
-| **Claude** (lead) | checkpoint1 backup; token clean-up (one game file, docs → `docs/archive/`, ignore files, 23 merged branches deleted); debrief arrow, range/Cold Run start timing, FPS right hand + fist walk; cinematics player (`modules/cinematics.js`, falls back to slides/ending) | Merge the owner's `public/video/intro.mp4` (+ `.vtt`) when uploaded; review the 17 unmerged old branches with the owner | `Project-Nova-claude` (clean) |
-| **ChatGPT** (Codex) | flight controls (stick roll, throttle yaw, ARCADE/ADVANCED, grips), DOCK with selected target, laser MR blending, wrist/L-R debounce; universe ×3 + cruise (`eb55dff`); `docs/CINEMATICS.md` (`8a72c58`); pirate boarding (`modules/boarding_levels.js`, `modules/pirate_boarding.js`, `novaTest.pirateBoarding()`) (`1056adf`); bartender Matrix animations (`ab3f8d8`) | Ready for the next card. Suggested: boarding polish after the owner playtests it; add the clean-up block to all image prompts in CINEMATICS.md | `Project-Nova` (branch `codex/pirate-boarding`, fully merged) |
-| **Antigravity** (Gemini) | storyboard frames: intro 01–08, epilogue 01–03 (`art_src/storyboard/`, `storyboard.md`) | **epilogue_04–06 pending its image quota reset.** Owner request typed but not yet sent: "need missile thruster" (missile thruster art). Stash `stash@{0}` holds superseded edits; it's safe to drop | `Project-Nova-antigravity` (branch `gemini/storyboard`) |
-| **Grok** (xAI) | — | Independent analysis, technical critique, alternative solutions, research. First tasks TBD (architecture review, flight model critique, open OWNER_FEATURES items). | `Project-Nova` (branch `grok/add-to-ai-list`) |
-| **Owner** | | Make `intro.mp4` in CapCut from `art_src/storyboard` (prompts and timings in `docs/CINEMATICS.md`) and drop it in `public/video/`. Playtest: universe and cruise, boarding (`novaTest.pirateBoarding()`), flight model, debrief arrow, FIRING RANGE, FPS hands | |
+| **Grok** (xAI, temp lead) | AI list PR #57; `postfx.js`; upgraded `fx_ultra.js`; forceUltra default + OPTIONS toggle (this branch) | Wire postfx into render loop; vendor addons; more VFX polish; keep STATUS updated | `grok/graphics-overhaul` |
+| **Claude** (lead, offline) | checkpoint1; token clean-up; many playtest fixes; cinematics | Resume lead when usage resets; merge graphics branch after review | — |
+| **ChatGPT** (Codex, offline) | flight model, DOCK, boarding, etc. | Playtest items 5–6 (ADVANCED yaw, missiles in VR) when back | — |
+| **Antigravity** (Gemini) | storyboard intro 01–08, epilogue 01–03 | epilogue 04–06; missile thruster art when quota allows | `gemini/storyboard` |
+| **Owner** | | Desktop test of ULTRA graphics; Quest playtest when ready; third-faction name, bartender, seat_v2 | |
 
-Notes: Antigravity stalls on large code tasks, so give it art and small single-file cards. ChatGPT is reliable for code. Grok is preferred for independent critique and alternative designs. The Quest app is a launcher: an "old version" on the headset means a stale browser tab (see CLAUDE.md).
+Notes: Prefer Grok for critique and this graphics pass. Antigravity for art. ChatGPT for code when available. Claude remains formal lead when online.
 
 ## Rollback
-- **`checkpoint1`** (tag and branch `backup/checkpoint1`) is commit `7c1a9d5`, the build from before the token clean-up. To roll back: `git reset --hard checkpoint1` then `git push --force-with-lease origin main` (owner approval required). Local copies of the APK and a zip are in `Documents\GitHub\Project-Nova-backups\checkpoint1\`.
+- **`checkpoint1`** (tag and branch `backup/checkpoint1`) is commit `7c1a9d5`. Owner approval required for force-push to main.
 
 ## Rules (all AIs)
 1. Game code: edit **`standalone.html` only**. `index.html` and `public/standalone.html` are generated (`node tools/sync_html.mjs`), untracked, and never read.
 2. New systems go in `public/modules/<name>.js` (`export function init(nova)`), listed in `public/modules/manifest.json`, with an identical copy in root `modules/`.
 3. Work on your own branch, starting from the latest `main`. Edit only the functions or files your task names. Never commit to `main`, and never overwrite whole files.
-4. Don't read `vendor/`, `public/vendor/`, `models/`, `art/`, `art_src/`, `music*/`, `android/app/build/` or `docs/archive/`. They're large and not code you change.
-5. Cheap checks before handing off: `node tools/sync_html.mjs --check` and `node --check` on changed modules plus the extracted `<script type="module">`. Say what you did **not** test.
-6. Hand off by replying with the commit hash and one line per item. Claude updates this file.
+4. Don't read `vendor/`, `public/vendor/`, `models/`, `art/`, `art_src/`, `music*/`, `android/app/build/` or `docs/archive/`.
+5. Cheap checks before handing off: `node tools/sync_html.mjs --check` and `node --check` on changed modules. Say what you did **not** test.
+6. Hand off by replying with the commit hash and one line per item. Lead updates this file.
