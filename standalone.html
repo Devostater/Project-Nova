@@ -2776,16 +2776,49 @@ const GAME_VERSION = 'Alpha 1.4';
     blastShieldVisor.rotation.x = -0.30;
     blastShieldGroup.add(blastShieldVisor);
 
+    let isCanopySeeThrough = false;
+    window.isCanopySeeThrough = false;
     let isBlastShieldRetracted = false;
     let blastShieldSlideY = 0.0;
     let targetBlastShieldSlideY = 0.0;
 
-    function toggleBlastShield() {
-      isBlastShieldRetracted = !isBlastShieldRetracted;
-      targetBlastShieldSlideY = isBlastShieldRetracted ? -0.42 : 0.0;
-      if (sound && sound.stationChirp) sound.stationChirp();
-      showToast(isBlastShieldRetracted ? '🛡️ BLAST SHIELD RETRACTED: PANORAMIC 180° CANOPY VIEW' : '🛡️ ARMORED BLAST SHIELD DEPLOYED', 2500, isBlastShieldRetracted ? '#00f0ff' : '#ffaa00');
+    function novaToggleCanopy(forceState) {
+      isCanopySeeThrough = (forceState !== undefined) ? !!forceState : !isCanopySeeThrough;
+      window.isCanopySeeThrough = isCanopySeeThrough;
+      isBlastShieldRetracted = isCanopySeeThrough;
+      targetBlastShieldSlideY = isCanopySeeThrough ? -0.42 : 0.0;
+
+      // Adjust translucent canopy glass arch
+      if (typeof canopyMat !== 'undefined' && canopyMat) {
+        canopyMat.opacity = isCanopySeeThrough ? 0.02 : 0.12;
+      }
+
+      // Adjust cockpit tub enclosure glass (nk_glass)
+      try {
+        cockpit.traverse(c => {
+          if (c.name === 'nk_glass' && c.material) {
+            c.material.opacity = isCanopySeeThrough ? 0.02 : 0.11;
+          }
+        });
+      } catch (e) { }
+
+      // Audio & HUD feedback
+      try {
+        if (sound && sound.switchClick) sound.switchClick();
+        else if (sound && sound.stationChirp) sound.stationChirp();
+      } catch (e) { }
+      showToast(
+        isCanopySeeThrough ? '👓 CANOPY: CLEAR PANORAMIC VIEW (SEE-THROUGH ON)' : '🛡️ CANOPY: STANDARD TINT (SEE-THROUGH OFF)',
+        2200,
+        isCanopySeeThrough ? '#00e5ff' : '#ffd24a'
+      );
     }
+    window.novaToggleCanopy = novaToggleCanopy;
+
+    function toggleBlastShield() {
+      novaToggleCanopy();
+    }
+    window.toggleBlastShield = toggleBlastShield;
 
     // Tactile Blast Shield Switch Button on Upper Canopy Header
     const blastBtnMat = new THREE.MeshStandardMaterial({
@@ -15386,7 +15419,7 @@ const GAME_VERSION = 'Alpha 1.4';
       base: './models/', cache: {}, loader: null, mixers: [], done: [],
       off: /[?&]nomodels/.test(location.search),
       flips: new Set(((new URLSearchParams(location.search)).get('flip') || '').split(',').filter(Boolean)),
-      skip: new Set(['seat', 'seat_v2', ...((new URLSearchParams(location.search)).get('skip') || '').split(',').filter(Boolean)])
+      skip: new Set(['seat_v2', ...((new URLSearchParams(location.search)).get('skip') || '').split(',').filter(Boolean)])
     };
     window.NM = NM;
     async function nmGetLoader() {
@@ -16880,7 +16913,7 @@ const GAME_VERSION = 'Alpha 1.4';
         npHoloFrame(x, lk ? (NP.ccol[currentLockedTarget.type] || '#00e5ff') : '#2a4a63');   // chat lives on the CHAT tab now
       } };
     const NP_FLIGHT = { name: 'FLIGHT', c: '#b266ff', hint: 'touch the large controls · instruments show attitude, throttle and airspeed',
-      pads: [{ l: 'DAMPERS', c: '#e8e8e8', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } }, { l: 'ASSIST', c: '#00e5ff', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } }, { l: 'AUTOPILOT', c: '#33ff99', fn: () => { try { novaTargetAutopilotPress(); } catch (e) { } } }, { l: 'WARP NAV', c: '#b266ff', fn: () => window.novaNavToggle() }],
+      pads: [{ l: 'DAMPERS', c: '#e8e8e8', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } }, { l: 'ASSIST', c: '#00e5ff', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } }, { l: 'AUTOPILOT', c: '#33ff99', fn: () => { try { novaTargetAutopilotPress(); } catch (e) { } } }, { l: 'CANOPY', c: '#00e5ff', fn: P => { try { if (typeof novaToggleCanopy === 'function') novaToggleCanopy(); else if (typeof window.novaToggleCanopy === 'function') window.novaToggleCanopy(); } catch (e) { } if (P) P.drawT = 0; } }],
       draw: (x, P) => {
         const v = shipBody.velocity.length(), tp = throttlePct > 1 ? throttlePct : throttlePct * 100;
         npText(x, 'VELOCITY', 20, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, Math.round(v) + ' m/s', 20, 128, 'bold 42px monospace', '#e9fbff');
@@ -16911,7 +16944,7 @@ const GAME_VERSION = 'Alpha 1.4';
           ['DAMPERS', isRotationDampenerOn ? 'ENGAGED' : 'OFF', '#e8e8e8', isRotationDampenerOn],
           ['ASSIST', isFlightAssistOn ? 'ON' : 'OFF', '#00e5ff', isFlightAssistOn],
           ['AUTOPILOT', isAutopilotActive ? 'ON' : 'OFF', '#33ff99', isAutopilotActive],
-          ['WARP NAV', 'OPEN MAP', '#b266ff', false]
+          ['CANOPY', (window.isCanopySeeThrough ? 'SEE-THROUGH' : 'STANDARD'), '#00e5ff', !!window.isCanopySeeThrough]
         ];
         controls.forEach((b, i) => {
           const X = i % 2 ? 724 : 430, Y = i < 2 ? 180 : 296;
@@ -20942,10 +20975,22 @@ const GAME_VERSION = 'Alpha 1.4';
       const seS = Math.max(0.3, Math.min(2.5, parseFloat((new URLSearchParams(location.search)).get('seat')) || 1.6));   // ?seat=1.6 to resize
       nmCockpit().then(ok => {
         if (!ok) nmSkin(hullDeckGroup, 'cockpit_shell', { tag: 'shell', yaw: Math.PI, keepBelow: 0, scale3: [1.6 * shF, 0.85 * shF, 0.85 * shF], pos: [0, -0.41 + 0.585 * 0.85 * shF / 2, 0.02] });
-        // Maintain clean procedural command throne; prevent overlapping GLB seat from blocking player view
+        // Load the regular pilot seat model (seat.glb); keep seat_v2 skipped.
+        // Hiding procedural meshes (keepBelow: 0) ensures strictly 1 single pilot seat renders.
+        nmSkin(seatGroup, 'seat', {
+          tag: 'seat',
+          yaw: -Math.PI / 2,
+          keepBelow: 0,
+          scale: seS,
+          pos: [0, -0.02 + 0.135 * seS, 0]
+        }).then(skinWrap => {
+          if (skinWrap) {
+            nmHide(seatGroup, 0);
+          }
+        });
         try {
           const sz = parseFloat((new URLSearchParams(location.search)).get('seatz'));
-          seatGroup.position.z = !isNaN(sz) ? sz : 0.30;
+          seatGroup.position.z = !isNaN(sz) ? sz : 0.24;
           if (new URLSearchParams(location.search).has('noseat')) seatGroup.visible = false;
         } catch (e) { }
         window.novaHands = novaHands;
