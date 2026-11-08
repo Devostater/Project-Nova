@@ -1,4 +1,5 @@
-import * as THREE from 'three';
+// Resolved THREE from window or runtime
+const THREE = typeof window !== 'undefined' ? (window.THREE || window.nova?.THREE) : null;
 
 const IDS=['airlock','quarters','cargo','engineering','bridge'];
 let materials=null;

@@ -17248,9 +17248,225 @@ const GAME_VERSION = 'Alpha 1.4';
           x.textAlign = 'center'; npText(x, b[0], X + 140, Y + 43, 'bold 25px monospace', b[3] ? '#021019' : b[2], 250); npText(x, b[1], X + 140, Y + 76, 'bold 18px monospace', b[3] ? '#021019' : '#9fc3d8', 250); x.textAlign = 'left';
         });
       } };
-    // NOVA NET: live in-universe headlines assembled from state that already exists in the simulation.
-    // Urgent stories can route the pilot toward the event before its normal game consequence fires.
-    const NNEWS = { i: 0, read: new Set(), lastId: '' };
+    // ── NOVA NET: Talia Vance Broadcasts & Dynamic Sector Headlines ──
+    const NNEWS_TALIA_ARTICLES = [
+      {
+        id: 'talia_01_rationing',
+        tag: 'EDF RATIONING · NOVA NET',
+        speaker: 'TALIA VANCE',
+        portrait: './news/images/talia_vance.webp',
+        audio: './news/audio/ElevenLabs_audio_elevenlabs-v4_EDF Command cla_2026-11-08T06_58_38.mp3',
+        title: 'EDF ORDERS EMERGENCY CORE RATIONING',
+        deck: 'Helios Gate checkpoints requisition civilian fusion batteries under Order 14.',
+        body: [
+          'EDF High Command establishes mandatory checkpoints across all civilian lanes.',
+          'Vice Admiral Sterling cites system-wide temperature drops and priority fleet readiness.',
+          'Independent mining outposts face sub-zero blackouts as private transport is halted.'
+        ],
+        choices: [
+          { id: 'guardian', label: 'GUARDIAN [+15]', morality: 15, cr: 800, why: 'Delivered core to freezing miners' },
+          { id: 'neutral', label: 'NEUTRAL [0]', morality: 0, cr: 500, why: 'Followed EDF inspection protocol' },
+          { id: 'pirate', label: 'PIRATE [-15]', morality: -15, cr: 3500, why: 'Profited off bypass codes' }
+        ]
+      },
+      {
+        id: 'talia_02_cantina_auction',
+        tag: 'CRIME WATCH · NOVA NET',
+        speaker: 'TALIA VANCE',
+        portrait: './news/images/talia_vance.webp',
+        audio: './news/audio/ElevenLabs_audio_elevenlabs-v4_[indignant] Rat_2026-11-08T06_58_32.mp3',
+        title: 'BLACK MARKET CORE AUCTION IN CANTINA',
+        deck: 'Weapons drawn in Station Nova-1 lower promenade over scrubbed fusion batteries.',
+        body: [
+          'Tensions flare in lower concourse as an unflagged hauler auctions scrubbed cores.',
+          'Station security forced to deploy stun-fields to prevent an all-out firefight.',
+          'Outlaw brokers offer exorbitant bounties for raw heat radiators.'
+        ],
+        choices: [
+          { id: 'guardian', label: 'GUARDIAN [+15]', morality: 15, cr: 600, why: 'Reinforced station civilian warmth' },
+          { id: 'neutral', label: 'NEUTRAL [0]', morality: 0, cr: 0, why: 'Kept core for ship performance' },
+          { id: 'pirate', label: 'PIRATE [-15]', morality: -15, cr: 4000, why: 'Hijacked black market cargo' }
+        ]
+      },
+      {
+        id: 'talia_03_corsair_line',
+        tag: 'CORSAIR FRONT · NOVA NET',
+        speaker: 'JAX RAWLINS',
+        portrait: './news/images/jax_rawlins.webp',
+        audio: './news/audio/ElevenLabs_audio_elevenlabs-v4_Because the Cor_2026-11-08T06_58_31.mp3',
+        title: 'CORSAIR RAIDERS HIT REEF CONVOYS',
+        deck: 'Armed skirmishes erupt in Valkyrie sector as outlaws contest fuel routes.',
+        body: [
+          'Jax Rawlins: "When the universe goes cold, everybody is a pirate to survive."',
+          'Starlifter freighters report heavy torpedo ambushes near outer asteroid ring.',
+          'Pirate transponders are active across the Reef.'
+        ],
+        choices: [
+          { id: 'guardian', label: 'GUARDIAN [+15]', morality: 15, cr: 1200, why: 'Protected civilian convoy from raiders' },
+          { id: 'neutral', label: 'NEUTRAL [0]', morality: 0, cr: 1500, why: 'Neutral salvager in crossfire' },
+          { id: 'pirate', label: 'PIRATE [-15]', morality: -15, cr: 5000, why: 'Plundered convoy fuel stores' }
+        ]
+      },
+      {
+        id: 'talia_04_sector9_anomaly',
+        tag: 'DEEP SPACE · NOVA NET',
+        speaker: 'TALIA VANCE',
+        portrait: './news/images/talia_vance.webp',
+        audio: './news/audio/ElevenLabs_audio_elevenlabs-v4_Speaking of ano_2026-11-08T06_58_39.mp3',
+        title: 'AUTONOMOUS DERELICTS AWAKEN IN SECTOR 9',
+        deck: 'Independent pilots detect strange electromagnetic signatures from ancient hulks.',
+        body: [
+          'Pejoratively dubbed "Clankers", alien machine hulks radiate emerald-spectrum power.',
+          'Unlike human ships consuming fusion cores, derelicts siphon cosmic radiation.',
+          'Science vessels urge caution as defense drones power up.'
+        ],
+        choices: [
+          { id: 'guardian', label: 'GUARDIAN [+15]', morality: 15, cr: 1000, why: 'Decoded and shared telemetry' },
+          { id: 'neutral', label: 'NEUTRAL [0]', morality: 0, cr: 500, why: 'Avoided provoking alien guardians' },
+          { id: 'pirate', label: 'PIRATE [-15]', morality: -15, cr: 4500, why: 'Stripped alien drone tech by force' }
+        ]
+      },
+      {
+        id: 'talia_05_cold_harbor',
+        tag: 'HUMANITARIAN · NOVA NET',
+        speaker: 'TALIA VANCE',
+        portrait: './news/images/talia_vance.webp',
+        audio: './news/audio/ElevenLabs_audio_elevenlabs-v4_[low, ominous] _2026-11-08T06_58_46.mp3',
+        title: 'REFUGEE FLOTILLA STRANDED IN SUB-ZERO VOID',
+        deck: 'Twelve hundred civilians face freezing cabins after total propulsion blackout.',
+        body: [
+          'Mining transports from abandoned lunar colony Cold Harbor broadcast urgent SOS.',
+          'Cabin temperatures plummeting rapidly toward absolute zero.',
+          'Requesting emergency escorts and thermal radiator transfer.'
+        ],
+        choices: [
+          { id: 'guardian', label: 'GUARDIAN [+15]', morality: 15, cr: 700, why: 'Saved Cold Harbor refugee flotilla' },
+          { id: 'neutral', label: 'NEUTRAL [0]', morality: 0, cr: 400, why: 'Relayed emergency coordinates' },
+          { id: 'pirate', label: 'PIRATE [-15]', morality: -15, cr: 6000, why: 'Extorted refugees in crisis' }
+        ]
+      },
+      {
+        id: 'talia_06_sign_off',
+        tag: 'SIGN-OFF · NOVA NET',
+        speaker: 'TALIA VANCE',
+        portrait: './news/images/talia_vance.webp',
+        audio: './news/audio/sign_off_vance.mp3',
+        title: 'TALIA VANCE SIGN-OFF: WATCH YOUR VECTORS',
+        deck: 'Talia Vance signs off from Station Nova-1 neutral broadcast relay.',
+        body: [
+          'Talia Vance: "Watch your vectors, pilots. Every delivery has a destination."',
+          '"Every choice has a cost. The sector remembers."',
+          'Nova Net returns after this sector beacon telemetry report.'
+        ],
+        choices: [
+          { id: 'guardian', label: 'GUARDIAN [+15]', morality: 15, cr: 1000, why: 'Vowed protection to the frontier' },
+          { id: 'neutral', label: 'NEUTRAL [0]', morality: 0, cr: 1000, why: 'Maintained independent stance' },
+          { id: 'pirate', label: 'PIRATE [-15]', morality: -15, cr: 3000, why: 'Broadcast outlaw manifesto' }
+        ]
+      },
+      {
+        id: 'talia_07_admiral_voss',
+        tag: 'ACT 2 INTEL · NOVA NET',
+        speaker: 'TALIA VANCE',
+        portrait: './news/images/talia_vance.webp',
+        audio: './news/audio/ElevenLabs_audio_elevenlabs2.mp3',
+        title: 'GHOST SIGNAL CONFIRMED: ADMIRAL VOSS',
+        deck: 'Smuggler haven decrypts encrypted EDF command carrier transponder.',
+        body: [
+          'Ghost signals originating from dead fleet graveyard match missing flagship.',
+          'Rumors spread of high-ranking defection and hidden core caches.',
+          'Both Fleet and pirate syndicates converge on the sector.'
+        ],
+        choices: [
+          { id: 'guardian', label: 'GUARDIAN [+15]', morality: 15, cr: 1500, why: 'Shared intel with wingman' },
+          { id: 'neutral', label: 'NEUTRAL [0]', morality: 0, cr: 800, why: 'Kept carrier coordinates confidential' },
+          { id: 'pirate', label: 'PIRATE [-15]', morality: -15, cr: 7500, why: 'Sold flagship coordinates to pirates' }
+        ]
+      },
+      {
+        id: 'talia_08_chronos_reckoning',
+        tag: 'ACT 3 CLIMAX · NOVA NET',
+        speaker: 'TALIA VANCE',
+        portrait: './news/images/talia_vance.webp',
+        audio: './news/audio/ElevenLabs_audio_elevenlabs3.mp3',
+        title: 'MIND SPACE CONTACT: THE SECTOR RECKONING',
+        deck: 'Something answered in deep space. A living consciousness awakens.',
+        body: [
+          'Outer sensor arrays overwhelmed by harmonious telepathic frequencies.',
+          'The entire frontier faces its final moral alignment.',
+          'Pilots decide the fate of humanity\'s thermal legacy.'
+        ],
+        choices: [
+          { id: 'guardian', label: 'GUARDIAN [+15]', morality: 15, cr: 5000, why: 'United the sector in warmth' },
+          { id: 'neutral', label: 'NEUTRAL [0]', morality: 0, cr: 2500, why: 'Navigated surviving trajectory' },
+          { id: 'pirate', label: 'PIRATE [-15]', morality: -15, cr: 20000, why: 'Claimed total energy supremacy' }
+        ]
+      }
+    ];
+
+    const NNEWS = {
+      i: 0,
+      read: new Set(),
+      chosen: {},
+      lastId: '',
+      audio: null,
+      playingId: null,
+      portraits: {}
+    };
+
+    function nnewsGetPortrait(url) {
+      if (!NNEWS.portraits[url]) {
+        const img = new Image();
+        img.src = url;
+        NNEWS.portraits[url] = img;
+      }
+      return NNEWS.portraits[url];
+    }
+
+    function nnewsToggleVoice(article) {
+      if (!article || !article.audio) return;
+      if (NNEWS.playingId === article.id && NNEWS.audio && !NNEWS.audio.paused) {
+        NNEWS.audio.pause();
+        NNEWS.playingId = null;
+        if (typeof showToast === 'function') showToast('■ VOICE BROADCAST STOPPED', 1500, '#88aacc');
+      } else {
+        if (NNEWS.audio) { NNEWS.audio.pause(); }
+        NNEWS.audio = new Audio(article.audio);
+        const m = (window.NOPT && window.NOPT.o && window.NOPT.o.master !== undefined) ? window.NOPT.o.master : 1.0;
+        const v = (window.NOPT && window.NOPT.o && window.NOPT.o.voice !== undefined) ? window.NOPT.o.voice : 0.8;
+        NNEWS.audio.volume = Math.max(0, Math.min(1, m * v * 1.2));
+        NNEWS.audio.play().catch(() => {});
+        NNEWS.playingId = article.id;
+        NNEWS.audio.onended = () => { NNEWS.playingId = null; const P = NP.panels[0]; if (P) P.drawT = 0; };
+        if (typeof showToast === 'function') showToast('▶ PLAYING: ' + article.speaker + ' BROADCAST', 2200, '#00e5ff');
+      }
+      const P = NP.panels[0]; if (P) P.drawT = 0;
+    }
+
+    function nnewsPickChoice(article, choiceIdx) {
+      if (!article || !article.choices || !article.choices[choiceIdx]) return;
+      const c = article.choices[choiceIdx];
+      if (NNEWS.chosen[article.id] !== undefined) {
+        if (typeof showToast === 'function') showToast('CHOICE ALREADY COMMITTED FOR THIS BROADCAST', 1800, '#ffd24a');
+        return;
+      }
+      NNEWS.chosen[article.id] = choiceIdx;
+      if (window.novaMorality && window.novaMorality.add) {
+        window.novaMorality.add(c.morality, c.why);
+      }
+      if (c.cr) {
+        bankCredits = (bankCredits || 0) + c.cr;
+        try { if (typeof novaSave13 === 'function') novaSave13(); } catch(e){}
+      }
+      try {
+        if (sound && sound.playSample) sound.playSample('./sfx/ui_chirp.mp3', 0.8);
+        else if (sound && sound.beep) sound.beep(1100, 0.08);
+      } catch(e){}
+      const tag = c.morality > 0 ? '+GUARDIAN' : (c.morality < 0 ? '+PIRATE' : '+NEUTRAL');
+      if (typeof showToast === 'function') showToast(tag + ' | ' + c.desc + (c.cr ? ' (+' + c.cr + ' CR)' : ''), 3000, c.morality > 0 ? '#33ff99' : (c.morality < 0 ? '#ff3355' : '#00e5ff'));
+      const P = NP.panels[0]; if (P) P.drawT = 0;
+    }
+
     function nnewsLock(name, obj, type, hostile) {
       if (!obj) { showToast('That contact is no longer on sensors.', 1800, '#88aacc'); return; }
       try {
@@ -17262,6 +17478,36 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     function nnewsItems() {
       const out = [], add = q => out.push(q);
+      NNEWS_TALIA_ARTICLES.forEach(a => {
+        add({
+          id: a.id,
+          tag: a.tag,
+          c: a.id.includes('corsair') ? '#ff5544' : (a.id.includes('anomaly') ? '#b266ff' : '#00e5ff'),
+          title: a.title,
+          deck: a.deck,
+          body: a.body,
+          action: (NNEWS.playingId === a.id) ? '■ STOP VOICE' : '▶ VOICE',
+          article: a,
+          fn: () => nnewsToggleVoice(a)
+        });
+      });
+      add({
+        id: 'deep-cold-dispatch-ep01',
+        tag: 'BROADCAST · NOVA NET',
+        c: '#00e5ff',
+        title: 'DEEP COLD DISPATCH: EP. 01',
+        deck: 'Talia Vance and Jax Rawlins on EDF core rationing, outer rim freeze, and Sector 9 anomalies.',
+        body: [
+          'EDF checkpoints seize civilian fusion batteries under Emergency Order 14.',
+          'System temperatures drop another 2 degrees along the outer rim.',
+          'Talia Vance: "Watch your vectors, pilots. Every delivery has a destination."'
+        ],
+        action: 'WATCH VIDEO',
+        video: 'deep_cold_dispatch_ep01',
+        fn: () => {
+          if (window.novaWatchVideo) window.novaWatchVideo('deep_cold_dispatch_ep01');
+        }
+      });
       const fr = (typeof cargoFreighters !== 'undefined' && cargoFreighters) ? cargoFreighters[0] : null;
       if (novaMayday && fr) add({ id: 'mayday', tag: 'BREAKING · ' + Math.max(0, Math.ceil(novaMayday.t)) + ' S', c: '#ff4455',
         title: 'FREIGHTER MAYDAY ON LOCAL BAND', deck: 'Starlifter-7 reports a stalled reactor and requests immediate assistance.',
@@ -17310,15 +17556,55 @@ const GAME_VERSION = 'Alpha 1.4';
         const first = nnewsFirst(); L.slice(first, first + 6).forEach((a, i) => { const Y = 94 + i * 42, on = first + i === NNEWS.i;
           x.fillStyle = on ? 'rgba(102,230,255,0.20)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(14, Y, 338, 39);
           if (!NNEWS.read.has(a.id)) { x.fillStyle = a.c; x.beginPath(); x.arc(26, Y + 19, 5, 0, 7); x.fill(); }
-          npText(x, a.title, 38, Y + 26, 'bold 17px monospace', on ? '#ffffff' : a.c, 304);
+          npText(x, a.title, 38, Y + 26, 'bold 16px monospace', on ? '#ffffff' : a.c, 304);
         });
         x.fillStyle = 'rgba(102,230,255,0.35)'; x.fillRect(370, 54, 2, 296);
-        npText(x, q.tag, 392, 82, 'bold 18px monospace', q.c, 610);
-        npText(x, q.title, 392, 122, 'bold 30px monospace', '#ffffff', 610);
-        x.font = '20px sans-serif'; x.fillStyle = '#cfefff'; let y = 158, line = '';
-        const write = text => { String(text).split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 600 && line) { if (y < 318) x.fillText(line, 392, y); y += 25; line = w; } else line = t; }); if (line && y < 318) { x.fillText(line, 392, y); y += 30; line = ''; } };
-        write(q.deck); (q.body || []).forEach(write);
-        x.textAlign = 'right'; npText(x, `${NNEWS.i + 1} / ${L.length}`, 1004, 338, 'bold 18px monospace', '#7fb6d0'); x.textAlign = 'left';
+
+        // Portrait on right side
+        const art = q.article;
+        if (art && art.portrait) {
+          const img = nnewsGetPortrait(art.portrait);
+          if (img && img.complete) {
+            x.drawImage(img, 850, 58, 140, 140);
+            x.strokeStyle = NNEWS.playingId === q.id ? '#00ffcc' : 'rgba(102,230,255,0.6)';
+            x.lineWidth = 3;
+            x.strokeRect(850, 58, 140, 140);
+          }
+          // On air badge
+          x.fillStyle = NNEWS.playingId === q.id ? '#00ffcc' : 'rgba(10,30,45,0.85)';
+          x.fillRect(850, 202, 140, 24);
+          x.textAlign = 'center';
+          npText(x, NNEWS.playingId === q.id ? '▶ ON AIR · VOICE' : (art.speaker || 'TALIA VANCE'), 920, 218, 'bold 12px monospace', NNEWS.playingId === q.id ? '#021019' : '#00e5ff', 130);
+          x.textAlign = 'left';
+        }
+
+        npText(x, q.tag, 392, 80, 'bold 17px monospace', q.c, 440);
+        npText(x, q.title, 392, 114, 'bold 24px monospace', '#ffffff', 440);
+        x.font = '18px sans-serif'; x.fillStyle = '#cfefff'; let y = 144, line = '';
+        const write = text => { String(text).split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 440 && line) { if (y < 230) x.fillText(line, 392, y); y += 22; line = w; } else line = t; }); if (line && y < 230) { x.fillText(line, 392, y); y += 24; line = ''; } };
+        write(q.deck); (q.body || []).slice(0, 2).forEach(write);
+
+        // 3 Interactive Morality Choice Buttons
+        if (art && art.choices && art.choices.length) {
+          x.fillStyle = 'rgba(102,230,255,0.2)'; x.fillRect(392, 236, 608, 1);
+          const chosen = NNEWS.chosen[art.id];
+          const cols = ['#33ff99', '#00e5ff', '#ff3355'];
+          art.choices.forEach((c, idx) => {
+            const bx = 392 + idx * 206, by = 246, bw = 196, bh = 54;
+            const isPicked = (chosen === idx);
+            x.fillStyle = isPicked ? cols[idx] : 'rgba(8,32,48,0.85)';
+            x.fillRect(bx, by, bw, bh);
+            x.strokeStyle = cols[idx];
+            x.lineWidth = isPicked ? 3 : 1.5;
+            x.strokeRect(bx, by, bw, bh);
+            x.textAlign = 'center';
+            npText(x, c.label, bx + bw / 2, by + 22, 'bold 14px monospace', isPicked ? '#05101a' : cols[idx], bw - 8);
+            npText(x, isPicked ? '✓ COMMITTED' : c.desc, bx + bw / 2, by + 42, 'bold 11px monospace', isPicked ? '#05101a' : '#88aacc', bw - 8);
+            x.textAlign = 'left';
+          });
+        }
+
+        x.textAlign = 'right'; npText(x, `${NNEWS.i + 1} / ${L.length}`, 1004, 334, 'bold 17px monospace', '#7fb6d0'); x.textAlign = 'left';
       } };
     const NP_OBJ = { name: 'OBJECTIVE', c: '#ffcc00', hint: 'ROUTE warps you to the objective when the route is known \u00b7 the compass diamond points to it',
       row: () => { try { nsObjectivePick(); } catch (e) { } },
@@ -17719,7 +18005,28 @@ const GAME_VERSION = 'Alpha 1.4';
           }
         }
         else if (T === NP_CREW_TAB) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) NP_CREW_TAB.row(P, r); }
-        else if (T === NP_NEWS && G.x0 < 360) { const r = Math.floor((G.y0 - 94) / 42); if (r >= 0 && r < Math.min(6, nnewsItems().length)) nnewsSelect(nnewsFirst() + r); }
+        else if (T === NP_NEWS) {
+          if (G.x0 < 360) {
+            const r = Math.floor((G.y0 - 94) / 42);
+            if (r >= 0 && r < Math.min(6, nnewsItems().length)) nnewsSelect(nnewsFirst() + r);
+          } else if (G.x0 >= 850 && G.x0 <= 990 && G.y0 >= 58 && G.y0 <= 226) {
+            // Tap portrait to toggle voice
+            const q = nnewsItems()[NNEWS.i];
+            if (q && q.article) nnewsToggleVoice(q.article);
+          } else if (G.y0 >= 246 && G.y0 <= 300) {
+            // Tap one of the 3 morality choices
+            const q = nnewsItems()[NNEWS.i];
+            if (q && q.article && q.article.choices) {
+              for (let idx = 0; idx < 3; idx++) {
+                const bx = 392 + idx * 206, bw = 196;
+                if (G.x0 >= bx && G.x0 <= bx + bw) {
+                  nnewsPickChoice(q.article, idx);
+                  break;
+                }
+              }
+            }
+          }
+        }
         else if (T === NP_CARGO) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) { NP_CARGO.row(P, r); P.drawT = 0; } }
         else if (T === NP_WARP) { if (G.x0 < 140) npWarpStep(-1); else if (G.x0 > 884) npWarpStep(1); }
         else if (T === NP_CHAT) {

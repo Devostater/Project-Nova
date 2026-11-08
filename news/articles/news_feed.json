@@ -1,131 +1,349 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "network": "Nova Net & Comms Relay",
-  "description": "In-universe dynamic news feed and faction drama bulletins for Project Nova",
+  "description": "Dynamic in-universe news feed, Talia Vance broadcasts, and moral choice tree for Project Nova",
   "articles": [
     {
-      "id": "art_001",
-      "headline": "EDF ORDERS MANDATORY CORE SURRENDER AT HELIOS GATE",
-      "category": "MILITARY",
-      "timestamp": "CYCLE 844.12",
-      "network": "Nova Net",
+      "id": "talia_01_rationing",
+      "tag": "EDF RATIONING · NOVA NET",
+      "speaker": "TALIA VANCE",
       "reporter": "Talia Vance",
-      "image": "art_src/news/article_02_edf_blockade.png",
-      "audio": "public/news/audio/newsflash_edf_01.mp3",
-      "audioDuration": 25,
-      "teaser": "Military checkpoints establish total embargo on civilian fusion battery movement.",
-      "body": "HELIOS REACH — Earth Defense Fleet Command has cordoned off the Helios Warp Corridor, boarding all incoming private freighters and impounding class-three thermal containment units. Vice Admiral Sterling cited 'unprecedented solar degradation and extreme military operational necessity'.",
+      "portrait": "./news/images/talia_vance.webp",
+      "audio": "./news/audio/ElevenLabs_audio_elevenlabs-v4_EDF Command cla_2026-11-08T06_58_38.mp3",
+      "audioDuration": 18,
+      "headline": "EDF ORDERS EMERGENCY CORE RATIONING",
+      "title": "EDF ORDERS EMERGENCY CORE RATIONING",
+      "deck": "Helios Gate checkpoints requisition civilian fusion batteries under Order 14.",
+      "body": [
+        "EDF High Command establishes mandatory checkpoints across all civilian lanes.",
+        "Vice Admiral Sterling cites system-wide temperature drops and priority fleet readiness.",
+        "Independent mining outposts face sub-zero blackouts as private transport is halted."
+      ],
       "choices": [
         {
-          "label": "Comply & Submit to Inspection",
+          "id": "guardian",
+          "label": "GUARDIAN [+15]",
+          "desc": "Smuggle core to Hab Pod 4",
           "morality": 15,
-          "faction": "EDF",
-          "reward": "EDF Sector Clearance"
+          "credits": 800,
+          "why": "Delivered life-saving core to freezing miners"
         },
         {
-          "label": "Smuggle Core to Hab Pod 4",
-          "morality": 10,
-          "faction": "Civilians",
-          "reward": "Discounted Station Upgrades"
-        },
-        {
-          "label": "Sell Gate Intel to Corsairs",
-          "morality": -25,
-          "faction": "Pirates",
-          "reward": "+15,000 Credits"
-        }
-      ]
-    },
-    {
-      "id": "art_002",
-      "headline": "BLACK MARKET HEAT CORE AUCTION SPARKS CANTINA STANDOFF",
-      "category": "CRIME",
-      "timestamp": "CYCLE 844.08",
-      "network": "Independent Comms",
-      "reporter": "Anonymous",
-      "image": "art_src/news/article_05_cantina_standoff.png",
-      "audio": "public/news/audio/podcast_ep01_deep_cold.mp3",
-      "audioDuration": 120,
-      "teaser": "Weapons drawn in Station Nova-1 lower promenade over salvage from the 'Meridian'.",
-      "body": "STATION NOVA-1 — Tensions flared in the lower cantina concourse last night as an unflagged smuggler attempted to auction a high-yield fusion core with scrubbed serial numbers. Eyewitnesses report drawing of weapons before station security intervened.",
-      "choices": [
-        {
-          "label": "Buy & Donate Core to Station Life Support",
-          "morality": 20,
-          "faction": "Nova-1",
-          "reward": "Station Shield Assist"
-        },
-        {
-          "label": "Install Core in Own Fighter",
+          "id": "neutral",
+          "label": "NEUTRAL [0]",
+          "desc": "Comply with military inspection",
           "morality": 0,
-          "faction": "Independent",
-          "reward": "+35% Engine Capacitor Rate"
+          "credits": 500,
+          "why": "Followed EDF inspection protocol"
         },
         {
-          "label": "Ambush the Buyer in Orbit",
-          "morality": -30,
-          "faction": "Pirates",
-          "reward": "Loot Core + Salvage Pods"
-        }
-      ]
-    },
-    {
-      "id": "art_003",
-      "headline": "DERELICT ALIEN MEGASHIP ACTIVATES IN FORBIDDEN NEBULA",
-      "category": "ANOMALY",
-      "timestamp": "CYCLE 843.95",
-      "network": "Deep Orbit Science",
-      "reporter": "Dr. Sarah Chen",
-      "image": "art_src/news/article_04_alien_awakening.png",
-      "audio": "public/news/audio/radio_corsair_ep04.mp3",
-      "audioDuration": 50,
-      "teaser": "Ancient automaton swarm vessels emit high-frequency green resonance.",
-      "body": "THE PERIMETER — Deep range sensor arrays have detected massive energy surges inside the Azure Nebular Veil. Long-dormant automaton ships—pejoratively nicknamed 'Clankers'—have begun radiating coherent emerald-spectrum energy.",
-      "choices": [
-        {
-          "label": "Transmit Non-Hostile Scan Pings",
-          "morality": 10,
-          "faction": "Independent",
-          "reward": "Alien Decryption Cipher"
-        },
-        {
-          "label": "Harvest Drone Supercapacitors",
-          "morality": -10,
-          "faction": "Scavengers",
-          "reward": "Rare Exotic Tech"
-        }
-      ]
-    },
-    {
-      "id": "art_004",
-      "headline": "STRANDED HABITAT FLOTILLA BROADCASTS SOS IN SUB-ZERO VOID",
-      "category": "EMERGENCY",
-      "timestamp": "CYCLE 843.80",
-      "network": "Mayday Relay",
-      "reporter": "Emergency Services",
-      "image": "art_src/news/article_07_refugee_flotilla.png",
-      "audio": "public/news/audio/newsflash_nova1_02.mp3",
-      "audioDuration": 30,
-      "teaser": "Twelve hundred refugees face life support freezeout following engine cascade failure.",
-      "body": "OUTER DRIFT — A makeshift flotilla of seven converted mining freighters carrying twelve hundred civilians from the abandoned lunar colony 'Cold Harbor' has experienced total engine failure. Cabin temperatures are plummeting toward zero.",
-      "choices": [
-        {
-          "label": "Deliver Reserve Heat Core",
-          "morality": 35,
-          "faction": "Civilians",
-          "reward": "Loyal Wingman Recruit"
-        },
-        {
-          "label": "Fly Defense Escort Against Pirates",
-          "morality": 15,
-          "faction": "Guardians",
-          "reward": "+8,000 Credits Bounty"
-        },
-        {
-          "label": "Ignore Distress Call",
+          "id": "pirate",
+          "label": "PIRATE [-15]",
+          "desc": "Sell gate bypass codes to Corsairs",
           "morality": -15,
-          "faction": "Neutral",
-          "reward": "None"
+          "credits": 3500,
+          "why": "Profited off black market bypass codes"
+        }
+      ]
+    },
+    {
+      "id": "talia_02_cantina_auction",
+      "tag": "CRIME WATCH · NOVA NET",
+      "speaker": "TALIA VANCE",
+      "reporter": "Talia Vance",
+      "portrait": "./news/images/talia_vance.webp",
+      "audio": "./news/audio/ElevenLabs_audio_elevenlabs-v4_[indignant] Rat_2026-11-08T06_58_32.mp3",
+      "audioDuration": 22,
+      "headline": "BLACK MARKET CORE AUCTION IN CANTINA",
+      "title": "BLACK MARKET CORE AUCTION IN CANTINA",
+      "deck": "Weapons drawn in Station Nova-1 lower promenade over scrubbed fusion batteries.",
+      "body": [
+        "Tensions flare in the lower concourse as an unflagged hauler auctions scrubbed cores.",
+        "Station security forced to deploy stun-fields to prevent an all-out firefight.",
+        "Outlaw brokers offer exorbitant bounties for raw heat radiators."
+      ],
+      "choices": [
+        {
+          "id": "guardian",
+          "label": "GUARDIAN [+15]",
+          "desc": "Donate core to station life support",
+          "morality": 15,
+          "credits": 600,
+          "why": "Reinforced station civilian warmth"
+        },
+        {
+          "id": "neutral",
+          "label": "NEUTRAL [0]",
+          "desc": "Install core into ship capacitor",
+          "morality": 0,
+          "credits": 0,
+          "why": "Kept core for ship performance"
+        },
+        {
+          "id": "pirate",
+          "label": "PIRATE [-15]",
+          "desc": "Ambush buyer in lower docks",
+          "morality": -15,
+          "credits": 4000,
+          "why": "Hijacked black market buyer cargo"
+        }
+      ]
+    },
+    {
+      "id": "talia_03_corsair_line",
+      "tag": "CORSAIR FRONT · NOVA NET",
+      "speaker": "JAX RAWLINS",
+      "reporter": "Jax \"Rust\" Rawlins",
+      "portrait": "./news/images/jax_rawlins.webp",
+      "audio": "./news/audio/ElevenLabs_audio_elevenlabs-v4_Because the Cor_2026-11-08T06_58_31.mp3",
+      "audioDuration": 19,
+      "headline": "CORSAIR RAIDERS HIT REEF CONVOYS",
+      "title": "CORSAIR RAIDERS HIT REEF CONVOYS",
+      "deck": "Armed skirmishes erupt in Valkyrie sector as outlaws contest fuel routes.",
+      "body": [
+        "Jax Rawlins: \"When the universe goes cold, everybody is a pirate to survive.\"",
+        "Starlifter freighters report heavy torpedo ambushes near the outer asteroid ring.",
+        "Pirate transponders are active across the Reef."
+      ],
+      "choices": [
+        {
+          "id": "guardian",
+          "label": "GUARDIAN [+15]",
+          "desc": "Fly combat escort for freighters",
+          "morality": 15,
+          "credits": 1200,
+          "why": "Protected civilian convoy from raiders"
+        },
+        {
+          "id": "neutral",
+          "label": "NEUTRAL [0]",
+          "desc": "Salvage wreckage after battle",
+          "morality": 0,
+          "credits": 1500,
+          "why": "Neutral salvager in the crossfire"
+        },
+        {
+          "id": "pirate",
+          "label": "PIRATE [-15]",
+          "desc": "Lead strike wing on fuel barges",
+          "morality": -15,
+          "credits": 5000,
+          "why": "Plundered convoy fuel stores"
+        }
+      ]
+    },
+    {
+      "id": "talia_04_sector9_anomaly",
+      "tag": "DEEP SPACE · NOVA NET",
+      "speaker": "TALIA VANCE",
+      "reporter": "Talia Vance",
+      "portrait": "./news/images/talia_vance.webp",
+      "audio": "./news/audio/ElevenLabs_audio_elevenlabs-v4_Speaking of ano_2026-11-08T06_58_39.mp3",
+      "audioDuration": 21,
+      "headline": "AUTONOMOUS DERELICTS AWAKEN IN SECTOR 9",
+      "title": "AUTONOMOUS DERELICTS AWAKEN IN SECTOR 9",
+      "deck": "Independent pilots detect strange electromagnetic signatures from ancient hulks.",
+      "body": [
+        "Pejoratively dubbed \"Clankers\", alien machine hulks radiate emerald-spectrum power.",
+        "Unlike human ships consuming fusion cores, the derelicts siphon cosmic radiation.",
+        "Science vessels urge caution as defense drones power up."
+      ],
+      "choices": [
+        {
+          "id": "guardian",
+          "label": "GUARDIAN [+15]",
+          "desc": "Scan and broadcast telemetry safely",
+          "morality": 15,
+          "credits": 1000,
+          "why": "Decoded and shared anomaly telemetry"
+        },
+        {
+          "id": "neutral",
+          "label": "NEUTRAL [0]",
+          "desc": "Log coordinates and jump away",
+          "morality": 0,
+          "credits": 500,
+          "why": "Avoided provoking alien guardians"
+        },
+        {
+          "id": "pirate",
+          "label": "PIRATE [-15]",
+          "desc": "Blast scout drones for hyper-capacitors",
+          "morality": -15,
+          "credits": 4500,
+          "why": "Stripped alien drone tech by force"
+        }
+      ]
+    },
+    {
+      "id": "talia_05_cold_harbor",
+      "tag": "HUMANITARIAN · NOVA NET",
+      "speaker": "TALIA VANCE",
+      "reporter": "Talia Vance",
+      "portrait": "./news/images/talia_vance.webp",
+      "audio": "./news/audio/ElevenLabs_audio_elevenlabs-v4_[low, ominous] _2026-11-08T06_58_46.mp3",
+      "audioDuration": 24,
+      "headline": "REFUGEE FLOTILLA STRANDED IN SUB-ZERO VOID",
+      "title": "REFUGEE FLOTILLA STRANDED IN SUB-ZERO VOID",
+      "deck": "Twelve hundred civilians face freezing cabins after total propulsion blackout.",
+      "body": [
+        "Mining transports from abandoned lunar colony Cold Harbor broadcast urgent SOS.",
+        "Cabin temperatures plummeting rapidly toward absolute zero.",
+        "Requesting emergency escorts and thermal radiator transfer."
+      ],
+      "choices": [
+        {
+          "id": "guardian",
+          "label": "GUARDIAN [+15]",
+          "desc": "Transfer reserve heat core to hab",
+          "morality": 15,
+          "credits": 700,
+          "why": "Saved Cold Harbor refugee flotilla"
+        },
+        {
+          "id": "neutral",
+          "label": "NEUTRAL [0]",
+          "desc": "Relay distress coordinates to fleet",
+          "morality": 0,
+          "credits": 400,
+          "why": "Relayed emergency coordinates"
+        },
+        {
+          "id": "pirate",
+          "label": "PIRATE [-15]",
+          "desc": "Extort fuel payment before assisting",
+          "morality": -15,
+          "credits": 6000,
+          "why": "Extorted refugees in crisis"
+        }
+      ]
+    },
+    {
+      "id": "talia_06_sign_off",
+      "tag": "SIGN-OFF · NOVA NET",
+      "speaker": "TALIA VANCE",
+      "reporter": "Talia Vance",
+      "portrait": "./news/images/talia_vance.webp",
+      "audio": "./news/audio/sign_off_vance.mp3",
+      "audioDuration": 20,
+      "headline": "TALIA VANCE SIGN-OFF: WATCH YOUR VECTORS",
+      "title": "TALIA VANCE SIGN-OFF: WATCH YOUR VECTORS",
+      "deck": "Talia Vance signs off from Station Nova-1 neutral broadcast relay.",
+      "body": [
+        "Talia Vance: \"Watch your vectors, pilots. Every delivery has a destination.\"",
+        "\"Every choice has a cost. The sector remembers.\"",
+        "Nova Net returns after this sector beacon telemetry report."
+      ],
+      "choices": [
+        {
+          "id": "guardian",
+          "label": "GUARDIAN [+15]",
+          "desc": "Pledge defense to independent lanes",
+          "morality": 15,
+          "credits": 1000,
+          "why": "Vowed protection to the frontier"
+        },
+        {
+          "id": "neutral",
+          "label": "NEUTRAL [0]",
+          "desc": "Maintain neutral mercenary status",
+          "morality": 0,
+          "credits": 1000,
+          "why": "Maintained independent stance"
+        },
+        {
+          "id": "pirate",
+          "label": "PIRATE [-15]",
+          "desc": "Broadcast defiance on pirate radio",
+          "morality": -15,
+          "credits": 3000,
+          "why": "Broadcast outlaw manifesto"
+        }
+      ]
+    },
+    {
+      "id": "talia_07_admiral_voss",
+      "tag": "ACT 2 INTEL · NOVA NET",
+      "speaker": "TALIA VANCE",
+      "reporter": "Talia Vance",
+      "portrait": "./news/images/talia_vance.webp",
+      "audio": "./news/audio/ElevenLabs_audio_elevenlabs2.mp3",
+      "audioDuration": 21,
+      "headline": "GHOST SIGNAL CONFIRMED: ADMIRAL VOSS",
+      "title": "GHOST SIGNAL CONFIRMED: ADMIRAL VOSS",
+      "deck": "Smuggler haven decrypts encrypted EDF command carrier transponder.",
+      "body": [
+        "Ghost signals originating from dead fleet graveyard match missing flagship.",
+        "Rumors spread of high-ranking defection and hidden core caches.",
+        "Both Fleet and pirate syndicates converge on the sector."
+      ],
+      "choices": [
+        {
+          "id": "guardian",
+          "label": "GUARDIAN [+15]",
+          "desc": "Transmit intel to Valkyrie-7",
+          "morality": 15,
+          "credits": 1500,
+          "why": "Shared strategic intel with wingman"
+        },
+        {
+          "id": "neutral",
+          "label": "NEUTRAL [0]",
+          "desc": "Keep signal data encrypted",
+          "morality": 0,
+          "credits": 800,
+          "why": "Kept carrier intel confidential"
+        },
+        {
+          "id": "pirate",
+          "label": "PIRATE [-15]",
+          "desc": "Sell carrier coordinates to Corsairs",
+          "morality": -15,
+          "credits": 7500,
+          "why": "Sold flagship coordinates to pirates"
+        }
+      ]
+    },
+    {
+      "id": "talia_08_chronos_reckoning",
+      "tag": "ACT 3 CLIMAX · NOVA NET",
+      "speaker": "TALIA VANCE",
+      "reporter": "Talia Vance",
+      "portrait": "./news/images/talia_vance.webp",
+      "audio": "./news/audio/ElevenLabs_audio_elevenlabs3.mp3",
+      "audioDuration": 25,
+      "headline": "MIND SPACE CONTACT: THE SECTOR RECKONING",
+      "title": "MIND SPACE CONTACT: THE SECTOR RECKONING",
+      "deck": "Something answered in deep space. A living consciousness awakens.",
+      "body": [
+        "Outer sensor arrays overwhelmed by harmonious telepathic frequencies.",
+        "The entire frontier faces its final moral alignment.",
+        "Pilots decide the fate of humanity's thermal legacy."
+      ],
+      "choices": [
+        {
+          "id": "guardian",
+          "label": "GUARDIAN [+15]",
+          "desc": "Harmonize cores for sector survival",
+          "morality": 15,
+          "credits": 5000,
+          "why": "United the sector in warmth"
+        },
+        {
+          "id": "neutral",
+          "label": "NEUTRAL [0]",
+          "desc": "Secure ship escape route into warp",
+          "morality": 0,
+          "credits": 2500,
+          "why": "Navigated surviving trajectory"
+        },
+        {
+          "id": "pirate",
+          "label": "PIRATE [-15]",
+          "desc": "Seize prime core conduit for yourself",
+          "morality": -15,
+          "credits": 20000,
+          "why": "Claimed total energy supremacy"
         }
       ]
     }

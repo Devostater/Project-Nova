@@ -35,3 +35,9 @@ optimize_log.txt
 __pycache__/
 *.pyc
 
+
+# Large news videos (> 100 MB exceed GitHub limits)
+public/news/video/*.mp4
+public/news/video/**/*.mp4
+news/video/*.mp4
+news/video/**/*.mp4

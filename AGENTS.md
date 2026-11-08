@@ -11,6 +11,7 @@ Key rules (full list in STATUS.md):
 - Don't read `vendor/`, `models/`, `art/`, `art_src/`, `music*/`, `android/app/build/` or `docs/archive/`.
 
 ## AI roles
+- **AI Studio / Nova News** — In-universe media, lore broadcasting hub, podcast scripts, and morality branch authoring.
 - **Claude** — Lead / integrator. Reviews, merges, updates STATUS.md.
 - **ChatGPT / Codex** — Code tasks (flight, docking, systems, modules).
 - **Antigravity (Gemini)** — Art, storyboard, small single-file work.

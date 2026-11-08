@@ -134,3 +134,49 @@ graph TD
    - *Action*: Focus on your own mission objectives.
    - *Morality Impact*: `-15` (Callous)
    - *Game Effect*: Follow-up news article reports convoy loss; derelict hulls appear as salvage later.
+
+
+---
+
+## 📰 Story Branch 5: The Outer Drift Refugee Flotilla
+* **ID**: `talia_05_cold_harbor`
+* **Speaker**: Talia Vance
+* **Audio**: `public/news/audio/ElevenLabs_audio_elevenlabs-v4_[low, ominous] _2026-11-08T06_58_46.mp3`
+* **Morality Choices**:
+  1. Guardian [+15]: Transfer reserve heat core to hab.
+  2. Neutral [0]: Relay distress coordinates to fleet.
+  3. Pirate [-15]: Extort fuel payment before assisting.
+
+---
+
+## 📰 Story Branch 6: Talia Vance Sign-Off
+* **ID**: `talia_06_sign_off`
+* **Speaker**: Talia Vance
+* **Audio**: `public/news/audio/sign_off_vance.mp3`
+* **Quote**: *"Watch your vectors, pilots. Every delivery has a destination. Every choice has a cost."*
+* **Morality Choices**:
+  1. Guardian [+15]: Pledge defense to independent lanes.
+  2. Neutral [0]: Maintain neutral mercenary status.
+  3. Pirate [-15]: Broadcast defiance on pirate radio.
+
+---
+
+## 📰 Story Branch 7: Ghost Signal & Admiral Voss
+* **ID**: `talia_07_admiral_voss`
+* **Speaker**: Talia Vance
+* **Audio**: `public/news/audio/ElevenLabs_audio_elevenlabs2.mp3`
+* **Morality Choices**:
+  1. Guardian [+15]: Transmit intel to wingman Valkyrie-7.
+  2. Neutral [0]: Keep carrier coordinates encrypted.
+  3. Pirate [-15]: Sell flagship coordinates to Corsair syndicates.
+
+---
+
+## 📰 Story Branch 8: Chronos Reckoning & Mind Space
+* **ID**: `talia_08_chronos_reckoning`
+* **Speaker**: Talia Vance
+* **Audio**: `public/news/audio/ElevenLabs_audio_elevenlabs3.mp3`
+* **Morality Choices**:
+  1. Guardian [+15]: Harmonize cores for sector survival.
+  2. Neutral [0]: Secure ship escape route into warp.
+  3. Pirate [-15]: Seize prime core conduit for energy supremacy.

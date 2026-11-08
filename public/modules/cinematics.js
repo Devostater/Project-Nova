@@ -21,7 +21,13 @@ export function init(nova = {}) {
     '../video/',
     '../public/video/',
     './video/',
-    './public/video/'
+    './public/video/',
+    'news/video/',
+    'public/news/video/',
+    '../news/video/',
+    '../public/news/video/',
+    './news/video/',
+    './public/news/video/'
   ];
 
   function getCandidateUrls(name, ext = 'mp4') {
