@@ -722,7 +722,7 @@
           Open the <b>Meta Quest Browser</b> on your headset and navigate to this live WebXR URL:
         </div>
         <div style="display: flex; gap: 8px; margin-bottom: 14px;">
-          <input type="text" id="quest-url-input" readonly value="https://ais-pre-ju7jgpdtyqtmofenwhjexo-454911322812.us-west1.run.app" style="flex: 1; background: #040d1a; border: 1px solid #00f0ff; color: #00f0ff; padding: 8px 12px; font-family: monospace; font-size: 12px; border-radius: 6px;" />
+          <input type="text" id="quest-url-input" readonly value="https://devostater.github.io/Project-Nova/" style="flex: 1; background: #040d1a; border: 1px solid #00f0ff; color: #00f0ff; padding: 8px 12px; font-family: monospace; font-size: 12px; border-radius: 6px;" />
           <button class="modal-btn" style="width: auto; margin: 0; padding: 8px 14px; font-size: 12px; border-color: #00f0ff; color: #00f0ff;" onclick="navigator.clipboard.writeText(document.getElementById('quest-url-input').value); window.showToast('Copied Quest URL!', 2000, '#00f0ff'); event.stopPropagation();">📋 COPY</button>
         </div>
 
@@ -9042,13 +9042,8 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // ── Fresh Start & Auto-Launch Support ──
     const urlParams = new URLSearchParams(window.location.search);
-    if ("getDigitalGoodsService" in window && navigator.xr) {
-      navigator.xr.isSessionSupported("immersive-vr").then((supported) => {
-        if (supported && !renderer.xr.isPresenting) {
-          startXR('immersive-vr', false);
-        }
-      }).catch(() => {});
-    } else if (urlParams.get('vr') === '1' || urlParams.get('autolaunch') === '1') {
+    // In Meta Quest / installed Horizon PWA app, prompt clean launch rather than un-gesture rejection
+    if (urlParams.get('vr') === '1' || urlParams.get('autolaunch') === '1') {
       setTimeout(() => {
         const btn = document.getElementById('btn-vr');
         if (btn) btn.click();

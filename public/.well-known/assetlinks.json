@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.azi.projectnova",
+      "sha256_cert_fingerprints": [
+        "D0:C4:39:A9:B2:94:42:6D:B7:68:29:33:C2:F5:A2:6B:B8:17:03:B5:ED:38:74:B8:31:ED:E3:5B:EE:9E:25:7E"
+      ]
+    }
+  }
+]
