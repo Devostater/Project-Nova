@@ -159,11 +159,14 @@ export function init(nova) {
   function slotOf(src){if(!src)return -1;const i=slotSource.indexOf(src);if(i>=0)return i;const s=[...(renderer?.xr?.getSession?.()?.inputSources||[])];return s.indexOf(src);}
   function stickAxes(gamepad){const a=gamepad?.axes||[];return a.length>=4?[a[a.length-2]||0,a[a.length-1]||0]:[a[0]||0,a[1]||0];}
   function dead(v,z=.17){return Math.abs(v)<z?0:v;}
+  let handGunYaw=(function(){try{const q=new URLSearchParams(location.search);if(q.has('gunyaw'))return(parseFloat(q.get('gunyaw'))||0)*Math.PI/180;}catch(_){}return Math.PI/2;})();
+  let handGunPitch=(function(){try{const q=new URLSearchParams(location.search);if(q.has('gunpitch'))return(parseFloat(q.get('gunpitch'))||0)*Math.PI/180;}catch(_){}return 0;})();
+  let handGunRoll=(function(){try{const q=new URLSearchParams(location.search);if(q.has('gunroll'))return(parseFloat(q.get('gunroll'))||0)*Math.PI/180;}catch(_){}return 0;})();
   function setWeaponParent(parent,hand=false){
     if(!parent)return;
     if(pistol.parent!==parent)parent.add(pistol);
     pistol.position.set(hand ? .035 : .015,hand ? -.035 : -.035,hand ? -.12 : -.09);
-    pistol.rotation.set(0,0,0);
+    pistol.rotation.set(hand ? handGunPitch : 0,hand ? handGunYaw : 0,hand ? handGunRoll : 0);
   }
   function aimRay(){
     camera.getWorldPosition(origin);camera.getWorldDirection(direction);
@@ -446,6 +449,7 @@ export function init(nova) {
   const off=nova.onTick?.(tick);
   const state=()=>({active,mode:options.mode||null,weaponOn,health,shield,input:session?{left:leftIsHand?'hand':leftController?'controller':'none',right:rightIsHand?'hand':rightController?'controller':'none'}:{left:'desktop',right:'desktop'},colliders:(options.colliders||[]).length,position:rig.position.toArray()});
   window.novaTest=window.novaTest||{};window.novaTest.fpsState=state;
+  window.novaTest.setGunHandRotation=(yawDeg=90,pitchDeg=0,rollDeg=0)=>{handGunYaw=yawDeg*Math.PI/180;handGunPitch=pitchDeg*Math.PI/180;handGunRoll=rollDeg*Math.PI/180;if(pistol.parent===rightHandAnchor)pistol.rotation.set(handGunPitch,handGunYaw,handGunRoll);};
   return{ready:true,enable,disable,fire,interact,damage,state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
     disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(tracerRoot);damageOverlay.remove();
     scene.remove(leftGlove);scene.remove(rightGlove);scene.remove(leftHandAnchor);scene.remove(rightHandAnchor);
