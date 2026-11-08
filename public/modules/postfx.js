@@ -58,28 +58,28 @@ export function init(nova = {}) {
 
   const PRESETS = {
     ultra: {
-      bloomStrength: 1.35,
-      bloomRadius: 0.55,
-      bloomThreshold: 0.22,
-      vignette: 0.38,
-      grain: 0.035,
-      exposure: 1.05,
+      bloomStrength: 0.38,
+      bloomRadius: 0.35,
+      bloomThreshold: 0.82,
+      vignette: 0.22,
+      grain: 0.012,
+      exposure: 1.0,
       resolutionScale: 1.0
     },
     high: {
-      bloomStrength: 0.95,
-      bloomRadius: 0.42,
-      bloomThreshold: 0.32,
-      vignette: 0.28,
-      grain: 0.02,
+      bloomStrength: 0.26,
+      bloomRadius: 0.30,
+      bloomThreshold: 0.86,
+      vignette: 0.16,
+      grain: 0.0,
       exposure: 1.0,
       resolutionScale: 1.0
     },
     mid: {
-      bloomStrength: 0.55,
-      bloomRadius: 0.32,
-      bloomThreshold: 0.45,
-      vignette: 0.18,
+      bloomStrength: 0.16,
+      bloomRadius: 0.24,
+      bloomThreshold: 0.90,
+      vignette: 0.10,
       grain: 0.0,
       exposure: 1.0,
       resolutionScale: 0.85
@@ -96,6 +96,10 @@ export function init(nova = {}) {
   };
 
   let settings = { ...PRESETS[tier] };
+  if (opts.bloom === false) settings.bloomStrength = 0;
+  if (typeof opts.bloomStrength === 'number') settings.bloomStrength = opts.bloomStrength;
+  if (typeof opts.bloomThreshold === 'number') settings.bloomThreshold = opts.bloomThreshold;
+  if (opts.vignette === false) settings.vignette = 0;
 
   // ---------- Try to load postprocessing addons ----------
   // We support several common ways the project might expose them.
@@ -288,11 +292,35 @@ export function init(nova = {}) {
     }
   }
 
+  function updateSettings(opts = {}) {
+    if (opts.bloom !== undefined) {
+      if (bloomPass) bloomPass.enabled = !!opts.bloom;
+    }
+    if (typeof opts.bloomStrength === 'number') {
+      settings.bloomStrength = Math.max(0, Math.min(2.0, opts.bloomStrength));
+      if (bloomPass) bloomPass.strength = settings.bloomStrength;
+    }
+    if (typeof opts.bloomThreshold === 'number') {
+      settings.bloomThreshold = Math.max(0, Math.min(1.0, opts.bloomThreshold));
+      if (bloomPass) bloomPass.threshold = settings.bloomThreshold;
+    }
+    if (opts.vignette !== undefined) {
+      if (vignettePass?.uniforms) {
+        vignettePass.uniforms.vignette.value = opts.vignette ? (settings.vignette || 0.2) : 0;
+      }
+    }
+  }
+
   function setQuality(newTier) {
     const t = String(newTier || '').toLowerCase();
     if (!PRESETS[t]) return;
     tier = t;
     settings = { ...PRESETS[tier] };
+    const curOpts = globalThis.NOPT?.o || {};
+    if (curOpts.bloom === false) settings.bloomStrength = 0;
+    if (typeof curOpts.bloomStrength === 'number') settings.bloomStrength = curOpts.bloomStrength;
+    if (typeof curOpts.bloomThreshold === 'number') settings.bloomThreshold = curOpts.bloomThreshold;
+    if (curOpts.vignette === false) settings.vignette = 0;
     applySettings();
     resize(); // resolution scale may have changed
     console.log(`[postfx] Quality set to ${tier}`);
@@ -356,6 +384,7 @@ export function init(nova = {}) {
     tier: () => tier,
     render,
     setQuality,
+    updateSettings,
     resize,
     dispose,
     /** Promise that resolves when addons are loaded (or failed) */

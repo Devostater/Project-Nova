@@ -66,6 +66,7 @@ export function init(nova) {
   }
   crosshairGroup.visible=false;crosshairGroup.raycast=()=>{};crosshairGroup.traverse(o=>{o.raycast=()=>{};});scene.add(crosshairGroup);
   const crosshairPos=new T.Vector3();let chLocked=false;
+  let currentLockedTargetObj=null,currentLockedPoint=new T.Vector3(),targetLocked=false;
 
   // Load the owner's full-resolution Arc-Pistol unchanged. The simple meshes above remain only
   // as an offline/loading fallback; no LOD or geometry reduction is applied to the GLB.
@@ -351,6 +352,34 @@ export function init(nova) {
     while(node&&depth++<12){if(node.userData&&node.userData[key])return node;node=node.parent;}
     return null;
   }
+  function applyDamageToTarget(hitObject,damage=25,hitInfo={}){
+    let node=hitObject,depth=0,hitApplied=false,mainTarget=null;
+    while(node&&depth++<12){
+      if(isPlayerHierarchy(node))return null;
+      if(node.userData){
+        const u=node.userData;
+        const isTarget=u.rangeTarget||u.enemy||u.fpsEnemy||u.isEnemy||u.nfUnit||
+                       (typeof u.onHit==='function')||(typeof u.takeDamage==='function')||
+                       (typeof u.damage==='function')||(typeof u.health==='number')||(typeof u.hp==='number');
+        if(isTarget){
+          if(!mainTarget)mainTarget=node;
+          if(typeof u.onHit==='function'){try{u.onHit(damage,hitInfo);hitApplied=true;}catch(_){}}
+          if(typeof u.takeDamage==='function'){try{u.takeDamage(damage,hitInfo);hitApplied=true;}catch(_){}}
+          if(typeof u.damage==='function'){try{u.damage(damage);hitApplied=true;}catch(_){}}
+          if(typeof u.health==='number'){
+            u.health=Math.max(0,u.health-damage);hitApplied=true;
+            if(u.health===0){node.visible=false;try{u.onKilled?.();}catch(_){}}
+          }
+          if(typeof u.hp==='number'){
+            u.hp=Math.max(0,u.hp-damage);hitApplied=true;
+            if(u.hp===0){node.visible=false;try{u.onKilled?.();}catch(_){}}
+          }
+        }
+      }
+      node=node.parent;
+    }
+    return hitApplied?mainTarget:null;
+  }
   function isOccluder(object){return !!findUserData(object,'fpsOccluder');}
 
   const sparkDir=new T.Vector3(),tangentA=new T.Vector3(),tangentB=new T.Vector3();
@@ -445,6 +474,8 @@ export function init(nova) {
     p.spawnPos.copy(spawnPos);
     p.dir.copy(spawnDir);
     p.vel.copy(spawnDir).multiplyScalar(48);
+    p.lockedTarget=targetLocked?currentLockedTargetObj:null;
+    p.lockedPos=targetLocked?crosshairGroup.position.clone():null;
     p.mesh.position.copy(spawnPos);
     p.mesh.quaternion.setFromUnitVectors(new T.Vector3(0,0,-1),spawnDir);
     p.mesh.visible=true;
@@ -487,19 +518,13 @@ export function init(nova) {
     try{
       scene.traverse(node=>{
         if(!node.visible||isPlayerHierarchy(node))return;
-        const target=node.userData?.rangeTarget?node:findUserData(node,'rangeTarget');
-        if(target&&target.userData){
-          const tPos=target.getWorldPosition(new T.Vector3());
-          const dist=tPos.distanceTo(pos);
-          if(dist<=6.0){
-            const dmg=Math.round(150*(1-dist/6.0));
-            if(typeof target.userData.onHit==='function'){
-              target.userData.onHit(dmg,{origin:pos.clone(),point:tPos.clone(),normal:new T.Vector3(0,1,0)});
-            }else if(typeof target.userData.health==='number'){
-              target.userData.health=Math.max(0,target.userData.health-dmg);
-              if(target.userData.health===0)target.visible=false;
-            }
-            nova.emit?.('targetHit',{target,damage:dmg,point:tPos,aoe:true});
+        const tPos=node.getWorldPosition(new T.Vector3());
+        const dist=tPos.distanceTo(pos);
+        if(dist<=6.0){
+          const dmg=Math.round(150*(1-dist/6.0));
+          const hitTarget=applyDamageToTarget(node,dmg,{origin:pos.clone(),point:tPos.clone(),normal:new T.Vector3(0,1,0)});
+          if(hitTarget){
+            nova.emit?.('targetHit',{target:hitTarget,damage:dmg,point:tPos,aoe:true});
           }
         }
       });
@@ -627,14 +652,27 @@ export function init(nova) {
       p.dist+=stepDist;
       if(p.dist>140){p.active=false;p.mesh.visible=false;continue;}
 
+      // Direct hit check for locked target
+      if(p.lockedTarget && p.lockedPos){
+        if(p.pos.distanceTo(p.lockedPos) < Math.max(0.85, stepDist * 1.5)){
+          p.active=false;p.mesh.visible=false;
+          playImpactSound();
+          hitNormal.copy(p.dir).negate();
+          const hitTarget=applyDamageToTarget(p.lockedTarget,25,{origin:p.prevPos.clone(),point:p.lockedPos.clone(),normal:hitNormal.clone()});
+          nova.emit?.('targetHit',{target:hitTarget||p.lockedTarget,damage:25,point:p.lockedPos});
+          spawnImpactVfx(p.lockedPos,hitNormal,true);
+          continue;
+        }
+      }
+
       if(stepDist>.0001){
         stepRay.set(p.prevPos,p.dir);
-        stepRay.far=stepDist;
+        stepRay.far=stepDist * 1.25;
         let rawHits=[];
         try{rawHits=stepRay.intersectObjects(scene.children,true);}catch(_){rawHits=[];}
         for(const hit of rawHits){
           if(isPlayerHierarchy(hit.object))continue;
-          if(p.dist+hit.distance<.38)continue;
+          if(p.dist<.22&&hit.distance<.22)continue;
           if(hit.object.visible===false)continue;
           if(hit.face&&hit.face.normal){
             hit.object.getWorldQuaternion(hitObjQ);
@@ -643,14 +681,10 @@ export function init(nova) {
             hitNormal.copy(p.dir).negate();
           }
 
-          const target=findUserData(hit.object,'rangeTarget');
+          const target=applyDamageToTarget(hit.object,25,{origin:p.prevPos.clone(),point:hit.point.clone(),normal:hitNormal.clone()});
           if(target){
             p.active=false;p.mesh.visible=false;
             playImpactSound();
-            const data=target.userData||{};
-            if(typeof data.onHit==='function')data.onHit(25,{origin:p.prevPos.clone(),point:hit.point.clone(),normal:hitNormal.clone()});
-            else if(typeof data.health==='number'){data.health=Math.max(0,data.health-25);if(data.health===0)target.visible=false;}
-            else target.visible=false;
             nova.emit?.('targetHit',{target,damage:25,point:hit.point});
             spawnImpactVfx(hit.point,hitNormal,true);
             break;
@@ -971,10 +1005,11 @@ export function init(nova) {
     // Update dynamic 3D crosshair at the point where the gun will hit
     if(active&&weaponOn){
       const hits=aimRay();
-      let hitDist=22,targetLocked=false;
+      let hitDist=22;targetLocked=false;currentLockedTargetObj=null;
       for(const hit of hits){
-        if(findUserData(hit.object,'rangeTarget')||findUserData(hit.object,'enemy')||findUserData(hit.object,'fpsEnemy')||findUserData(hit.object,'nfUnit')){
-          hitDist=Math.max(.2,hit.distance);targetLocked=true;break;
+        const isEnemyTarget=findUserData(hit.object,'rangeTarget')||findUserData(hit.object,'enemy')||findUserData(hit.object,'fpsEnemy')||findUserData(hit.object,'nfUnit')||findUserData(hit.object,'onHit')||findUserData(hit.object,'takeDamage')||findUserData(hit.object,'health')||findUserData(hit.object,'hp');
+        if(isEnemyTarget){
+          hitDist=Math.max(.2,hit.distance);targetLocked=true;currentLockedTargetObj=hit.object;currentLockedPoint.copy(hit.point);break;
         }
         if(isOccluder(hit.object)){
           hitDist=Math.max(.2,hit.distance);break;

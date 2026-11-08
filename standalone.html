@@ -11065,7 +11065,7 @@ const GAME_VERSION = 'Alpha 1.4';
       }
 
       // ── Procedural Synthwave BGM Audio Sequencer ──
-      if (isBgmPlaying && sound && sound.ctx && sound.ctx.state === 'running') {
+      if (isBgmPlaying && !window.novaCinematicPlaying && sound && sound.ctx && sound.ctx.state === 'running') {
         const trk = BGM_TRACKS[bgmTrackIdx];
         const stepInterval = (60 / trk.bpm) * 0.5; // Eighth-note rhythmic pulse
         if (now / 1000 - lastBgmStepTime >= stepInterval) {
@@ -17466,9 +17466,13 @@ const GAME_VERSION = 'Alpha 1.4';
       ['inv', 'Inventory', 'KeyI'], ['wing', 'Drone wing', 'KeyK'], ['talk', 'Talk to companion', 'KeyC'], ['kb', 'Comms keyboard', 'KeyT'],
       ['tgt', 'Target box', 'KeyB'], ['mr', 'MR passthrough', 'KeyP'], ['reset', 'Reset controls', 'KeyR'], ['galaxy', 'Galaxy map', 'KeyG']
     ];
-    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'ultra', forceUltra: true, deadzone: 0.12, flightMode: 'arcade', keys: {} }, wait: null, resetArm: 0 };
+    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'ultra', forceUltra: true, deadzone: 0.12, flightMode: 'arcade', bloom: true, bloomStrength: 0.35, bloomThreshold: 0.82, vignette: true, keys: {} }, wait: null, resetArm: 0, keysOpen: false };
     try { Object.assign(NOPT.o, JSON.parse(localStorage.getItem('novaOpts') || '{}')); } catch (e) { }
     if (NOPT.o.forceUltra === undefined) NOPT.o.forceUltra = true;
+    if (NOPT.o.bloom === undefined) NOPT.o.bloom = true;
+    if (NOPT.o.bloomStrength === undefined) NOPT.o.bloomStrength = 0.35;
+    if (NOPT.o.bloomThreshold === undefined) NOPT.o.bloomThreshold = 0.82;
+    if (NOPT.o.vignette === undefined) NOPT.o.vignette = true;
     NOPT.o.deadzone = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12));
     NOPT.o.flightMode = NOPT.o.flightMode === 'advanced' ? 'advanced' : 'arcade';
     window.NOPT = NOPT;
@@ -17487,12 +17491,12 @@ const GAME_VERSION = 'Alpha 1.4';
             Object.defineProperty(this.ctx, 'destination', { value: g, configurable: true });
             this._nmaster = g;
           }
-          if (this._nmaster) this._nmaster.gain.value = NOPT.o.master;
+          if (this._nmaster) this._nmaster.gain.value = window.novaCinematicPlaying ? 0 : NOPT.o.master;
         } catch (e) { }
       };
     })();
     function noptApplyAudio() {
-      try { if (sound._nmaster) sound._nmaster.gain.value = NOPT.o.master; } catch (e) { }
+      try { if (sound._nmaster) sound._nmaster.gain.value = window.novaCinematicPlaying ? 0 : NOPT.o.master; } catch (e) { }
       try { bgmVolume = 0.2 * NOPT.o.music; } catch (e) { }
     }
 
@@ -17510,7 +17514,10 @@ const GAME_VERSION = 'Alpha 1.4';
       try { if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(q.xr); } catch (e) { }
       try { renderer.xr.setFoveation(q.fov); } catch (e) { }
       try { if (window.NF) NF.cap = NOPT.o.gfx === 'low' ? 14 : (NOPT.o.gfx === 'high' || NOPT.o.gfx === 'ultra') ? 40 : 26; } catch (e) { }
-      try { if (window.novaPostfx?.setQuality) window.novaPostfx.setQuality(NOPT.o.gfx); } catch (e) { }
+      try {
+        if (window.novaPostfx?.setQuality) window.novaPostfx.setQuality(NOPT.o.gfx);
+        if (window.novaPostfx?.updateSettings) window.novaPostfx.updateSettings(NOPT.o);
+      } catch (e) { }
     }
 
     // key bindings: a rebound key is replayed to the game as the key it replaces, so every existing control keeps working
@@ -17558,17 +17565,32 @@ const GAME_VERSION = 'Alpha 1.4';
       [['master', 'Master'], ['music', 'Music']].forEach(([k, l]) => {
         s += `<div style="${row}"><span>${l}</span><input data-nvol="${k}" type="range" min="0" max="100" value="${Math.round(o[k] * 100)}" style="flex:1;max-width:220px"><span style="width:40px;text-align:right">${Math.round(o[k] * 100)}%</span></div>`;
       });
-      s += h('GRAPHICS');
+      s += h('GRAPHICS & VISUAL EFFECTS');
       s += `<div style="${row};justify-content:flex-start">${['low', 'mid', 'high', 'ultra'].map(g => btn('gfx:' + g, g.toUpperCase(), o.gfx === g)).join('')}</div>`;
-      s += `<div style="font:11px monospace;color:#88aacc">${(NOPT_GFX[o.gfx] || NOPT_GFX.mid).label}. VR resolution changes on the next VR launch. ULTRA (original models) applies after reloading the page.</div>`;
-      s += h('KEY BINDINGS <span style="color:#88aacc;font-weight:normal;letter-spacing:0">(click, then press a key; Esc cancels)</span>');
-      s += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px">';
-      NOPT_KEYS.forEach(([id, l]) => {
-        const w = NOPT.wait === id, c = noptBind(id), moved = !!o.keys[id] && o.keys[id] !== NOPT_KEYS.find(k => k[0] === id)[2];
-        s += `<div style="${row};margin:1px 0"><span>${l}</span>${btn('key:' + id, w ? 'PRESS A KEY' : noptKeyName(c), w || moved, w ? '#ffd24a' : '#33ff99')}</div>`;
-      });
-      s += '</div>';
-      s += `<div style="${row};justify-content:flex-start;margin-top:6px">${btn('keyreset', 'DEFAULT KEYS', false)}</div>`;
+      s += `<div style="${row};justify-content:flex-start;margin-top:6px;gap:8px;flex-wrap:wrap">` +
+           btn('forceultra', 'FORCE ULTRA: ' + (o.forceUltra ? 'ON' : 'OFF'), o.forceUltra, '#ff66ff') +
+           btn('togglebloom', 'BLOOM: ' + (o.bloom !== false ? 'ON' : 'OFF'), o.bloom !== false, '#00e5ff') +
+           btn('togglevignette', 'VIGNETTE: ' + (o.vignette !== false ? 'ON' : 'OFF'), o.vignette !== false, '#00e5ff') +
+           `</div>`;
+      if (o.bloom !== false) {
+        s += `<div style="${row};margin-top:6px"><span>Bloom Strength</span><input data-nfx="bloomStrength" type="range" min="0" max="100" value="${Math.round((o.bloomStrength ?? 0.35) * 100)}" style="flex:1;max-width:220px"><span style="width:40px;text-align:right">${Math.round((o.bloomStrength ?? 0.35) * 100)}%</span></div>`;
+        s += `<div style="${row}"><span>Bloom Threshold</span><input data-nfx="bloomThreshold" type="range" min="50" max="100" value="${Math.round((o.bloomThreshold ?? 0.82) * 100)}" style="flex:1;max-width:220px"><span style="width:40px;text-align:right">${Math.round((o.bloomThreshold ?? 0.82) * 100)}%</span></div>`;
+      }
+      s += `<div style="font:11px monospace;color:#88aacc;margin-top:4px">${(NOPT_GFX[o.gfx] || NOPT_GFX.mid).label}. Bloom & visual effects apply in real-time.</div>`;
+      
+      // KEY BINDINGS (Starts Collapsed by default)
+      s += `<div data-nopt="togglekeys" style="${row};cursor:pointer;padding:8px 10px;background:rgba(0,30,50,0.5);border:1px solid #1d4a66;border-radius:6px;margin:12px 0 6px">` +
+           `<span style="font:bold 13px monospace;color:#00f0ff;letter-spacing:1px">${NOPT.keysOpen ? '▼' : '▶'} KEY BINDINGS <span style="color:#88aacc;font-size:11px;font-weight:normal">${NOPT.keysOpen ? '(click to collapse)' : '(click to customize bindings)'}</span></span>` +
+           `<span style="color:${NOPT.keysOpen ? '#00f0ff' : '#6688aa'};font-size:11px;font-weight:bold">${NOPT.keysOpen ? 'EXPANDED' : 'COLLAPSED'}</span></div>`;
+      if (NOPT.keysOpen) {
+        s += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px">';
+        NOPT_KEYS.forEach(([id, l]) => {
+          const w = NOPT.wait === id, c = noptBind(id), moved = !!o.keys[id] && o.keys[id] !== NOPT_KEYS.find(k => k[0] === id)[2];
+          s += `<div style="${row};margin:1px 0"><span>${l}</span>${btn('key:' + id, w ? 'PRESS A KEY' : noptKeyName(c), w || moved, w ? '#ffd24a' : '#33ff99')}</div>`;
+        });
+        s += '</div>';
+        s += `<div style="${row};justify-content:flex-start;margin-top:6px">${btn('keyreset', 'DEFAULT KEYS', false)}</div>`;
+      }
       s += h('DEBUG');
       const armed = performance.now() - NOPT.resetArm < 4000;
       s += `<div style="${row};justify-content:flex-start">${btn('wipe', armed ? 'CLICK AGAIN TO WIPE ALL SAVES' : 'RESET GAME SAVE', armed, '#ff3344')}</div>`;
@@ -17580,6 +17602,10 @@ const GAME_VERSION = 'Alpha 1.4';
       e.stopPropagation(); const a = b.dataset.nopt;
       try { sound.init(); sound.beep(900, 0.04); } catch (er) { }
       if (a.startsWith('gfx:')) { NOPT.o.gfx = a.slice(4); noptSave(); noptApplyGfx(); }
+      else if (a === 'forceultra') { NOPT.o.forceUltra = !NOPT.o.forceUltra; if (NOPT.o.forceUltra) NOPT.o.gfx = 'ultra'; noptSave(); noptApplyGfx(); }
+      else if (a === 'togglebloom') { NOPT.o.bloom = !(NOPT.o.bloom !== false); noptSave(); noptApplyGfx(); }
+      else if (a === 'togglevignette') { NOPT.o.vignette = !(NOPT.o.vignette !== false); noptSave(); noptApplyGfx(); }
+      else if (a === 'togglekeys') { NOPT.keysOpen = !NOPT.keysOpen; }
       else if (a.startsWith('key:')) { NOPT.wait = NOPT.wait === a.slice(4) ? null : a.slice(4); }
       else if (a === 'keyreset') { NOPT.o.keys = {}; noptSave(); }
       else if (a === 'wipe') { noptResetSave(); return; }
@@ -17595,7 +17621,14 @@ const GAME_VERSION = 'Alpha 1.4';
         const box = document.createElement('div'); box.id = 'nova-opt-box';
         box.style.cssText = 'text-align:left;max-height:56vh;overflow-y:auto;padding:4px 10px;margin-bottom:8px;background:rgba(0,10,20,0.55);border:1px solid #1d4a66;border-radius:8px';
         box.addEventListener('click', noptClick);
-        box.addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.nvol; if (!k) return; NOPT.o[k] = (+e.target.value) / 100; noptSave(); noptApplyAudio(); e.target.nextElementSibling.textContent = e.target.value + '%'; });
+        box.addEventListener('input', e => {
+          const ds = e.target.dataset;
+          if (ds && ds.nvol) {
+            NOPT.o[ds.nvol] = (+e.target.value) / 100; noptSave(); noptApplyAudio(); e.target.nextElementSibling.textContent = e.target.value + '%';
+          } else if (ds && ds.nfx) {
+            NOPT.o[ds.nfx] = (+e.target.value) / 100; noptSave(); noptApplyGfx(); e.target.nextElementSibling.textContent = e.target.value + '%';
+          }
+        });
         box.addEventListener('mousedown', e => e.stopPropagation()); box.addEventListener('pointerdown', e => e.stopPropagation());
         opt.appendChild(box);
         const back = document.createElement('button'); back.className = 'modal-btn'; back.innerHTML = '&larr; BACK'; back.style.cssText = 'margin-top:6px'; back.onclick = e => { e.stopPropagation(); NOPT.wait = null; window.novaMenuView('main'); };
@@ -18862,6 +18895,10 @@ const GAME_VERSION = 'Alpha 1.4';
       return 'flight';
     }
     function nrmTick() {
+      if (window.novaCinematicPlaying) {
+        Object.keys(NRM.el).forEach(f => { if (!NRM.el[f].paused) NRM.el[f].pause(); });
+        return;
+      }
       const t = BGM_TRACKS[bgmTrackIdx];
       let want = null;
       if (isBgmPlaying && t && t.file) {
@@ -20458,7 +20495,8 @@ const GAME_VERSION = 'Alpha 1.4';
       const seS = Math.max(0.3, Math.min(2.5, parseFloat((new URLSearchParams(location.search)).get('seat')) || 1.6));   // ?seat=1.6 to resize
       nmCockpit().then(ok => {
         if (!ok) nmSkin(hullDeckGroup, 'cockpit_shell', { tag: 'shell', yaw: Math.PI, keepBelow: 0, scale3: [1.6 * shF, 0.85 * shF, 0.85 * shF], pos: [0, -0.41 + 0.585 * 0.85 * shF / 2, 0.02] });
-        nmSkin(seatGroup, 'seat', { tag: 'seat', yaw: -Math.PI / 2, keepBelow: 0, scale: seS, pos: [0, -0.02 + 0.135 * seS - 0.0, 0] });   // cushion just under the pilot
+        const seatSlug = (typeof NOPT !== 'undefined' && NOPT.o && (NOPT.o.gfx === 'ultra' || NOPT.o.forceUltra)) ? 'seat_v2' : 'seat';
+        nmSkin(seatGroup, seatSlug, { tag: 'seat', yaw: -Math.PI / 2, keepBelow: 0, scale: seS, pos: [0, -0.02 + 0.135 * seS - 0.0, 0] });   // cushion just under the pilot
         try { const sz = parseFloat((new URLSearchParams(location.search)).get('seatz')); seatGroup.position.z = isNaN(sz) ? 0.24 : sz; } catch (e) { }
         window.novaHands = novaHands;
         try { nhBuild(); } catch (e) { console.warn('[NOVA13] holo failed', e); }
