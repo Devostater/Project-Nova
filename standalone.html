@@ -2620,10 +2620,26 @@ const GAME_VERSION = 'Alpha 1.4';
         else if (curMission.goalType === 'destroy' && pirateBoss && pirateBoss.visible) { targetPos = pirateBoss.position; targetDesc = `BOUNTY: PIRATE RAIDER [HP: ${pirateHealth}%]`; }
       }
       try { const so = window.novaSiteObjective && window.novaSiteObjective(); if (so) { targetPos = so.pos; targetDesc = so.label; } } catch (e) {}
-      // campaign "dock for debrief" chapters always point home to Nova-1 (mission 0 is the convoy, which sent the arrow to Starlifter-7)
-      try { const cch = CAMPAIGN[campaignChapter]; if (cch && cch.type === 'dock' && campaignIntroDone && !isInsideCantina) { targetPos = stationGroup.position; targetDesc = 'DEBRIEF · DOCK AT NOVA-1'; } } catch (e) {}
+      // campaign "dock for debrief" chapters always point home to Nova-1
+      const cch = (typeof CAMPAIGN !== 'undefined' && typeof campaignChapter !== 'undefined') ? CAMPAIGN[campaignChapter] : null;
+      const isDebriefMission = !!(cch && cch.type === 'dock' && !isInsideCantina);
+      if (isDebriefMission) {
+        targetPos = stationGroup.position;
+        targetDesc = 'DEBRIEF · DOCK AT NOVA-1';
+      }
       let cLab = 'OBJECTIVE', cCol = '#00ffcc';
-      try { const lk = currentLockedTarget; if (lk && lk.targetObj && lk.targetObj.visible !== false) { targetPos = lk.targetObj.getWorldPosition(new THREE.Vector3()); targetDesc = lk.name; cLab = lk.isHostile ? 'TARGET \u00b7 HOSTILE' : 'TARGET'; cCol = lk.isHostile ? '#ff5566' : '#33ff99'; } } catch (e) {}   // the selected target wins over the objective
+      try {
+        const lk = currentLockedTarget;
+        if (lk && lk.targetObj && lk.targetObj.visible !== false) {
+          // If in debrief mission, non-hostile targets (like freighters) must NOT override the Nova-1 debrief objective
+          if (lk.isHostile || !isDebriefMission) {
+            targetPos = lk.targetObj.getWorldPosition(new THREE.Vector3());
+            targetDesc = lk.name;
+            cLab = lk.isHostile ? 'TARGET \u00b7 HOSTILE' : 'TARGET';
+            cCol = lk.isHostile ? '#ff5566' : '#33ff99';
+          }
+        }
+      } catch (e) {}
       const toTarget = targetPos.clone().sub(shipGroup.position);
       const distM = Math.round(toTarget.length()); // Scaled target coordinates already give physical metres; never multiply here.
       let targetAngle = Math.atan2(-toTarget.x, -toTarget.z) * 180 / Math.PI; if (targetAngle < 0) targetAngle += 360;
@@ -6151,6 +6167,16 @@ const GAME_VERSION = 'Alpha 1.4';
         shipGroup.add(cameraRig);
         cameraRig.position.set(0, 0, 0);
       }
+      if (typeof novaChoiceUI !== 'undefined' && novaChoiceUI && novaChoiceUI.g && novaChoiceUI.g.parent !== cockpit) {
+        cockpit.add(novaChoiceUI.g);
+        novaChoiceUI.g.position.set(0, 0.72, -0.40);
+        novaChoiceUI.g.rotation.set(-0.15, 0, 0);
+      }
+      if (typeof NKI !== 'undefined' && NKI.m && NKI.m.parent !== cockpit) {
+        cockpit.add(NKI.m);
+        NKI.m.position.set(0, 0.76, -0.56);
+        NKI.m.rotation.set(0.05, 0, 0);
+      }
 
       if (sound && sound.stationChirp) sound.stationChirp();
       showToast('🚀 AIRLOCK DEPRESSURIZED: LAUNCHING FROM NOVA-1! ENGINES HOT', 3500, '#00ffcc');
@@ -9565,7 +9591,10 @@ const GAME_VERSION = 'Alpha 1.4';
       if (/how are you|holding up|you ok|doing/.test(t)) return pick([`Systems green, nerves mostly green. You?`, `Can't complain. Well, I can, but nobody listens.`, `Better now that you're on the channel.`]);
       if (/order|mission|objective|what should i|what do i|task/.test(t)) return ch ? `Current priority: ${ch.objective} ${ch.hint}` : `No standing orders. The sector is yours, pilot. Fly free.`;
       if (/where|head next|direction|go next|lost/.test(t)) return ch ? ch.hint : `Anywhere you like. Check the TACCOMS contact list.`;
-      if (/sitrep|situation|status|report/.test(t)) return pirateBossSpawned ? `Hostile Corsair raider in the sector. Shields up and lock it with NEXT TARGET.` : `Sector quiet. Station secure, convoy on schedule. Ore field is rich.`;
+      if (/sitrep|situation|status|report/.test(t)) {
+        if (ch && ch.type === 'dock') return `Capt. Vance: "Nova Lead, that transponder we pulled from the convoy shadow ship belongs to the Corsair Line. Return to Station Nova-1 and dock for the full debriefing."`;
+        return pirateBossSpawned ? `Hostile Corsair raider in the sector. Shields up and lock it with NEXT TARGET.` : `Sector quiet. Station secure, convoy on schedule. Ore field is rich.`;
+      }
       if (/pirate|enemy|hostile|corsair|attack/.test(t)) return pirateBossSpawned ? `That Corsair is real trouble. Lock it with NEXT TARGET and use missiles.` : `Pirates have been rare lately. They tend to jump in after lightspeed exits.`;
       if (/ore|mine|mining|credit|money|sell|trade/.test(t)) return `You're carrying ${cargoOre} tons. Lasers on the gray rocks, then sell at the station. You have ${bankCredits} credits.`;
       if (/missile|ammo|weapon/.test(t)) return `You have ${missileAmmo} missiles. Open the red lid, lock a target, press launch.`;
@@ -9755,9 +9784,13 @@ const GAME_VERSION = 'Alpha 1.4';
       campaignLastOre = cargoOre;
       campaignPirateKilled = false;
       campaignIntroDone = true;
+      window._novaDebriefTriggered = false;
       if (typeof ch.mission === 'number') { activeMissionIdx = ch.mission; if (typeof drawCanopyCompass === 'function') drawCanopyCompass(); }
       showToast(`${ch.title} - ${ch.objective}`, 6000, '#ffcc00');
-      if (ch.type === 'dock') setTimeout(() => { try { showToast('⚓ Follow the OBJECTIVE arrow to NOVA-1, then press DOCK (or use AUTOPILOT).', 5000, '#00f0ff'); } catch (e) {} }, 6500);
+      if (ch.type === 'dock') {
+        currentLockedTarget = { name: 'STATION NOVA-1', callsign: 'NOVA-1', targetObj: stationGroup, isHostile: false };
+        setTimeout(() => { try { showToast('🎯 OBJECTIVE: Follow canopy compass arrow to Station Nova-1 and DOCK for debrief.', 6000, '#00f0ff'); } catch (e) {} }, 2500);
+      }
       novaChatLog(ch.speaker, ch.intro, '#ffcc00');
       broadcastCommsTransmission(ch.speaker, ch.intro, ch.pitch);
     }
@@ -9911,13 +9944,15 @@ const GAME_VERSION = 'Alpha 1.4';
       });
       const g3 = U.g;
       if (isInsideCantina) {
-        scene.add(g3);
-        const hp = camera.getWorldPosition(new THREE.Vector3());
-        const fw = camera.getWorldDirection(new THREE.Vector3()); fw.y = 0; if (fw.lengthSq() < 1e-4) fw.set(0, 0, -1); fw.normalize();
-        g3.position.copy(hp).addScaledVector(fw, 0.55); g3.position.y = hp.y - 0.12;
-        g3.lookAt(hp.x, g3.position.y, hp.z);
+        if (g3.parent) g3.parent.remove(g3);
+        cameraRig.add(g3);
+        g3.position.set(0, 1.45, -0.65);
+        g3.rotation.set(0, 0, 0);
       } else {
-        cockpit.add(g3); g3.position.set(0, 0.72, -0.40); g3.rotation.set(-0.15, 0, 0);
+        if (g3.parent) g3.parent.remove(g3);
+        cockpit.add(g3);
+        g3.position.set(0, 0.72, -0.40);
+        g3.rotation.set(-0.15, 0, 0);
       }
       g3.visible = true;
       try { if (sound && sound.commsChirp) sound.commsChirp(); } catch (e) {}
@@ -9951,6 +9986,41 @@ const GAME_VERSION = 'Alpha 1.4';
       E.intro = 'The sector is ours, Nova. Contracts are on the cantina board, Nyx is spinning, and the first round is on me.';
       if (campaignChapter >= C.length) campaignChapter = C.length - 1;
     })();
+    function novaPlayDebrief(callback) {
+      const slides = [
+        {
+          k: 'MISSION DEBRIEFING',
+          t: 'OPERATION SHADOW SIGNAL · SITREP',
+          b: [
+            'Capt. Elena Vance: "Welcome back to Station Nova-1, Nova Lead. Starlifter-7 is secure in dock."',
+            'Our engineering team finished decoding the transponder signal recovered from the shadow craft.',
+            'Telemetry confirms the signal belongs to the Corsair Line—an organized outlaw fleet raiding shipping lanes.'
+          ]
+        },
+        {
+          k: 'TACTICAL BRIEFING',
+          t: 'CORSAIR LINE INTERCEPTION',
+          b: [
+            'ADA-9: "Telemetry shows the Corsair flagship ambushes vessels exiting lightspeed along the main warp corridor."',
+            'Ambush probability on your next jump: 100%. Expect heavy shielding and guided missile ordnance.',
+            'Check your shields and restock homing missiles at the Shipwright in the cantina before making the jump.'
+          ],
+          last: true
+        }
+      ];
+      nkPlaySlides(slides, 'MISSION DEBRIEFING');
+      let cleared = false;
+      const finish = () => {
+        if (cleared) return;
+        cleared = true;
+        clearInterval(checkDone);
+        if (typeof callback === 'function') callback();
+      };
+      const checkDone = setInterval(() => {
+        if (!NKI.on) finish();
+      }, 150);
+    }
+    window.novaPlayDebrief = novaPlayDebrief;
     const NOVA_STORY_CHOICES = {
       honesty: () => novaChoice('THE SCALE GLITCH', "Nova-1's ore scale glitched and reads 8 tons. You mined 5. Commander Reyes pays by the scale. What do you report?", [
         { label: 'REPORT 5 TONS', col: '#00ff88', fn: () => { novaStory.made.honesty = 'honest'; novaAffAdd('station', 12, 'honest report'); novaLesson('honesty', 'HONESTY', 'Tell the truth even when a lie would pay. Trust is the real currency.', true); broadcastCommsTransmission('STATION NOVA-1', 'You flagged our glitch instead of cashing it. I can trust a pilot like you, Nova.', 0.95); campaignComplete(); } },
@@ -10550,6 +10620,105 @@ const GAME_VERSION = 'Alpha 1.4';
         broadcastCommsTransmission('BARTENDER Z-9', s, 0.75);
       }, 0.18, 0.07);
     }
+    // Valkyrie-7 (Tactical Wingman & Debrief Officer) at the debrief table
+    let novaValkyrieCantina = null;
+    {
+      const g = new THREE.Group();
+      g.position.set(1.15, 0, -1.35);
+      g.rotation.y = -Math.PI * 0.72;
+      cantinaGroup.add(g);
+      novaValkyrieCantina = g;
+
+      // Tactical Debrief Table / Console
+      const table = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.04, 20), new THREE.MeshStandardMaterial({ color: 0x14202e, metalness: 0.8, roughness: 0.3 }));
+      table.position.set(0, 0.95, 0.15);
+      g.add(table);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.08, 0.93, 8), new THREE.MeshStandardMaterial({ color: 0x0a121c, metalness: 0.9 }));
+      leg.position.set(0, 0.47, 0.15);
+      g.add(leg);
+
+      // Holographic Transponder Slate on Table
+      const slate = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.012, 0.16), new THREE.MeshStandardMaterial({ color: 0x002233, metalness: 0.9 }));
+      slate.position.set(0, 0.975, 0.15);
+      g.add(slate);
+      const holoRing = new THREE.Mesh(new THREE.RingGeometry(0.04, 0.07, 16), new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide }));
+      holoRing.rotation.x = -Math.PI / 2;
+      holoRing.position.set(0, 0.985, 0.15);
+      g.add(holoRing);
+
+      // Valkyrie Avatar (Tactical flight suit + helmet)
+      const v = new THREE.Group();
+      v.position.set(0, 0, -0.38);
+      g.add(v);
+      const suitMat = new THREE.MeshStandardMaterial({ color: 0x182436, metalness: 0.7, roughness: 0.35 });
+      const trimMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+      // Legs & Boots
+      const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.10, 0.88, 10), new THREE.MeshStandardMaterial({ color: 0x0f1520, roughness: 0.5 }));
+      legs.position.y = 0.44;
+      v.add(legs);
+
+      // Torso & Armor Vest
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.58, 12), suitMat);
+      torso.position.y = 1.15;
+      v.add(torso);
+      const chestStripe = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.35, 0.015), trimMat);
+      chestStripe.position.set(0.06, 1.18, 0.16);
+      v.add(chestStripe);
+
+      // Arms & Shoulders
+      [-1, 1].forEach(s => {
+        const pad = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), suitMat);
+        pad.position.set(0.22 * s, 1.40, 0.02);
+        v.add(pad);
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.48, 8), suitMat);
+        arm.position.set(0.21 * s, 1.14, 0.12);
+        arm.rotation.x = -0.7;
+        v.add(arm);
+      });
+
+      // Helmet & Visor
+      const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 14), suitMat);
+      helmet.position.y = 1.56;
+      v.add(helmet);
+      const visor = new THREE.Mesh(new THREE.SphereGeometry(0.105, 16, 10, 0, Math.PI, 0, Math.PI * 0.5), new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00d0ee, emissiveIntensity: 1.2, roughness: 0.1 }));
+      visor.rotation.x = 0.2;
+      visor.position.set(0, 1.56, 0.04);
+      v.add(visor);
+
+      // Overhead Nameplate
+      const sign = novaLabelSprite('VALKYRIE-7 · WINGMAN', '#00f0ff', 0.55);
+      sign.position.set(0, 2.05, -0.2);
+      g.add(sign);
+
+      // Interactive Action Pads on Debrief Table
+      novaPad(g, 'DEBRIEF', '#00e5ff', new THREE.Vector3(-0.16, 0.99, 0.24), new THREE.Euler(-Math.PI / 2 + 0.28, 0, 0), () => {
+        if (typeof novaPlayDebrief === 'function') {
+          const ch = CAMPAIGN[campaignChapter];
+          novaPlayDebrief(() => {
+            if (ch && ch.type === 'dock' && !novaStory.made.humility) {
+              const st = NOVA_STORY_CHOICES[ch.key];
+              if (st && !novaChoiceOpen) st();
+            }
+          });
+        }
+      }, 0.16, 0.07);
+
+      novaPad(g, 'TALK', '#00ff88', new THREE.Vector3(0.16, 0.99, 0.24), new THREE.Euler(-Math.PI / 2 + 0.28, 0, 0), () => {
+        const ch = CAMPAIGN[campaignChapter];
+        if (ch && ch.type === 'dock' && !novaStory.made.humility) {
+          const st = NOVA_STORY_CHOICES[ch.key];
+          if (st && !novaChoiceOpen) { st(); return; }
+        }
+        if (novaStory.flags && novaStory.flags.wingman) {
+          showToast('VALKYRIE-7: "Wingman ready on your six for the next sortie, Nova Lead."', 3500, '#00ff88');
+          novaChatLog('VALKYRIE-7', "Wingman ready on your six for the next sortie, Nova Lead. Fly when you're ready.", '#00ff88');
+          broadcastCommsTransmission('VALKYRIE-7', "Wingman ready on your six. Fly when you're ready.", 1.15);
+        } else {
+          novaTalkTo('VALKYRIE-7');
+        }
+      }, 0.16, 0.07);
+    }
     let novaTalkIdx = 0;
     const NOVA_TALK = ['How are you doing?', 'Any advice for a new pilot?', 'Tell me about yourself.', "What's the news around the station?", 'What do you think is the right thing to do out here?', 'Thanks for everything.'];
     function novaTalkTo(name) {
@@ -10691,6 +10860,14 @@ const GAME_VERSION = 'Alpha 1.4';
         } else showToast(`Repairs cost ${cost} CR. Sell ore at the Shipwright & Market board.`, 3500, '#ffaa00');
       }
       novaDrawBoards();
+      const ch = (typeof CAMPAIGN !== 'undefined' && typeof campaignChapter !== 'undefined') ? CAMPAIGN[campaignChapter] : null;
+      if (ch && ch.type === 'dock') {
+        try {
+          novaSubsPush('VALKYRIE-7', 'Nova Lead, over here at the debrief table. Let\'s review the recovered transponder.', '#00f0ff');
+          showToast('VALKYRIE-7: "Over here at the debrief table, Nova Lead."', 4000, '#00f0ff');
+          broadcastCommsTransmission('VALKYRIE-7', 'Over here at the debrief table, Nova Lead. Sitrep ready.', 1.15);
+        } catch (e) {}
+      }
       novaSubsPush('NYX', novaAff.vega >= 60 ? 'Hey, my favorite pilot is back! Boards are by the launch pad.' : 'Welcome to the cantina, pilot. Contracts on the left, shipwright on the right.', '#b04cff');
       novaSubsPush('EXIT', 'Touch the green LAUNCH button, or press B / Y (keyboard: L) to fly again.', '#00ff88');
     };
@@ -10823,7 +11000,22 @@ const GAME_VERSION = 'Alpha 1.4';
         const fr = cargoFreighters[0];
         if (fr && fr.visible !== false && fr.position.distanceTo(shipGroup.position) < 300) campaignProgress += delta;
       } else if (ch.type === 'dock') {
-        if (isInsideCantina) campaignProgress = 1;
+        if (isInsideCantina) {
+          if (!window._novaDebriefTriggered) {
+            window._novaDebriefTriggered = true;
+            setTimeout(() => {
+              if (typeof novaPlayDebrief === 'function') {
+                novaPlayDebrief(() => {
+                  campaignProgress = 1;
+                  if (campaignProgress >= ch.goal) campaignComplete();
+                });
+              } else {
+                campaignProgress = 1;
+                if (campaignProgress >= ch.goal) campaignComplete();
+              }
+            }, 400);
+          }
+        }
       } else if (ch.type === 'pirate') {
         if (campaignPirateKilled) campaignProgress = 1;
       }
@@ -17540,6 +17732,17 @@ const GAME_VERSION = 'Alpha 1.4';
       nkIntroBuild();
       if (NKI.on && !force) return;
       NKI.card = !!card; NKI.slides = card ? [card] : nkIntroSlides(); NKI.i = 0; NKI.t = 0; NKI.on = true;
+      if (isInsideCantina) {
+        if (NKI.m.parent) NKI.m.parent.remove(NKI.m);
+        cameraRig.add(NKI.m);
+        NKI.m.position.set(0, 1.55, -0.85);
+        NKI.m.rotation.set(0, 0, 0);
+      } else {
+        if (NKI.m.parent) NKI.m.parent.remove(NKI.m);
+        cockpit.add(NKI.m);
+        NKI.m.position.set(0, 0.76, -0.56);
+        NKI.m.rotation.set(0.05, 0, 0);
+      }
       NKI.m.visible = true; if (!renderer.xr.isPresenting) NKI.dom.style.display = 'flex';
       nkIntroDraw(); try { sound.commsChirp(); } catch (e) { }
     }
@@ -17547,7 +17750,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function nkIntroEnd() { NKI.on = false; if (NKI.m) NKI.m.visible = false; if (NKI.dom) NKI.dom.style.display = 'none'; if (!NKI.card) try { localStorage.setItem('novaIntroSeen', '1'); } catch (e) { } }
     window.novaStoryIntro = () => nkIntroStart(true);
     function nkIntroTick(dt) {
-      const playing = cockpit.visible && novaMenuHidden();
+      const playing = (cockpit.visible || isInsideCantina) && novaMenuHidden();
       if (!NKI.on && playing && NKI.lastCh === -1) {
         NKI.lastCh = campaignChapter;
         let seen = false; try { seen = localStorage.getItem('novaIntroSeen') === '1'; } catch (e) { }
@@ -19749,8 +19952,19 @@ const GAME_VERSION = 'Alpha 1.4';
 
 
     // ── NOVA14: ending cinematic + credits (slides on the canopy in VR, full screen on desktop; replay from OPTIONS or the main menu) ──
-    function nkPlaySlides(arr) {
-      nkIntroBuild(); NKI.card = true; NKI.hdr = 'PROJECT NOVA \u00b7 THE END'; NKI.slides = arr; NKI.i = 0; NKI.t = 0; NKI.on = true;
+    function nkPlaySlides(arr, hdr = 'PROJECT NOVA · THE END') {
+      nkIntroBuild(); NKI.card = true; NKI.hdr = hdr; NKI.slides = arr; NKI.i = 0; NKI.t = 0; NKI.on = true;
+      if (isInsideCantina) {
+        if (NKI.m.parent) NKI.m.parent.remove(NKI.m);
+        cameraRig.add(NKI.m);
+        NKI.m.position.set(0, 1.55, -0.85);
+        NKI.m.rotation.set(0, 0, 0);
+      } else {
+        if (NKI.m.parent) NKI.m.parent.remove(NKI.m);
+        cockpit.add(NKI.m);
+        NKI.m.position.set(0, 0.76, -0.56);
+        NKI.m.rotation.set(0.05, 0, 0);
+      }
       NKI.m.visible = true; if (!renderer.xr.isPresenting) NKI.dom.style.display = 'flex';
       nkIntroDraw(); try { sound.commsChirp(); } catch (e) { }
     }
