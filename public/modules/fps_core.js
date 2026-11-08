@@ -87,6 +87,13 @@ export function init(nova) {
   }
   const leftGlove=createGloveVisual(true);
   const rightGlove=createGloveVisual(false);
+  const leftHandAnchor=new T.Group(),rightHandAnchor=new T.Group();leftHandAnchor.name='NOVA_FPS_HAND_ANCHOR_L';rightHandAnchor.name='NOVA_FPS_HAND_ANCHOR_R';scene.add(leftHandAnchor,rightHandAnchor);
+  const leftAnchorState={ready:false},rightAnchorState={ready:false},anchorPos=new T.Vector3(),anchorQ=new T.Quaternion();
+  function trackHandAnchor(anchor,jointObject,state,dt){
+    jointObject.getWorldPosition(anchorPos);jointObject.getWorldQuaternion(anchorQ);const jump=!state.ready||anchor.position.distanceTo(anchorPos)>.22,a=1-Math.exp(-Math.max(.001,dt)*22);
+    if(jump){anchor.position.copy(anchorPos);anchor.quaternion.copy(anchorQ);state.ready=true;}else{anchor.position.lerp(anchorPos,a);anchor.quaternion.slerp(anchorQ,a);}
+    anchor.updateMatrixWorld(true);
+  }
 
   const damageOverlay=document.createElement('div');
   Object.assign(damageOverlay.style,{position:'fixed',inset:'0',pointerEvents:'none',zIndex:'35',opacity:'0',transition:'opacity .12s',background:'radial-gradient(transparent 48%, rgba(220,10,20,.55) 100%)'});
@@ -247,6 +254,7 @@ export function init(nova) {
     session=renderer?.xr?.getSession?.()||null;
     if(session){
       const sources=[...session.inputSources],rightSource=sources.find(s=>s.handedness==='right'),leftSource=sources.find(s=>s.handedness==='left');
+      pistol.visible=weaponOn&&!!rightSource;
       // three.js controller slots are NOT in session.inputSources order (they drift when hands/controllers swap),
       // so find the slot whose 'connected' event carried this exact input source.
       const rightIndex=slotOf(rightSource),leftIndex=slotOf(leftSource);
@@ -256,31 +264,34 @@ export function init(nova) {
       const rightWristJ=joint(rightHand,'wrist');
       const leftWristJ=joint(leftHand,'wrist');
       if(rightSource?.hand&&rightWristJ){
-        setWeaponParent(rightWristJ,true);
+        trackHandAnchor(rightHandAnchor,rightWristJ,rightAnchorState,d);setWeaponParent(rightHandAnchor,true);
       }else if(rightGrip||rightController){
+        rightAnchorState.ready=false;
         setWeaponParent(rightGrip||rightController,false);
-      }
+      }else rightAnchorState.ready=false;
 
       // Update glove tracking on both hands
       if(leftSource?.hand&&leftWristJ&&handPoint(leftHand,'wrist',wrist)){
-        if(leftGlove.parent!==leftWristJ)leftWristJ.add(leftGlove);
+        trackHandAnchor(leftHandAnchor,leftWristJ,leftAnchorState,d);
+        if(leftGlove.parent!==leftHandAnchor)leftHandAnchor.add(leftGlove);
         leftGlove.position.set(0,0,0);leftGlove.rotation.set(0,0,0);
         leftGlove.visible=true;
       }else if(leftGrip){
+        leftAnchorState.ready=false;
         if(leftGlove.parent!==leftGrip)leftGrip.add(leftGlove);
         leftGlove.position.set(0,0,0);leftGlove.rotation.set(0,0,0);
         leftGlove.visible=true;
-      }else{leftGlove.visible=false;}
+      }else{leftAnchorState.ready=false;leftGlove.visible=false;}
 
       if(rightSource?.hand&&rightWristJ&&handPoint(rightHand,'wrist',wrist)){
-        if(rightGlove.parent!==rightWristJ)rightWristJ.add(rightGlove);
+        if(rightGlove.parent!==rightHandAnchor)rightHandAnchor.add(rightGlove);
         rightGlove.position.set(0,0,0);rightGlove.rotation.set(0,0,0);
         rightGlove.visible=true;
       }else if(rightGrip){
         if(rightGlove.parent!==rightGrip)rightGrip.add(rightGlove);
         rightGlove.position.set(0,0,0);rightGlove.rotation.set(0,0,0);
         rightGlove.visible=true;
-      }else{rightGlove.visible=false;}
+      }else{rightAnchorState.ready=false;rightGlove.visible=false;}
 
       let mx=0,mz=0,turn=0,trigger=false,use=false,leave=false;
       const la=stickAxes(leftIsHand?null:leftSource?.gamepad),ra=stickAxes(rightIsHand?null:rightSource?.gamepad);
@@ -369,7 +380,7 @@ export function init(nova) {
   window.novaTest=window.novaTest||{};window.novaTest.fpsState=state;
   return{ready:true,enable,disable,fire,interact,damage,state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
     disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(tracerRoot);damageOverlay.remove();
-    scene.remove(leftGlove);scene.remove(rightGlove);
+    scene.remove(leftGlove);scene.remove(rightGlove);scene.remove(leftHandAnchor);scene.remove(rightHandAnchor);
     leftGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
     rightGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
     tracerGeo.dispose();tracerMat.dispose();hud.geometry.dispose();hudMaterial.dispose();hudTexture.dispose();

@@ -5809,13 +5809,13 @@ const GAME_VERSION = 'Alpha 1.4';
 
 
     // ── Cantina rebuild (owner, 2026-11-07): new room from the owner's panel-wall and grate-floor textures; old procedural room removed ──
-    const NCAN = { room: new THREE.Group() };
+    const NCAN = { room: new THREE.Group(), floor: null };
     (function novaCantinaRoom() {
       const TL = new THREE.TextureLoader(), an = renderer.capabilities.getMaxAnisotropy();
       const T = (f, rx, ry) => { const t = TL.load(f); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = an; return t; };
       const S = 36, H = 6.5, R = NCAN.room; R.name = 'CANTINA_ROOM'; cantinaGroup.add(R);
       const floorM = new THREE.MeshStandardMaterial({ map: T('art/textures/tex_cantina_floor.jpg', 12, 6.5), roughness: 0.55, metalness: 0.75 });
-      const floor = new THREE.Mesh(new THREE.PlaneGeometry(S, S), floorM); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; R.add(floor);
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(S, S), floorM); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; R.add(floor); NCAN.floor = floor;
       const wallM = () => new THREE.MeshStandardMaterial({ map: T('art/textures/tex_cantina_wall.jpg', S / (H * 1.79), 1), roughness: 0.5, metalness: 0.7 });
       const wall = (w, x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, H), wallM()); m.material.map.repeat.set(w / (H * 1.79), 1); m.position.set(x, H / 2, z); m.rotation.y = ry; m.receiveShadow = true; R.add(m); return m; };
       wall(S, 0, -S / 2, 0); wall(S, -S / 2, 0, Math.PI / 2); wall(S, S / 2, 0, -Math.PI / 2);
@@ -5844,7 +5844,8 @@ const GAME_VERSION = 'Alpha 1.4';
       try {
         [cantinaFloorMesh, cantinaCeilingMesh, cantinaWallsGroup, cantinaFloorBorder, barBannerMesh].forEach(o => { if (o) o.visible = false; });
         const mr = window.isPassthroughActive || (renderer.xr.isPresenting && window.xrSessionType === 'immersive-ar');
-        NCAN.room.visible = !mr;
+        NCAN.room.visible = true;
+        NCAN.room.traverse(o => { if (o.isMesh) o.visible = !mr || o === NCAN.floor; });
       } catch (e) { }
     }
     { const _ec = enterCantina; enterCantina = function () { const r = _ec.apply(this, arguments); novaCantinaRoomSync(); try { NCAN.stationWas = stationGroup.visible; stationGroup.visible = false; } catch (e) { } return r; }; }   // the station hull cuts through the room
@@ -7124,6 +7125,10 @@ const GAME_VERSION = 'Alpha 1.4';
 
     const handMeshes1 = [];
     const handMeshes2 = [];
+    const novaTrackedHandFilter = {
+      left: { ready: false, wrist: new THREE.Vector3(), tip: new THREE.Vector3(), thumb: new THREE.Vector3() },
+      right: { ready: false, wrist: new THREE.Vector3(), tip: new THREE.Vector3(), thumb: new THREE.Vector3() }
+    };
     for (let i = 0; i < 25; i++) {
       const isTip = [4, 9, 14, 19, 24].includes(i);
       const m1 = new THREE.Mesh(isTip ? tipGeo : jointGeo, isTip ? tipMat : jMat);
@@ -11416,9 +11421,9 @@ const GAME_VERSION = 'Alpha 1.4';
           const middleKnuckle = joints['middle-finger-metacarpal'] || joints['middle-finger-phalanx-proximal'];
           if (!wrist || !wrist.position || !tip || !tip.position) return;
 
-          const wristWorld = new THREE.Vector3();
+          let wristWorld = new THREE.Vector3();
           wrist.getWorldPosition(wristWorld);
-          const tipWorld = new THREE.Vector3();
+          let tipWorld = new THREE.Vector3();
           tip.getWorldPosition(tipWorld);
 
           // Deterministic Per-Hand Resolution:
@@ -11438,6 +11443,14 @@ const GAME_VERSION = 'Alpha 1.4';
 
           const meshes = isLeftHand ? handMeshes1 : handMeshes2;
           const bones = isLeftHand ? boneMeshes1 : boneMeshes2;
+          const filter = novaTrackedHandFilter[isLeftHand ? 'left' : 'right'];
+          const thumbRaw = new THREE.Vector3();
+          if (thumbTip && thumbTip.position) thumbTip.getWorldPosition(thumbRaw);
+          const trackingJump = !filter.ready || filter.wrist.distanceTo(wristWorld) > 0.20 || filter.tip.distanceTo(tipWorld) > 0.20;
+          const handAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * 20);
+          if (trackingJump) { filter.wrist.copy(wristWorld); filter.tip.copy(tipWorld); if (thumbTip && thumbTip.position) filter.thumb.copy(thumbRaw); filter.ready = true; }
+          else { filter.wrist.lerp(wristWorld, handAlpha); filter.tip.lerp(tipWorld, handAlpha); if (thumbTip && thumbTip.position) filter.thumb.lerp(thumbRaw, handAlpha); }
+          wristWorld = filter.wrist.clone(); tipWorld = filter.tip.clone();
 
           if (isLeftHand) isLeftHandTracked = true;
           else isRightHandTracked = true;
@@ -11445,8 +11458,7 @@ const GAME_VERSION = 'Alpha 1.4';
           // Pinch detection
           let isPinching = false;
           if (thumbTip && thumbTip.position) {
-            const thumbWorld = new THREE.Vector3();
-            thumbTip.getWorldPosition(thumbWorld);
+            const thumbWorld = filter.thumb;
             isPinching = tipWorld.distanceTo(thumbWorld) < 0.055;
           }
 
@@ -11457,11 +11469,11 @@ const GAME_VERSION = 'Alpha 1.4';
             const j = joints[jName];
             const m = meshes[jIdx];
             if (j && j.visible !== false) {
-              m.visible = true;
+              const wasVisible = m.visible; m.visible = true;
               const jp = new THREE.Vector3();
               j.getWorldPosition(jp);
               cameraRig.worldToLocal(jp);
-              m.position.copy(jp);
+              if (!wasVisible || m.position.distanceTo(jp) > 0.18) m.position.copy(jp); else m.position.lerp(jp, handAlpha);
             } else {
               m.visible = false;
             }
@@ -11485,7 +11497,8 @@ const GAME_VERSION = 'Alpha 1.4';
           if (isLeftHand) {
             // Anchor tactile beacon puck to the left wrist joint
             if (wristBeaconGroup) {
-              wristBeaconGroup.position.copy(cameraRig.worldToLocal(wristWorld.clone()));
+              const beaconTarget = cameraRig.worldToLocal(wristWorld.clone());
+              if (!wristBeaconGroup.visible || wristBeaconGroup.position.distanceTo(beaconTarget) > 0.18) wristBeaconGroup.position.copy(beaconTarget); else wristBeaconGroup.position.lerp(beaconTarget, handAlpha);
               wristBeaconGroup.visible = true;
             }
 
@@ -11848,6 +11861,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
         // Hide untracked optical hand meshes
         if (!isLeftHandTracked) {
+          novaTrackedHandFilter.left.ready = false;
           handMeshes1.forEach(m => m.visible = false);
           boneMeshes1.forEach(b => b.visible = false);
           isGrippingThrottleHand = false;
@@ -11863,6 +11877,7 @@ const GAME_VERSION = 'Alpha 1.4';
           }
         }
         if (!isRightHandTracked) {
+          novaTrackedHandFilter.right.ready = false;
           handMeshes2.forEach(m => m.visible = false);
           boneMeshes2.forEach(b => b.visible = false);
           isGrippingStickHand = false;
@@ -12335,6 +12350,7 @@ const GAME_VERSION = 'Alpha 1.4';
       button.position.x = (i - 0.5) * 0.065; novaTurnUI.add(button); return button;
     });
     let novaTurnTouch = -1, novaTurnSince = 0, novaTurnDirection = 0, novaTurnLatched = false, novaTurnLast = -Infinity;
+    let novaTurnPoseReady = false, novaTurnPinchTouch = -1, novaTurnPinchSince = 0, novaTurnPinchLatched = false;
     function novaHandTurnFrame(frame, now) {
       novaTurnUI.visible = false;
       const session = renderer.xr.getSession();
@@ -12348,35 +12364,38 @@ const GAME_VERSION = 'Alpha 1.4';
         return pose ? new THREE.Vector3().copy(pose.transform.position) : null;
       };
       if (!frame || !ref || !left || blocked) {
-        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; return;
+        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; novaTurnPoseReady = false; novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false; return;
       }
       const wrist = joint(left, 'wrist'), index = joint(left, 'index-finger-tip'), thumb = joint(left, 'thumb-tip');
       const knuckle = joint(left, 'index-finger-metacarpal'), pinky = joint(left, 'pinky-finger-metacarpal');
       if (!wrist || !index || !thumb || !knuckle || !pinky) {
-        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; return;
+        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; novaTurnPoseReady = false; novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false; return;
       }
-      novaTurnUI.position.copy(wrist).add(new THREE.Vector3(0, 0.09, 0));
-      novaTurnUI.quaternion.copy(camera.quaternion);
+      const turnTarget = wrist.clone().add(new THREE.Vector3(0, 0.09, 0));
+      if (!novaTurnPoseReady || novaTurnUI.position.distanceTo(turnTarget) > 0.18) { novaTurnUI.position.copy(turnTarget); novaTurnUI.quaternion.copy(camera.quaternion); novaTurnPoseReady = true; }
+      else { novaTurnUI.position.lerp(turnTarget, 0.18); novaTurnUI.quaternion.slerp(camera.quaternion, 0.18); }
       novaTurnUI.visible = true;
       novaTurnUI.updateWorldMatrix(true, true);
       const otherTip = joint(right, 'index-finger-tip');
       let touch = -1;
       if (otherTip) {
         const local = novaTurnUI.worldToLocal(cameraRig.localToWorld(otherTip.clone()));
-        touch = novaTurnButtons.findIndex(b => Math.abs(local.x - b.position.x) < 0.027 && Math.abs(local.y) < 0.027 && Math.abs(local.z) < 0.025);
+        touch = novaTurnButtons.findIndex(b => Math.abs(local.x - b.position.x) < 0.021 && Math.abs(local.y) < 0.021 && Math.abs(local.z) < 0.018);
       }
       const palm = new THREE.Vector3().crossVectors(knuckle.clone().sub(wrist), pinky.clone().sub(wrist)).normalize();
-      const direction = index.distanceTo(thumb) < 0.03 && Math.abs(palm.x) > 0.75 ? (palm.x > 0 ? 1 : -1) : 0;
+      const direction = index.distanceTo(thumb) < 0.024 && Math.abs(palm.x) > 0.88 ? (palm.x > 0 ? 1 : -1) : 0;
       if (!direction) { novaTurnSince = 0; novaTurnLatched = false; }
       else if (direction !== novaTurnDirection) novaTurnSince = now;
-      const gesture = direction && !novaTurnLatched && now - novaTurnSince >= 350;
+      const gesture = direction && !novaTurnLatched && now - novaTurnSince >= 650;
       const otherThumb = joint(right, 'thumb-tip');
       const deliberatePinch = otherTip && otherThumb && otherTip.distanceTo(otherThumb) < 0.028;
-      const pressL = novaDeliberatePress('turn-L', touch === 0, deliberatePinch, now);
-      const pressR = novaDeliberatePress('turn-R', touch === 1, deliberatePinch, now);
-      const tap = pressL || pressR;
-      if ((tap || gesture) && now - novaTurnLast > 650) {
-        const sign = tap ? (touch === 0 ? 1 : -1) : direction;
+      let tapSign = 0;
+      if (touch >= 0 && deliberatePinch) {
+        if (touch !== novaTurnPinchTouch) { novaTurnPinchTouch = touch; novaTurnPinchSince = now; novaTurnPinchLatched = false; }
+        if (!novaTurnPinchLatched && now - novaTurnPinchSince >= 350) { novaTurnPinchLatched = true; tapSign = touch === 0 ? 1 : -1; }
+      } else if (!deliberatePinch) { novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false; }
+      if ((tapSign || gesture) && now - novaTurnLast > 900) {
+        const sign = tapSign || direction;
         const headBefore = camera.position.clone().applyQuaternion(cameraRig.quaternion);
         cameraRig.rotateY(sign * Math.PI / 6);
         const headAfter = camera.position.clone().applyQuaternion(cameraRig.quaternion);
@@ -20171,9 +20190,9 @@ const GAME_VERSION = 'Alpha 1.4';
       const ready = () => {
         let starting = false; try { starting = !!isStartingXR; } catch (e) { }
         const modal = document.getElementById('modal-overlay'), menuUp = !!(modal && modal.style.display !== 'none');
-        return !starting && !menuUp && (renderer.xr.isPresenting || (window.novaDevice && window.novaDevice.detectedMode === '2D') || !navigator.xr);
+        return !starting && !menuUp && !novaSafeZoneActive && (renderer.xr.isPresenting || (window.novaDevice && window.novaDevice.detectedMode === '2D') || !navigator.xr);
       };
-      const poll = () => { if (ready() || performance.now() - t0 > 20000) setTimeout(fn, 700); else setTimeout(poll, 250); };
+      const poll = () => { if (ready() || (performance.now() - t0 > 20000 && !renderer.xr.isPresenting)) setTimeout(fn, 700); else setTimeout(poll, 250); };
       setTimeout(poll, 300);
     };
     const _play = window.novaPlay;
