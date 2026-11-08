@@ -81,6 +81,44 @@ These requests are explicitly recorded as owner decisions in FPS_PLAN.md; detail
 - **Done —** Missile arming “too touchy”: FIRE never arms missiles; arm only through dedicated ARM control with deliberate press/short hold around 0.4 seconds and debounce (d6c7b66).
 - **Wanted / status unverified from available older turns —** Remove unwanted lines during warp; recorded as the task “Remove lines during warp”. Do not assume the later warp-art improvements alone prove this specific playtest complaint resolved.
 
+### Antigravity image prompts — VFX source queue
+
+Generate **one image per prompt**. Do not combine assets, make contact sheets, sprite sheets, grids, multiple views or before/after comparisons. Deliver maximum-resolution PNG source art under `art_src/vfx/`. Every image must have genuine transparent alpha: no black/white/checkerboard backdrop, no stars, no scenery, no text, no watermark and no rectangular haze at the canvas edge. Keep the complete effect inside the canvas with soft premultiplication-safe edges. These are source images; Codex will prepare, resize and compose them in the game.
+
+1. **Missile exhaust plume** → `art_src/vfx/nova_missile_exhaust_source.png`
+
+   “A single isolated AAA spacecraft missile exhaust plume, viewed perfectly from the side and aligned vertically, nozzle connection at the exact top centre and exhaust tapering downward. Very narrow white-hot fusion core, tight pale-blue inner flame, controlled orange plasma feathering into a long translucent tail, fine turbulent detail and wispy edges. The plume must stay thin and aerodynamic instead of becoming a broad torch. Photoreal cinematic real-time VFX source, high frequency detail, smooth gradients, no pixelation. One plume only, genuine transparent alpha, no missile/nozzle hardware, no smoke cloud, no background, no crop.”
+
+2. **Missile nozzle glow** → `art_src/vfx/nova_missile_nozzle_glow_source.png`
+
+   “A single centred circular spacecraft missile nozzle glow viewed straight-on: tiny white-hot centre, thin blue-white ionized ring, subtle orange outer corona and delicate radial energy filaments. Compact and sharply defined with a soft falloff; it must not fill the whole canvas or resemble a large sun. AAA cinematic game VFX source, physically plausible luminous plasma, smooth sub-pixel edge detail. One glow only, genuine transparent alpha, no engine hardware, no rays touching the canvas border, no background.”
+
+3. **Missile trail ribbon** → `art_src/vfx/nova_missile_trail_source.png`
+
+   “A single long, extremely thin guided-missile trail segment aligned vertically through the centre. Bright narrow white-gold leading filament transitioning into pale orange, then faint smoky blue-grey turbulence that dissolves smoothly to transparent. Continuous ribbon with fine turbulent curls, never a chain of dots, blocks or large particles. AAA space-combat VFX source, designed to remain smooth in close-up VR. One trail only, genuine transparent alpha, no missile, no explosion, no background, ample transparent margin.”
+
+4. **Countermeasure flare** → `art_src/vfx/nova_countermeasure_flare_source.png`
+
+   “A single isolated defensive spacecraft countermeasure flare at peak burn: pin-sized white-hot magnesium core, compact yellow-white bloom, orange plasma stream and a few fine needle-like sparks ejecting backward. Directional teardrop shape suitable for a fast-moving decoy, intensely bright but physically small; avoid a round fireball or oversized lens flare. AAA cinematic game VFX source with crisp fine detail and smooth glow falloff. One flare only, genuine transparent alpha, no launcher, no missile, no smoke background, no text.”
+
+5. **Missile micro-impact** → `art_src/vfx/nova_missile_impact_source.png`
+
+   “A single compact missile interception burst for hitting a flare or shield: brilliant white-orange central flash, short radial molten fragments, a thin blue ionization rim and tiny curling plasma wisps. Fast, tight and energetic rather than a full ship-destruction explosion; irregular spherical silhouette with detailed transparent edges. AAA cinematic space-game VFX source, smooth gradients and sharp fragment detail. One impact only, genuine transparent alpha, no ship, no debris chunks larger than the core, no background, no crop.”
+
+6. **Optional ULTRA explosion variant** → `art_src/vfx/nova_ship_explosion_ultra_source.png`
+
+   “A single enormous spacecraft destruction fireball isolated in space: white-hot fusion rupture at the centre, layered yellow-orange turbulent plasma lobes, deep red cooling edges, branching blue electrical arcs and many small incandescent metal fragments embedded through the blast. Dense volumetric depth and asymmetry, storefront-quality AAA cinematic VFX, highly detailed at close VR distance without visible pixels. One explosion only, genuine transparent alpha, no intact ship, no stars, no smoke sheet, no background and no crop.”
+
+### Antigravity → Codex production handoff
+
+- **Authorized workflow —** Planning comes first. Do not begin asset generation or game integration until the current asset list, prompts, filenames and acceptance requirements are marked finished by the owner.
+- **Antigravity owns source production —** After planning is finished, Antigravity generates each approved image as its own file at the exact `art_src/` path in the plan. Antigravity may iterate until the image matches the prompt; it must not substitute a contact sheet, collage, sprite sheet or lower-detail placeholder.
+- **Antigravity validates before handoff —** Confirm the requested subject, orientation, complete uncropped silhouette, dimensions, genuine alpha where requested, and absence of text, watermark, background rectangles or obvious generated artifacts. Preserve the maximum-quality source; do not pre-shrink it for Quest.
+- **Handoff record —** Antigravity adds or updates `art_src/ANTIGRAVITY_HANDOFF.md` with one row per delivered asset: exact source path, final prompt, dimensions/format, transparency status, intended use, generation date and its commit hash. Mark rejected/superseded versions clearly so Codex does not compile the wrong image.
+- **Codex owns compilation/integration —** After the handoff, Codex reviews the actual files, rejects or requests regeneration for failed sources, creates game-ready crops/atlases/mip-safe textures under the correct runtime folders, preserves MR-safe alpha/blending, connects them to `standalone.html` or the appropriate synchronized module, and keeps root/public copies identical.
+- **Codex owns verification —** Run syntax and sync checks, inspect the effect in motion at close range, test desktop plus the available VR/MR path, compare Quest performance tiers, and verify that transparent assets never create black silhouettes or square pixels in passthrough.
+- **Completion —** Codex commits the compiled integration with source attribution and reports what was tested. With the owner's authorization in this chat, Antigravity and Codex may carry this workflow through completion once planning is marked finished; neither needs another design approval unless an asset fails acceptance or requires changing the agreed scope.
+
 ## Platforms, builds and collaboration
 
 - **Done foundation —** Meta Quest 3 support, browser and standalone application formats; 2D/desktop, tablet, gamepad, VR and optional MR passthrough remain supported. Preserve the original cockpit build rather than discarding older versions (PROJECT_NOVA_CONTEXT.md).
