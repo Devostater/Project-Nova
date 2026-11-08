@@ -30,6 +30,7 @@ export function init(nova = {}) {
   const quest = Boolean(nova.isQuest || nova.isXR || globalThis.navigator?.userAgent?.includes('Quest')) ||
     Boolean(nova.renderer?.xr?.isPresenting);
 
+  // Aggressive pass: forceUltra wins on desktop; Quest still respects lower tiers unless explicitly forced
   let tier;
   if (forceUltra && !quest) {
     tier = 'ultra';

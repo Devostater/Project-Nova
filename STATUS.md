@@ -17,11 +17,13 @@ Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. D
 - Then: thruster/shield/explosion polish inside `fx_ultra.js` / new small modules.
 - Vendor postprocessing addons later for APK/offline.
 
-### Antigravity (Gemini) — **DONE**
-- **Missile thruster art**: Done (`vfx_missile_plume.jpg`, `vfx_thruster_plume.jpg`, source in `art_src/gemini/missile_plume.jpg`).
-- **Epilogue storyboard 04–06**: Done (`art_src/storyboard/epilogue_04.png`..`06.png`, `storyboard.md` updated).
-- **Shield impact VFX**: Done (`public/fx/vfx_shield_impact.jpg`, source in `art_src/gemini/shield_impact.jpg`).
-- Merged onto `grok/graphics-overhaul` (and branch `gemini/vfx-thruster`).
+### Antigravity (Gemini) — **DONE (OFFLINE READY)**
+- **News panel upgrade**: Anchor portraits (Jax Rawlins, Talia Vance), video/article tabs, touch swipe + scroll buttons, idle news ticker.
+- **Menu full-page scroll**: Modal container fix allowing seamless scrolling of main menu, options, and controls.
+- **3D volumetric world spawning**: Doubled asteroid field density (220 rocks), 3D spherical pitch distribution (±75° elevation on 90° vertical axis), 3D pirate/traffic patrol routes.
+- **Simplified player interactions**: 1-touch auto-arm missile launch; reticle-first target priority; VR hand-tracking pinch-to-fire + expanded stick trigger contact; 1-touch auto-dock with tractor touchdown; expanded smartwatch hitboxes (18px).
+- **Offline testing prep**: Synced all modules (`public/modules/` <-> `modules/`), synced SFX, news, art, and VFX. Upgraded Service Worker cache (`nova-alpha-1.15-offline-ready`) with 217 assets pre-cached for 100% offline Quest 3 playtesting.
+- Branch: `gemini/cockpit-seat-fix`.
 
 ### Claude / ChatGPT
 Still offline (usage). When back: Claude resumes lead and reviews/merges `grok/graphics-overhaul`. GPT: playtest items 5–6 (ADVANCED yaw, missiles in VR).
@@ -34,7 +36,7 @@ Still offline (usage). When back: Claude resumes lead and reviews/merges `grok/g
 | AI | Done | Open / next | Branch |
 |---|---|---|---|
 | **Grok** (temp lead) | AI list #57; `postfx.js`; `fx_ultra` ULTRA bump; Force Ultra in OPTIONS (`2f4d43d`); autopilot enemy tracking patch (`0147c6b`) | Modules-first VFX; postfx render hook; STATUS | `grok/graphics-overhaul` |
-| **Antigravity** | VR cinema immersion (hide ship/cockpit, 25m dark dome, VideoTexture frame loop, 3D touch exit button + hand gesture exits); Flight stick thumb contact trigger (fires on touch without push); Smooth news reader scrolling (swipe + drag, indicators) | Quest playtesting | `gemini/cockpit-seat-fix` |
+| **Antigravity** | 1-touch missiles, reticle targeting, VR pinch fire, 3D world elevation, news reader, sw.js offline cache for Quest | Offline Quest playtest ready | `gemini/cockpit-seat-fix` |
 | **Claude** (offline) | Prior lead work | Resume lead; merge graphics branch when back | — |
 | **ChatGPT** (offline) | Flight, DOCK, boarding… | ADVANCED yaw + missiles VR when back | — |
 | **Owner** | Restored/patched standalone on branch | Desktop ULTRA test; Quest later | |
