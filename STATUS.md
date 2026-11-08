@@ -3,46 +3,50 @@
 Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. Don't read anything in `docs/archive/` unless asked.
 
 ## Now
-- **Temporary lead:** **Grok (xAI)** — Claude and ChatGPT are at weekly usage limits. Grok is acting as lead/integrator until they return.
+- **Temporary lead:** **Grok (xAI)** — Claude and ChatGPT at weekly limits. Grok leads until they return.
 - **Active branch:** `grok/graphics-overhaul` — aggressive max-graphics pass (ULTRA-first).
-- **Live game:** https://devostater.github.io/Project-Nova/standalone.html (still on last main deploy until this branch is merged).
-- **Quest app:** `com.azi.projectnova` 1.0.3 launcher. Build with `powershell -File tools\build_install_quest.ps1`.
+- **Force Ultra:** Restored + patched in `standalone.html` (commit `2f4d43d`). OPTIONS has **FORCE ULTRA: ON/OFF**; defaults on.
+- **Live game:** https://devostater.github.io/Project-Nova/standalone.html (main until this branch merges).
+- **Token rule (all AIs):** Prefer **modules** (`public/modules/*.js` + root `modules/`) over editing `standalone.html`. The HTML file is ~1.2 MB — expensive for every AI. Small module PRs only unless a one-line hook in standalone is unavoidable.
 
-## Handoff (2026-11-07/08): Grok graphics overhaul
+## Handoff (2026-11-08): graphics + assignments
 
-**Grok is doing:**
-- Aggressive graphics overhaul (post-processing + richer VFX). Goal: make drifting in space look as pretty / AAA as possible, then scale down later for Quest.
-- New module: `public/modules/postfx.js` (+ root `modules/postfx.js`) — UnrealBloomPass, vignette, grain, quality tiers. Loads Three.js postprocessing addons from CDN if not vendored.
-- Upgraded `fx_ultra.js` — higher particle counts, more lights/debris/trails on ULTRA.
-- `forceUltra` defaults to **true**. Menu toggle **FORCE ULTRA: ON/OFF** added in OPTIONS (alongside GRAPHICS).
-- `NOPT.o` defaults: `gfx: 'ultra'`, `forceUltra: true`. `NOPT_GFX` now includes an `ultra` preset.
+### Grok (continuing)
+- Keep graphics work in **modules only** where possible.
+- Next: wire `postfx.render()` into the render path with the smallest possible standalone hook (or document exact hook for owner/Claude).
+- Then: thruster/shield/explosion polish inside `fx_ultra.js` / new small modules.
+- Vendor postprocessing addons later for APK/offline.
 
-**Still needed / next:**
-1. Wire `postfx.render()` into the main render loop in `standalone.html` (replace or wrap `renderer.render`).
-2. Vendor Three.js postprocessing addons for offline/APK (currently CDN fallback).
-3. Continue visual polish: thruster plumes, shield hits, cockpit lighting, better explosions.
-4. After Quest playtest reports, dial quality tiers down as needed.
+### Antigravity (Gemini) — **ASSIGNED** (quota free again)
+Owner will have Antigravity sync this branch / STATUS.
 
-**Owner:** Test on desktop/browser first (FORCE ULTRA on). Report frame rate and any issues. Quest scaling comes after.
+**Art tasks (pick up in order):**
+1. **Missile thruster** — owner request; plume / thruster art for missiles (fits ULTRA VFX pass).
+2. **Epilogue storyboard 04–06** — finish remaining frames (`art_src/storyboard/`).
+3. Optional stretch: improved explosion / shield-hit sprite sheets for `public/fx/` if time allows.
+
+Work on own branch (e.g. `gemini/vfx-thruster` or continue `gemini/storyboard`). Do **not** edit `standalone.html`. Drop assets under `art_src/` or `public/fx/` as appropriate; Grok will wire them into modules.
+
+### Claude / ChatGPT
+Still offline (usage). When back: Claude resumes lead and reviews/merges `grok/graphics-overhaul`. GPT: playtest items 5–6 (ADVANCED yaw, missiles in VR).
+
+### Owner
+- Desktop test FORCE ULTRA on this branch; report FPS / look.
+- Point Antigravity at this STATUS for the art list above.
+- Quest scaling after desktop pass looks good.
 
 ## Handoff table
-| AI | Done and merged | Open / next | Working copy |
+| AI | Done | Open / next | Branch |
 |---|---|---|---|
-| **Grok** (xAI, temp lead) | AI list PR #57; `postfx.js`; upgraded `fx_ultra.js`; forceUltra default + OPTIONS toggle (this branch) | Wire postfx into render loop; vendor addons; more VFX polish; keep STATUS updated | `grok/graphics-overhaul` |
-| **Claude** (lead, offline) | checkpoint1; token clean-up; many playtest fixes; cinematics | Resume lead when usage resets; merge graphics branch after review | — |
-| **ChatGPT** (Codex, offline) | flight model, DOCK, boarding, etc. | Playtest items 5–6 (ADVANCED yaw, missiles in VR) when back | — |
-| **Antigravity** (Gemini) | storyboard intro 01–08, epilogue 01–03 | epilogue 04–06; missile thruster art when quota allows | `gemini/storyboard` |
-| **Owner** | | Desktop test of ULTRA graphics; Quest playtest when ready; third-faction name, bartender, seat_v2 | |
-
-Notes: Prefer Grok for critique and this graphics pass. Antigravity for art. ChatGPT for code when available. Claude remains formal lead when online.
-
-## Rollback
-- **`checkpoint1`** (tag and branch `backup/checkpoint1`) is commit `7c1a9d5`. Owner approval required for force-push to main.
+| **Grok** (temp lead) | AI list #57; `postfx.js`; `fx_ultra` ULTRA bump; Force Ultra in OPTIONS (`2f4d43d`) | Modules-first VFX; minimal postfx render hook; STATUS | `grok/graphics-overhaul` |
+| **Antigravity** | Storyboard intro 01–08, epilogue 01–03 | **Missile thruster art; epilogue 04–06;** optional VFX sheets | own branch |
+| **Claude** (offline) | Prior lead work | Resume lead; merge graphics branch when back | — |
+| **ChatGPT** (offline) | Flight, DOCK, boarding… | ADVANCED yaw + missiles VR when back | — |
+| **Owner** | Restored/patched standalone on branch | Desktop ULTRA test; assign Antigravity; Quest later | |
 
 ## Rules (all AIs)
-1. Game code: edit **`standalone.html` only**. `index.html` and `public/standalone.html` are generated (`node tools/sync_html.mjs`), untracked, and never read.
-2. New systems go in `public/modules/<name>.js` (`export function init(nova)`), listed in `public/modules/manifest.json`, with an identical copy in root `modules/`.
-3. Work on your own branch, starting from the latest `main`. Edit only the functions or files your task names. Never commit to `main`, and never overwrite whole files.
-4. Don't read `vendor/`, `public/vendor/`, `models/`, `art/`, `art_src/`, `music*/`, `android/app/build/` or `docs/archive/`.
-5. Cheap checks before handing off: `node tools/sync_html.mjs --check` and `node --check` on changed modules. Say what you did **not** test.
-6. Hand off by replying with the commit hash and one line per item. Lead updates this file.
+1. Prefer **modules** over `standalone.html` (token cost). Edit standalone only for tiny hooks.
+2. New systems: `public/modules/<name>.js` + copy in `modules/` + manifest.
+3. Own branch from latest `main` (or current feature branch). Never push to `main`.
+4. Don't read `vendor/`, `models/`, `art/`, large binaries unless the task needs a specific file.
+5. Hand off with commit hash + one line per item. Lead updates this file.
