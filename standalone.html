@@ -183,7 +183,8 @@
     {
       "imports": {
         "three": "./vendor/three.module.js",
-        "cannon-es": "./vendor/cannon-es.js"
+        "cannon-es": "./vendor/cannon-es.js",
+        "three/addons/": "./vendor/"
       }
     }
   </script>
@@ -824,6 +825,11 @@ const GAME_VERSION = 'Alpha 1.4';
     let rightGamepad = null;
     let throttleYawInput = 0;
     const advancedAngularRate = new THREE.Vector3(); // local pitch/yaw/roll inertia for unassisted flight
+    const _flightEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+    const _flightQuat = new THREE.Quaternion();
+    const _flightLocalAng = new THREE.Vector3();
+    const _flightRight = new THREE.Vector3();
+    const _flightUp = new THREE.Vector3();
     const throttleHandAnchor = { x: 0, z: 0, slide: 0 };
     const throttleCtrlAnchor = { x: 0, z: 0, slide: 0 };
     let isGrippingThrottle = false;
@@ -2614,10 +2620,26 @@ const GAME_VERSION = 'Alpha 1.4';
         else if (curMission.goalType === 'destroy' && pirateBoss && pirateBoss.visible) { targetPos = pirateBoss.position; targetDesc = `BOUNTY: PIRATE RAIDER [HP: ${pirateHealth}%]`; }
       }
       try { const so = window.novaSiteObjective && window.novaSiteObjective(); if (so) { targetPos = so.pos; targetDesc = so.label; } } catch (e) {}
-      // campaign "dock for debrief" chapters always point home to Nova-1 (mission 0 is the convoy, which sent the arrow to Starlifter-7)
-      try { const cch = CAMPAIGN[campaignChapter]; if (cch && cch.type === 'dock' && campaignIntroDone && !isInsideCantina) { targetPos = stationGroup.position; targetDesc = 'DEBRIEF · DOCK AT NOVA-1'; } } catch (e) {}
+      // campaign "dock for debrief" chapters always point home to Nova-1
+      const cch = (typeof CAMPAIGN !== 'undefined' && typeof campaignChapter !== 'undefined') ? CAMPAIGN[campaignChapter] : null;
+      const isDebriefMission = !!(cch && cch.type === 'dock' && !isInsideCantina);
+      if (isDebriefMission) {
+        targetPos = stationGroup.position;
+        targetDesc = 'DEBRIEF · DOCK AT NOVA-1';
+      }
       let cLab = 'OBJECTIVE', cCol = '#00ffcc';
-      try { const lk = currentLockedTarget; if (lk && lk.targetObj && lk.targetObj.visible !== false) { targetPos = lk.targetObj.getWorldPosition(new THREE.Vector3()); targetDesc = lk.name; cLab = lk.isHostile ? 'TARGET \u00b7 HOSTILE' : 'TARGET'; cCol = lk.isHostile ? '#ff5566' : '#33ff99'; } } catch (e) {}   // the selected target wins over the objective
+      try {
+        const lk = currentLockedTarget;
+        if (lk && lk.targetObj && lk.targetObj.visible !== false) {
+          // If in debrief mission, non-hostile targets (like freighters) must NOT override the Nova-1 debrief objective
+          if (lk.isHostile || !isDebriefMission) {
+            targetPos = lk.targetObj.getWorldPosition(new THREE.Vector3());
+            targetDesc = lk.name;
+            cLab = lk.isHostile ? 'TARGET \u00b7 HOSTILE' : 'TARGET';
+            cCol = lk.isHostile ? '#ff5566' : '#33ff99';
+          }
+        }
+      } catch (e) {}
       const toTarget = targetPos.clone().sub(shipGroup.position);
       const distM = Math.round(toTarget.length()); // Scaled target coordinates already give physical metres; never multiply here.
       let targetAngle = Math.atan2(-toTarget.x, -toTarget.z) * 180 / Math.PI; if (targetAngle < 0) targetAngle += 360;
@@ -2699,10 +2721,14 @@ const GAME_VERSION = 'Alpha 1.4';
       if (typeof drawDebugWatch === 'function') drawDebugWatch();
     }
 
-    // Interior Cockpit Dome Light
+    // Interior Cockpit Dome Light & Console Underglow
     const cockpitDomeLight = new THREE.PointLight(0x00f0ff, 1.2, 3.5);
     cockpitDomeLight.position.set(0, 0.75, -0.12);
     cockpit.add(cockpitDomeLight);
+    const cockpitDashLight = new THREE.PointLight(0x00e5ff, 0.45, 1.8);
+    cockpitDashLight.position.set(0, -0.12, -0.42);
+    cockpit.add(cockpitDashLight);
+    window.cockpitDashLight = cockpitDashLight;
 
     // Cockpit Translucent Canopy Glass Arch
     const canopyMat = new THREE.MeshStandardMaterial({
@@ -6141,6 +6167,16 @@ const GAME_VERSION = 'Alpha 1.4';
         shipGroup.add(cameraRig);
         cameraRig.position.set(0, 0, 0);
       }
+      if (typeof novaChoiceUI !== 'undefined' && novaChoiceUI && novaChoiceUI.g && novaChoiceUI.g.parent !== cockpit) {
+        cockpit.add(novaChoiceUI.g);
+        novaChoiceUI.g.position.set(0, 0.72, -0.40);
+        novaChoiceUI.g.rotation.set(-0.15, 0, 0);
+      }
+      if (typeof NKI !== 'undefined' && NKI.m && NKI.m.parent !== cockpit) {
+        cockpit.add(NKI.m);
+        NKI.m.position.set(0, 0.76, -0.56);
+        NKI.m.rotation.set(0.05, 0, 0);
+      }
 
       if (sound && sound.stationChirp) sound.stationChirp();
       showToast('🚀 AIRLOCK DEPRESSURIZED: LAUNCHING FROM NOVA-1! ENGINES HOT', 3500, '#00ffcc');
@@ -7381,6 +7417,20 @@ const GAME_VERSION = 'Alpha 1.4';
     function novaBindXRInputSession(session) {
       if (!session || session._novaInputBound) return;
       session._novaInputBound = true;
+      session.addEventListener('visibilitychange', () => {
+        const state = session.visibilityState;
+        const paused = state === 'visible-blurred' || state === 'hidden';
+        window.novaSessionPaused = paused;
+        try {
+          if (paused) {
+            if (sound && sound.ctx && sound.ctx.state === 'running') sound.ctx.suspend().catch(() => {});
+            document.querySelectorAll('audio').forEach(a => { if (!a.paused) { a._vrcPaused = true; a.pause(); } });
+          } else {
+            if (sound && sound.ctx && sound.ctx.state === 'suspended') sound.ctx.resume().catch(() => {});
+            document.querySelectorAll('audio').forEach(a => { if (a._vrcPaused) { delete a._vrcPaused; a.play().catch(() => {}); } });
+          }
+        } catch (_) {}
+      });
       session.addEventListener('inputsourceschange', () => {
         const activeHands = Array.from(session.inputSources || []).filter(src => src.hand);
         [h1, h2].forEach(hand => {
@@ -7761,6 +7811,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
 
     function setThrottle(pct) {
+      const prevNotch = currentThrottleNotch;
       throttlePct = THREE.MathUtils.clamp(pct, -0.30, 1.0);
       if (throttlePct >= 0) {
         throttleSlideZ = THROTTLE_MIN_Z - throttlePct * THROTTLE_RANGE;
@@ -7769,6 +7820,9 @@ const GAME_VERSION = 'Alpha 1.4';
         // Reverse detent: slide backward past idle line
         throttleSlideZ = THROTTLE_MIN_Z + (-throttlePct) * (THROTTLE_RANGE * 0.5);
         currentThrottleNotch = -1;
+      }
+      if (prevNotch !== currentThrottleNotch && typeof novaPulse === 'function') {
+        novaPulse('left', 0.45, 25);
       }
       if (throttleArm) {
         throttleArm.position.z = throttleSlideZ;
@@ -7855,6 +7909,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (now - lastFireTime < 160) return;
       lastFireTime = now;
       isFiring = true;
+      if (typeof novaPulse === 'function') novaPulse('right', 0.65, 40);
       sound.laser();
       spawnLaserBolts();
       drawHUD();
@@ -8673,7 +8728,13 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // ── Fresh Start & Auto-Launch Support ──
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('vr') === '1' || urlParams.get('autolaunch') === '1') {
+    if ("getDigitalGoodsService" in window && navigator.xr) {
+      navigator.xr.isSessionSupported("immersive-vr").then((supported) => {
+        if (supported && !renderer.xr.isPresenting) {
+          startXR('immersive-vr', false);
+        }
+      }).catch(() => {});
+    } else if (urlParams.get('vr') === '1' || urlParams.get('autolaunch') === '1') {
       setTimeout(() => {
         const btn = document.getElementById('btn-vr');
         if (btn) btn.click();
@@ -9324,16 +9385,24 @@ const GAME_VERSION = 'Alpha 1.4';
     window.novaDamage = novaDamage;
     function novaShipDisabled() {
       novaDisabled = true;
-      showToast('SHIP DISABLED. Rescue tug towing you to Nova-1...', 4000, '#ff3344');
-      try { broadcastCommsTransmission('NOVA-1 CONTROL', 'Mayday received. Tug inbound, hang tight Nova Lead.', 1.0); } catch (e) {}
+      const cp = window.novaMissionCheckpoint;
+      showToast(cp ? 'SHIP DISABLED. Rebooting at checkpoint...' : 'SHIP DISABLED. Rescue tug towing to Nova-1...', 3500, '#ff3344');
+      try { broadcastCommsTransmission('NOVA-1 CONTROL', cp ? 'Emergency jump rebooting systems.' : 'Mayday received. Tug inbound, hang tight Nova Lead.', 1.0); } catch (e) {}
       if (pirateBoss) pirateBoss.visible = false;
       pirateBossSpawned = false;
       setTimeout(() => {
         window.novaShield = 100; window.novaHull = 100; novaDisabled = false;
-        const p = stationGroup.position.clone().add(new THREE.Vector3(0, 0, 100));
-        shipGroup.position.copy(p);
-        if (shipBody) { shipBody.position.copy(p); shipBody.velocity.set(0, 0, 0); shipBody.angularVelocity.set(0, 0, 0); }
-        enterCantina();
+        if (cp && cp.position) {
+          shipGroup.position.copy(cp.position);
+          if (shipBody) { shipBody.position.copy(cp.position); shipBody.velocity.set(0, 0, 0); shipBody.angularVelocity.set(0, 0, 0); }
+          if (cp.quaternion) { shipGroup.quaternion.copy(cp.quaternion); if (shipBody) shipBody.quaternion.copy(cp.quaternion); }
+          showToast('CHECKPOINT RESTORED: Shields & hull 100%', 3000, '#33ff99');
+        } else {
+          const p = stationGroup.position.clone().add(new THREE.Vector3(0, 0, 100));
+          shipGroup.position.copy(p);
+          if (shipBody) { shipBody.position.copy(p); shipBody.velocity.set(0, 0, 0); shipBody.angularVelocity.set(0, 0, 0); }
+          enterCantina();
+        }
       }, 2500);
     }
     function novaCombatTick(delta) {
@@ -9522,7 +9591,10 @@ const GAME_VERSION = 'Alpha 1.4';
       if (/how are you|holding up|you ok|doing/.test(t)) return pick([`Systems green, nerves mostly green. You?`, `Can't complain. Well, I can, but nobody listens.`, `Better now that you're on the channel.`]);
       if (/order|mission|objective|what should i|what do i|task/.test(t)) return ch ? `Current priority: ${ch.objective} ${ch.hint}` : `No standing orders. The sector is yours, pilot. Fly free.`;
       if (/where|head next|direction|go next|lost/.test(t)) return ch ? ch.hint : `Anywhere you like. Check the TACCOMS contact list.`;
-      if (/sitrep|situation|status|report/.test(t)) return pirateBossSpawned ? `Hostile Corsair raider in the sector. Shields up and lock it with NEXT TARGET.` : `Sector quiet. Station secure, convoy on schedule. Ore field is rich.`;
+      if (/sitrep|situation|status|report/.test(t)) {
+        if (ch && ch.type === 'dock') return `Capt. Vance: "Nova Lead, that transponder we pulled from the convoy shadow ship belongs to the Corsair Line. Return to Station Nova-1 and dock for the full debriefing."`;
+        return pirateBossSpawned ? `Hostile Corsair raider in the sector. Shields up and lock it with NEXT TARGET.` : `Sector quiet. Station secure, convoy on schedule. Ore field is rich.`;
+      }
       if (/pirate|enemy|hostile|corsair|attack/.test(t)) return pirateBossSpawned ? `That Corsair is real trouble. Lock it with NEXT TARGET and use missiles.` : `Pirates have been rare lately. They tend to jump in after lightspeed exits.`;
       if (/ore|mine|mining|credit|money|sell|trade/.test(t)) return `You're carrying ${cargoOre} tons. Lasers on the gray rocks, then sell at the station. You have ${bankCredits} credits.`;
       if (/missile|ammo|weapon/.test(t)) return `You have ${missileAmmo} missiles. Open the red lid, lock a target, press launch.`;
@@ -9712,9 +9784,13 @@ const GAME_VERSION = 'Alpha 1.4';
       campaignLastOre = cargoOre;
       campaignPirateKilled = false;
       campaignIntroDone = true;
+      window._novaDebriefTriggered = false;
       if (typeof ch.mission === 'number') { activeMissionIdx = ch.mission; if (typeof drawCanopyCompass === 'function') drawCanopyCompass(); }
       showToast(`${ch.title} - ${ch.objective}`, 6000, '#ffcc00');
-      if (ch.type === 'dock') setTimeout(() => { try { showToast('⚓ Follow the OBJECTIVE arrow to NOVA-1, then press DOCK (or use AUTOPILOT).', 5000, '#00f0ff'); } catch (e) {} }, 6500);
+      if (ch.type === 'dock') {
+        currentLockedTarget = { name: 'STATION NOVA-1', callsign: 'NOVA-1', targetObj: stationGroup, isHostile: false };
+        setTimeout(() => { try { showToast('🎯 OBJECTIVE: Follow canopy compass arrow to Station Nova-1 and DOCK for debrief.', 6000, '#00f0ff'); } catch (e) {} }, 2500);
+      }
       novaChatLog(ch.speaker, ch.intro, '#ffcc00');
       broadcastCommsTransmission(ch.speaker, ch.intro, ch.pitch);
     }
@@ -9868,13 +9944,15 @@ const GAME_VERSION = 'Alpha 1.4';
       });
       const g3 = U.g;
       if (isInsideCantina) {
-        scene.add(g3);
-        const hp = camera.getWorldPosition(new THREE.Vector3());
-        const fw = camera.getWorldDirection(new THREE.Vector3()); fw.y = 0; if (fw.lengthSq() < 1e-4) fw.set(0, 0, -1); fw.normalize();
-        g3.position.copy(hp).addScaledVector(fw, 0.55); g3.position.y = hp.y - 0.12;
-        g3.lookAt(hp.x, g3.position.y, hp.z);
+        if (g3.parent) g3.parent.remove(g3);
+        cameraRig.add(g3);
+        g3.position.set(0, 1.45, -0.65);
+        g3.rotation.set(0, 0, 0);
       } else {
-        cockpit.add(g3); g3.position.set(0, 0.72, -0.40); g3.rotation.set(-0.15, 0, 0);
+        if (g3.parent) g3.parent.remove(g3);
+        cockpit.add(g3);
+        g3.position.set(0, 0.72, -0.40);
+        g3.rotation.set(-0.15, 0, 0);
       }
       g3.visible = true;
       try { if (sound && sound.commsChirp) sound.commsChirp(); } catch (e) {}
@@ -9908,6 +9986,41 @@ const GAME_VERSION = 'Alpha 1.4';
       E.intro = 'The sector is ours, Nova. Contracts are on the cantina board, Nyx is spinning, and the first round is on me.';
       if (campaignChapter >= C.length) campaignChapter = C.length - 1;
     })();
+    function novaPlayDebrief(callback) {
+      const slides = [
+        {
+          k: 'MISSION DEBRIEFING',
+          t: 'OPERATION SHADOW SIGNAL · SITREP',
+          b: [
+            'Capt. Elena Vance: "Welcome back to Station Nova-1, Nova Lead. Starlifter-7 is secure in dock."',
+            'Our engineering team finished decoding the transponder signal recovered from the shadow craft.',
+            'Telemetry confirms the signal belongs to the Corsair Line—an organized outlaw fleet raiding shipping lanes.'
+          ]
+        },
+        {
+          k: 'TACTICAL BRIEFING',
+          t: 'CORSAIR LINE INTERCEPTION',
+          b: [
+            'ADA-9: "Telemetry shows the Corsair flagship ambushes vessels exiting lightspeed along the main warp corridor."',
+            'Ambush probability on your next jump: 100%. Expect heavy shielding and guided missile ordnance.',
+            'Check your shields and restock homing missiles at the Shipwright in the cantina before making the jump.'
+          ],
+          last: true
+        }
+      ];
+      nkPlaySlides(slides, 'MISSION DEBRIEFING');
+      let cleared = false;
+      const finish = () => {
+        if (cleared) return;
+        cleared = true;
+        clearInterval(checkDone);
+        if (typeof callback === 'function') callback();
+      };
+      const checkDone = setInterval(() => {
+        if (!NKI.on) finish();
+      }, 150);
+    }
+    window.novaPlayDebrief = novaPlayDebrief;
     const NOVA_STORY_CHOICES = {
       honesty: () => novaChoice('THE SCALE GLITCH', "Nova-1's ore scale glitched and reads 8 tons. You mined 5. Commander Reyes pays by the scale. What do you report?", [
         { label: 'REPORT 5 TONS', col: '#00ff88', fn: () => { novaStory.made.honesty = 'honest'; novaAffAdd('station', 12, 'honest report'); novaLesson('honesty', 'HONESTY', 'Tell the truth even when a lie would pay. Trust is the real currency.', true); broadcastCommsTransmission('STATION NOVA-1', 'You flagged our glitch instead of cashing it. I can trust a pilot like you, Nova.', 0.95); campaignComplete(); } },
@@ -10507,6 +10620,105 @@ const GAME_VERSION = 'Alpha 1.4';
         broadcastCommsTransmission('BARTENDER Z-9', s, 0.75);
       }, 0.18, 0.07);
     }
+    // Valkyrie-7 (Tactical Wingman & Debrief Officer) at the debrief table
+    let novaValkyrieCantina = null;
+    {
+      const g = new THREE.Group();
+      g.position.set(1.15, 0, -1.35);
+      g.rotation.y = -Math.PI * 0.72;
+      cantinaGroup.add(g);
+      novaValkyrieCantina = g;
+
+      // Tactical Debrief Table / Console
+      const table = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.04, 20), new THREE.MeshStandardMaterial({ color: 0x14202e, metalness: 0.8, roughness: 0.3 }));
+      table.position.set(0, 0.95, 0.15);
+      g.add(table);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.08, 0.93, 8), new THREE.MeshStandardMaterial({ color: 0x0a121c, metalness: 0.9 }));
+      leg.position.set(0, 0.47, 0.15);
+      g.add(leg);
+
+      // Holographic Transponder Slate on Table
+      const slate = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.012, 0.16), new THREE.MeshStandardMaterial({ color: 0x002233, metalness: 0.9 }));
+      slate.position.set(0, 0.975, 0.15);
+      g.add(slate);
+      const holoRing = new THREE.Mesh(new THREE.RingGeometry(0.04, 0.07, 16), new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide }));
+      holoRing.rotation.x = -Math.PI / 2;
+      holoRing.position.set(0, 0.985, 0.15);
+      g.add(holoRing);
+
+      // Valkyrie Avatar (Tactical flight suit + helmet)
+      const v = new THREE.Group();
+      v.position.set(0, 0, -0.38);
+      g.add(v);
+      const suitMat = new THREE.MeshStandardMaterial({ color: 0x182436, metalness: 0.7, roughness: 0.35 });
+      const trimMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+      // Legs & Boots
+      const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.10, 0.88, 10), new THREE.MeshStandardMaterial({ color: 0x0f1520, roughness: 0.5 }));
+      legs.position.y = 0.44;
+      v.add(legs);
+
+      // Torso & Armor Vest
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.13, 0.58, 12), suitMat);
+      torso.position.y = 1.15;
+      v.add(torso);
+      const chestStripe = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.35, 0.015), trimMat);
+      chestStripe.position.set(0.06, 1.18, 0.16);
+      v.add(chestStripe);
+
+      // Arms & Shoulders
+      [-1, 1].forEach(s => {
+        const pad = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), suitMat);
+        pad.position.set(0.22 * s, 1.40, 0.02);
+        v.add(pad);
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.48, 8), suitMat);
+        arm.position.set(0.21 * s, 1.14, 0.12);
+        arm.rotation.x = -0.7;
+        v.add(arm);
+      });
+
+      // Helmet & Visor
+      const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 14), suitMat);
+      helmet.position.y = 1.56;
+      v.add(helmet);
+      const visor = new THREE.Mesh(new THREE.SphereGeometry(0.105, 16, 10, 0, Math.PI, 0, Math.PI * 0.5), new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00d0ee, emissiveIntensity: 1.2, roughness: 0.1 }));
+      visor.rotation.x = 0.2;
+      visor.position.set(0, 1.56, 0.04);
+      v.add(visor);
+
+      // Overhead Nameplate
+      const sign = novaLabelSprite('VALKYRIE-7 · WINGMAN', '#00f0ff', 0.55);
+      sign.position.set(0, 2.05, -0.2);
+      g.add(sign);
+
+      // Interactive Action Pads on Debrief Table
+      novaPad(g, 'DEBRIEF', '#00e5ff', new THREE.Vector3(-0.16, 0.99, 0.24), new THREE.Euler(-Math.PI / 2 + 0.28, 0, 0), () => {
+        if (typeof novaPlayDebrief === 'function') {
+          const ch = CAMPAIGN[campaignChapter];
+          novaPlayDebrief(() => {
+            if (ch && ch.type === 'dock' && !novaStory.made.humility) {
+              const st = NOVA_STORY_CHOICES[ch.key];
+              if (st && !novaChoiceOpen) st();
+            }
+          });
+        }
+      }, 0.16, 0.07);
+
+      novaPad(g, 'TALK', '#00ff88', new THREE.Vector3(0.16, 0.99, 0.24), new THREE.Euler(-Math.PI / 2 + 0.28, 0, 0), () => {
+        const ch = CAMPAIGN[campaignChapter];
+        if (ch && ch.type === 'dock' && !novaStory.made.humility) {
+          const st = NOVA_STORY_CHOICES[ch.key];
+          if (st && !novaChoiceOpen) { st(); return; }
+        }
+        if (novaStory.flags && novaStory.flags.wingman) {
+          showToast('VALKYRIE-7: "Wingman ready on your six for the next sortie, Nova Lead."', 3500, '#00ff88');
+          novaChatLog('VALKYRIE-7', "Wingman ready on your six for the next sortie, Nova Lead. Fly when you're ready.", '#00ff88');
+          broadcastCommsTransmission('VALKYRIE-7', "Wingman ready on your six. Fly when you're ready.", 1.15);
+        } else {
+          novaTalkTo('VALKYRIE-7');
+        }
+      }, 0.16, 0.07);
+    }
     let novaTalkIdx = 0;
     const NOVA_TALK = ['How are you doing?', 'Any advice for a new pilot?', 'Tell me about yourself.', "What's the news around the station?", 'What do you think is the right thing to do out here?', 'Thanks for everything.'];
     function novaTalkTo(name) {
@@ -10648,6 +10860,14 @@ const GAME_VERSION = 'Alpha 1.4';
         } else showToast(`Repairs cost ${cost} CR. Sell ore at the Shipwright & Market board.`, 3500, '#ffaa00');
       }
       novaDrawBoards();
+      const ch = (typeof CAMPAIGN !== 'undefined' && typeof campaignChapter !== 'undefined') ? CAMPAIGN[campaignChapter] : null;
+      if (ch && ch.type === 'dock') {
+        try {
+          novaSubsPush('VALKYRIE-7', 'Nova Lead, over here at the debrief table. Let\'s review the recovered transponder.', '#00f0ff');
+          showToast('VALKYRIE-7: "Over here at the debrief table, Nova Lead."', 4000, '#00f0ff');
+          broadcastCommsTransmission('VALKYRIE-7', 'Over here at the debrief table, Nova Lead. Sitrep ready.', 1.15);
+        } catch (e) {}
+      }
       novaSubsPush('NYX', novaAff.vega >= 60 ? 'Hey, my favorite pilot is back! Boards are by the launch pad.' : 'Welcome to the cantina, pilot. Contracts on the left, shipwright on the right.', '#b04cff');
       novaSubsPush('EXIT', 'Touch the green LAUNCH button, or press B / Y (keyboard: L) to fly again.', '#00ff88');
     };
@@ -10780,7 +11000,22 @@ const GAME_VERSION = 'Alpha 1.4';
         const fr = cargoFreighters[0];
         if (fr && fr.visible !== false && fr.position.distanceTo(shipGroup.position) < 300) campaignProgress += delta;
       } else if (ch.type === 'dock') {
-        if (isInsideCantina) campaignProgress = 1;
+        if (isInsideCantina) {
+          if (!window._novaDebriefTriggered) {
+            window._novaDebriefTriggered = true;
+            setTimeout(() => {
+              if (typeof novaPlayDebrief === 'function') {
+                novaPlayDebrief(() => {
+                  campaignProgress = 1;
+                  if (campaignProgress >= ch.goal) campaignComplete();
+                });
+              } else {
+                campaignProgress = 1;
+                if (campaignProgress >= ch.goal) campaignComplete();
+              }
+            }, 400);
+          }
+        }
       } else if (ch.type === 'pirate') {
         if (campaignPirateKilled) campaignProgress = 1;
       }
@@ -10805,6 +11040,17 @@ const GAME_VERSION = 'Alpha 1.4';
     let hasAutoRecenteredOnFirstFrame = false;
     function novaOnFoot() { try { const f = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('fps_core'); return !!(f && f.active); } catch (e) { return false; } }
     window.novaOnFoot = novaOnFoot;
+    function novaRender(delta = 0.016) {
+      if (!renderer.xr?.isPresenting) {
+        if (typeof window.novaRenderFn === 'function') {
+          try { window.novaRenderFn(delta); return; } catch (e) { window.novaRenderFn = null; }
+        } else if (window.novaPostfx && typeof window.novaPostfx.render === 'function') {
+          try { window.novaPostfx.render(delta); return; } catch (e) {}
+        }
+      }
+      renderer.render(scene, camera);
+    }
+    window.novaRender = novaRender;
     const novaGameLoop = (timestamp, frame) => {
       const now = performance.now();
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
@@ -10816,7 +11062,7 @@ const GAME_VERSION = 'Alpha 1.4';
         novaHandTurnFrame(frame, now);
         try { novaUpdateWatchOnFoot(delta, frame, now); } catch (e) { console.error('[watch on foot]', e); }
         cameraRig.updateWorldMatrix(true, true);
-        renderer.render(scene, camera);
+        novaRender(delta);
         return;
       }   // on foot: flight is fully off
 
@@ -11049,7 +11295,7 @@ const GAME_VERSION = 'Alpha 1.4';
       }
 
       // ── Procedural Synthwave BGM Audio Sequencer ──
-      if (isBgmPlaying && sound && sound.ctx && sound.ctx.state === 'running') {
+      if (isBgmPlaying && !window.novaCinematicPlaying && sound && sound.ctx && sound.ctx.state === 'running') {
         const trk = BGM_TRACKS[bgmTrackIdx];
         const stepInterval = (60 / trk.bpm) * 0.5; // Eighth-note rhythmic pulse
         if (now / 1000 - lastBgmStepTime >= stepInterval) {
@@ -11078,6 +11324,7 @@ const GAME_VERSION = 'Alpha 1.4';
         let destObj = stationGroup;
         let destName = 'Station Nova-1';
         let safeStandoffDist = 70.0; // Keep 70m safe distance from station
+        let apMode = 'stop'; // 'stop' = stations/rocks; 'track' = enemies/ships (keep following)
 
         if (currentLockedTarget && currentLockedTarget.targetObj && !novaAutoDockPending && novaDock.state === 'idle') {   // docking always heads for Nova-1, whatever is locked
           destObj = currentLockedTarget.targetObj;
@@ -11085,12 +11332,20 @@ const GAME_VERSION = 'Alpha 1.4';
           if (currentLockedTarget.type === 'asteroid') {
             const aRad = (destObj.userData && destObj.userData.radius) ? destObj.userData.radius : 15.0;
             safeStandoffDist = aRad + 35.0; // Standoff 35m from asteroid surface for comfortable mining
+            apMode = 'stop';
           } else if (currentLockedTarget.type === 'freighter') {
             safeStandoffDist = 45.0; // Standoff 45m along convoy escort lane
-          } else if (currentLockedTarget.type === 'hostile') {
+            apMode = 'track'; // hold formation with freighter
+          } else if (currentLockedTarget.type === 'hostile' || currentLockedTarget.isHostile) {
             safeStandoffDist = 65.0; // Combat dogfight distance
+            apMode = 'track'; // keep tracking enemy — do not auto-stop
+          } else if (currentLockedTarget.type === 'station') {
+            safeStandoffDist = 70.0;
+            apMode = 'stop';
           } else {
             safeStandoffDist = 60.0;
+            // ships / contacts: aim and hold formation rather than hard-stop
+            apMode = (currentLockedTarget.isHostile) ? 'track' : 'track';
           }
         }
 
@@ -11117,8 +11372,21 @@ const GAME_VERSION = 'Alpha 1.4';
             const vMax = Math.max(4, remain * 0.6), v = shipBody.velocity, sp = Math.hypot(v.x, v.y, v.z);
             if (sp > vMax) { const k = vMax / sp; v.x *= k; v.y *= k; v.z *= k; }
           }
+        } else if (apMode === 'track') {
+          // Enemies / ships: keep tracking — aim at target, hold combat/formation distance, do NOT disengage
+          if (remain < -20) {
+            setThrottle(0.0); // too close: coast while still aiming
+          } else if (remain > 0.5) {
+            setThrottle(0.18);
+          } else {
+            setThrottle(0.05); // micro-thrust to hold formation
+          }
+          if (shipBody && remain < 5) {
+            const v = shipBody.velocity, sp = Math.hypot(v.x, v.y, v.z);
+            if (sp > 12) { const k = 12 / sp; v.x *= k; v.y *= k; v.z *= k; }
+          }
         } else {
-          // Arrived safely at standoff distance!
+          // Stations / rocks: arrived at standoff — stop and disengage autopilot
           setThrottle(0.0);
           if (shipBody) {
             shipBody.velocity.set(0, 0, 0);
@@ -11162,44 +11430,50 @@ const GAME_VERSION = 'Alpha 1.4';
       if (arcadeFlight) {
         advancedAngularRate.set(0, 0, 0);
         pitchRate = pitchFactor * normPitch * pitchSpeed;
-        yawRate = (normYaw + normRoll * 0.15) * yawSpeed;
-        rollRate = normRoll * rollSpeed;
+        yawRate = (normYaw + normRoll) * yawSpeed;
+        rollRate = 0.0;
       } else {
         // ADVANCED inputs command rotational thrusters (angular acceleration), not assisted target rates.
-        // Releasing the controls preserves rotation; counter-input arrests it.
+        // Releasing the controls preserves rotation unless dampeners are active; counter-input arrests it.
         const manual = !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive && !novaOnFoot();
         if (!manual) advancedAngularRate.set(0, 0, 0);
         else {
           advancedAngularRate.x = THREE.MathUtils.clamp(advancedAngularRate.x + pitchFactor * normPitch * 3.2 * delta, -pitchSpeed, pitchSpeed);
           advancedAngularRate.y = THREE.MathUtils.clamp(advancedAngularRate.y + normYaw * 2.8 * delta, -yawSpeed, yawSpeed);
           advancedAngularRate.z = THREE.MathUtils.clamp(advancedAngularRate.z + normRoll * 3.6 * delta, -rollSpeed, rollSpeed);
+          if (isRotationDampenerOn && !isStickDeflected) {
+            const decay = Math.exp(-4.0 * delta);
+            advancedAngularRate.x *= decay;
+            advancedAngularRate.y *= decay;
+            advancedAngularRate.z *= decay;
+          }
         }
         pitchRate = advancedAngularRate.x; yawRate = advancedAngularRate.y; rollRate = advancedAngularRate.z;
       }
-      if (arcadeFlight && Math.abs(normRoll) < 0.01 && !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive) {
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(shipGroup.quaternion);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(shipGroup.quaternion);
-        rollRate -= THREE.MathUtils.clamp(Math.atan2(right.y, up.y), -1, 1) * 0.7;
+      if (arcadeFlight && !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive) {
+        _flightRight.set(1, 0, 0).applyQuaternion(shipGroup.quaternion);
+        _flightUp.set(0, 1, 0).applyQuaternion(shipGroup.quaternion);
+        rollRate = -THREE.MathUtils.clamp(Math.atan2(_flightRight.y, _flightUp.y), -1, 1) * 2.5;
       }
-      if (!arcadeFlight && shipBody) { shipBody.angularDamping = 0; shipBody.linearDamping = 0; }
+      if (!isRotationDampenerOn && shipBody) { shipBody.angularDamping = 0; shipBody.linearDamping = 0; }
       const hasFlightRate = Math.abs(pitchRate) + Math.abs(yawRate) + Math.abs(rollRate) > 1e-5;
       if (hasFlightRate) {
         // Direct local attitude integration: rotates strictly around ship's CURRENT local axes (Pitch=X, Yaw=Y, Roll=Z)
-        const deltaEuler = new THREE.Euler(pitchRate * delta, yawRate * delta, rollRate * delta, 'YXZ');
-        const deltaQuat = new THREE.Quaternion().setFromEuler(deltaEuler);
-        shipGroup.quaternion.multiply(deltaQuat);
+        _flightEuler.set(pitchRate * delta, yawRate * delta, rollRate * delta, 'YXZ');
+        _flightQuat.setFromEuler(_flightEuler);
+        shipGroup.quaternion.multiply(_flightQuat);
         shipGroup.quaternion.normalize();
 
         if (shipBody) {
           shipBody.quaternion.copy(shipGroup.quaternion);
-          const localAng = new THREE.Vector3(pitchRate, yawRate, rollRate);
-          const worldAng = localAng.applyQuaternion(shipGroup.quaternion);
+          _flightLocalAng.set(pitchRate, yawRate, rollRate);
+          const worldAng = _flightLocalAng.applyQuaternion(shipGroup.quaternion);
           shipBody.angularVelocity.set(worldAng.x, worldAng.y, worldAng.z);
         }
       }
 
       // ── Flight Stabilization & Auto-Stopping (Zero Random Spin / Instant Inertial Arrest) ──
-      if (arcadeFlight && isRotationDampenerOn && !novaCruise.active) {
+      if (isRotationDampenerOn && !novaCruise.active) {
         // 1. Angular Rotation Auto-Stop: When not actively deflecting flight stick, lock rotation to dead zero (0 rad/s)
         if (!hasFlightRate) {
           if (shipBody) {
@@ -11230,10 +11504,10 @@ const GAME_VERSION = 'Alpha 1.4';
       } else {
         // Dampeners OFF: Inertial zero-g drift
         if (!hasFlightRate && shipBody) {
-          shipBody.angularDamping = arcadeFlight ? 0.80 : 0;
+          shipBody.angularDamping = 0;
         }
         if (shipBody && throttlePct <= 0.05) {
-          shipBody.linearDamping = arcadeFlight ? 0.20 : 0;
+          shipBody.linearDamping = 0;
         }
       }
 
@@ -11354,6 +11628,15 @@ const GAME_VERSION = 'Alpha 1.4';
         const localThrust = new THREE.Vector3(0, 0, boostMagnitude);
         const worldThrust = localThrust.applyQuaternion(shipGroup.quaternion);
         shipBody.applyForce(new CANNON.Vec3(worldThrust.x, worldThrust.y, worldThrust.z), shipBody.position);
+      }
+      if (typeof cockpitDashLight !== 'undefined' && cockpitDashLight) {
+        if (isAfterburnerActive) {
+          cockpitDashLight.color.setHex(0xff5500);
+          cockpitDashLight.intensity = 0.75 + Math.random() * 0.25;
+        } else {
+          cockpitDashLight.color.setHex(typeof lightMode !== 'undefined' && lightMode === 1 ? 0xff2233 : 0x00e5ff);
+          cockpitDashLight.intensity = typeof lightMode !== 'undefined' && lightMode === 2 ? 0.05 : 0.45;
+        }
       }
 
       // Smooth Missile Lid Animation (follows hand drag when grabbed, springs to open/close when released)
@@ -11988,8 +12271,8 @@ const GAME_VERSION = 'Alpha 1.4';
             }
 
             if (isGrippingStickHand) {
-              // GRIP ENDS cleanly when hand genuinely uncurls (!isGripActive) or moves beyond 16cm
-              if (!isGripActive || distStick > 0.165 || isHandBusyWithControls) {
+              // GRIP ENDS cleanly when hand genuinely uncurls (!isGripActive) or moves beyond 22cm
+              if (!isGripActive || distStick > 0.22 || isHandBusyWithControls) {
                 isGrippingStickHand = false;
               } else {
                 // Deflection relative to initial hand grab anchor with generous 2.2cm deadzone
@@ -12309,7 +12592,7 @@ const GAME_VERSION = 'Alpha 1.4';
               sound.beep(620, 0.05);
             }
             if (isGrippingStickCtrl && isControllerActive) {
-              if (distStick > 0.170) {
+              if (distStick > 0.280) {
                 isGrippingStickCtrl = false;
               } else {
                 const localStickHand = stickGroup.worldToLocal(cPos.clone());
@@ -12560,7 +12843,7 @@ const GAME_VERSION = 'Alpha 1.4';
       });
       novaHandTurnFrame(frame, now);
       cameraRig.updateWorldMatrix(true, true);
-      renderer.render(scene, camera);
+      novaRender(delta);
     };
 
     // ════════════════════════════════════════════════════════════════
@@ -12916,8 +13199,16 @@ const GAME_VERSION = 'Alpha 1.4';
       novaPulse(side, 0.6, 35);
     }
     function novaPulse(side, v, ms) {
-      try { const ses = renderer.xr.getSession(); ses && ses.inputSources.forEach(s => { if (s.handedness === side && s.gamepad && s.gamepad.hapticActuators && s.gamepad.hapticActuators[0]) s.gamepad.hapticActuators[0].pulse(v, ms); }); } catch (e) {}
+      try {
+        const ses = renderer.xr.getSession();
+        ses && ses.inputSources.forEach(s => {
+          if ((!side || s.handedness === side) && s.gamepad && s.gamepad.hapticActuators && s.gamepad.hapticActuators[0]) {
+            s.gamepad.hapticActuators[0].pulse(v, ms);
+          }
+        });
+      } catch (e) {}
     }
+    window.novaPulse = novaPulse;
     function novaEntryFor(obj) {
       return cockpitInteractables.find(b => { let o = obj; while (o) { if (b.mesh === o) return true; o = o.parent; } return false; });
     }
@@ -13011,6 +13302,10 @@ const GAME_VERSION = 'Alpha 1.4';
       if (typeof c2Laser !== 'undefined' && c2Laser) c2Laser.visible = false;
     }
     renderer.setAnimationLoop((timestamp, frame) => {
+      if (window.novaSessionPaused && renderer.xr.isPresenting) {
+        try { renderer.render(scene, camera); } catch (_) {}
+        return;
+      }
       if (renderer.xr.isPresenting && window.nmFrame) { try { window.nmFrame(); } catch (e) { } }   // screens, radar, Obi, panels keep running in VR
       if (novaSafeZoneActive && renderer.xr.isPresenting) {
         try {
@@ -13035,13 +13330,14 @@ const GAME_VERSION = 'Alpha 1.4';
           novaLastLoopError = msg; novaLastErrorTime = performance.now();
           drawSafePanel(novaSafeReady ? 'READY' : 'LOADING GAME...');
         }
-        try { renderer.render(scene, camera); } catch (e2) {}
+        try { novaRender(0.016); } catch (e2) { try { renderer.render(scene, camera); } catch (e3) {} }
       }
     });
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      try { if (window.novaPostfx?.resize) window.novaPostfx.resize(); } catch (e) {}
     });
 
     function updateInvertYButton() {
@@ -13258,8 +13554,27 @@ const GAME_VERSION = 'Alpha 1.4';
       if (isInsideCarrier) { novaCarrierLaunch(); return; }
       if (novaShipDef().id === 'carrier') novaEnterCarrier(); else if (novaShipDef().id === 'fighter') novaCarrierRecover();
     });
-    function novaShipGate(s) { return novaGateStatus({ act: s.act || 1, level: s.lvl || 1, standing: s.standing || 50, faction: s.faction || 'station', chapter: s.chapter || 0 }); }
+    window.novaDebugUnlockShips = (urlParams.get('unlock') === '1' || urlParams.get('unlock_ships') === '1' || urlParams.get('debug') === '1' || urlParams.get('ships') === '1');
+    function novaShipGate(s) {
+      if (window.novaDebugUnlockShips) return [];
+      return novaGateStatus({ act: s.act || 1, level: s.lvl || 1, standing: s.standing || 50, faction: s.faction || 'station', chapter: s.chapter || 0 });
+    }
     function novaShipsPersist() { try { localStorage.setItem('novaShips', JSON.stringify(novaShipSave)); } catch (e) {} }
+    function novaUnlockShips(ownAll = false) {
+      window.novaDebugUnlockShips = true;
+      if (ownAll) {
+        NOVA_SHIPS.forEach(s => {
+          if (!novaShipSave.owned.includes(s.id)) novaShipSave.owned.push(s.id);
+        });
+        novaShipsPersist();
+        showToast('DEBUG: All ships owned! Touch any ship in Hangar to fly.', 3500, '#00ffcc');
+      } else {
+        showToast('DEBUG: All ships unlocked for purchase at Hangar board!', 3500, '#00ffcc');
+      }
+      try { novaHangarDraw(); } catch (e) {}
+      try { novaSave13(); } catch (e) {}
+    }
+    window.novaUnlockShips = novaUnlockShips;
     function novaShipAction(id) {
       const s = NOVA_SHIPS.find(x => x.id === id); if (!s) return;
       const own = novaShipSave.owned.includes(id);
@@ -13267,8 +13582,16 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!own) {
         const locked = novaShipGate(s);
         if (locked.length) { showToast(`LOCKED: ${locked.join(' · ')}`, 2800, '#ff6644'); return; }
-        if (bankCredits < s.cost) { showToast(`${s.name} costs ${s.cost.toLocaleString()} CR. You have ${bankCredits.toLocaleString()}.`, 2800, '#ff6644'); return; }
-        bankCredits -= s.cost; novaShipSave.owned.push(id);
+        if (bankCredits < s.cost) {
+          if (window.novaDebugUnlockShips) {
+            bankCredits = Math.max(0, bankCredits - s.cost);
+            novaShipSave.owned.push(id);
+          } else {
+            showToast(`${s.name} costs ${s.cost.toLocaleString()} CR. You have ${bankCredits.toLocaleString()}.`, 2800, '#ff6644'); return;
+          }
+        } else {
+          bankCredits -= s.cost; novaShipSave.owned.push(id);
+        }
       }
       novaShipSave.active = id; novaShipsPersist(); novaBuildShipCockpit();
       missileAmmo = own ? Math.min(missileAmmo, novaMslCap()) : novaMslCap();
@@ -14911,7 +15234,51 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     function nsObjectivePick() {
       const ch = nsActiveCh();
-      if (ch && ch.site && NSITE.unlock[ch.site]) { novaWarpStart(ch.site); return; }
+      const so = (typeof window.novaSiteObjective === 'function') ? window.novaSiteObjective() : null;
+
+      if (ch && ch.site && (NSITE.unlock[ch.site] || NW_DESTS.some(d => d.id === ch.site))) {
+        novaWarpStart(ch.site);
+        showToast('ENGAGING WARP TO OBJECTIVE: ' + ch.title, 3000, '#ffcc00');
+        return;
+      }
+
+      let targetPos = null, targetName = 'OBJECTIVE', targetObj = null;
+      if (so && so.pos) {
+        targetPos = so.pos;
+        targetName = so.label || 'OBJECTIVE';
+      } else if (ch && ch.site && typeof NS_POS !== 'undefined' && NS_POS[ch.site]) {
+        targetPos = NS_POS[ch.site];
+        targetName = ch.title;
+      } else if (typeof curMission !== 'undefined' && curMission) {
+        if (curMission.goalType === 'escort' && typeof cargoFreighters !== 'undefined' && cargoFreighters.length > 0) {
+          targetPos = cargoFreighters[0].position; targetName = 'STARLIFTER-7 CONVOY'; targetObj = cargoFreighters[0];
+        } else if (curMission.goalType === 'mine' && typeof asteroids !== 'undefined' && asteroids[0]) {
+          targetPos = asteroids[0].position; targetName = 'ASTEROID MINING FIELD'; targetObj = asteroids[0];
+        } else if (curMission.goalType === 'destroy' && typeof pirateBoss !== 'undefined' && pirateBoss && pirateBoss.visible) {
+          targetPos = pirateBoss.position; targetName = 'PIRATE RAIDER'; targetObj = pirateBoss;
+        }
+      } else if (typeof novaContract !== 'undefined' && novaContract && novaContract.site && typeof NS_POS !== 'undefined' && NS_POS[novaContract.site]) {
+        targetPos = NS_POS[novaContract.site];
+        targetName = novaContract.title;
+      } else if (typeof stationGroup !== 'undefined' && stationGroup) {
+        targetPos = stationGroup.position;
+        targetName = 'STATION NOVA-1';
+        targetObj = stationGroup;
+      }
+
+      if (targetPos) {
+        const dist = targetPos.distanceTo(shipGroup.position);
+        if (!targetObj) {
+          targetObj = new THREE.Object3D();
+          targetObj.position.copy(targetPos);
+        }
+        currentLockedTarget = { name: targetName, type: 'waypoint', targetObj, dist, isHostile: false };
+        try { drawRightDash(); drawCommsPanel(); } catch (e) {}
+        try { novaTargetAutopilotPress(); } catch (e) {}
+        showToast(`ROUTING TO ${targetName} (${Math.round(dist)} m) — AUTOPILOT ENGAGED`, 3500, '#33ff99');
+        return;
+      }
+
       showToast(ch ? ch.hint : 'Fly free. Check the cantina board for contracts.', 4000, '#ffcc00');
     }
 
@@ -16324,7 +16691,10 @@ const GAME_VERSION = 'Alpha 1.4';
       for (let i = 0; i < 8; i++) P.rowHits.push(hit(cfg.id + ' ROW ' + (i + 1), 8, 50 + i * 44, 408, 44, () => { const t = cfg.tabs[P.tab]; if (t !== NP_SYSOPT && t.row) t.row(P, i); }));
       if (cfg.id === 'R') {
         P.sysHits = [];
-        for (let i = 0; i < 3; i++) P.sysHits.push(hit('R SYSOPT TILE ' + (i + 1), 120, 52 + i * 118, 784, 108, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) NP_SYSOPT.row(P, i); }));
+        for (let i = 0; i < 3; i++) {
+          P.sysHits.push(hit('R SYSOPT TILE L ' + (i + 1), 120, 52 + i * 118, 384, 108, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) NP_SYSOPT.row(P, i, 'left'); }));
+          P.sysHits.push(hit('R SYSOPT TILE R ' + (i + 1), 520, 52 + i * 118, 384, 108, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) NP_SYSOPT.row(P, i, 'right'); }));
+        }
         { const mk = (lab, y, d) => { hit(lab, 892, y, 120, 170, () => { const T = P.cfg.tabs[P.tab]; if (T === NP_CARGO && nmkNear()) { P.scroll = Math.max(0, Math.min(Math.max(0, nmkRows(nmkNear()).length - NMK_VIS), P.scroll + d)); P.scrollF = P.scroll; try { sound.switchClick(); } catch (e) { } } }); const e = cockpitInteractables[cockpitInteractables.length - 1]; (P.mkArrows = P.mkArrows || []).push(e.mesh); }; mk('R MARKET UP', 52, -1); mk('R MARKET DOWN', 234, 1); }
         P.scrollHits = [
           hit('R SCROLL PREV', 8, 52, 96, 344, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) P.scroll = Math.max(0, P.scroll - 3); P.drawT = 0; }),
@@ -16333,6 +16703,7 @@ const GAME_VERSION = 'Alpha 1.4';
         P.emergencyHit = hit('R EMERGENCY MISSILES', 8, 342, 1002, 70, () => { if (P.cfg.tabs[P.tab] === NP_WPN) npEmergencyMissileResupply(); });
       }
       if (cfg.id !== 'R') {
+        P.hailHit = hit('L COMMS HAIL', 430, 210, 265, 60, () => { if (P.cfg.tabs[P.tab] === NP_COMMS) npHailToChat(P); });
         P.padHits = [];
         for (let i = 0; i < 4; i++) P.padHits.push(hit(cfg.id + ' PAD ' + (i + 1), 420 + i * 149, 352, 141, 76, () => { const pd = (cfg.tabs[P.tab].pads || [])[i]; if (pd) pd.fn(P); }));
         P.flightHits = [];
@@ -16400,6 +16771,19 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!npCanTalk(lk)) { novaChatLog('SENSORS', lk.name + ': no transponder, nothing to hail.', '#88aacc'); return; }
       if (lk.isHostile && typeof pirateBoss !== 'undefined' && lk.targetObj === pirateBoss) { try { novaPirateHail(); } catch (e) { } return; }
       novaChatSend(npEnt(lk), `Nova Lead to ${lk.name}, do you read?`);
+    }
+    function npHailToChat(P) {
+      const lk = currentLockedTarget;
+      if (!lk) { showToast('Select a contact in the COMMS list first.', 2000, '#ffaa00'); return; }
+      if (!npCanTalk(lk)) { showToast((lk.name || 'Contact') + ' has no comms transponder.', 2200, '#ffaa00'); return; }
+      const ent = Object.assign(npEnt(lk), { targetObj: lk.targetObj, callsign: lk.name, name: lk.name, color: NP.ccol[lk.type] || '#00e5ff' });
+      npChatSave(ent);
+      NPCH.target = ent;
+      NPCH.scroll = 0;
+      const ci = P ? P.cfg.tabs.indexOf(NP_CHAT) : -1;
+      if (ci >= 0) npTab(P, ci);
+      try { sound.commsChirp(); } catch (e) {}
+      showToast(`MESSAGES: ${lk.name}`, 2200, '#00e5ff');
     }
     function npTalk() { const lk = currentLockedTarget; if (!lk || !npCanTalk(lk)) { showToast(lk ? 'No transponder on that contact.' : 'Select a contact first.', 2000, '#ffaa00'); return; } novaKeyboardToggle(npEnt(lk), true); }
     function npQuick() { const lk = currentLockedTarget; if (!lk || !npCanTalk(lk)) { showToast('Select a contact you can talk to.', 2000, '#ffaa00'); return; } novaChatQuickPrompt(npEnt(lk)); }
@@ -16484,6 +16868,15 @@ const GAME_VERSION = 'Alpha 1.4';
         if (P.list.length > 8) { const f = P.scroll / Math.max(1, P.list.length - 8); x.fillStyle = 'rgba(0,229,255,0.25)'; x.fillRect(404, 52, 8, 352); x.fillStyle = '#00e5ff'; x.fillRect(404, 52 + f * 300, 8, 52); }
         if (!P.list.length) npText(x, 'NO CONTACTS IN 4 KM', 20, 90, 'bold 22px monospace', '#6f8ca3');
         npTgtInfo(x, 430, 52, 280);
+        const canHail = currentLockedTarget && npCanTalk(currentLockedTarget);
+        const hX = 430, hY = 210, hW = 265, hH = 60;
+        x.fillStyle = canHail ? 'rgba(0,229,255,0.22)' : 'rgba(255,255,255,0.035)';
+        x.fillRect(hX, hY, hW, hH);
+        x.strokeStyle = canHail ? '#00e5ff' : '#29455a'; x.lineWidth = 3;
+        x.strokeRect(hX, hY, hW, hH);
+        x.textAlign = 'center';
+        npText(x, '📡 HAIL / CHAT', hX + hW / 2, hY + 38, 'bold 22px monospace', canHail ? '#00e5ff' : '#4a6b82');
+        x.textAlign = 'left';
         npHoloFrame(x, lk ? (NP.ccol[currentLockedTarget.type] || '#00e5ff') : '#2a4a63');   // chat lives on the CHAT tab now
       } };
     const NP_FLIGHT = { name: 'FLIGHT', c: '#b266ff', hint: 'touch the large controls · instruments show attitude, throttle and airspeed',
@@ -16599,6 +16992,7 @@ const GAME_VERSION = 'Alpha 1.4';
         x.textAlign = 'right'; npText(x, `${NNEWS.i + 1} / ${L.length}`, 1004, 338, 'bold 18px monospace', '#7fb6d0'); x.textAlign = 'left';
       } };
     const NP_OBJ = { name: 'OBJECTIVE', c: '#ffcc00', hint: 'ROUTE warps you to the objective when the route is known \u00b7 the compass diamond points to it',
+      row: () => { try { nsObjectivePick(); } catch (e) { } },
       pads: [{ l: 'ROUTE', c: '#ffcc00', fn: () => { try { nsObjectivePick(); } catch (e) { } } }, { l: 'BRIEFING', c: '#b266ff', fn: () => { const ch = CAMPAIGN[campaignChapter]; if (ch) nkIntroStart(true, { k: ch.title, t: ch.objective, b: [ch.hint, '"' + ch.intro + '"', '\u2014 ' + ch.speaker], last: true }); } },
         { l: 'LOG', c: '#ffd24a', fn: P => { const a = (P && P.acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); } }, { l: 'STORY', c: '#00e5ff', fn: () => nkIntroStart(true) }],
       draw: (x, P) => {
@@ -16678,6 +17072,7 @@ const GAME_VERSION = 'Alpha 1.4';
       ['SAVE GAME', '#33ff99', () => nsvSave(1)], ['LOAD GAME', '#ffd24a', () => nsvLoad(1)],
       ['MASTER VOLUME ' + Math.round(NOPT.o.master * 100) + '%', '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }],
       ['JOYSTICK DEADZONE ' + Math.round((NOPT.o.deadzone ?? 0.12) * 100) + '%', '#33ff99', () => { const D = [0.05, 0.08, 0.12, 0.16, 0.20]; const i = D.findIndex(v => Math.abs(v - (NOPT.o.deadzone ?? 0.12)) < 0.01); NOPT.o.deadzone = D[(i + 1) % D.length]; noptSave(); showToast('JOYSTICK DEADZONE ' + Math.round(NOPT.o.deadzone * 100) + '%', 1800, '#33ff99'); }],
+      ['FORCE ULTRA: ' + (NOPT.o.forceUltra ? 'ON' : 'OFF'), '#ff66ff', () => { NOPT.o.forceUltra = !NOPT.o.forceUltra; if (NOPT.o.forceUltra) NOPT.o.gfx = 'ultra'; noptSave(); noptApplyGfx(); showToast('FORCE ULTRA: ' + (NOPT.o.forceUltra ? 'ON' : 'OFF'), 1800, '#ff66ff'); }],
       ['GRAPHICS ' + String(NOPT.o.gfx).toUpperCase(), '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); showToast('GRAPHICS ' + NOPT.o.gfx.toUpperCase() + (renderer.xr.isPresenting ? ' (VR resolution changes next launch)' : ''), 2000, '#b266ff'); }],
       ['EXIT GAME', '#ff3344', () => npExitArm()]];
     const NP_OPT = { name: 'OPTIONS', c: '#9fc3d8', hint: 'touch a row · EXIT GAME needs a second touch · key bindings are in the main menu OPTIONS',
@@ -16701,15 +17096,28 @@ const GAME_VERSION = 'Alpha 1.4';
       const panel = NP.panels[1]; if (panel) panel.drawT = 0;
     }
     const NP_SYSOPT = { name: 'SYSTEM / OPTIONS', c: '#ffd24a', hint: 'three controls per page · previous is on the far left · next is on the far right',
-      row: (P, i) => { const r = NP_SYSOPT.rows()[(P.scroll || 0) + i]; if (r) { try { sound.switchClick(); } catch (e) { } r[2](P); P.drawT = 0; } }, pads: [],
+      row: (P, i, side) => {
+        const rows = NP_SYSOPT.rows();
+        const r = rows[(P.scroll || 0) + i];
+        if (r) {
+          try { sound.switchClick(); } catch (e) { }
+          if (r[4] && r[4].split) {
+            if (side === 'right') r[4].rightFn();
+            else r[4].leftFn();
+          } else {
+            r[2](P);
+          }
+          P.drawT = 0;
+        }
+      }, pads: [],
       rows: () => [
         [`FLIGHT MODEL  ${String(NOPT.o.flightMode || 'arcade').toUpperCase()}`, '#33ff99', () => npSetFlightMode((NOPT.o.flightMode || 'arcade') === 'arcade' ? 'advanced' : 'arcade'), 'Switch assisted Arcade / full-rate Advanced.'],
         [(passthroughActive ? 'VIEW  FULL VR' : 'VIEW  MIXED REALITY'), '#ff66cc', () => togglePassthrough(), 'Change between space and passthrough.'],
         ['RECENTER VIEW', '#ffd24a', () => npRecenterDelayed(), 'One-second seated-headset countdown.'],
-        ['SAVE GAME', '#33ff99', () => nsvSave(1), 'Write the current flight to slot one.'],
-        ['LOAD GAME', '#ffd24a', () => nsvLoad(1), 'Restore slot one.'],
+        ['SAVE / LOAD GAME', '#33ff99', (P, side) => { if (side === 'right') nsvLoad(1); else nsvSave(1); }, 'Save and restore game state.', { split: true, leftText: 'SAVE GAME', leftCol: '#33ff99', leftFn: () => nsvSave(1), rightText: 'LOAD GAME', rightCol: '#ffd24a', rightFn: () => nsvLoad(1) }],
         [`MASTER VOLUME  ${Math.round(NOPT.o.master * 100)}%`, '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }, 'Touch to step the overall sound level.'],
         [`GRAPHICS  ${String(NOPT.o.gfx).toUpperCase()}`, '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); }, 'Quest performance / visual quality.'],
+        ['DEBUG SHIPS', '#00ffcc', (P, side) => { if (side === 'right') window.novaUnlockShips(true); else window.novaUnlockShips(false); }, 'Unlock shop / own all ships for testing.', { split: true, leftText: 'UNLOCK SHOP', leftSub: 'Clear rank gates', leftCol: '#00ffcc', leftFn: () => window.novaUnlockShips(false), rightText: 'OWN ALL SHIPS', rightSub: 'Fly any craft', rightCol: '#ffd24a', rightFn: () => window.novaUnlockShips(true) }],
         [(NPX.arm > performance.now() ? 'TOUCH AGAIN TO EXIT' : 'EXIT GAME'), '#ff3344', () => npExitArm(), 'Second touch confirms exit.']
       ],
       draw: (x, P) => {
@@ -16717,10 +17125,28 @@ const GAME_VERSION = 'Alpha 1.4';
         P.scroll = Math.max(0, Math.min(last, Math.floor((P.scroll || 0) / 3) * 3));
         for (let i = 0; i < 3; i++) {
           const r = rows[P.scroll + i]; if (!r) break; const X = 120, Y = 52 + i * 118;
-          x.fillStyle = 'rgba(3,18,32,0.95)'; x.fillRect(X, Y, 784, 108); x.strokeStyle = r[1]; x.lineWidth = 4; x.strokeRect(X + 3, Y + 3, 778, 102);
-          x.fillStyle = r[1]; x.fillRect(X + 14, Y + 14, 10, 80);
-          npText(x, r[0], X + 48, Y + 48, 'bold 29px monospace', r[1], 710);
-          npText(x, r[3], X + 48, Y + 80, '18px monospace', '#b9d7e8', 710);
+          if (r[4] && r[4].split) {
+            const wHalf = 384;
+            // Left Half
+            x.fillStyle = 'rgba(3,18,32,0.95)'; x.fillRect(X, Y, wHalf, 108);
+            x.strokeStyle = r[4].leftCol; x.lineWidth = 4; x.strokeRect(X + 3, Y + 3, wHalf - 6, 102);
+            x.fillStyle = r[4].leftCol; x.fillRect(X + 14, Y + 14, 8, 80);
+            npText(x, r[4].leftText, X + 36, Y + 48, 'bold 27px monospace', r[4].leftCol, wHalf - 46);
+            npText(x, r[4].leftSub || 'Write slot 1', X + 36, Y + 80, '17px monospace', '#b9d7e8', wHalf - 46);
+
+            // Right Half
+            const rX = X + wHalf + 16;
+            x.fillStyle = 'rgba(3,18,32,0.95)'; x.fillRect(rX, Y, wHalf, 108);
+            x.strokeStyle = r[4].rightCol; x.lineWidth = 4; x.strokeRect(rX + 3, Y + 3, wHalf - 6, 102);
+            x.fillStyle = r[4].rightCol; x.fillRect(rX + 14, Y + 14, 8, 80);
+            npText(x, r[4].rightText, rX + 36, Y + 48, 'bold 27px monospace', r[4].rightCol, wHalf - 46);
+            npText(x, r[4].rightSub || 'Restore slot 1', rX + 36, Y + 80, '17px monospace', '#b9d7e8', wHalf - 46);
+          } else {
+            x.fillStyle = 'rgba(3,18,32,0.95)'; x.fillRect(X, Y, 784, 108); x.strokeStyle = r[1]; x.lineWidth = 4; x.strokeRect(X + 3, Y + 3, 778, 102);
+            x.fillStyle = r[1]; x.fillRect(X + 14, Y + 14, 10, 80);
+            npText(x, r[0], X + 48, Y + 48, 'bold 29px monospace', r[1], 710);
+            npText(x, r[3], X + 48, Y + 80, '18px monospace', '#b9d7e8', 710);
+          }
         }
         const prev = P.scroll > 0, next = P.scroll < last;
         [[8, '\u25C0', prev], [920, '\u25B6', next]].forEach(([X, lab, on]) => { x.fillStyle = on ? 'rgba(0,229,255,0.18)' : 'rgba(255,255,255,0.03)'; x.fillRect(X, 52, 96, 344); x.strokeStyle = on ? '#00e5ff' : '#294250'; x.lineWidth = 4; x.strokeRect(X, 52, 96, 344); x.textAlign = 'center'; npText(x, lab, X + 48, 236, 'bold 48px sans-serif', on ? '#00e5ff' : '#294250'); x.textAlign = 'left'; });
@@ -16807,6 +17233,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (P.cfg.id === 'L') { P.listT -= dt; if (P.listT <= 0) { P.listT = 1.0; npRefreshList(P); } }
         const T = P.cfg.tabs[P.tab];
         if (P.cfg.id === 'L') {
+          if (P.hailHit) P.hailHit.visible = T === NP_COMMS;
           (P.padHits || []).forEach(m => { m.visible = T !== NP_FLIGHT && T !== NP_WARP && !!(T.pads && T.pads.length); });
           (P.flightHits || []).forEach(m => { m.visible = T === NP_FLIGHT; });
           (P.warpHits || []).forEach(m => { m.visible = T === NP_WARP; });
@@ -16919,8 +17346,8 @@ const GAME_VERSION = 'Alpha 1.4';
       const T = P.cfg.tabs[P.tab];
       if (py < 50 || py > 412) return false;                       // tab strip and footer keep their own buttons
       if (T.pads && T.pads.length && py > 338 && (T === NP_WARP || px > 412)) return false;   // pads
-      if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT && T !== NP_CREW_TAB && T !== NP_NEWS && !(T === NP_CARGO && nmkNear())) return false;
-      if (T === NP_COMMS && px > 420) return false;
+      if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT && T !== NP_CREW_TAB && T !== NP_NEWS && T !== NP_CARGO) return false;
+      if (T === NP_COMMS && px > 420 && !(px >= 425 && px <= 705 && py >= 205 && py <= 275)) return false;
       if (T === NP_CARGO && px > 560) return false;
       NPG.g = { P, src, x0: px, y0: py, lx: px, ly: py, acc: 0, moved: 0, t: performance.now() }; NPG.vel = 0;
       return true;
@@ -16954,10 +17381,16 @@ const GAME_VERSION = 'Alpha 1.4';
       const G = NPG.g; NPG.g = null; if (!G) return;
       const P = G.P, T = P.cfg.tabs[P.tab];
       if (G.moved < 22) {   // tap
-        if (T === NP_COMMS) { const r = Math.floor((G.y0 - 52) / 44); const c = r >= 0 && r < 8 ? P.list[P.scroll + r] : null; if (c) { novaHoloSelect(c); P.drawT = 0; } }
+        if (T === NP_COMMS) {
+          if (G.x0 >= 425 && G.x0 <= 705 && G.y0 >= 205 && G.y0 <= 275) {
+            npHailToChat(P);
+          } else {
+            const r = Math.floor((G.y0 - 52) / 44); const c = r >= 0 && r < 8 ? P.list[P.scroll + r] : null; if (c) { novaHoloSelect(c); P.drawT = 0; }
+          }
+        }
         else if (T === NP_CREW_TAB) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) NP_CREW_TAB.row(P, r); }
         else if (T === NP_NEWS && G.x0 < 360) { const r = Math.floor((G.y0 - 94) / 42); if (r >= 0 && r < Math.min(6, nnewsItems().length)) nnewsSelect(nnewsFirst() + r); }
-        else if (T === NP_CARGO && nmkNear()) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) { NP_CARGO.row(P, r); P.drawT = 0; } }
+        else if (T === NP_CARGO) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) { NP_CARGO.row(P, r); P.drawT = 0; } }
         else if (T === NP_WARP) { if (G.x0 < 140) npWarpStep(-1); else if (G.x0 > 884) npWarpStep(1); }
         else if (T === NP_CHAT) {
           if (G.x0 < 320) {
@@ -17187,7 +17620,10 @@ const GAME_VERSION = 'Alpha 1.4';
     window.novaTest = Object.assign(window.novaTest || {}, {
       teamState: () => ({ view: NTEAM.view, jobs: JSON.parse(JSON.stringify(NTEAM.jobs)), jumps: NW.jumps }),
       teamDispatch: (id = 'obi', type = 'salvage') => { nteamDispatch(id, type); return NTEAM.jobs[id] || null; },
-      teamReturn: () => { Object.values(NTEAM.jobs).forEach(j => { j.due = NW.jumps; }); nteamTick(); return NTEAM.jobs; }
+      teamReturn: () => { Object.values(NTEAM.jobs).forEach(j => { j.due = NW.jumps; }); nteamTick(); return NTEAM.jobs; },
+      unlockShips: (ownAll = false) => { window.novaUnlockShips(ownAll); return novaShipSave; },
+      flyShip: (id) => { novaShipAction(id); return novaShipDef(); },
+      ships: () => ({ active: novaShipSave.active, owned: novaShipSave.owned.slice(), list: NOVA_SHIPS.map(s => ({ id: s.id, name: s.name, cost: s.cost, locked: novaShipGate(s) })) })
     });
     // crew only: your companion, wingmen, Obi, John and you (stations, sensors and strangers stay on COMMS)
     const NP_CREW_RE = /^(YOU|NYX|MATRIX|VALKYRIE|OBI|JOHN|KIP)/i;
@@ -17296,6 +17732,17 @@ const GAME_VERSION = 'Alpha 1.4';
       nkIntroBuild();
       if (NKI.on && !force) return;
       NKI.card = !!card; NKI.slides = card ? [card] : nkIntroSlides(); NKI.i = 0; NKI.t = 0; NKI.on = true;
+      if (isInsideCantina) {
+        if (NKI.m.parent) NKI.m.parent.remove(NKI.m);
+        cameraRig.add(NKI.m);
+        NKI.m.position.set(0, 1.55, -0.85);
+        NKI.m.rotation.set(0, 0, 0);
+      } else {
+        if (NKI.m.parent) NKI.m.parent.remove(NKI.m);
+        cockpit.add(NKI.m);
+        NKI.m.position.set(0, 0.76, -0.56);
+        NKI.m.rotation.set(0.05, 0, 0);
+      }
       NKI.m.visible = true; if (!renderer.xr.isPresenting) NKI.dom.style.display = 'flex';
       nkIntroDraw(); try { sound.commsChirp(); } catch (e) { }
     }
@@ -17303,7 +17750,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function nkIntroEnd() { NKI.on = false; if (NKI.m) NKI.m.visible = false; if (NKI.dom) NKI.dom.style.display = 'none'; if (!NKI.card) try { localStorage.setItem('novaIntroSeen', '1'); } catch (e) { } }
     window.novaStoryIntro = () => nkIntroStart(true);
     function nkIntroTick(dt) {
-      const playing = cockpit.visible && novaMenuHidden();
+      const playing = (cockpit.visible || isInsideCantina) && novaMenuHidden();
       if (!NKI.on && playing && NKI.lastCh === -1) {
         NKI.lastCh = campaignChapter;
         let seen = false; try { seen = localStorage.getItem('novaIntroSeen') === '1'; } catch (e) { }
@@ -17417,8 +17864,13 @@ const GAME_VERSION = 'Alpha 1.4';
       ['inv', 'Inventory', 'KeyI'], ['wing', 'Drone wing', 'KeyK'], ['talk', 'Talk to companion', 'KeyC'], ['kb', 'Comms keyboard', 'KeyT'],
       ['tgt', 'Target box', 'KeyB'], ['mr', 'MR passthrough', 'KeyP'], ['reset', 'Reset controls', 'KeyR'], ['galaxy', 'Galaxy map', 'KeyG']
     ];
-    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'mid', deadzone: 0.12, flightMode: 'arcade', keys: {} }, wait: null, resetArm: 0 };
+    const NOPT = { o: { master: 0.8, music: 0.4, gfx: 'ultra', forceUltra: true, deadzone: 0.12, flightMode: 'arcade', bloom: true, bloomStrength: 0.35, bloomThreshold: 0.82, vignette: true, keys: {} }, wait: null, resetArm: 0, keysOpen: false };
     try { Object.assign(NOPT.o, JSON.parse(localStorage.getItem('novaOpts') || '{}')); } catch (e) { }
+    if (NOPT.o.forceUltra === undefined) NOPT.o.forceUltra = true;
+    if (NOPT.o.bloom === undefined) NOPT.o.bloom = true;
+    if (NOPT.o.bloomStrength === undefined) NOPT.o.bloomStrength = 0.35;
+    if (NOPT.o.bloomThreshold === undefined) NOPT.o.bloomThreshold = 0.82;
+    if (NOPT.o.vignette === undefined) NOPT.o.vignette = true;
     NOPT.o.deadzone = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12));
     NOPT.o.flightMode = NOPT.o.flightMode === 'advanced' ? 'advanced' : 'arcade';
     window.NOPT = NOPT;
@@ -17437,20 +17889,21 @@ const GAME_VERSION = 'Alpha 1.4';
             Object.defineProperty(this.ctx, 'destination', { value: g, configurable: true });
             this._nmaster = g;
           }
-          if (this._nmaster) this._nmaster.gain.value = NOPT.o.master;
+          if (this._nmaster) this._nmaster.gain.value = window.novaCinematicPlaying ? 0 : NOPT.o.master;
         } catch (e) { }
       };
     })();
     function noptApplyAudio() {
-      try { if (sound._nmaster) sound._nmaster.gain.value = NOPT.o.master; } catch (e) { }
+      try { if (sound._nmaster) sound._nmaster.gain.value = window.novaCinematicPlaying ? 0 : NOPT.o.master; } catch (e) { }
       try { bgmVolume = 0.2 * NOPT.o.music; } catch (e) { }
     }
 
     // graphics level: render resolution, VR resolution and foveation, effect counts
     const NOPT_GFX = {
       low: { pr: 0.75, xr: 0.75, fov: 1, fx: 0.5, label: 'LOW: best frame rate' },
-      mid: { pr: 1.25, xr: 1.0, fov: 0.6, fx: 1, label: 'MID: balanced (default)' },
-      high: { pr: 2, xr: 1.3, fov: 0.2, fx: 1, label: 'HIGH: sharpest, needs Quest 3' }
+      mid: { pr: 1.25, xr: 1.0, fov: 0.6, fx: 1, label: 'MID: balanced' },
+      high: { pr: 2, xr: 1.3, fov: 0.2, fx: 1.2, label: 'HIGH: sharp' },
+      ultra: { pr: 2, xr: 1.5, fov: 0.1, fx: 1.5, label: 'ULTRA: max graphics (desktop)' }
     };
     function noptApplyGfx() {
       const q = NOPT_GFX[NOPT.o.gfx] || NOPT_GFX.mid;
@@ -17459,6 +17912,10 @@ const GAME_VERSION = 'Alpha 1.4';
       try { if (!renderer.xr.isPresenting) renderer.xr.setFramebufferScaleFactor(q.xr); } catch (e) { }
       try { renderer.xr.setFoveation(q.fov); } catch (e) { }
       try { if (window.NF) NF.cap = NOPT.o.gfx === 'low' ? 14 : (NOPT.o.gfx === 'high' || NOPT.o.gfx === 'ultra') ? 40 : 26; } catch (e) { }
+      try {
+        if (window.novaPostfx?.setQuality) window.novaPostfx.setQuality(NOPT.o.gfx);
+        if (window.novaPostfx?.updateSettings) window.novaPostfx.updateSettings(NOPT.o);
+      } catch (e) { }
     }
 
     // key bindings: a rebound key is replayed to the game as the key it replaces, so every existing control keeps working
@@ -17506,17 +17963,32 @@ const GAME_VERSION = 'Alpha 1.4';
       [['master', 'Master'], ['music', 'Music']].forEach(([k, l]) => {
         s += `<div style="${row}"><span>${l}</span><input data-nvol="${k}" type="range" min="0" max="100" value="${Math.round(o[k] * 100)}" style="flex:1;max-width:220px"><span style="width:40px;text-align:right">${Math.round(o[k] * 100)}%</span></div>`;
       });
-      s += h('GRAPHICS');
+      s += h('GRAPHICS & VISUAL EFFECTS');
       s += `<div style="${row};justify-content:flex-start">${['low', 'mid', 'high', 'ultra'].map(g => btn('gfx:' + g, g.toUpperCase(), o.gfx === g)).join('')}</div>`;
-      s += `<div style="font:11px monospace;color:#88aacc">${(NOPT_GFX[o.gfx] || NOPT_GFX.mid).label}. VR resolution changes on the next VR launch. ULTRA (original models) applies after reloading the page.</div>`;
-      s += h('KEY BINDINGS <span style="color:#88aacc;font-weight:normal;letter-spacing:0">(click, then press a key; Esc cancels)</span>');
-      s += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px">';
-      NOPT_KEYS.forEach(([id, l]) => {
-        const w = NOPT.wait === id, c = noptBind(id), moved = !!o.keys[id] && o.keys[id] !== NOPT_KEYS.find(k => k[0] === id)[2];
-        s += `<div style="${row};margin:1px 0"><span>${l}</span>${btn('key:' + id, w ? 'PRESS A KEY' : noptKeyName(c), w || moved, w ? '#ffd24a' : '#33ff99')}</div>`;
-      });
-      s += '</div>';
-      s += `<div style="${row};justify-content:flex-start;margin-top:6px">${btn('keyreset', 'DEFAULT KEYS', false)}</div>`;
+      s += `<div style="${row};justify-content:flex-start;margin-top:6px;gap:8px;flex-wrap:wrap">` +
+           btn('forceultra', 'FORCE ULTRA: ' + (o.forceUltra ? 'ON' : 'OFF'), o.forceUltra, '#ff66ff') +
+           btn('togglebloom', 'BLOOM: ' + (o.bloom !== false ? 'ON' : 'OFF'), o.bloom !== false, '#00e5ff') +
+           btn('togglevignette', 'VIGNETTE: ' + (o.vignette !== false ? 'ON' : 'OFF'), o.vignette !== false, '#00e5ff') +
+           `</div>`;
+      if (o.bloom !== false) {
+        s += `<div style="${row};margin-top:6px"><span>Bloom Strength</span><input data-nfx="bloomStrength" type="range" min="0" max="100" value="${Math.round((o.bloomStrength ?? 0.35) * 100)}" style="flex:1;max-width:220px"><span style="width:40px;text-align:right">${Math.round((o.bloomStrength ?? 0.35) * 100)}%</span></div>`;
+        s += `<div style="${row}"><span>Bloom Threshold</span><input data-nfx="bloomThreshold" type="range" min="50" max="100" value="${Math.round((o.bloomThreshold ?? 0.82) * 100)}" style="flex:1;max-width:220px"><span style="width:40px;text-align:right">${Math.round((o.bloomThreshold ?? 0.82) * 100)}%</span></div>`;
+      }
+      s += `<div style="font:11px monospace;color:#88aacc;margin-top:4px">${(NOPT_GFX[o.gfx] || NOPT_GFX.mid).label}. Bloom & visual effects apply in real-time.</div>`;
+      
+      // KEY BINDINGS (Starts Collapsed by default)
+      s += `<div data-nopt="togglekeys" style="${row};cursor:pointer;padding:8px 10px;background:rgba(0,30,50,0.5);border:1px solid #1d4a66;border-radius:6px;margin:12px 0 6px">` +
+           `<span style="font:bold 13px monospace;color:#00f0ff;letter-spacing:1px">${NOPT.keysOpen ? '▼' : '▶'} KEY BINDINGS <span style="color:#88aacc;font-size:11px;font-weight:normal">${NOPT.keysOpen ? '(click to collapse)' : '(click to customize bindings)'}</span></span>` +
+           `<span style="color:${NOPT.keysOpen ? '#00f0ff' : '#6688aa'};font-size:11px;font-weight:bold">${NOPT.keysOpen ? 'EXPANDED' : 'COLLAPSED'}</span></div>`;
+      if (NOPT.keysOpen) {
+        s += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px">';
+        NOPT_KEYS.forEach(([id, l]) => {
+          const w = NOPT.wait === id, c = noptBind(id), moved = !!o.keys[id] && o.keys[id] !== NOPT_KEYS.find(k => k[0] === id)[2];
+          s += `<div style="${row};margin:1px 0"><span>${l}</span>${btn('key:' + id, w ? 'PRESS A KEY' : noptKeyName(c), w || moved, w ? '#ffd24a' : '#33ff99')}</div>`;
+        });
+        s += '</div>';
+        s += `<div style="${row};justify-content:flex-start;margin-top:6px">${btn('keyreset', 'DEFAULT KEYS', false)}</div>`;
+      }
       s += h('DEBUG');
       const armed = performance.now() - NOPT.resetArm < 4000;
       s += `<div style="${row};justify-content:flex-start">${btn('wipe', armed ? 'CLICK AGAIN TO WIPE ALL SAVES' : 'RESET GAME SAVE', armed, '#ff3344')}</div>`;
@@ -17528,6 +18000,10 @@ const GAME_VERSION = 'Alpha 1.4';
       e.stopPropagation(); const a = b.dataset.nopt;
       try { sound.init(); sound.beep(900, 0.04); } catch (er) { }
       if (a.startsWith('gfx:')) { NOPT.o.gfx = a.slice(4); noptSave(); noptApplyGfx(); }
+      else if (a === 'forceultra') { NOPT.o.forceUltra = !NOPT.o.forceUltra; if (NOPT.o.forceUltra) NOPT.o.gfx = 'ultra'; noptSave(); noptApplyGfx(); }
+      else if (a === 'togglebloom') { NOPT.o.bloom = !(NOPT.o.bloom !== false); noptSave(); noptApplyGfx(); }
+      else if (a === 'togglevignette') { NOPT.o.vignette = !(NOPT.o.vignette !== false); noptSave(); noptApplyGfx(); }
+      else if (a === 'togglekeys') { NOPT.keysOpen = !NOPT.keysOpen; }
       else if (a.startsWith('key:')) { NOPT.wait = NOPT.wait === a.slice(4) ? null : a.slice(4); }
       else if (a === 'keyreset') { NOPT.o.keys = {}; noptSave(); }
       else if (a === 'wipe') { noptResetSave(); return; }
@@ -17543,7 +18019,14 @@ const GAME_VERSION = 'Alpha 1.4';
         const box = document.createElement('div'); box.id = 'nova-opt-box';
         box.style.cssText = 'text-align:left;max-height:56vh;overflow-y:auto;padding:4px 10px;margin-bottom:8px;background:rgba(0,10,20,0.55);border:1px solid #1d4a66;border-radius:8px';
         box.addEventListener('click', noptClick);
-        box.addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.nvol; if (!k) return; NOPT.o[k] = (+e.target.value) / 100; noptSave(); noptApplyAudio(); e.target.nextElementSibling.textContent = e.target.value + '%'; });
+        box.addEventListener('input', e => {
+          const ds = e.target.dataset;
+          if (ds && ds.nvol) {
+            NOPT.o[ds.nvol] = (+e.target.value) / 100; noptSave(); noptApplyAudio(); e.target.nextElementSibling.textContent = e.target.value + '%';
+          } else if (ds && ds.nfx) {
+            NOPT.o[ds.nfx] = (+e.target.value) / 100; noptSave(); noptApplyGfx(); e.target.nextElementSibling.textContent = e.target.value + '%';
+          }
+        });
         box.addEventListener('mousedown', e => e.stopPropagation()); box.addEventListener('pointerdown', e => e.stopPropagation());
         opt.appendChild(box);
         const back = document.createElement('button'); back.className = 'modal-btn'; back.innerHTML = '&larr; BACK'; back.style.cssText = 'margin-top:6px'; back.onclick = e => { e.stopPropagation(); NOPT.wait = null; window.novaMenuView('main'); };
@@ -17704,11 +18187,40 @@ const GAME_VERSION = 'Alpha 1.4';
     NVX.glow = NVX.tl.load('fx/vfx_thruster_glow.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; });
     const NVX_PLUME_GEO = new THREE.PlaneGeometry(1, 1); NVX_PLUME_GEO.translate(0, -0.5, 0); NVX_PLUME_GEO.rotateX(-Math.PI / 2); NVX_PLUME_GEO.rotateY(Math.PI);   // top edge (nozzle) at the origin, flame runs back along +Z
     function novaPlume(len, wid, col) {
+      const isUltra = (typeof NOPT !== 'undefined' && NOPT.o && (NOPT.o.gfx === 'ultra' || NOPT.o.forceUltra));
       const mat = new THREE.MeshBasicMaterial({ map: NVX.plume, color: col || 0xffffff, transparent: true, ...NOVA_LIGHT_BLEND, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
       const g = new THREE.Group(); g.name = 'NOVA_PLUME';
-      for (let i = 0; i < 2; i++) { const m = new THREE.Mesh(NVX_PLUME_GEO, mat); m.rotation.z = i * Math.PI / 2; m.raycast = () => { }; g.add(m); }
+      const planeCount = isUltra ? 3 : 2;
+      for (let i = 0; i < planeCount; i++) {
+        const m = new THREE.Mesh(NVX_PLUME_GEO, mat);
+        m.rotation.z = i * (Math.PI / planeCount);
+        m.raycast = () => { };
+        g.add(m);
+      }
+      if (isUltra && NVX.plume) {
+        const coreMat = new THREE.MeshBasicMaterial({ map: NVX.plume, color: 0xffffff, transparent: true, ...NOVA_LIGHT_BLEND, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, opacity: 0.9 });
+        for (let i = 0; i < 2; i++) {
+          const cm = new THREE.Mesh(NVX_PLUME_GEO, coreMat);
+          cm.rotation.z = i * (Math.PI / 2) + Math.PI / 4;
+          cm.scale.set(0.55, 0.55, 0.75);
+          cm.raycast = () => { };
+          g.add(cm);
+        }
+        const plumeLight = new THREE.PointLight(col || 0xffa044, 2.2, Math.max(6, len * 1.5), 1.8);
+        plumeLight.position.set(0, 0, 0.35);
+        g.add(plumeLight);
+        g.userData.plumeLight = plumeLight;
+      }
       g.scale.set(wid, wid, len); g.userData.base = [wid, len];
-      g.children.forEach(m => m.onBeforeRender = () => { const f = 0.85 + Math.random() * 0.3; g.scale.set(g.userData.base[0] * (0.9 + Math.random() * 0.2), g.userData.base[0], g.userData.base[1] * f); });
+      g.children.forEach(m => {
+        if (m.isMesh) {
+          m.onBeforeRender = () => {
+            const f = 0.85 + Math.random() * 0.3;
+            g.scale.set(g.userData.base[0] * (0.92 + Math.random() * 0.16), g.userData.base[0] * (0.92 + Math.random() * 0.16), g.userData.base[1] * f);
+            if (g.userData.plumeLight) g.userData.plumeLight.intensity = (1.8 + Math.random() * 0.8) * Math.min(1, f);
+          };
+        }
+      });
       return g;
     }
     function novaEngineGlow(size, col) {
@@ -18625,41 +19137,79 @@ const GAME_VERSION = 'Alpha 1.4';
     }, 1000);
     const NMK_VIS = 4;   // market rows on screen (88 px each)
     function nmkRedraw() { const P = NP.panels[1]; if (P) P.drawT = 0; }
-    { const _draw = NP_CARGO.draw, _row = NP_CARGO.row, _rowRect = NP_CARGO.rowRect, _pads = NP_CARGO.pads, _hint = NP_CARGO.hint;
-      Object.defineProperty(NP_CARGO, 'name', { get: () => (nmkNear() ? 'MARKET' : 'CARGO'), configurable: true });
-      Object.defineProperty(NP_CARGO, 'hint', { get: () => (nmkNear() ? 'touch a row to buy or sell · every station stocks different gear and pays different prices' : _hint), configurable: true });
-      Object.defineProperty(NP_CARGO, 'pads', { get: () => (nmkNear() ? [] : _pads), configurable: true });
-      NP_CARGO.row = function (P, i) { const st = nmkNear(); if (!st) return _row(P, i); const r = nmkRows(st)[P.scroll + Math.floor(i / 2)]; if (r) { r.fn(); try { novaSave13(); drawInventoryPanel(); } catch (e) { } nmkRedraw(); } };
+    {
+      NP_CARGO.name = 'CARGO';
+      NP_CARGO.hint = 'touch a row to buy or sell · every station stocks different gear and pays different prices';
+      NP_CARGO.pads = [];
+      NP_CARGO.row = function (P, i) {
+        const st = nmkNear();
+        if (!st) {
+          showToast('Dock within 2.4 km of Station Nova-1 or an outpost to trade goods.', 2600, '#ffd24a');
+          return;
+        }
+        const r = nmkRows(st)[P.scroll + Math.floor(i / 2)];
+        if (r) { r.fn(); try { novaSave13(); drawInventoryPanel(); } catch (e) { } nmkRedraw(); }
+      };
       NP_CARGO.draw = function (x, P) {
-        const st = nmkNear(); if (!st) return _draw(x, P);
+        const st = nmkNear();
         const ic = window.NG_ICONS;
-        const all = nmkRows(st), max = Math.max(0, all.length - NMK_VIS); P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
-        all.slice(P.scroll, P.scroll + NMK_VIS).forEach((r, i) => {   // 4 big rows: large icon, name, one big BUY / SELL button
-          const Y = 52 + i * 88; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)'; x.fillRect(8, Y, 548, 84); x.fillStyle = r.c; x.fillRect(8, Y, 7, 84);
-          const k = nmkIcon(r.l);
-          x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(22, Y + 6, 72, 72); x.strokeStyle = r.c; x.lineWidth = 2; x.strokeRect(22, Y + 6, 72, 72);
-          if (ic && ic.complete && ic.naturalWidth && k >= 0) x.drawImage(ic, (k % 4) * 96, Math.floor(k / 4) * 96, 96, 96, 26, Y + 10, 64, 64);
-          npText(x, r.l, 106, Y + 38, 'bold 25px monospace', r.c, 240);
-          const off = /^(FULL|MAX|none|hold empty|LVL)/.test(r.r), v = /^SELL/.test(r.l) ? 'SELL' : /^REPAIR/.test(r.l) ? 'FIX' : /^DONATE/.test(r.l) ? 'GIVE' : 'BUY';
-          npText(x, r.r, 106, Y + 70, '21px monospace', off ? '#5f7d95' : '#ffd24a', 240);
-          x.fillStyle = off ? 'rgba(255,255,255,0.08)' : (v === 'SELL' ? '#00cc88' : v === 'BUY' ? '#ffcc00' : '#33ff99'); x.fillRect(360, Y + 8, 188, 68);
-          x.textAlign = 'center'; npText(x, off ? '—' : v, 454, Y + 54, 'bold 34px monospace', off ? '#5f7d95' : '#021019', 176); x.textAlign = 'left';
-        });
-        // big scroll buttons
-        const canUp = P.scroll > 0, canDn = P.scroll < max;
-        [[52, '\u25B2', canUp], [234, '\u25BC', canDn]].forEach(([y, g, on]) => {
-          x.fillStyle = on ? 'rgba(0,229,255,0.18)' : 'rgba(255,255,255,0.04)'; x.fillRect(892, y, 120, 170); x.strokeStyle = on ? '#00e5ff' : '#33515f'; x.lineWidth = 4; x.strokeRect(892, y, 120, 170);
-          x.textAlign = 'center'; npText(x, g, 952, y + 112, 'bold 72px sans-serif', on ? '#00e5ff' : '#33515f'); x.textAlign = 'left';
-        });
-        x.textAlign = 'center'; npText(x, `${Math.min(all.length, P.scroll + 1)}-${Math.min(all.length, P.scroll + NMK_VIS)} / ${all.length}`, 952, 432, 'bold 20px monospace', '#7fb6d0'); x.textAlign = 'left';
-        npText(x, st.name, 570, 88, 'bold 28px monospace', st.col, 310);
-        x.font = '20px monospace'; x.fillStyle = '#9fc3d8'; let y = 124, line = '';
-        st.note.split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 310 && line) { if (y < 200) x.fillText(line, 570, y); y += 26; line = w; } else line = t; }); if (line && y < 200) x.fillText(line, 570, y);
-        npText(x, 'CREDITS', 570, 236, 'bold 20px monospace', '#9fc3d8'); npText(x, String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', 570, 278, 'bold 34px monospace', '#ffd24a', 310);
-        npText(x, `ORE ${cargoOre}t · MSL ${missileAmmo} · FLR ${cargoFlares}`, 570, 318, '19px monospace', '#7fb6d0', 310);
-        npText(x, `CAP ${cargoShieldCaps} · KIT ${window.novaKits || 0} · CORES ${window.novaHeatCores ? window.novaHeatCores() : 0}`, 570, 344, '19px monospace', '#7fb6d0', 310);
-        npText(x, 'ORE HERE ' + nmkOrePrice(st) + ' CR/t', 570, 384, 'bold 20px monospace', st.ore >= 1.2 ? '#33ff99' : st.ore < 0.95 ? '#ff8866' : '#e9fbff', 310);
-      }; }
+        if (st) {
+          const all = nmkRows(st), max = Math.max(0, all.length - NMK_VIS); P.scroll = Math.min(max, Math.max(0, P.scroll || 0));
+          all.slice(P.scroll, P.scroll + NMK_VIS).forEach((r, i) => {   // 4 big rows: large icon, name, one big BUY / SELL button
+            const Y = 52 + i * 88; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)'; x.fillRect(8, Y, 548, 84); x.fillStyle = r.c; x.fillRect(8, Y, 7, 84);
+            const k = nmkIcon(r.l);
+            x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(22, Y + 6, 72, 72); x.strokeStyle = r.c; x.lineWidth = 2; x.strokeRect(22, Y + 6, 72, 72);
+            if (ic && ic.complete && ic.naturalWidth && k >= 0) x.drawImage(ic, (k % 4) * 96, Math.floor(k / 4) * 96, 96, 96, 26, Y + 10, 64, 64);
+            npText(x, r.l, 106, Y + 38, 'bold 25px monospace', r.c, 240);
+            const off = /^(FULL|MAX|none|hold empty|LVL)/.test(r.r), v = /^SELL/.test(r.l) ? 'SELL' : /^REPAIR/.test(r.l) ? 'FIX' : /^DONATE/.test(r.l) ? 'GIVE' : 'BUY';
+            npText(x, r.r, 106, Y + 70, '21px monospace', off ? '#5f7d95' : '#ffd24a', 240);
+            x.fillStyle = off ? 'rgba(255,255,255,0.08)' : (v === 'SELL' ? '#00cc88' : v === 'BUY' ? '#ffcc00' : '#33ff99'); x.fillRect(360, Y + 8, 188, 68);
+            x.textAlign = 'center'; npText(x, off ? '—' : v, 454, Y + 54, 'bold 34px monospace', off ? '#5f7d95' : '#021019', 176); x.textAlign = 'left';
+          });
+          // big scroll buttons
+          const canUp = P.scroll > 0, canDn = P.scroll < max;
+          [[52, '\u25B2', canUp], [234, '\u25BC', canDn]].forEach(([y, g, on]) => {
+            x.fillStyle = on ? 'rgba(0,229,255,0.18)' : 'rgba(255,255,255,0.04)'; x.fillRect(892, y, 120, 170); x.strokeStyle = on ? '#00e5ff' : '#33515f'; x.lineWidth = 4; x.strokeRect(892, y, 120, 170);
+            x.textAlign = 'center'; npText(x, g, 952, y + 112, 'bold 72px sans-serif', on ? '#00e5ff' : '#33515f'); x.textAlign = 'left';
+          });
+          x.textAlign = 'center'; npText(x, `${Math.min(all.length, P.scroll + 1)}-${Math.min(all.length, P.scroll + NMK_VIS)} / ${all.length}`, 952, 432, 'bold 20px monospace', '#7fb6d0'); x.textAlign = 'left';
+          npText(x, st.name, 570, 88, 'bold 28px monospace', st.col, 310);
+          x.font = '20px monospace'; x.fillStyle = '#9fc3d8'; let y = 124, line = '';
+          st.note.split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 310 && line) { if (y < 200) x.fillText(line, 570, y); y += 26; line = w; } else line = t; }); if (line && y < 200) x.fillText(line, 570, y);
+          npText(x, 'CREDITS', 570, 236, 'bold 20px monospace', '#9fc3d8'); npText(x, String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', 570, 278, 'bold 34px monospace', '#ffd24a', 310);
+          npText(x, `ORE ${cargoOre}t · MSL ${missileAmmo} · FLR ${cargoFlares}`, 570, 318, '19px monospace', '#7fb6d0', 310);
+          npText(x, `CAP ${cargoShieldCaps} · KIT ${window.novaKits || 0} · CORES ${window.novaHeatCores ? window.novaHeatCores() : 0}`, 570, 344, '19px monospace', '#7fb6d0', 310);
+          npText(x, 'ORE HERE ' + nmkOrePrice(st) + ' CR/t', 570, 384, 'bold 20px monospace', st.ore >= 1.2 ? '#33ff99' : st.ore < 0.95 ? '#ff8866' : '#e9fbff', 310);
+        } else {
+          // Out of station dock range: standard trade commodity quotes + cargo hold summary
+          const baseQuotes = [
+            { l: 'TITANIUM ORE', r: '100 CR / t', c: '#00ffaa', k: 0, hold: `${cargoOre} t` },
+            { l: 'HOMING MISSILES', r: '150 CR', c: '#ffaa00', k: 9, hold: `${missileAmmo} / 6` },
+            { l: 'THERMAL FLARES', r: '75 CR', c: '#ff7733', k: 2, hold: `${cargoFlares} / 4` },
+            { l: 'SHIELD CAPACITORS', r: '300 CR', c: '#33bbff', k: 13, hold: `${cargoShieldCaps} / 4` }
+          ];
+          baseQuotes.forEach((q, i) => {
+            const Y = 52 + i * 88; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)'; x.fillRect(8, Y, 548, 84); x.fillStyle = q.c; x.fillRect(8, Y, 7, 84);
+            x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(22, Y + 6, 72, 72); x.strokeStyle = q.c; x.lineWidth = 2; x.strokeRect(22, Y + 6, 72, 72);
+            if (ic && ic.complete && ic.naturalWidth && q.k >= 0) x.drawImage(ic, (q.k % 4) * 96, Math.floor(q.k / 4) * 96, 96, 96, 26, Y + 10, 64, 64);
+            npText(x, q.l, 106, Y + 38, 'bold 24px monospace', q.c, 240);
+            npText(x, 'HOLD: ' + q.hold, 106, Y + 70, '20px monospace', '#7fb6d0', 240);
+            x.fillStyle = 'rgba(255,255,255,0.06)'; x.fillRect(360, Y + 8, 188, 68);
+            x.strokeStyle = '#29455a'; x.lineWidth = 2; x.strokeRect(360, Y + 8, 188, 68);
+            x.textAlign = 'center'; npText(x, q.r, 454, Y + 50, 'bold 22px monospace', '#ffd24a', 176); x.textAlign = 'left';
+          });
+          npText(x, 'COMMODITY MARKET', 570, 88, 'bold 28px monospace', '#00ff99', 310);
+          npText(x, 'OUT OF DOCK RANGE', 570, 124, 'bold 21px monospace', '#ffaa00', 310);
+          x.font = '19px monospace'; x.fillStyle = '#9fc3d8';
+          x.fillText('Dock at Nova-1 or any', 570, 156);
+          x.fillText('station to buy & sell.', 570, 182);
+          npText(x, 'CREDITS', 570, 236, 'bold 20px monospace', '#9fc3d8'); npText(x, String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR', 570, 278, 'bold 34px monospace', '#ffd24a', 310);
+          npText(x, `ORE ${cargoOre}t · MSL ${missileAmmo} · FLR ${cargoFlares}`, 570, 318, '19px monospace', '#7fb6d0', 310);
+          npText(x, `CAP ${cargoShieldCaps} · KIT ${window.novaKits || 0} · CORES ${window.novaHeatCores ? window.novaHeatCores() : 0}`, 570, 344, '19px monospace', '#7fb6d0', 310);
+          npText(x, 'NOVA-1 BASE ORE 100 CR/t', 570, 384, 'bold 20px monospace', '#33ff99', 310);
+        }
+      };
+    }
     // arriving in range of a market pops a short notice (and the CARGO tab flips to MARKET)
     setInterval(() => { try { const st = nmkNear(); const id = st ? st.id : null; if (id !== NMK_ST._last) { NMK_ST._last = id; nmkRedraw(); if (st && !isInsideCantina) showToast(`${st.name} MARKET IN RANGE: open CARGO on the right panel.`, 2600, st.col); } } catch (e) { } }, 1000);
 
@@ -18781,6 +19331,10 @@ const GAME_VERSION = 'Alpha 1.4';
       return 'flight';
     }
     function nrmTick() {
+      if (window.novaCinematicPlaying) {
+        Object.keys(NRM.el).forEach(f => { if (!NRM.el[f].paused) NRM.el[f].pause(); });
+        return;
+      }
       const t = BGM_TRACKS[bgmTrackIdx];
       let want = null;
       if (isBgmPlaying && t && t.file) {
@@ -19398,8 +19952,19 @@ const GAME_VERSION = 'Alpha 1.4';
 
 
     // ── NOVA14: ending cinematic + credits (slides on the canopy in VR, full screen on desktop; replay from OPTIONS or the main menu) ──
-    function nkPlaySlides(arr) {
-      nkIntroBuild(); NKI.card = true; NKI.hdr = 'PROJECT NOVA \u00b7 THE END'; NKI.slides = arr; NKI.i = 0; NKI.t = 0; NKI.on = true;
+    function nkPlaySlides(arr, hdr = 'PROJECT NOVA · THE END') {
+      nkIntroBuild(); NKI.card = true; NKI.hdr = hdr; NKI.slides = arr; NKI.i = 0; NKI.t = 0; NKI.on = true;
+      if (isInsideCantina) {
+        if (NKI.m.parent) NKI.m.parent.remove(NKI.m);
+        cameraRig.add(NKI.m);
+        NKI.m.position.set(0, 1.55, -0.85);
+        NKI.m.rotation.set(0, 0, 0);
+      } else {
+        if (NKI.m.parent) NKI.m.parent.remove(NKI.m);
+        cockpit.add(NKI.m);
+        NKI.m.position.set(0, 0.76, -0.56);
+        NKI.m.rotation.set(0.05, 0, 0);
+      }
       NKI.m.visible = true; if (!renderer.xr.isPresenting) NKI.dom.style.display = 'flex';
       nkIntroDraw(); try { sound.commsChirp(); } catch (e) { }
     }
@@ -20169,6 +20734,22 @@ const GAME_VERSION = 'Alpha 1.4';
           } else if (prevShield <= 0) {
             novaVfxArc(fwd, 0xff5533, 2.4, 0.35);
           }
+          if (typeof cockpitDomeLight !== 'undefined' && cockpitDomeLight) {
+            const origColor = cockpitDomeLight.color.getHex();
+            const origInt = cockpitDomeLight.intensity;
+            cockpitDomeLight.color.setHex(prevShield > 0 ? 0x00f0ff : 0xff2233);
+            cockpitDomeLight.intensity = Math.min(3.0, origInt * 2.2);
+            setTimeout(() => {
+              try { cockpitDomeLight.color.setHex(origColor); cockpitDomeLight.intensity = origInt; } catch (e) {}
+            }, 220);
+          }
+          if (typeof canopyGlass !== 'undefined' && canopyGlass && canopyMat && prevShield > 0) {
+            canopyMat.opacity = 0.35;
+            canopyMat.color.setHex(0x00e5ff);
+            setTimeout(() => {
+              try { canopyMat.opacity = (typeof isCanopyPolarized !== 'undefined' && isCanopyPolarized) ? 0.32 : 0.12; canopyMat.color.setHex((typeof isCanopyPolarized !== 'undefined' && isCanopyPolarized) ? 0xffcc33 : 0x88ccff); } catch (e) {}
+            }, 280);
+          }
         } catch (e) {}
       };
       window.novaDamage = novaDamage;
@@ -20178,14 +20759,55 @@ const GAME_VERSION = 'Alpha 1.4';
     {
       const _origNovaBoom = novaBoom;
       novaBoom = function (pos, scale = 1.0) {
-        _origNovaBoom(pos);
+        _origNovaBoom(pos, scale);
         try {
           // Cheap path in a headset or on low/mid graphics: fewer, capped additive layers
           // (large overlapping additive billboards are expensive on Quest's mobile GPU).
           const cheap = novaVfxCheap();
           // 1) Initial blinding core flash
           novaVfxFlare(pos, 0xffeeaa, 28 * scale, 0.38);
-          if (!cheap) novaVfxFlare(pos, 0xff6611, 42 * scale, 0.65);
+          if (!cheap) {
+            novaVfxFlare(pos, 0xff6611, 42 * scale, 0.65);
+            const boomLight = new THREE.PointLight(0xff8833, 14 * scale, 50 * scale, 1.6);
+            boomLight.position.copy(pos);
+            scene.add(boomLight);
+            novaFx.push({
+              t: 0,
+              d: 0.6 * scale,
+              o: boomLight,
+              up: k => {
+                boomLight.intensity = 14 * scale * (1 - k);
+                if (k >= 1) scene.remove(boomLight);
+              }
+            });
+            if (NOVA_VFX.tex.flare) {
+              const ringG = new THREE.RingGeometry(0.5 * scale, 1.4 * scale, 32);
+              const ringM = new THREE.MeshBasicMaterial({
+                map: NOVA_VFX.tex.flare,
+                color: 0xffaa44,
+                transparent: true,
+                opacity: 0.85,
+                ...NOVA_LIGHT_BLEND,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+                toneMapped: false
+              });
+              const rMesh = new THREE.Mesh(ringG, ringM);
+              rMesh.position.copy(pos);
+              rMesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+              scene.add(rMesh);
+              novaFx.push({
+                t: 0,
+                d: 0.7 * scale,
+                o: rMesh,
+                up: k => {
+                  rMesh.scale.setScalar(1 + k * 16 * scale);
+                  ringM.opacity = 0.85 * (1 - k);
+                  if (k >= 1) { scene.remove(rMesh); ringG.dispose(); ringM.dispose(); }
+                }
+              });
+            }
+          }
 
           // 2) Expanding fireball billboards, each playing the 8x8 explosion atlas
           if (NOVA_VFX.tex.explosion) {
@@ -20320,7 +20942,8 @@ const GAME_VERSION = 'Alpha 1.4';
       const seS = Math.max(0.3, Math.min(2.5, parseFloat((new URLSearchParams(location.search)).get('seat')) || 1.6));   // ?seat=1.6 to resize
       nmCockpit().then(ok => {
         if (!ok) nmSkin(hullDeckGroup, 'cockpit_shell', { tag: 'shell', yaw: Math.PI, keepBelow: 0, scale3: [1.6 * shF, 0.85 * shF, 0.85 * shF], pos: [0, -0.41 + 0.585 * 0.85 * shF / 2, 0.02] });
-        nmSkin(seatGroup, 'seat', { tag: 'seat', yaw: -Math.PI / 2, keepBelow: 0, scale: seS, pos: [0, -0.02 + 0.135 * seS - 0.0, 0] });   // cushion just under the pilot
+        const seatSlug = (typeof NOPT !== 'undefined' && NOPT.o && (NOPT.o.gfx === 'ultra' || NOPT.o.forceUltra)) ? 'seat_v2' : 'seat';
+        nmSkin(seatGroup, seatSlug, { tag: 'seat', yaw: -Math.PI / 2, keepBelow: 0, scale: seS, pos: [0, -0.02 + 0.135 * seS - 0.0, 0] });   // cushion just under the pilot
         try { const sz = parseFloat((new URLSearchParams(location.search)).get('seatz')); seatGroup.position.z = isNaN(sz) ? 0.24 : sz; } catch (e) { }
         window.novaHands = novaHands;
         try { nhBuild(); } catch (e) { console.warn('[NOVA13] holo failed', e); }
@@ -20650,6 +21273,9 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     window.nova = {
       THREE, scene, camera, cameraRig, renderer, shipGroup, shipBody, sound,
+      setRenderFunction: fn => { window.novaRenderFn = fn; },
+      options: (typeof NOPT !== 'undefined' ? NOPT.o : {}),
+      settings: (typeof NOPT !== 'undefined' ? NOPT.o : {}),
       toast: (...args) => showToast(...args),
       crew: line => { try { ncAnnounce(line); } catch (e) {} },
       setActive: active => { try { cockpit.visible = !active; setThrottle(0); novaSetOnFootVisualOwnership(active); } catch (e) {} },
@@ -20692,6 +21318,7 @@ const GAME_VERSION = 'Alpha 1.4';
             novaModuleInstances.set(name, instance ?? true);
             novaModuleInstances.set(key, instance ?? true);
             novaModuleInstances[key] = instance ?? true;
+            if (name === 'postfx.js') window.novaPostfx = instance;
             console.info('[NOVA module] ready:', name);
           } catch (error) { console.error('[NOVA module] failed:', name, error); }
         }

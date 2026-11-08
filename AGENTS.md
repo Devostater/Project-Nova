@@ -15,6 +15,14 @@ Key rules (full list in STATUS.md):
 - **ChatGPT / Codex** — Code tasks (flight, docking, systems, modules).
 - **Antigravity (Gemini)** — Art, storyboard, small single-file work.
 - **Grok (xAI)** — Independent analysis, technical critique, alternative solutions, research, and risk identification. Prefer Grok for second opinions and architecture review.
+- **Muse (Meta AI)** — Code review, debugging, docs, specs, VR perf passes, playtest checklists. (See `MUSE.md`).
+
+## Muse (Meta AI)
+- Config: `MUSE.md` at repo root
+- App: Muse app (muse.ai) / Meta AI (meta.ai) - Muse Spark 1.3
+- Use for: code review, debugging, docs, specs, VR perf passes, playtest checklists
+- Rules: Follow PROJECT_NOVA_CONTEXT.md + this file. Minimal scoped diffs. No new deps without asking. Preserve offline play (sw.js / manifest).
+- Limitation: Muse in chat cannot push directly - apply its diffs manually.
 
 ## Reviewing
 Focus on runtime errors and regressions in 2D, gamepad, VR and MR, Quest performance (draw calls, overdraw, per-frame allocations), and lost work. Verify a claim against the code before reporting it.

@@ -10,7 +10,9 @@
     "pirate_boarding.js",
     "mission.js",
     "fx_ultra.js",
+    "postfx.js",
     "cantina_props.js",
-    "cinematics.js"
+    "cinematics.js",
+    "comfort_vignette.js"
   ]
 }

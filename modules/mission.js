@@ -2,6 +2,15 @@
  * A14 persistent Cold Run objective chain and end card.
  * The game emits the named events below or calls completeBeat(id) at its owners.
  */
+export const DIFFICULTY_CONFIG = {
+  enemySpawnCount: 3,
+  aiAccuracy: 0.60,
+  patrolDistance: 700,
+  pirateFireRate: 2.2,
+  droneCount: 2,
+  missileSpeed: 140
+};
+
 export function init(nova) {
   const T=nova?.THREE,camera=nova?.camera;
   const KEY='novaColdRun';
@@ -70,10 +79,19 @@ export function init(nova) {
     return true;
   }
   function hideEndCard(){cardVisible=false;if(card)card.visible=false;panel.style.display='none';}
+  function updateCheckpoint() {
+    if (nova?.shipGroup?.position) {
+      window.novaMissionCheckpoint = {
+        position: nova.shipGroup.position.clone(),
+        quaternion: nova.shipGroup.quaternion ? nova.shipGroup.quaternion.clone() : null,
+        beat: current().id
+      };
+    }
+  }
   function start(options={}){
     if(options.fresh){Object.assign(state,fresh());}
     if(!state.startedAt)state.startedAt=Date.now()-state.elapsed*1000;
-    state.active=true;persist();nova.toast?.('COLD RUN · '+objective(),3500,'#32ddff');
+    state.active=true;persist();updateCheckpoint();nova.toast?.('COLD RUN · '+objective(),3500,'#32ddff');
     if(state.cursor>=beats.length-1)showEndCard();
     return api;
   }
@@ -82,6 +100,7 @@ export function init(nova) {
     const beat=current();if(beat.id!==id)return false;
     if(state.done.includes(id))return false;
     state.done.push(id);state.cursor=Math.min(beats.length-1,state.cursor+1);
+    updateCheckpoint();
     if(id==='ambush')state.stats.pirates=Math.max(state.stats.pirates,Number(detail.pirates)||1);
     if(id==='salvage')state.stats.salvage=Math.max(state.stats.salvage,Number(detail.salvage)||1);
     if(id==='drones')state.stats.drones=Math.max(state.stats.drones,Number(detail.drones)||2);
@@ -115,7 +134,7 @@ export function init(nova) {
   const offTick=nova.onTick?.(tick);
   const keyDown=e=>{if(e.code==='Escape'&&cardVisible){e.preventDefault();hideEndCard();}};
   window.addEventListener('keydown',keyDown);
-  const api={start,completeBeat,finish,showEndCard,hideEndCard,get active(){return state.active;},get currentObjective(){return objective();},get progress(){return{cursor:state.cursor,total:beats.length-1,done:state.done.slice()};},get stats(){return{...state.stats};},reset(){Object.assign(state,fresh());persist();hideEndCard();}};
+  const api={start,completeBeat,finish,showEndCard,hideEndCard,difficulty:DIFFICULTY_CONFIG,get checkpoint(){return window.novaMissionCheckpoint;},setCheckpoint:(pos,quat)=>{window.novaMissionCheckpoint={position:pos.clone(),quaternion:quat?quat.clone():null};},get active(){return state.active;},get currentObjective(){return objective();},get progress(){return{cursor:state.cursor,total:beats.length-1,done:state.done.slice()};},get stats(){return{...state.stats};},reset(){Object.assign(state,fresh());persist();window.novaMissionCheckpoint=null;hideEndCard();}};
   if(new URLSearchParams(location.search).get('mission')==='cold-run')start();
   return api;
 }

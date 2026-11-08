@@ -1,0 +1,80 @@
+--- standalone.html
++++ standalone.html
+@@ -10704,52 +10704,78 @@
+       if (isAutopilotActive && !isDockingInProgress) {
+         let destObj = stationGroup;
+         let destName = 'Station Nova-1';
+         let safeStandoffDist = 70.0; // Keep 70m safe distance from station
++        let apMode = 'stop'; // 'stop' = stations/rocks; 'track' = enemies/ships (keep following)
+ 
+         if (currentLockedTarget && currentLockedTarget.targetObj && !novaAutoDockPending && novaDock.state === 'idle') {   // docking always heads for Nova-1, whatever is locked
+           destObj = currentLockedTarget.targetObj;
+           destName = currentLockedTarget.name;
+           if (currentLockedTarget.type === 'asteroid') {
+             const aRad = (destObj.userData && destObj.userData.radius) ? destObj.userData.radius : 15.0;
+             safeStandoffDist = aRad + 35.0; // Standoff 35m from asteroid surface for comfortable mining
++            apMode = 'stop';
+           } else if (currentLockedTarget.type === 'freighter') {
+             safeStandoffDist = 45.0; // Standoff 45m along convoy escort lane
++            apMode = 'track'; // hold formation with freighter
+           } else if (currentLockedTarget.type === 'hostile' || currentLockedTarget.isHostile) {
+             safeStandoffDist = 65.0; // Combat dogfight distance
++            apMode = 'track'; // keep tracking enemy — do not auto-stop
+           } else if (currentLockedTarget.type === 'station') {
+             safeStandoffDist = 70.0;
++            apMode = 'stop';
+           } else {
+             safeStandoffDist = 60.0;
++            // ships / contacts: aim and hold formation rather than hard-stop
++            apMode = (currentLockedTarget.isHostile) ? 'track' : 'track';
+           }
+         }
+ 
+         const destPos = destObj.getWorldPosition ? destObj.getWorldPosition(new THREE.Vector3()) : destObj.position.clone();   // world position (targets inside groups)
+         try { if (!destObj.userData.apR) { const bs = new THREE.Box3().setFromObject(destObj).getBoundingSphere(new THREE.Sphere()); destObj.userData.apR = isFinite(bs.radius) ? Math.min(bs.radius, 600) : 0; } } catch (e) { }
+         safeStandoffDist = Math.max(safeStandoffDist, (destObj.userData.apR || 0) + 40);   // keep clear of the hull, whatever its size
+         const toDest = destPos.clone().sub(shipGroup.position);
+         const distToDest = toDest.length();
+ 
+         // 1. Smoothly align heading towards target
+         const desiredDir = toDest.clone().normalize();
+         const desiredQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), desiredDir);
+         shipGroup.quaternion.slerp(desiredQuat, 2.8 * delta);
+         if (shipBody) {
+           shipBody.quaternion.copy(shipGroup.quaternion);
+           shipBody.angularVelocity.set(0, 0, 0);
+         }
+ 
+         // 2. Cruise, then brake on speed (not just throttle) so momentum can't carry the ship past the stand-off point
+         const remain = distToDest - safeStandoffDist;
+         if (remain > 0.5) {
+           setThrottle(remain > 400 ? 0.8 : remain > 120 ? 0.45 : 0.18);
+           if (shipBody) {
+             const vMax = Math.max(4, remain * 0.6), v = shipBody.velocity, sp = Math.hypot(v.x, v.y, v.z);
+             if (sp > vMax) { const k = vMax / sp; v.x *= k; v.y *= k; v.z *= k; }
+           }
+         } else if (apMode === 'track') {
+           // Enemies / ships: keep tracking — aim at target, hold combat/formation distance, do NOT disengage
+           if (remain < -20) {
+             setThrottle(0.0); // too close: coast while still aiming
+           } else if (remain > 0.5) {
+             setThrottle(0.18);
+           } else {
+             setThrottle(0.05); // micro-thrust to hold formation
+           }
+           if (shipBody && remain < 5) {
+             const v = shipBody.velocity, sp = Math.hypot(v.x, v.y, v.z);
+             if (sp > 12) { const k = 12 / sp; v.x *= k; v.y *= k; v.z *= k; }
+           }
+         } else {
+           // Stations / rocks: arrived at standoff — stop and disengage autopilot
+           setThrottle(0.0);
+           if (shipBody) {
+             shipBody.velocity.set(0, 0, 0);
+             shipBody.angularVelocity.set(0, 0, 0);
+           }
+           toggleAutopilot(false);
+           sound.stationChirp();
+           showToast(`🎯 ARRIVED AT ${destName.toUpperCase()}! Holding ${Math.round(distToDest)} m from it.`, 4500, '#00ffcc');
+         }
+       }

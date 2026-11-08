@@ -1,10 +1,12 @@
 /**
  * Project Nova cinematics player (intro / epilogue).
  * Plays ./video/<name>.mp4 with ./video/<name>.vtt captions when the files exist:
- *  - 2D: full-screen <video> overlay with native captions.
- *  - VR / MR: a large screen in front of the player (VideoTexture) with captions drawn underneath.
- * Skippable with any key, click, Esc, gamepad/XR button or pinch. Missing files -> play() resolves false
- * so the game falls back to its in-engine intro/ending.
+ *  - 2D: full-screen <video> overlay with native captions and skip button.
+ *  - VR / MR: an immersive curved cinema screen positioned directly in front of the headset
+ *    (VideoTexture on camera child group) with black surround dome and live canvas captions.
+ * Audio: Automatically mutes/pauses background music, ship noises, and ambient sound effects
+ * during playback, restoring them cleanly upon completion.
+ * Skippable with any key, click, Esc, gamepad button, XR trigger, grip squeeze or hand pinch.
  */
 export function init(nova) {
   const T = nova.THREE, renderer = nova.renderer, scene = nova.scene, camera = nova.camera;
@@ -42,55 +44,134 @@ export function init(nova) {
   async function play(name) {
     if (playing) return true;
     if (!(await exists(name))) return false;
-    const xr = renderer.xr.isPresenting, v = makeVideo(name);
+    const v = makeVideo(name);
     let done, cleanup = [];
     const finished = new Promise(r => { done = r; });
-    const end = () => { if (!playing) return; playing = null; try { v.pause(); } catch (e) { } cleanup.forEach(f => { try { f(); } catch (e) { } }); done(true); };
-    playing = { name, end };
-    v.addEventListener('ended', end); v.addEventListener('error', () => { known[name] = false; end(); });
 
-    // skip inputs (shared by 2D and XR)
+    // Mute game noises / BGM during video playback
+    window.novaCinematicPlaying = true;
+    const pausedAudios = [];
+    try {
+      document.querySelectorAll('audio').forEach(a => {
+        if (!a.paused) { try { a.pause(); pausedAudios.push(a); } catch (_) { } }
+      });
+      if (window.NRM?.el) {
+        Object.values(window.NRM.el).forEach(a => {
+          if (!a.paused) { try { a.pause(); pausedAudios.push(a); } catch (_) { } }
+        });
+      }
+    } catch (_) { }
+
+    const end = () => {
+      if (!playing) return;
+      playing = null;
+      window.novaCinematicPlaying = false;
+      try { v.pause(); } catch (_) { }
+      cleanup.forEach(f => { try { f(); } catch (_) { } });
+      // Restore paused audio
+      pausedAudios.forEach(a => { try { a.play().catch(() => { }); } catch (_) { } });
+      done(true);
+    };
+    playing = { name, end };
+    v.addEventListener('ended', end);
+    v.addEventListener('error', () => { known[name] = false; end(); });
+
+    // Skip inputs (keyboard + gamepads)
     const onKey = e => { if (e.repeat) return; e.preventDefault(); end(); };
-    setTimeout(() => { if (playing) { addEventListener('keydown', onKey, true); cleanup.push(() => removeEventListener('keydown', onKey, true)); } }, 600);
-    const pads = setInterval(() => { for (const p of (navigator.getGamepads?.() || [])) if (p && p.buttons.some(b => b.pressed)) { end(); break; } }, 120);
+    setTimeout(() => { if (playing) { addEventListener('keydown', onKey, true); cleanup.push(() => removeEventListener('keydown', onKey, true)); } }, 500);
+    const pads = setInterval(() => { for (const p of (navigator.getGamepads?.() || [])) if (p && p.buttons.some(b => b.pressed)) { end(); break; } }, 100);
     cleanup.push(() => clearInterval(pads));
 
-    if (!xr) {
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000;display:flex;align-items:center;justify-content:center;cursor:pointer';
-      v.style.cssText = 'max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain';
-      const skip = document.createElement('div');
-      skip.textContent = 'SKIP ▶'; skip.style.cssText = 'position:absolute;right:24px;bottom:20px;color:#9fd6ee;font:bold 16px monospace;padding:8px 14px;border:1px solid #00e5ff;border-radius:6px;background:rgba(0,20,30,.6)';
-      wrap.append(v, skip); document.body.appendChild(wrap);
-      setTimeout(() => wrap.addEventListener('click', end), 600);
-      cleanup.push(() => wrap.remove());
-    } else {
-      const ses = renderer.xr.getSession();
+    // Setup 2D or VR presentation
+    let xrGroup = null;
+    function setupVR() {
+      if (xrGroup) return;
+      const ses = renderer.xr.getSession?.();
       const tex = new T.VideoTexture(v); tex.colorSpace = T.SRGBColorSpace;
-      const W = 3.2, H = 1.8, group = new T.Group();
-      const screen = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshBasicMaterial({ map: tex, toneMapped: false }));
-      const back = new T.Mesh(new T.PlaneGeometry(W * 3, H * 3), new T.MeshBasicMaterial({ color: 0x000000 })); back.position.z = -0.05;
+      const W = 3.6, H = 2.02; // 16:9 widescreen cinema
+      xrGroup = new T.Group(); xrGroup.name = 'NOVA_VR_CINEMA';
+
+      // Movie theater dark surround backdrop (curved cylinder)
+      const backGeo = new T.CylinderGeometry(4.5, 4.5, 5, 32, 1, true, 0, Math.PI * 2);
+      const backMat = new T.MeshBasicMaterial({ color: 0x010204, side: T.BackSide });
+      const back = new T.Mesh(backGeo, backMat);
+      back.position.set(0, 0, 0);
+
+      // Curved or flat screen directly 2.4m in front of camera
+      const screenGeo = new T.PlaneGeometry(W, H, 16, 1);
+      const screenMat = new T.MeshBasicMaterial({ map: tex, toneMapped: false, side: T.DoubleSide });
+      const screen = new T.Mesh(screenGeo, screenMat);
+      screen.position.set(0, 0, -2.4);
+
+      // Subtitles canvas plane
       const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 128;
       const cx = cv.getContext('2d'), capTex = new T.CanvasTexture(cv);
-      const cap = new T.Mesh(new T.PlaneGeometry(W, W / 8), new T.MeshBasicMaterial({ map: capTex, transparent: true, depthWrite: false })); cap.position.y = -H / 2 - 0.25;
-      group.add(back, screen, cap);
-      const p = camera.getWorldPosition(new T.Vector3()), q = camera.getWorldQuaternion(new T.Quaternion());
-      const fwd = new T.Vector3(0, 0, -1).applyQuaternion(q); fwd.y = 0; if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1); fwd.normalize();
-      group.position.copy(p).addScaledVector(fwd, 2.6); group.lookAt(p.x, group.position.y, p.z);
-      scene.add(group);
+      const capMat = new T.MeshBasicMaterial({ map: capTex, transparent: true, depthWrite: false });
+      const cap = new T.Mesh(new T.PlaneGeometry(W, W / 8), capMat);
+      cap.position.set(0, -H / 2 - 0.22, -2.38);
+
+      xrGroup.add(back, screen, cap);
+      camera.add(xrGroup); // Attached to camera so it tracks head position and ship motion smoothly!
+
       let cues = []; loadCues(name).then(c => { cues = c; });
       let lastCue = null;
       const capTick = setInterval(() => {
         const t = v.currentTime, c = cues.find(c => t >= c.a && t <= c.z), txt = c ? c.text : '';
         if (txt === lastCue) return; lastCue = txt;
-        cx.clearRect(0, 0, 1024, 128); if (txt) { cx.fillStyle = 'rgba(0,0,0,.65)'; cx.fillRect(0, 20, 1024, 88); cx.fillStyle = '#fff'; cx.font = '34px sans-serif'; cx.textAlign = 'center'; cx.fillText(txt, 512, 76, 1000); }
+        cx.clearRect(0, 0, 1024, 128);
+        if (txt) {
+          cx.fillStyle = 'rgba(0,0,0,.72)'; cx.fillRect(0, 20, 1024, 88);
+          cx.fillStyle = '#00f0ff'; cx.font = 'bold 36px monospace'; cx.textAlign = 'center';
+          cx.fillText(txt, 512, 76, 1000);
+        }
         capTex.needsUpdate = true;
-      }, 100);
+      }, 90);
+
+      // XR controller buttons / squeezes / pinches to skip
       const onSel = () => end();
-      setTimeout(() => { if (playing && ses) { ses.addEventListener('selectstart', onSel); ses.addEventListener('squeezestart', onSel); } }, 800);
-      cleanup.push(() => { clearInterval(capTick); if (ses) { ses.removeEventListener('selectstart', onSel); ses.removeEventListener('squeezestart', onSel); } scene.remove(group); tex.dispose(); capTex.dispose(); group.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); });
+      if (ses) {
+        ses.addEventListener('selectstart', onSel);
+        ses.addEventListener('squeezestart', onSel);
+      }
+      cleanup.push(() => {
+        clearInterval(capTick);
+        if (ses) { ses.removeEventListener('selectstart', onSel); ses.removeEventListener('squeezestart', onSel); }
+        camera.remove(xrGroup);
+        tex.dispose(); capTex.dispose();
+        backGeo.dispose(); backMat.dispose(); screenGeo.dispose(); screenMat.dispose(); capMat.dispose();
+        xrGroup = null;
+      });
     }
-    try { await v.play(); } catch (e) { v.muted = true; try { await v.play(); } catch (e2) { end(); return false; } }
+
+    if (renderer.xr.isPresenting) {
+      setupVR();
+    } else {
+      // 2D display on screen
+      const wrap = document.createElement('div');
+      wrap.id = 'nova-cinematic-wrap';
+      wrap.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#000;display:flex;align-items:center;justify-content:center;cursor:pointer';
+      v.style.cssText = 'max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain';
+      const skip = document.createElement('div');
+      skip.textContent = 'SKIP ▶';
+      skip.style.cssText = 'position:absolute;right:24px;bottom:24px;color:#9fd6ee;font:bold 18px monospace;padding:10px 18px;border:2px solid #00e5ff;border-radius:8px;background:rgba(0,20,30,.8);box-shadow:0 0 16px rgba(0,229,255,.4)';
+      wrap.append(v, skip);
+      document.body.appendChild(wrap);
+      setTimeout(() => wrap.addEventListener('click', end), 500);
+      cleanup.push(() => wrap.remove());
+
+      // If WebXR session starts during playback, transition to VR cinema screen
+      const onSessionStart = () => {
+        wrap.style.display = 'none';
+        setupVR();
+      };
+      renderer.xr.addEventListener('sessionstart', onSessionStart);
+      cleanup.push(() => renderer.xr.removeEventListener('sessionstart', onSessionStart));
+    }
+
+    try { await v.play(); } catch (e) {
+      v.muted = true;
+      try { await v.play(); } catch (e2) { end(); return false; }
+    }
     return finished;
   }
 

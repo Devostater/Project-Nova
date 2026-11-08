@@ -1,5 +1,6 @@
 /**
  * Project Nova A3: bounded missile trails and impact/death VFX.
+ * Aggressive max-graphics pass (grok/graphics-overhaul).
  *
  * Integration contract for the A4 nova loader:
  *   const fx = init(nova);
@@ -10,6 +11,11 @@
  *
  * Optional event names: missileLaunched, missileImpact, shipDestroyed.
  * All THREE objects, textures, and pool storage are allocated once in init().
+ *
+ * Quality / Force Ultra:
+ *   - NOPT.o.forceUltra === true (default on this branch) → ultra
+ *   - NOPT.o.gfx = 'ultra' | 'high' | 'mid' | 'low'
+ *   - Quest still prefers lower tiers for safety unless forceUltra is on
  */
 export function init(nova = {}) {
   const THREE = nova.THREE || globalThis.THREE;
@@ -19,17 +25,27 @@ export function init(nova = {}) {
   }
 
   const opts = nova.options || nova.settings || globalThis.NOPT?.o || {};
-  const rawTier = String(opts.gfx ?? opts.graphics ?? globalThis.NOPT?.o?.gfx ?? 'mid').toLowerCase();
+  const forceUltra = opts.forceUltra !== false && globalThis.NOPT?.o?.forceUltra !== false; // default true
+  const rawTier = String(opts.gfx ?? opts.graphics ?? globalThis.NOPT?.o?.gfx ?? (forceUltra ? 'ultra' : 'mid')).toLowerCase();
   const quest = Boolean(nova.isQuest || nova.isXR || globalThis.navigator?.userAgent?.includes('Quest')) ||
     Boolean(nova.renderer?.xr?.isPresenting);
-  const tier = quest ? 'low' : (rawTier.includes('ultra') ? 'ultra' : rawTier);
+
+  let tier;
+  if (forceUltra && !quest) {
+    tier = 'ultra';
+  } else if (quest && !forceUltra) {
+    tier = 'low';
+  } else {
+    tier = rawTier.includes('ultra') ? 'ultra' : rawTier;
+  }
+
   const quality = tier.includes('ultra') ? 'ultra' : tier.includes('high') ? 'high' :
     (tier.includes('low') ? 'low' : 'mid');
 
   const cfg = quality === 'ultra'
-    ? { missiles: 16, trails: 60, booms: 30, debris: 12, trailLife: 1.4, shake: 0.16 }
+    ? { missiles: 20, trails: 80, booms: 36, debris: 16, trailLife: 1.6, shake: 0.18 }
     : quality === 'high'
-      ? { missiles: 12, trails: 25, booms: 12, debris: 4, trailLife: 0.85, shake: 0.08 }
+      ? { missiles: 14, trails: 32, booms: 16, debris: 6, trailLife: 1.0, shake: 0.10 }
       : { missiles: 8, trails: 10, booms: 6, debris: 0, trailLife: 0.45, shake: 0 };
 
   const rootUrl = (file) => new URL('../fx/' + file, import.meta.url).href;
@@ -57,10 +73,10 @@ export function init(nova = {}) {
   });
 
   const boomPool = [];
-  const boomLayers = quality === 'ultra' ? 5 : quality === 'high' ? 3 : 2;
-  const ringCount = quality === 'low' ? 2 : quality === 'high' ? 6 : 10;
+  const boomLayers = quality === 'ultra' ? 6 : quality === 'high' ? 3 : 2;
+  const ringCount = quality === 'low' ? 2 : quality === 'high' ? 6 : 12;
   const debrisCount = cfg.debris;
-  const boomCount = Math.min(cfg.booms, boomLayers * (quality === 'low' ? 3 : quality === 'high' ? 4 : 6));
+  const boomCount = Math.min(cfg.booms, boomLayers * (quality === 'low' ? 3 : quality === 'high' ? 4 : 7));
   for (let i = 0; i < boomCount; i++) {
     const sprite = new THREE.Sprite(spriteMat);
     sprite.visible = false;
@@ -84,16 +100,16 @@ export function init(nova = {}) {
     debris.push({ object: mesh, age: 0, life: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, rz: 0 });
   }
 
-  const lightCount = quality === 'ultra' ? 4 : quality === 'high' ? 2 : 1;
+  const lightCount = quality === 'ultra' ? 5 : quality === 'high' ? 2 : 1;
   const lights = [];
   for (let i = 0; i < lightCount; i++) {
-    const light = new THREE.PointLight(0xffa36c, 0, quality === 'ultra' ? 18 : 9, 2);
+    const light = new THREE.PointLight(0xffa36c, 0, quality === 'ultra' ? 22 : 9, 2);
     light.visible = false;
     scene.add(light);
-    lights.push({ object: light, age: 0, life: 0, intensity: quality === 'ultra' ? 9 : 4 });
+    lights.push({ object: light, age: 0, life: 0, intensity: quality === 'ultra' ? 11 : 4 });
   }
 
-  const particleCount = quality === 'ultra' ? 300 : quality === 'high' ? 150 : 60;
+  const particleCount = quality === 'ultra' ? 420 : quality === 'high' ? 180 : 60;
   const positions = new Float32Array(particleCount * 3);
   const colors = new Float32Array(particleCount * 3);
   const particles = [];
@@ -108,7 +124,7 @@ export function init(nova = {}) {
   pointsGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   pointsGeo.setDrawRange(0, 0);
   const pointMat = new THREE.PointsMaterial({
-    map: glow, size: quality === 'ultra' ? 0.24 : 0.16, vertexColors: true,
+    map: glow, size: quality === 'ultra' ? 0.28 : 0.16, vertexColors: true,
     transparent: true, opacity: 0, blending: additive, depthWrite: false, sizeAttenuation: true
   });
   const points = new THREE.Points(pointsGeo, pointMat);
@@ -165,7 +181,7 @@ export function init(nova = {}) {
     for (let n = 0; n < boomLayers; n++) {
       const b = boomPool[(boomCursor + n) % now];
       if (!b) break;
-      b.age = 0; b.life = quality === 'ultra' ? 1.35 : quality === 'high' ? 0.9 : 0.55;
+      b.age = 0; b.life = quality === 'ultra' ? 1.45 : quality === 'high' ? 0.9 : 0.55;
       b.scale = s * (0.7 + n * 0.24); b.x = p[0]; b.y = p[1]; b.z = p[2];
       b.object.visible = true;
       b.object.position.set(p[0], p[1], p[2]);
@@ -175,15 +191,15 @@ export function init(nova = {}) {
 
     if (rings.length) {
       const r = rings[ringCursor++ % rings.length];
-      r.age = 0; r.life = quality === 'ultra' ? 1.1 : quality === 'high' ? 0.75 : 0.42;
+      r.age = 0; r.life = quality === 'ultra' ? 1.2 : quality === 'high' ? 0.75 : 0.42;
       r.scale = s; r.x = p[0]; r.y = p[1]; r.z = p[2];
       r.object.visible = true; r.object.position.set(p[0], p[1], p[2]); r.object.scale.setScalar(0.1);
     }
-    const burst = quality === 'ultra' ? 42 : quality === 'high' ? 24 : 10;
+    const burst = quality === 'ultra' ? 56 : quality === 'high' ? 28 : 10;
     for (let i = 0; i < burst; i++) {
       const a = Math.random() * Math.PI * 2, h = Math.random() * 2 - 1;
       const q = Math.sqrt(Math.max(0, 1 - h * h));
-      const speed = (0.7 + Math.random() * (quality === 'ultra' ? 5 : 2.4)) * s;
+      const speed = (0.7 + Math.random() * (quality === 'ultra' ? 5.5 : 2.4)) * s;
       particle(p[0], p[1], p[2], Math.cos(a) * q * speed, h * speed, Math.sin(a) * q * speed, 0.35 + Math.random() * 0.8, 0.08 + Math.random() * 0.16);
     }
     for (let i = 0; i < debris.length && source !== 'missile'; i++) {
@@ -198,7 +214,7 @@ export function init(nova = {}) {
       d.object.scale.setScalar(s * (0.18 + Math.random() * 0.32));
     }
     const light = lights[lightCursor++ % lights.length];
-    light.age = 0; light.life = quality === 'ultra' ? 0.32 : 0.18;
+    light.age = 0; light.life = quality === 'ultra' ? 0.38 : 0.18;
     light.object.visible = true; light.object.position.set(p[0], p[1], p[2]); light.object.intensity = light.intensity;
     if (quality === 'ultra' && cfg.shake && typeof nova.cameraShake === 'function') nova.cameraShake(cfg.shake * Math.min(s, 2));
   }
@@ -224,7 +240,6 @@ export function init(nova = {}) {
       if (!p.active) continue;
       p.age += delta;
       if (p.age >= p.life) { if (p.kind === 'trail') activeTrailParticles--; p.active = false; continue; }
-      const fade = 1 - p.age / p.life;
       positions[drawCount * 3] = p.x; positions[drawCount * 3 + 1] = p.y; positions[drawCount * 3 + 2] = p.z;
       p.x += p.vx * delta; p.y += p.vy * delta; p.z += p.vz * delta;
       p.vx *= 0.992; p.vy *= 0.992; p.vz *= 0.992;
@@ -279,12 +294,13 @@ export function init(nova = {}) {
     debrisGeo.dispose?.(); debrisMat.dispose?.(); pointsGeo.dispose?.(); pointMat.dispose?.();
   }
 
-  const api = { ready: true, tier: quality, missileStart, missileStop, explosion, tick, dispose };
+  const api = { ready: true, tier: quality, forceUltra, missileStart, missileStop, explosion, tick, dispose };
   if (typeof nova.onTick === 'function') nova.onTick(tick);
   if (typeof nova.on === 'function') {
     nova.on('missileLaunched', e => missileStart(e.id, e.position, e.velocity));
     nova.on('missileImpact', e => { missileStop(e.id); explosion(e.position, e.scale || 1, 'missile'); });
     nova.on('shipDestroyed', e => explosion(e.position, e.scale || 1, 'ship'));
   }
+  console.log(`[fx_ultra] Ready — quality: ${quality} (forceUltra: ${forceUltra})`);
   return api;
 }
