@@ -6,7 +6,7 @@ export function init(nova) {
   const T=nova?.THREE,scene=nova?.scene,camera=nova?.camera,rig=nova?.cameraRig;
   if(!T||!scene||!camera||!rig)return{ready:false,start(){},stop(){}};
   const root=new T.Group();root.name='NOVA_RANGE_DRONES';root.visible=false;scene.add(root);
-  const boltsRoot=new T.Group();boltsRoot.name='NOVA_DRONE_BOLTS';boltsRoot.visible=false;scene.add(boltsRoot);
+  const boltsRoot=new T.Group();boltsRoot.name='NOVA_DRONE_BOLTS';boltsRoot.raycast=()=>{};boltsRoot.visible=false;scene.add(boltsRoot);
   const droneGeo=new T.SphereGeometry(.34,20,14),lensGeo=new T.SphereGeometry(.13,12,8);
   const coverGeo=new T.BoxGeometry(2.6,1.35,.38),boltGeo=new T.SphereGeometry(.09,10,8);
   const armorMat=new T.MeshStandardMaterial({color:0x283b50,metalness:.88,roughness:.27});
@@ -18,14 +18,14 @@ export function init(nova) {
   const coverPositions=[new T.Vector3(-3.25,0,-10),new T.Vector3(3.25,0,-10)];
   const covers=[];
   for(const x of [-3.25,3.25]){const m=new T.Mesh(coverGeo,coverMat);m.position.set(x,.68,-10);m.visible=false;m.userData.fpsOccluder=true;root.add(m);covers.push(m);}
-  const bolts=Array.from({length:12},()=>{const mesh=new T.Mesh(boltGeo,boltMat);mesh.visible=false;boltsRoot.add(mesh);return{mesh,velocity:new T.Vector3(),life:0,active:false};});
+  const bolts=Array.from({length:12},()=>{const mesh=new T.Mesh(boltGeo,boltMat);mesh.raycast=()=>{};mesh.visible=false;boltsRoot.add(mesh);return{mesh,velocity:new T.Vector3(),life:0,active:false};});
   const drones=[0,1].map(i=>{
     const group=new T.Group();group.name='NOVA_RANGE_DRONE_'+(i+1);group.userData.rangeTarget=true;
     group.position.set(i===0?-3.4:3.4,1.9,i===0?-7:-13);
-    const hull=new T.Mesh(droneGeo,armorMat);hull.scale.set(1.25,.78,1.05);group.add(hull);
-    const lens=new T.Mesh(lensGeo,lensMat);lens.position.set(0,.02,-.34);group.add(lens);
+    const hull=new T.Mesh(droneGeo,armorMat);hull.scale.set(1.25,.78,1.05);hull.userData.rangeTarget=true;group.add(hull);
+    const lens=new T.Mesh(lensGeo,lensMat);lens.position.set(0,.02,-.34);lens.userData.rangeTarget=true;group.add(lens);
     group.userData.hp=100;root.add(group);
-    return{group,hp:100,state:'patrol',timer:1.2+i*1.4,fireTimer:2.2+i*.8,home:group.position.clone(),waypoint:new T.Vector3(i===0?-1.8:1.8,2.15,-8-i*4),cover:i,flash:0,dead:false};
+    return{group,hp:100,state:'patrol',timer:1.2+i*1.4,fireTimer:2.2+i*.8,home:group.position.clone(),waypoint:new T.Vector3(i===0?-1.8:1.8,2.15,-8-i*4),cover:i,flash:0,dead:false,meshes:[hull,lens]};
   });
   const state={active:false,manual:false,disposed:false,kills:0};
   const inRange=()=>!!nova.modules?.interior?.active;
@@ -54,7 +54,24 @@ export function init(nova) {
         if(state.disposed)return;
         const model=gltf.scene,bounds=new T.Box3().setFromObject(model),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3());
         const scale=1.7/Math.max(size.x,size.y,size.z,.01);
-        for(const d of drones){const visual=model.clone(true);visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-center.y*scale,-center.z*scale);d.group.add(visual);d.group.children[0].visible=false;}
+        for(const d of drones){
+          const visual=model.clone(true);
+          visual.scale.setScalar(scale);
+          visual.position.set(-center.x*scale,-center.y*scale,-center.z*scale);
+          visual.userData.rangeTarget=true;
+          visual.userData.onHit=(dmg,hitInfo)=>hit(d,dmg,hitInfo);
+          d.meshes=[];
+          visual.traverse(o=>{
+            if(o.isMesh){
+              o.userData.rangeTarget=true;
+              o.userData.onHit=(dmg,hitInfo)=>hit(d,dmg,hitInfo);
+              d.meshes.push(o);
+            }
+          });
+          d.visual=visual;
+          d.group.add(visual);
+          d.group.children[0].visible=false;
+        }
       },undefined,()=>{});
     }).catch(()=>{});
   }
@@ -66,13 +83,29 @@ export function init(nova) {
     b.mesh.position.copy(boltStart);b.velocity.subVectors(aim,boltStart).normalize().multiplyScalar(4.8);
     b.mesh.visible=true;b.active=true;b.life=4.2;
   }
-  function hit(d,damage=25){
+  function hit(d,damage=25,hitInfo){
     if(d.dead)return;
-    d.hp=Math.max(0,d.hp-Math.max(1,Number(damage)||25));d.group.userData.hp=d.hp;d.flash=.16;
-    if(d.hp<=0){d.dead=true;d.group.visible=false;state.kills++;nova.emit?.('droneDestroyed',{id:d.group.name,kills:state.kills});nova.toast?.('DRONE DISABLED',1500,'#75ffd1');}
-    else if(d.hp<=55&&d.state!=='retreat'){d.state='retreat';d.timer=2.8;}
+    d.hp=Math.max(0,d.hp-Math.max(1,Number(damage)||25));d.group.userData.hp=d.hp;d.flash=.22;
+    d.group.position.y+=.08;
+    d.group.position.x+=(Math.random()-.5)*.06;
+    try{
+      if(nova.sound?.laserImpact)nova.sound.laserImpact();
+      else if(window.sound?.laserImpact)window.sound.laserImpact();
+      else nova.sound?.beep?.(380,.08,'sawtooth');
+    }catch(_){}
+    if(d.hp<=0){
+      d.dead=true;d.group.visible=false;state.kills++;
+      nova.emit?.('droneDestroyed',{id:d.group.name,kills:state.kills});
+      nova.toast?.('DRONE DISABLED',1600,'#75ffd1');
+    }else{
+      nova.toast?.('DRONE HIT · HP '+d.hp+'%',900,'#00e5ff');
+      if(d.hp<=55&&d.state!=='retreat'){d.state='retreat';d.timer=2.8;}
+    }
   }
-  for(const d of drones)d.group.userData.onHit=damage=>hit(d,damage);
+  for(const d of drones){
+    d.group.userData.onHit=(damage,hitInfo)=>hit(d,damage,hitInfo);
+    for(const m of (d.meshes||[]))m.userData.onHit=(damage,hitInfo)=>hit(d,damage,hitInfo);
+  }
   function moveToward(d,target,speed,dt){
     delta.subVectors(target,d.group.position);delta.y=0;const distance=delta.length();
     if(distance<.12)return true;
@@ -88,7 +121,42 @@ export function init(nova) {
     for(const d of drones){
       if(d.dead)continue;
       d.timer-=step;d.fireTimer-=step;
-      if(d.flash>0){d.flash-=step;lensMat.emissiveIntensity=2.4;}else lensMat.emissiveIntensity=1.8;
+      if(d.flash>0){
+        d.flash-=step;
+        lensMat.emissiveIntensity=3.5;
+        if(d.meshes){
+          for(const m of d.meshes){
+            if(m.material){
+              const mats=Array.isArray(m.material)?m.material:[m.material];
+              for(const mat of mats){
+                if(!mat)continue;
+                if(!mat.userData)mat.userData={};
+                if(!mat.userData.origEmissive&&mat.emissive){
+                  mat.userData.origEmissive=mat.emissive.clone();
+                  mat.userData.origEmissiveIntensity=mat.emissiveIntensity??1;
+                }
+                mat.emissive?.setHex?.(0x00ffff);
+                if('emissiveIntensity' in mat)mat.emissiveIntensity=3.2;
+              }
+            }
+          }
+        }
+      }else{
+        lensMat.emissiveIntensity=1.8;
+        if(d.meshes){
+          for(const m of d.meshes){
+            if(m.material){
+              const mats=Array.isArray(m.material)?m.material:[m.material];
+              for(const mat of mats){
+                if(mat?.userData?.origEmissive){
+                  mat.emissive?.copy?.(mat.userData.origEmissive);
+                  if('emissiveIntensity' in mat)mat.emissiveIntensity=mat.userData.origEmissiveIntensity;
+                }
+              }
+            }
+          }
+        }
+      }
       if(d.state==='patrol'){
         if(moveToward(d,d.waypoint,1.1,step)||d.timer<=0){d.waypoint.set(d.home.x+(Math.random()-.5)*2,2,-5-Math.random()*8);d.state='cover';d.timer=2.4;}
       }else if(d.state==='cover'){
