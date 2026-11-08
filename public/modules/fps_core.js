@@ -620,6 +620,11 @@ export function init(nova) {
     else if(e.code==='KeyG'){e.preventDefault();throwGrenadeForward();}
   }
   function keyUp(e){down.delete(e.code);}
+  function onXRSelect(e){
+    if(!active||!weaponOn)return;
+    if(tpMarker&&tpMarker.visible)return;
+    fire();
+  }
   function tick(dt){
     if(!active)return;const d=Math.min(.05,Math.max(0,Number(dt)||0));
     lastDamage=Math.max(0,lastDamage-d);
@@ -732,7 +737,12 @@ export function init(nova) {
       fl.sprite.material.opacity=.95*(1-k*k);
     }
 
-    session=renderer?.xr?.getSession?.()||null;
+    const curSession=renderer?.xr?.getSession?.()||null;
+    if(curSession!==session){
+      if(session){try{session.removeEventListener('selectstart',onXRSelect);}catch(_){}}
+      session=curSession;
+      if(session){try{session.addEventListener('selectstart',onXRSelect);}catch(_){}}
+    }
     if(session){
       const sources=[...session.inputSources],rightSource=sources.find(s=>s.handedness==='right'),leftSource=sources.find(s=>s.handedness==='left');
       pistol.visible=weaponOn&&!!rightSource;
@@ -783,6 +793,9 @@ export function init(nova) {
       use=!rightIsHand&&(!!rightSource?.gamepad?.buttons?.[4]?.pressed||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
       leave=!rightIsHand&&!!rightSource?.gamepad?.buttons?.[5]?.pressed;
       if(turn){if(!snapHeld){rig.rotation.y-=Math.sign(turn)*Math.PI/6;snapHeld=true;}}else snapHeld=false;
+      const isMR=window.isPassthroughActive||(renderer?.xr?.isPresenting&&window.xrSessionType==='immersive-ar');
+      const ctrlTp=!leftIsHand&&((la[1]<-.60)||!!leftSource?.gamepad?.buttons?.[3]?.pressed);
+      if(ctrlTp||tpMarker.visible){mx=0;mz=0;}
       walk(mx,mz,d);if(trigger)fire();if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('vr');
       padUseHeld=use;padExitHeld=leave;
       const leftThumbValid=leftIsHand&&handPoint(leftHand,'thumb-tip',leftThumb);
@@ -797,29 +810,26 @@ export function init(nova) {
       const rPinchDist=(rightThumbValid&&rightIndexValid)?rightThumb.distanceTo(rightIndex):999;
       const rMidPinchDist=(rightThumbValid&&rightMiddleValid)?rightThumb.distanceTo(rightMiddle):999;
       const rIndexCurled=(rightIndexValid&&rightWristValid)?(rightIndex.distanceTo(rightWrist)<.142):false;
-      const rightPinch=rightIsHand&&(rPinchDist<.058||rMidPinchDist<.056||rIndexCurled);
+      const rightPinch=rightIsHand&&(rPinchDist<.065||rMidPinchDist<.065||rIndexCurled);
       if(leftPinch&&!leftPinchHeld){leftPinchTime=0;leftPinchUsed=false;}if(leftPinch)leftPinchTime+=d;
       if(leftPinch&&rightPinch){bothPinchTime+=d;if(bothPinchTime>=1.0&&!bothPinchExit){bothPinchExit=true;requestExit('hands');}}else{bothPinchTime=0;bothPinchExit=false;}
 
-      // Controller Teleport (push left stick forward steep la[1] < -0.72 or click left stick)
-      const ctrlTp=!leftIsHand&&((la[1]<-.72)||!!leftSource?.gamepad?.buttons?.[3]?.pressed);
+      // ── Smooth Floor Teleportation (Cantina-parity: eye-to-hand ray / controller forward ray) ──
+      const floorY=rig.position.y;
       if(ctrlTp&&leftController){
         leftController.getWorldPosition(origin);
         leftController.getWorldQuaternion(controllerQ);
         direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
-        const floorY=rig.position.y;
-        if(direction.y<-0.05){
+        if(direction.y<-0.04){
           const t=(floorY-origin.y)/direction.y;
           if(t>0.2&&t<35){
             const hitX=origin.x+direction.x*t,hitZ=origin.z+direction.z*t;
             const b=options.bounds;
-            const cx=b?T.MathUtils.clamp(hitX,b[0],b[1]):hitX,cz=b?T.MathUtils.clamp(hitZ,b[2],b[3]):hitZ;
-            if(!blockedAt(cx,cz)){
-              tpHit.set(cx,floorY+.02,cz);
-              tpMarker.position.copy(tpHit);
-              tpMarker.visible=true;
-              tpValid=true;
-            }else{tpMarker.visible=false;tpValid=false;}
+            const cx=(b&&!isMR)?T.MathUtils.clamp(hitX,b[0],b[1]):hitX,cz=(b&&!isMR)?T.MathUtils.clamp(hitZ,b[2],b[3]):hitZ;
+            tpHit.set(cx,floorY+.02,cz);
+            tpMarker.position.copy(tpHit);
+            tpMarker.visible=true;
+            tpValid=true;
           }else{tpMarker.visible=false;tpValid=false;}
         }else{tpMarker.visible=false;tpValid=false;}
       }
@@ -828,28 +838,25 @@ export function init(nova) {
         const cDx=origin.x-rig.position.x,cDz=origin.z-rig.position.z;
         rig.position.x=tpHit.x-cDx;
         rig.position.z=tpHit.z-cDz;
-        try{nova.sound?.beep?.(1100,.06);}catch(_){}
+        try{(nova.sound||window.sound)?.beep?.(900,.05);}catch(_){}
         tpMarker.visible=false;tpValid=false;
       }
       ctrlTpHeld=ctrlTp;
 
-      // Left Pinch Floor Teleport: point downward at floor with left hand while pinching to target, release to teleport
-      if(leftPinch&&!rightPinch&&leftIsHand&&leftIndexValid&&leftWristValid){
-        const pDir=new T.Vector3().subVectors(leftIndex,leftWrist).normalize();
-        if(pDir.y<-0.06){
-          origin.copy(leftIndex);
-          const floorY=rig.position.y;
+      // Left Pinch Floor Teleport (intuitive Cantina gesture: eye through pinch hand toward floor)
+      if(leftPinch&&!rightPinch&&leftIsHand&&leftIndexValid){
+        camera.getWorldPosition(origin);
+        const pDir=new T.Vector3().subVectors(leftIndex,origin).normalize();
+        if(pDir.y<-0.04&&leftPinchTime>=.18){
           const t=(floorY-origin.y)/pDir.y;
           if(t>0.2&&t<35){
             const hitX=origin.x+pDir.x*t,hitZ=origin.z+pDir.z*t;
             const b=options.bounds;
-            const cx=b?T.MathUtils.clamp(hitX,b[0],b[1]):hitX,cz=b?T.MathUtils.clamp(hitZ,b[2],b[3]):hitZ;
-            if(!blockedAt(cx,cz)){
-              tpHit.set(cx,floorY+.02,cz);
-              tpMarker.position.copy(tpHit);
-              tpMarker.visible=true;
-              tpValid=true;
-            }else{tpMarker.visible=false;tpValid=false;}
+            const cx=(b&&!isMR)?T.MathUtils.clamp(hitX,b[0],b[1]):hitX,cz=(b&&!isMR)?T.MathUtils.clamp(hitZ,b[2],b[3]):hitZ;
+            tpHit.set(cx,floorY+.02,cz);
+            tpMarker.position.copy(tpHit);
+            tpMarker.visible=true;
+            tpValid=true;
           }else{tpMarker.visible=false;tpValid=false;}
         }else{
           tpMarker.visible=false;tpValid=false;
@@ -861,15 +868,16 @@ export function init(nova) {
           const cDx=origin.x-rig.position.x,cDz=origin.z-rig.position.z;
           rig.position.x=tpHit.x-cDx;
           rig.position.z=tpHit.z-cDz;
-          try{nova.sound?.beep?.(1100,.06);}catch(_){}
+          try{(nova.sound||window.sound)?.beep?.(900,.05);}catch(_){}
           leftPinchUsed=true;
         }
         tpMarker.visible=false;tpValid=false;
       }
 
-      if(!leftPinch&&leftPinchHeld&&!leftPinchUsed&&leftPinchTime<.32){weaponOn=!weaponOn;pistol.visible=weaponOn;drawHud();}
-      if(rightPinch&&weaponOn&&!leftPinch){
-        if(!rightPinchHeld||(performance.now()-lastFire>=220))fire();
+      // Quick tap interacts with buttons/props; weapon stays ARMED without accidental disarming
+      if(!leftPinch&&leftPinchHeld&&!leftPinchUsed&&leftPinchTime<.32){interact();}
+      if(rightPinch&&weaponOn&&!leftPinch&&!tpMarker.visible){
+        if(!rightPinchHeld||(performance.now()-lastFire>=200))fire();
       }
       leftPinchHeld=leftPinch;rightPinchHeld=rightPinch;
 
@@ -1005,7 +1013,8 @@ export function init(nova) {
     // Update dynamic 3D crosshair at the point where the gun will hit
     if(active&&weaponOn){
       const hits=aimRay();
-      let hitDist=22;targetLocked=false;currentLockedTargetObj=null;
+      const isMR=window.isPassthroughActive||(renderer?.xr?.isPresenting&&window.xrSessionType==='immersive-ar');
+      let hitDist=isMR?3.5:6.0;targetLocked=false;currentLockedTargetObj=null;
       for(const hit of hits){
         const isEnemyTarget=findUserData(hit.object,'rangeTarget')||findUserData(hit.object,'enemy')||findUserData(hit.object,'fpsEnemy')||findUserData(hit.object,'nfUnit')||findUserData(hit.object,'onHit')||findUserData(hit.object,'takeDamage')||findUserData(hit.object,'health')||findUserData(hit.object,'hp');
         if(isEnemyTarget){
@@ -1018,8 +1027,9 @@ export function init(nova) {
       crosshairPos.copy(origin).addScaledVector(direction,hitDist);
       crosshairGroup.position.copy(crosshairPos);
       crosshairGroup.quaternion.copy(camera.quaternion);
-      const chScale=Math.max(.35,Math.min(2.5,hitDist*.11));
+      const chScale=Math.max(.35,Math.min(1.8,hitDist*.14));
       crosshairGroup.scale.setScalar(chScale);
+      crosshairGroup.traverse(o=>{if(o.material){o.material.depthTest=false;o.material.depthWrite=false;}o.renderOrder=10001;});
       if(targetLocked!==chLocked){
         chLocked=targetLocked;
         const col=targetLocked?0xff2844:0x00e5ff;
@@ -1077,6 +1087,7 @@ export function init(nova) {
     for(const r of ringPool){r.active=false;r.mesh.visible=false;}
     for(const fl of impactFlarePool){fl.active=false;fl.sprite.visible=false;}
     muzzleFlash.visible=false;muzzleRing.visible=false;recoilKick=0;recoilPitch=0;
+    if(session){try{session.removeEventListener('selectstart',onXRSelect);}catch(_){}}
     options={};session=null;rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;return true;
   }
 

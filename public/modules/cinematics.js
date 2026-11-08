@@ -120,17 +120,18 @@ export function init(nova = {}) {
 
     const v = document.createElement('video');
     v.src = videoUrl;
+    v.crossOrigin = 'anonymous';
     v.playsInline = true;
     v.setAttribute('playsinline', '');
     v.setAttribute('webkit-playsinline', '');
     v.preload = 'auto';
-    // Append to document.body so Meta Quest / Chromium Android hardware video pipeline decodes frames for WebGL in WebXR
+    // Append to document.body with active dimensions so Meta Quest / Chromium Android hardware video pipeline decodes frames for WebGL in WebXR
     v.style.position = 'fixed';
-    v.style.top = '0';
+    v.style.bottom = '0';
     v.style.left = '0';
-    v.style.width = '1px';
-    v.style.height = '1px';
-    v.style.opacity = '0.001';
+    v.style.width = '320px';
+    v.style.height = '180px';
+    v.style.opacity = '0.01';
     v.style.pointerEvents = 'none';
     v.style.zIndex = '-9999';
     document.body.appendChild(v);
@@ -230,7 +231,7 @@ export function init(nova = {}) {
       // VR / MR CINEMA THEATER (Curved IMAX Screen + Dark Surround Dome)
       // ══════════════════════════════════════════════════════════════════════════
 
-      // ── 1. Hide Player Cockpit, Seat, Canopies & Ship Meshes ──
+      // ── 1. Hide Player Cockpit, Ship, Stars, Planets & All Space Objects ──
       const hiddenObjects = [];
       const hideMesh = (obj) => {
         if (obj && obj.visible) {
@@ -238,20 +239,38 @@ export function init(nova = {}) {
           hiddenObjects.push(obj);
         }
       };
+
+      // Completely isolate the cinema from the rest of the 3D scene (no stars, planets, ship or lasers poking through)
+      const prevSceneBackground = scene ? scene.background : null;
+      if (scene) {
+        scene.background = new T.Color(0x000000);
+        if (scene.children) {
+          scene.children.forEach(c => {
+            if (c !== window.cameraRig && c !== camera && c !== camera.parent) {
+              hideMesh(c);
+            }
+          });
+        }
+      }
       if (window.cockpit) hideMesh(window.cockpit);
       if (window.cannonGroup) hideMesh(window.cannonGroup);
       if (window.cockpitDashLight) hideMesh(window.cockpitDashLight);
       if (window.cockpitDomeLight) hideMesh(window.cockpitDomeLight);
       if (window.seatGroup) hideMesh(window.seatGroup);
-      if (window.shipGroup) {
-        window.shipGroup.children.forEach(c => {
-          if (c !== window.cameraRig && c !== camera && c !== camera.parent) {
+      if (window.shipGroup) hideMesh(window.shipGroup);
+
+      // In cameraRig, hide HUD and wrist beacon while in theater, keeping hands/controllers visible
+      if (window.cameraRig && window.cameraRig.children) {
+        window.cameraRig.children.forEach(c => {
+          if (c !== camera && !c.isHand && !c.isController && !c.isControllerGrip &&
+              (c.name?.includes?.('WATCH') || c.name?.includes?.('BEACON') || c.name?.includes?.('TURN') || c.name?.includes?.('HUD'))) {
             hideMesh(c);
           }
         });
       }
 
       cleanup.push(() => {
+        if (scene) scene.background = prevSceneBackground;
         hiddenObjects.forEach(obj => {
           try { if (obj) obj.visible = true; } catch (_) {}
         });
@@ -260,9 +279,9 @@ export function init(nova = {}) {
       const xrGroup = new T.Group();
       xrGroup.name = 'NOVA_VR_CINEMA';
 
-      // ── 2. Full Surround Dark Cinema Dome (radius 25m, depthWrite = true) ──
-      const backGeo = new T.SphereGeometry(25, 32, 16);
-      const backMat = new T.MeshBasicMaterial({ color: 0x020306, side: T.BackSide, depthWrite: true });
+      // ── 2. Full Surround Dark Cinema Dome (radius 18m, depthWrite = true) ──
+      const backGeo = new T.SphereGeometry(18, 32, 16);
+      const backMat = new T.MeshBasicMaterial({ color: 0x010204, side: T.BackSide, depthWrite: true });
       const backMesh = new T.Mesh(backGeo, backMat);
       backMesh.renderOrder = 0;
       xrGroup.add(backMesh);
@@ -719,16 +738,19 @@ export function init(nova = {}) {
     try {
       await v.play();
     } catch (err) {
-      // If browser blocked unmuted autoplay, mute and prompt user
+      // If browser blocked unmuted autoplay, try muted playback
       v.muted = true;
       try {
         await v.play();
         const p = document.getElementById('nova-cinematic-wrap')?.querySelector('div[style*="CLICK TO UNMUTE"]');
         if (p) p.style.display = 'block';
       } catch (err2) {
-        console.warn('[cinematics] Video playback failed:', err2);
-        end();
-        return false;
+        console.warn('[cinematics] Initial autoplay blocked, waiting for VR touch/gesture/click to start playback:', err2);
+        const startOnAction = () => {
+          v.play().catch(() => {});
+          window.removeEventListener('pointerdown', startOnAction);
+        };
+        window.addEventListener('pointerdown', startOnAction, { once: true });
       }
     }
 

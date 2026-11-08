@@ -1722,6 +1722,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // Ship Group containing the cockpit and ship visuals
     const shipGroup = new THREE.Group();
     scene.add(shipGroup);
+    window.shipGroup = shipGroup;
 
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 15000 * NOVA_WORLD_SCALE);
     camera.position.set(0, PILOT_EYE_Y + seatOffset, PILOT_SEAT_Z);
@@ -2867,11 +2868,16 @@ const GAME_VERSION = 'Alpha 1.4';
       compassTexture.needsUpdate = true;
     }
 
-    // ── Procedural Synthwave BGM Audio Engine ──
+    // ── Master Soundtrack & Synthwave BGM Audio Engine ──
     const BGM_TRACKS = [
+      { name: 'VOYAGER', bpm: 'track', file: 'voyager', ctx: 'flight', notes: [0], bass: [0] },
+      { name: 'SPACE CARAVAN', bpm: 'track', file: 'space_caravan', ctx: 'cantina', notes: [0], bass: [0] },
+      { name: 'BATTLE IN THE MARKET', bpm: 'track', file: 'battle_market', ctx: 'combat', notes: [0], bass: [0] },
+      { name: 'ORBITAL DRIFT', bpm: 'track', file: 'orbital_drift', station: 'synth', notes: [0], bass: [0] },
+      { name: "OBI'S MIX", bpm: 'track', file: 'obis_mix', obi: true, notes: [0], bass: [0] },
+      { name: 'PIRATE CIRCUIT', bpm: 'track', file: 'pirate_circuit', station: 'pirate', notes: [0], bass: [0] },
       { name: 'SYNTHWAVE HIGHWAY', bpm: 120, notes: [220, 246.9, 261.6, 293.7, 329.6, 293.7, 261.6, 220], bass: [55, 55, 65.4, 73.4] },
       { name: 'DEEP SPACE CHILL', bpm: 80, notes: [174.6, 196.0, 220.0, 261.6, 293.7, 261.6, 220.0, 196.0], bass: [43.6, 43.6, 49.0, 55.0] },
-      { name: 'ORBITAL DRIFT', bpm: 95, notes: [261.6, 329.6, 392.0, 440.0, 523.3, 440.0, 392.0, 329.6], bass: [65.4, 65.4, 82.4, 98.0] },
       { name: 'COMBAT CYBERPUNK', bpm: 135, notes: [146.8, 164.8, 174.6, 220.0, 246.9, 220.0, 174.6, 146.8], bass: [36.7, 36.7, 43.6, 49.0] }
     ];
     let isBgmPlaying = true;
@@ -2885,6 +2891,7 @@ const GAME_VERSION = 'Alpha 1.4';
       isBgmPlaying = !isBgmPlaying;
       sound.beep(isBgmPlaying ? 980 : 490, 0.08);
       showToast(isBgmPlaying ? `🎵 BGM PLAYING: ${BGM_TRACKS[bgmTrackIdx].name}` : '🔇 BGM MUTED', 2000, isBgmPlaying ? '#00ffcc' : '#ffaa00');
+      try { if (typeof nrmTick === 'function') nrmTick(); } catch (_) {}
       updateBgmDisplay();
     }
 
@@ -2894,6 +2901,7 @@ const GAME_VERSION = 'Alpha 1.4';
       bgmStep = 0;
       sound.beep(1100, 0.06);
       showToast(`📻 TRACK: ${BGM_TRACKS[bgmTrackIdx].name}`, 2200, '#00f0ff');
+      try { if (typeof nrmTick === 'function') nrmTick(); } catch (_) {}
       updateBgmDisplay();
     }
 
@@ -3569,24 +3577,31 @@ const GAME_VERSION = 'Alpha 1.4';
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRec) {
         commsRecognition = new SpeechRec();
-        commsRecognition.continuous = false;
+        commsRecognition.continuous = true;
         commsRecognition.interimResults = false;
         commsRecognition.onresult = (ev) => {
-          if (ev.results && ev.results[0] && ev.results[0][0]) {
-            const spokenText = ev.results[0][0].transcript;
-            if (!handlePilotVoiceCommand(spokenText)) {
-              transmitPilotText(spokenText);
+          for (let i = ev.resultIndex; i < ev.results.length; ++i) {
+            if (ev.results[i].isFinal) {
+              const spokenText = ev.results[i][0].transcript;
+              if (!handlePilotVoiceCommand(spokenText)) {
+                transmitPilotText(spokenText);
+              }
             }
           }
-          isCommsMicListening = false;
           drawCommsPanel();
         };
-        commsRecognition.onerror = () => {
-          isCommsMicListening = false;
-          drawCommsPanel();
+        commsRecognition.onerror = (err) => {
+          if (isCommsMicListening && err && (err.error === 'no-speech' || err.error === 'network')) {
+            try { commsRecognition.start(); } catch (_) {}
+          } else {
+            isCommsMicListening = false;
+            drawCommsPanel();
+          }
         };
         commsRecognition.onend = () => {
-          isCommsMicListening = false;
+          if (isCommsMicListening) {
+            try { commsRecognition.start(); } catch (_) { isCommsMicListening = false; }
+          }
           drawCommsPanel();
         };
       }
@@ -3604,16 +3619,21 @@ const GAME_VERSION = 'Alpha 1.4';
             showToast('🗣️ VOICE CMD: DROPPING OUT OF WARP', 2500, '#ffaa00');
             return true;
           }
+          let started = false;
           if (typeof npWarpGo === 'function') {
-            npWarpGo();
-          } else if (typeof novaWarpStart === 'function') {
-            novaWarpStart('fwd');
-          } else if (typeof triggerLightspeed === 'function') {
-            triggerLightspeed();
+            try { npWarpGo(); started = !!(NW && (NW.spool || NW.jump)) || isLightspeedActive; } catch (_) {}
+          }
+          if (!started && typeof novaWarpStart === 'function') {
+            try { novaWarpStart('fwd'); started = !!(NW && (NW.spool || NW.jump)) || isLightspeedActive; } catch (_) {}
+          }
+          if (!started) {
+            _nwOrigTrigger();
           }
           showToast('🗣️ VOICE CMD: WARP DRIVE ENGAGED', 3000, '#00ffff');
           return true;
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[voice warp]', e);
+        }
       }
 
       // 2. Throttle & Speed Control
@@ -3717,11 +3737,12 @@ const GAME_VERSION = 'Alpha 1.4';
         if (!isCommsMicListening) {
           isCommsMicListening = true;
           sound.beep(1200, 0.08);
-          showToast('🎙️ LISTENING... SPEAK INTO HEADSET MIC NOW', 3000, '#00ffcc');
+          showToast('🎙️ VOICE COMMANDS ACTIVE: Say "Warp", "Throttle 100", "Brake", "Missile", "Target"', 3500, '#00ffcc');
           commsRecognition.start();
         } else {
           isCommsMicListening = false;
           commsRecognition.stop();
+          showToast('🎙️ VOICE COMMANDS MUTED', 1800, '#ffaa00');
         }
       } catch(e) {
         isCommsMicListening = false;
@@ -7740,9 +7761,26 @@ const GAME_VERSION = 'Alpha 1.4';
       { id: 'bgm-toggle', label: () => (isBgmPlaying ? '🎵 BGM: PLAYING' : '🔇 BGM: MUTED'), x: 262, y: 260, w: 232, h: 58, color: '#cc88ff', action: () => toggleBgm() },
       { id: 'play-intro', label: '▶ PLAY INTRO', x: 18, y: 330, w: 232, h: 58, color: '#ffcc00', action: () => { toggleWristMenu(false); const c = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('cinematics.js'); if (c && c.play) c.play('intro'); else showToast('Intro player not loaded', 2000, '#ff8866'); } },   // owner: the other sector levels are retired
       { id: 'toggle-mr', label: '👁️ TOGGLE MR / VR', x: 262, y: 330, w: 232, h: 58, color: '#ff33aa', action: () => togglePassthrough() },
-      { id: 'exit-xr', label: '🚪 EMERGENCY EXIT VR', x: 18, y: 400, w: 232, h: 58, color: '#ff3344', action: () => exitImmersiveMode() },
+      { id: 'engage-warp', label: () => (isLightspeedActive ? '⚡ EXIT WARP' : '⚡ ENGAGE WARP'), x: 18, y: 400, w: 232, h: 58, color: '#33ff99', action: () => {
+        if (isLightspeedActive) {
+          exitLightspeed();
+        } else {
+          let ok = false;
+          if (typeof npWarpGo === 'function') {
+            try { npWarpGo(); ok = !!(NW && (NW.spool || NW.jump)) || isLightspeedActive; } catch (_) {}
+          }
+          if (!ok && typeof novaWarpStart === 'function') {
+            try { novaWarpStart('fwd'); ok = !!(NW && (NW.spool || NW.jump)) || isLightspeedActive; } catch (_) {}
+          }
+          if (!ok) {
+            _nwOrigTrigger();
+          }
+        }
+        drawDebugWatch();
+      }},
       { id: 'mission-next', label: '🎯 CYCLE MISSION OBJ', x: 262, y: 400, w: 232, h: 58, color: '#00ffaa', action: () => selectMission(activeMissionIdx + 1) },
-      { id: 'voice-mic', label: () => (isCommsMicListening ? '🎙️ MIC: LISTENING...' : '🎙️ VOICE COMMANDS'), x: 18, y: 464, w: 476, h: 40, color: '#00ffcc', action: () => { toggleCommsMic(); drawDebugWatch(); } },
+      { id: 'voice-mic', label: () => (isCommsMicListening ? '🎙️ MIC: LISTENING...' : '🎙️ VOICE COMMANDS'), x: 18, y: 464, w: 232, h: 40, color: '#00ffcc', action: () => { toggleCommsMic(); drawDebugWatch(); } },
+      { id: 'exit-xr', label: '🚪 EXIT VR', x: 262, y: 464, w: 232, h: 40, color: '#ff3344', action: () => exitImmersiveMode() },
       { id: 'close-watch-menu', label: '✕ CLOSE', x: 410, y: 14, w: 86, h: 36, color: '#ff6677', action: () => toggleWristMenu(false) }
     ];
 
@@ -18098,7 +18136,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function npWarpStep(d) { const L = npWarpList(); NP_WARP.i = (NP_WARP.i + d + L.length) % L.length; try { sound.beep(d > 0 ? 990 : 880, 0.04); } catch (e) { } const P = NP.panels[0]; if (P) P.drawT = 0; }
     function npWarpGo() {
       const L = npWarpList(), c = L[NP_WARP.i]; if (!c) return;
-      if (c.locked) { showToast('No route to that signal yet. The story reveals it.', 2200, '#88aacc'); return; }
+      if (c.locked) { showToast('No route to that signal yet. Engaging forward jump...', 2200, '#88aacc'); novaWarpStart('fwd'); return; }
       if (c.dock) {   // straight to the pad: drop any autopilot run, light the rings and hand over to the tractor beam
         try {
           if (isInsideCantina || isDockingInProgress) return;
@@ -18109,7 +18147,11 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch (e) { console.warn('[NOVA14] dock', e); }
         return;
       }
-      if (c.why) { showToast('WARP: ' + c.why, 2000, '#ff7a66'); try { sound.beep(260, 0.1); } catch (e) { } return; }
+      if (c.why) {
+        showToast('WARP: ' + c.why + ' — engaging forward jump', 2000, '#ffaa33');
+        novaWarpStart('fwd');
+        return;
+      }
       novaWarpStart(c.def.id);
     }
     function npNavOpen() {   // N key, the WARP buttons and the main warp switch all land on this tab now (no floating window)
@@ -20132,7 +20174,11 @@ const GAME_VERSION = 'Alpha 1.4';
       { name: "OBI'S MIX", file: 'obis_mix', obi: true },
       { name: 'PIRATE CIRCUIT', file: 'pirate_circuit', station: 'pirate' }
     ];
-    NRM_TRACKS.forEach(t => BGM_TRACKS.push({ name: t.name, bpm: 'track', notes: [0], bass: [0], file: t.file, ctx: t.ctx }));
+    NRM_TRACKS.forEach(t => {
+      const ex = BGM_TRACKS.find(x => x.file === t.file);
+      if (ex) { ex.ctx = t.ctx; ex.station = t.station; ex.obi = t.obi; }
+      else { BGM_TRACKS.push({ name: t.name, bpm: 'track', notes: [0], bass: [0], file: t.file, ctx: t.ctx, station: t.station, obi: t.obi }); }
+    });
     NMUS.count = BGM_TRACKS.length;
     { const _pn = sound.playBgmNote.bind(sound); sound.playBgmNote = function () { try { if (BGM_TRACKS[bgmTrackIdx] && BGM_TRACKS[bgmTrackIdx].file) return; } catch (e) { } return _pn.apply(null, arguments); }; }
     function nrmEl(file) {
@@ -20176,7 +20222,7 @@ const GAME_VERSION = 'Alpha 1.4';
       { name: 'CORSAIR RUN', bpm: 150, wave: 'square', gain: 0.55, notes: [196.0, 233.1, 261.6, 293.7, 261.6, 233.1, 196.0, 174.6], bass: [49.0, 49.0, 43.7, 58.3], station: 'pirate' },
       { name: 'BLACK MARKET BOUNCE', bpm: 124, wave: 'square', gain: 0.55, notes: [261.6, 311.1, 349.2, 392.0, 349.2, 311.1, 261.6, 233.1], bass: [65.4, 65.4, 58.3, 77.8], station: 'pirate' },
       { name: 'BOARDING PARTY', bpm: 160, wave: 'sawtooth', gain: 0.8, notes: [164.8, 196.0, 220.0, 246.9, 220.0, 196.0, 164.8, 146.8], bass: [41.2, 41.2, 36.7, 49.0], station: 'pirate' }
-    ].forEach(t => BGM_TRACKS.push(t));
+    ].forEach(t => { if (!BGM_TRACKS.some(x => x.name === t.name)) BGM_TRACKS.push(t); });
     NMUS.count = BGM_TRACKS.length;
     const NMS_STATIONS = [
       { name: 'NOVA-1 FM', logo: 'nova', sub: 'soundtrack · AUTO follows the action', c: '#00e5ff', has: t => !!t.ctx },
@@ -20194,6 +20240,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function nmsPlay(idx, auto) {
       try { sound.init(); } catch (e) { }
       bgmTrackIdx = idx; bgmStep = 0; isBgmPlaying = true; NRM.auto = !!auto; NMS.st = nmsStationOf(idx);
+      try { nrmTick(); } catch (e) { }
       try { updateBgmDisplay(); } catch (e) { }
       showToast('\u266B ' + NMS_STATIONS[NMS.st].name + ' \u00b7 ' + BGM_TRACKS[idx].name, 1800, NMS_STATIONS[NMS.st].c);
     }
