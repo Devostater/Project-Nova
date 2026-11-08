@@ -10705,6 +10705,7 @@ const GAME_VERSION = 'Alpha 1.4';
         let destObj = stationGroup;
         let destName = 'Station Nova-1';
         let safeStandoffDist = 70.0; // Keep 70m safe distance from station
+        let apMode = 'stop'; // 'stop' = stations/rocks; 'track' = enemies/ships (keep following)
 
         if (currentLockedTarget && currentLockedTarget.targetObj && !novaAutoDockPending && novaDock.state === 'idle') {   // docking always heads for Nova-1, whatever is locked
           destObj = currentLockedTarget.targetObj;
@@ -10712,12 +10713,20 @@ const GAME_VERSION = 'Alpha 1.4';
           if (currentLockedTarget.type === 'asteroid') {
             const aRad = (destObj.userData && destObj.userData.radius) ? destObj.userData.radius : 15.0;
             safeStandoffDist = aRad + 35.0; // Standoff 35m from asteroid surface for comfortable mining
+            apMode = 'stop';
           } else if (currentLockedTarget.type === 'freighter') {
             safeStandoffDist = 45.0; // Standoff 45m along convoy escort lane
-          } else if (currentLockedTarget.type === 'hostile') {
+            apMode = 'track'; // hold formation with freighter
+          } else if (currentLockedTarget.type === 'hostile' || currentLockedTarget.isHostile) {
             safeStandoffDist = 65.0; // Combat dogfight distance
+            apMode = 'track'; // keep tracking enemy — do not auto-stop
+          } else if (currentLockedTarget.type === 'station') {
+            safeStandoffDist = 70.0;
+            apMode = 'stop';
           } else {
             safeStandoffDist = 60.0;
+            // ships / contacts: aim and hold formation rather than hard-stop
+            apMode = (currentLockedTarget.isHostile) ? 'track' : 'track';
           }
         }
 
@@ -10744,8 +10753,21 @@ const GAME_VERSION = 'Alpha 1.4';
             const vMax = Math.max(4, remain * 0.6), v = shipBody.velocity, sp = Math.hypot(v.x, v.y, v.z);
             if (sp > vMax) { const k = vMax / sp; v.x *= k; v.y *= k; v.z *= k; }
           }
+        } else if (apMode === 'track') {
+          // Enemies / ships: keep tracking — aim at target, hold combat/formation distance, do NOT disengage
+          if (remain < -20) {
+            setThrottle(0.0); // too close: coast while still aiming
+          } else if (remain > 0.5) {
+            setThrottle(0.18);
+          } else {
+            setThrottle(0.05); // micro-thrust to hold formation
+          }
+          if (shipBody && remain < 5) {
+            const v = shipBody.velocity, sp = Math.hypot(v.x, v.y, v.z);
+            if (sp > 12) { const k = 12 / sp; v.x *= k; v.y *= k; v.z *= k; }
+          }
         } else {
-          // Arrived safely at standoff distance!
+          // Stations / rocks: arrived at standoff — stop and disengage autopilot
           setThrottle(0.0);
           if (shipBody) {
             shipBody.velocity.set(0, 0, 0);
