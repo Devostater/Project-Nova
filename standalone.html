@@ -17241,6 +17241,8 @@ const GAME_VERSION = 'Alpha 1.4';
         [[430, 180], [724, 180], [430, 296], [724, 296]].forEach(([x, y], i) => P.flightHits.push(hit('L FLIGHT CONTROL ' + (i + 1), x, y, 280, 104, () => { const pd = NP_FLIGHT.pads[i]; if (pd) pd.fn(P); })));
         P.warpHits = [];
         for (let i = 0; i < 4; i++) P.warpHits.push(hit('L WARP CONTROL ' + (i + 1), 8 + i * 251, 342, 245, 70, () => { const pd = NP_WARP.pads[i]; if (pd) pd.fn(P); }));
+        P.newsHits = [];
+        for (let i = 0; i < 4; i++) P.newsHits.push(hit('L NEWS PAD ' + (i + 1), 8 + i * 251, 342, 245, 70, () => { const pd = (NP_NEWS.pads || [])[i]; if (pd) pd.fn(P); }));
       }
       // holographic buttons floating over the console's physical button row
       cfg.holo.forEach((b, i) => {
@@ -17610,17 +17612,27 @@ const GAME_VERSION = 'Alpha 1.4';
 
     const NNEWS = {
       i: 0,
+      filter: 'all',
+      listScroll: 0,
       read: new Set(),
       chosen: {},
       lastId: '',
       audio: null,
       playingId: null,
-      portraits: {}
+      portraits: {},
+      autoIdle: true,
+      lastIdleStep: performance.now()
     };
 
     function nnewsGetPortrait(url) {
+      if (!url) return null;
       if (!NNEWS.portraits[url]) {
         const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const P = NP.panels[0];
+          if (P) P.drawT = 0;
+        };
         img.src = url;
         NNEWS.portraits[url] = img;
       }
@@ -17629,6 +17641,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
     function nnewsToggleVoice(article) {
       if (!article || !article.audio) return;
+      NNEWS.lastIdleStep = performance.now();
       if (NNEWS.playingId === article.id && NNEWS.audio && !NNEWS.audio.paused) {
         NNEWS.audio.pause();
         NNEWS.playingId = null;
@@ -17642,13 +17655,14 @@ const GAME_VERSION = 'Alpha 1.4';
         NNEWS.audio.play().catch(() => {});
         NNEWS.playingId = article.id;
         NNEWS.audio.onended = () => { NNEWS.playingId = null; const P = NP.panels[0]; if (P) P.drawT = 0; };
-        if (typeof showToast === 'function') showToast('▶ PLAYING: ' + article.speaker + ' BROADCAST', 2200, '#00e5ff');
+        if (typeof showToast === 'function') showToast('▶ PLAYING: ' + (article.speaker || 'TALIA VANCE') + ' BROADCAST', 2200, '#00e5ff');
       }
       const P = NP.panels[0]; if (P) P.drawT = 0;
     }
 
     function nnewsPickChoice(article, choiceIdx) {
       if (!article || !article.choices || !article.choices[choiceIdx]) return;
+      NNEWS.lastIdleStep = performance.now();
       const c = article.choices[choiceIdx];
       if (NNEWS.chosen[article.id] !== undefined) {
         if (typeof showToast === 'function') showToast('CHOICE ALREADY COMMITTED FOR THIS BROADCAST', 1800, '#ffd24a');
@@ -17680,139 +17694,522 @@ const GAME_VERSION = 'Alpha 1.4';
         showToast('NOVA NET TRACKING: ' + name, 2200, hostile ? '#ff4455' : '#00e5ff');
       } catch (e) { console.warn('[NOVA NET] track', e); }
     }
-    function nnewsItems() {
+
+    function nnewsAllItems() {
       const out = [], add = q => out.push(q);
-      NNEWS_TALIA_ARTICLES.forEach(a => {
-        add({
-          id: a.id,
-          tag: a.tag,
-          c: a.id.includes('corsair') ? '#ff5544' : (a.id.includes('anomaly') ? '#b266ff' : '#00e5ff'),
-          title: a.title,
-          deck: a.deck,
-          body: a.body,
-          action: (NNEWS.playingId === a.id) ? '■ STOP VOICE' : '▶ VOICE',
-          article: a,
-          fn: () => nnewsToggleVoice(a)
-        });
-      });
+      // 1. Featured Cinematic Videos
       add({
         id: 'deep-cold-dispatch-ep01',
-        tag: 'BROADCAST · NOVA NET',
-        c: '#00e5ff',
+        type: 'video',
+        tag: '🎬 VIDEO BROADCAST · NOVA NET',
+        c: '#ffd24a',
         title: 'DEEP COLD DISPATCH: EP. 01',
+        speaker: 'TALIA VANCE & JAX RAWLINS',
+        portrait: './news/images/talia_vance.webp',
         deck: 'Talia Vance and Jax Rawlins on EDF core rationing, outer rim freeze, and Sector 9 anomalies.',
         body: [
           'EDF checkpoints seize civilian fusion batteries under Emergency Order 14.',
           'System temperatures drop another 2 degrees along the outer rim.',
           'Talia Vance: "Watch your vectors, pilots. Every delivery has a destination."'
         ],
-        action: 'WATCH VIDEO',
+        action: '🎬 WATCH VIDEO',
         video: 'deep_cold_dispatch_ep01',
         fn: () => {
           if (window.novaWatchVideo) window.novaWatchVideo('deep_cold_dispatch_ep01');
         }
       });
+      add({
+        id: 'video-intro',
+        type: 'video',
+        tag: '🎬 CINEMATIC ARCHIVE · NOVA NET',
+        c: '#ffd24a',
+        title: 'PILOT INITIATION: PROJECT NOVA',
+        speaker: 'COMMANDER VANCE',
+        portrait: './news/images/talia_vance.webp',
+        deck: 'Archival command broadcast detailing the start of Project Nova and the Deep Cold crisis.',
+        body: [
+          'The origins of the Project Nova initiative as humanity ventured into the cooling void.',
+          'Command transponders reactivated across all sectors.',
+          'Touch to experience full cinematic briefing.'
+        ],
+        action: '🎬 WATCH VIDEO',
+        video: 'intro',
+        fn: () => {
+          if (window.novaWatchVideo) window.novaWatchVideo('intro');
+        }
+      });
+      add({
+        id: 'video-epilogue',
+        type: 'video',
+        tag: '🎬 EXPEDITION LOG · CLASSIFIED',
+        c: '#ff9933',
+        title: 'THE DEEP COLD: EXPEDITION LOG',
+        speaker: 'JAX RAWLINS',
+        portrait: './news/images/jax_rawlins.webp',
+        deck: 'Jax Rawlins recovered field telemetry from the absolute zero anomaly boundary.',
+        body: [
+          'Recorded transmission from the edge of the explored frontier.',
+          'Anomalous core harmonics and the fate of outer rim explorers.',
+          'Touch to screen expedition cinema broadcast.'
+        ],
+        action: '🎬 WATCH VIDEO',
+        video: 'epilogue',
+        fn: () => {
+          if (window.novaWatchVideo) window.novaWatchVideo('epilogue');
+        }
+      });
+
+      // 2. Talia Vance & Jax Rawlins Story Articles
+      NNEWS_TALIA_ARTICLES.forEach(a => {
+        add({
+          id: a.id,
+          type: 'article',
+          tag: a.tag,
+          c: a.id.includes('corsair') ? '#ff5544' : (a.id.includes('anomaly') ? '#b266ff' : '#00e5ff'),
+          title: a.title,
+          speaker: a.speaker || 'TALIA VANCE',
+          portrait: a.portrait || './news/images/talia_vance.webp',
+          deck: a.deck,
+          body: a.body,
+          action: (NNEWS.playingId === a.id) ? '■ STOP VOICE' : '▶ PLAY VOICE',
+          article: a,
+          fn: () => nnewsToggleVoice(a)
+        });
+      });
+
+      // 3. Live Sector Alerts & Intel
       const fr = (typeof cargoFreighters !== 'undefined' && cargoFreighters) ? cargoFreighters[0] : null;
-      if (novaMayday && fr) add({ id: 'mayday', tag: 'BREAKING · ' + Math.max(0, Math.ceil(novaMayday.t)) + ' S', c: '#ff4455',
-        title: 'FREIGHTER MAYDAY ON LOCAL BAND', deck: 'Starlifter-7 reports a stalled reactor and requests immediate assistance.',
-        body: ['Pilots must approach within 400 m before the emergency window closes.', 'Failure to respond will damage convoy trust.'], action: 'TRACK', fn: () => nnewsLock('STARLIFTER-7', fr, 'freighter', false) });
-      if (pirateBoss && !isPirateDefeated && pirateBoss.visible) add({ id: 'pirate-alert', tag: 'SECURITY ALERT', c: '#ff3344',
-        title: 'CORSAIR CONTACT DISRUPTS LOCAL TRAFFIC', deck: 'Nova-1 Control advises civilian ships to clear the active combat lane.',
-        body: [`Pirate standing: ${Math.round(novaPirRep)} / 100.`, 'The hostile contact can jam nearby warp traffic.'], action: 'TRACK', fn: () => nnewsLock('CORSAIR RAIDER', pirateBoss, 'hostile', true) });
-      try { const m = ncrMission(); if (m && m.active) add({ id: 'cold-run', tag: 'DEEP SPACE', c: '#66e6ff', title: 'COLD RUN SIGNAL REMAINS ACTIVE',
-        deck: String(m.currentObjective || 'A cold-region operation is underway.'), body: ['Heat and fusion cores remain the most valuable cargo in the cooling system.', `Mission step ${m.progress.cursor + 1} of ${m.progress.total + 1}.`],
-        action: 'OBJECTIVE', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } }); } catch (e) { }
-      if (novaContract) add({ id: 'contract-' + novaContract.id, tag: 'CONTRACT WATCH', c: '#33ff99', title: String(novaContract.title).toUpperCase(),
-        deck: `${NOVA_AFF_NAMES[novaContract.giver] || 'Local dispatch'} confirms an active pilot contract.`, body: [`Progress ${Math.floor(novaContract.prog)} / ${novaContract.goal}.`, `Completion pays ${novaContract.pay} credits.`],
-        action: 'OBJECTIVE', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } });
+      if (novaMayday && fr) add({
+        id: 'mayday',
+        type: 'article',
+        tag: 'BREAKING · ' + Math.max(0, Math.ceil(novaMayday.t)) + ' S',
+        c: '#ff4455',
+        speaker: 'STARLIFTER-7 DISPATCH',
+        portrait: './news/images/talia_vance.webp',
+        title: 'FREIGHTER MAYDAY ON LOCAL BAND',
+        deck: 'Starlifter-7 reports a stalled reactor and requests immediate assistance.',
+        body: ['Pilots must approach within 400 m before the emergency window closes.', 'Failure to respond will damage convoy trust.'],
+        action: '🎯 TRACK FREIGHTER',
+        fn: () => nnewsLock('STARLIFTER-7', fr, 'freighter', false)
+      });
+      if (pirateBoss && !isPirateDefeated && pirateBoss.visible) add({
+        id: 'pirate-alert',
+        type: 'article',
+        tag: 'SECURITY ALERT',
+        c: '#ff3344',
+        speaker: 'CORSAIR RAIDER TRANSIT',
+        portrait: './news/images/jax_rawlins.webp',
+        title: 'CORSAIR CONTACT DISRUPTS LOCAL TRAFFIC',
+        deck: 'Nova-1 Control advises civilian ships to clear the active combat lane.',
+        body: [`Pirate standing: ${Math.round(novaPirRep)} / 100.`, 'The hostile contact can jam nearby warp traffic.'],
+        action: '🎯 TRACK HOSTILE',
+        fn: () => nnewsLock('CORSAIR RAIDER', pirateBoss, 'hostile', true)
+      });
+      try {
+        const m = ncrMission();
+        if (m && m.active) add({
+          id: 'cold-run',
+          type: 'article',
+          tag: 'DEEP SPACE',
+          c: '#66e6ff',
+          speaker: 'MISSION DISPATCH',
+          portrait: './news/images/talia_vance.webp',
+          title: 'COLD RUN SIGNAL REMAINS ACTIVE',
+          deck: String(m.currentObjective || 'A cold-region operation is underway.'),
+          body: ['Heat and fusion cores remain the most valuable cargo in the cooling system.', `Mission step ${m.progress.cursor + 1} of ${m.progress.total + 1}.`],
+          action: '⚡ VIEW OBJECTIVE',
+          fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); }
+        });
+      } catch (e) { }
+      if (novaContract) add({
+        id: 'contract-' + novaContract.id,
+        type: 'article',
+        tag: 'CONTRACT WATCH',
+        c: '#33ff99',
+        speaker: 'GUILD DISPATCH',
+        portrait: './news/images/talia_vance.webp',
+        title: String(novaContract.title).toUpperCase(),
+        deck: `${NOVA_AFF_NAMES[novaContract.giver] || 'Local dispatch'} confirms an active pilot contract.`,
+        body: [`Progress ${Math.floor(novaContract.prog)} / ${novaContract.goal}.`, `Completion pays ${novaContract.pay} credits.`],
+        action: '⚡ VIEW OBJECTIVE',
+        fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); }
+      });
       const ch = CAMPAIGN[campaignChapter];
-      add({ id: 'chapter-' + campaignChapter, tag: 'SECTOR DESK', c: '#ffcc00', title: ch ? ch.title : 'OPEN SKIES',
-        deck: ch ? ch.objective : 'The sector enters a quieter period of open trade and exploration.', body: ch ? [ch.hint, `Filed by ${ch.speaker || 'Nova-1 Control'}.`] : ['Independent pilots continue mining, trade and patrol operations.'],
-        action: 'BRIEFING', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } });
+      add({
+        id: 'chapter-' + campaignChapter,
+        type: 'article',
+        tag: 'SECTOR DESK',
+        c: '#ffcc00',
+        speaker: ch ? (ch.speaker || 'Nova-1 Control') : 'SECTOR BEACON',
+        portrait: './news/images/talia_vance.webp',
+        title: ch ? ch.title : 'OPEN SKIES',
+        deck: ch ? ch.objective : 'The sector enters a quieter period of open trade and exploration.',
+        body: ch ? [ch.hint, `Filed by ${ch.speaker || 'Nova-1 Control'}.`] : ['Independent pilots continue mining, trade and patrol operations.'],
+        action: '⚡ VIEW BRIEFING',
+        fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); }
+      });
       const cores = (typeof NSV !== 'undefined' && NSV) ? (NSV.cores || 0) : 0;
-      add({ id: 'heat-core-market', tag: 'MARKETS', c: '#ff9f43', title: 'HEAT-CORE DEMAND CLIMBS AGAIN',
+      add({
+        id: 'heat-core-market',
+        type: 'article',
+        tag: 'MARKETS',
+        c: '#ff9f43',
+        speaker: 'COMMERCE EXCHANGE',
+        portrait: './news/images/talia_vance.webp',
+        title: 'HEAT-CORE DEMAND CLIMBS AGAIN',
         deck: 'Humanity is growing colder. Stations and colonies continue competing for reliable heat.',
-        body: [`Your hold reports ${cores} recovered heat core${cores === 1 ? '' : 's'}.`, 'Fusion cores command high prices, but every sale decides who stays warm.'], action: null });
-      add({ id: 'standing', tag: 'PUBLIC RECORD', c: '#ff88cc', title: 'PILOT RELATIONS SHAPE THE LANES',
+        body: [`Your hold reports ${cores} recovered heat core${cores === 1 ? '' : 's'}.`, 'Fusion cores command high prices, but every sale decides who stays warm.'],
+        action: '📊 VIEW CARGO',
+        fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_CARGO)); }
+      });
+      add({
+        id: 'standing',
+        type: 'article',
+        tag: 'PUBLIC RECORD',
+        c: '#ff88cc',
+        speaker: 'FACTION INTELLIGENCE',
+        portrait: './news/images/jax_rawlins.webp',
+        title: 'PILOT RELATIONS SHAPE THE LANES',
         deck: 'Dispatchers are publishing updated trust and security assessments.',
-        body: [`Nova-1 ${Math.round(novaAff.station)} · Convoy ${Math.round(novaAff.convoy)} · Valkyrie ${Math.round(novaAff.valkyrie)}`, `Corsair network standing ${Math.round(novaPirRep)} / 100.`], action: null });
+        body: [`Nova-1 ${Math.round(novaAff.station)} · Convoy ${Math.round(novaAff.convoy)} · Valkyrie ${Math.round(novaAff.valkyrie)}`, `Corsair network standing ${Math.round(novaPirRep)} / 100.`],
+        action: '📊 VIEW COMMS',
+        fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_COMMS)); }
+      });
       return out;
     }
+
+    function nnewsItems() {
+      const all = nnewsAllItems();
+      if (NNEWS.filter === 'videos') return all.filter(q => q.type === 'video');
+      if (NNEWS.filter === 'articles') return all.filter(q => q.type === 'article');
+      return all;
+    }
+
+    function nnewsEnsureVisible() {
+      const L = nnewsItems();
+      if (!L.length) { NNEWS.i = 0; NNEWS.listScroll = 0; return; }
+      NNEWS.i = Math.max(0, Math.min(NNEWS.i, L.length - 1));
+      const VIS = 5;
+      if (NNEWS.i < NNEWS.listScroll) NNEWS.listScroll = NNEWS.i;
+      else if (NNEWS.i >= NNEWS.listScroll + VIS) NNEWS.listScroll = NNEWS.i - VIS + 1;
+      const maxScroll = Math.max(0, L.length - VIS);
+      NNEWS.listScroll = Math.max(0, Math.min(maxScroll, NNEWS.listScroll));
+    }
+
     function nnewsSelect(i) {
       const L = nnewsItems(); if (!L.length) return;
-      NNEWS.i = (i + L.length) % L.length; NNEWS.read.add(L[NNEWS.i].id); NNEWS.lastId = L[NNEWS.i].id;
-      const P = NP.panels[0]; if (P) P.drawT = 0; try { sound.beep(820 + NNEWS.i * 25, 0.035); } catch (e) { }
+      NNEWS.i = (i + L.length) % L.length;
+      NNEWS.read.add(L[NNEWS.i].id);
+      NNEWS.lastId = L[NNEWS.i].id;
+      NNEWS.lastIdleStep = performance.now();
+      nnewsEnsureVisible();
+      const P = NP.panels[0]; if (P) P.drawT = 0;
+      try { sound.beep(820 + NNEWS.i * 25, 0.035); } catch (e) { }
     }
-    function nnewsStep(d) { nnewsSelect(NNEWS.i + d); }
-    function nnewsFirst() { const L = nnewsItems(); return Math.max(0, Math.min(Math.max(0, L.length - 6), NNEWS.i - 2)); }
-    const NP_NEWS = { name: 'NEWS', c: '#66e6ff', get hint() { return 'NOVA NET live feed · tap a headline or swipe · urgent stories can be tracked before consequences'; },
-      get pads() { const L = nnewsItems(), q = L[NNEWS.i] || L[0]; return [
-        { l: '\u25C0 PREV', c: '#66e6ff', fn: () => nnewsStep(-1) },
-        { l: q && q.action ? q.action : 'NO ACTION', c: q && q.action ? q.c : '#39566a', fn: () => { if (q && q.fn) q.fn(); } },
-        { l: 'NEXT \u25B6', c: '#66e6ff', fn: () => nnewsStep(1) },
-        { l: 'OBJECTIVE', c: '#ffcc00', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } }
-      ]; },
-      draw: (x, P) => {
-        const L = nnewsItems(); if (!L.length) return;
-        NNEWS.i = Math.max(0, Math.min(NNEWS.i, L.length - 1)); const q = L[NNEWS.i]; NNEWS.read.add(q.id); NNEWS.lastId = q.id;
-        x.fillStyle = 'rgba(8,28,43,0.92)'; x.fillRect(8, 54, 350, 296); x.strokeStyle = 'rgba(102,230,255,0.4)'; x.lineWidth = 2; x.strokeRect(8, 54, 350, 296);
-        npText(x, 'NOVA NET', 20, 82, 'bold 22px monospace', '#66e6ff');
-        const first = nnewsFirst();
-        if (first > 0) npText(x, '▲ MORE', 260, 82, 'bold 13px monospace', '#66e6ff');
-        if (first + 6 < L.length) npText(x, '▼ MORE', 260, 344, 'bold 13px monospace', '#66e6ff');
-        L.slice(first, first + 6).forEach((a, i) => { const Y = 94 + i * 42, on = first + i === NNEWS.i;
-          x.fillStyle = on ? 'rgba(102,230,255,0.20)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(14, Y, 338, 39);
-          if (!NNEWS.read.has(a.id)) { x.fillStyle = a.c; x.beginPath(); x.arc(26, Y + 19, 5, 0, 7); x.fill(); }
-          npText(x, a.title, 38, Y + 26, 'bold 16px monospace', on ? '#ffffff' : a.c, 304);
-        });
-        x.fillStyle = 'rgba(102,230,255,0.35)'; x.fillRect(370, 54, 2, 296);
 
-        // Portrait on right side
-        const art = q.article;
-        if (art && art.portrait) {
-          const img = nnewsGetPortrait(art.portrait);
-          if (img && img.complete) {
-            x.drawImage(img, 850, 58, 140, 140);
-            x.strokeStyle = NNEWS.playingId === q.id ? '#00ffcc' : 'rgba(102,230,255,0.6)';
-            x.lineWidth = 3;
-            x.strokeRect(850, 58, 140, 140);
+    function nnewsStep(d) {
+      nnewsSelect(NNEWS.i + d);
+    }
+
+    function nnewsSetFilter(f) {
+      if (NNEWS.filter === f) return;
+      NNEWS.filter = f;
+      NNEWS.i = 0;
+      NNEWS.listScroll = 0;
+      NNEWS.lastIdleStep = performance.now();
+      try { sound.beep(920, 0.04); } catch (e) {}
+      const P = NP.panels[0]; if (P) P.drawT = 0;
+    }
+
+    function nnewsFirst() {
+      const L = nnewsItems();
+      return Math.max(0, Math.min(Math.max(0, L.length - 5), NNEWS.listScroll));
+    }
+
+    const NP_NEWS = {
+      name: 'NEWS',
+      c: '#66e6ff',
+      get hint() { return 'NOVA NET live feed · tap tabs for Videos/Articles · scroll with buttons or swipe · auto-idle feed rotates stories'; },
+      get pads() {
+        const L = nnewsItems(), q = L[NNEWS.i] || L[0];
+        const isVideo = q && q.type === 'video';
+        const isVoice = q && q.article && q.article.audio;
+        const isPlayingVoice = q && NNEWS.playingId === q.id;
+        let actionLabel = 'VIEW';
+        let actionColor = '#00e5ff';
+        if (isVideo) {
+          actionLabel = '🎬 WATCH VIDEO';
+          actionColor = '#ffd24a';
+        } else if (isVoice) {
+          actionLabel = isPlayingVoice ? '■ STOP VOICE' : '▶ PLAY VOICE';
+          actionColor = isPlayingVoice ? '#ff4455' : '#33ff99';
+        } else if (q && q.action) {
+          actionLabel = q.action;
+          actionColor = q.c || '#00e5ff';
+        }
+        return [
+          { l: '◀ PREV', c: '#66e6ff', fn: () => nnewsStep(-1) },
+          { l: actionLabel, c: actionColor, fn: () => { if (q && q.fn) q.fn(); } },
+          { l: 'NEXT ▶', c: '#66e6ff', fn: () => nnewsStep(1) },
+          {
+            l: NNEWS.autoIdle ? '⏱ IDLE: ON' : '⏱ IDLE: OFF',
+            c: NNEWS.autoIdle ? '#33ff99' : '#88aacc',
+            fn: () => {
+              NNEWS.autoIdle = !NNEWS.autoIdle;
+              NNEWS.lastIdleStep = performance.now();
+              if (typeof showToast === 'function') showToast(NNEWS.autoIdle ? '⏱ AUTO-FEED TICKER: ENABLED' : '⏱ AUTO-FEED TICKER: PAUSED', 1800, NNEWS.autoIdle ? '#33ff99' : '#88aacc');
+              const P = NP.panels[0]; if (P) P.drawT = 0;
+            }
           }
-          // On air badge
-          x.fillStyle = NNEWS.playingId === q.id ? '#00ffcc' : 'rgba(10,30,45,0.85)';
-          x.fillRect(850, 202, 140, 24);
+        ];
+      },
+      draw: (x, P) => {
+        const L = nnewsItems();
+        if (!L.length) {
+          x.fillStyle = 'rgba(8,28,43,0.92)';
+          x.fillRect(8, 54, 1008, 284);
+          npText(x, 'NO NEWS ITEMS IN CURRENT CATEGORY', 40, 150, 'bold 20px monospace', '#66e6ff');
+          return;
+        }
+        NNEWS.i = Math.max(0, Math.min(NNEWS.i, L.length - 1));
+        nnewsEnsureVisible();
+        const q = L[NNEWS.i];
+        NNEWS.read.add(q.id);
+        NNEWS.lastId = q.id;
+
+        // 1. LEFT COLUMN: Headline list and category filters
+        x.fillStyle = 'rgba(8,28,43,0.92)';
+        x.fillRect(8, 54, 360, 284);
+        x.strokeStyle = 'rgba(102,230,255,0.4)';
+        x.lineWidth = 2;
+        x.strokeRect(8, 54, 360, 284);
+
+        // Filter Tabs: [ ALL ] [ 🎬 VIDEOS ] [ 📰 ARTICLES ]
+        const tabs = [
+          { id: 'all', l: 'ALL', x: 14, w: 98 },
+          { id: 'videos', l: '🎬 VIDEOS', x: 118, w: 116 },
+          { id: 'articles', l: '📰 ARTICLES', x: 240, w: 122 }
+        ];
+        tabs.forEach(t => {
+          const on = NNEWS.filter === t.id;
+          x.fillStyle = on ? (t.id === 'videos' ? 'rgba(255,210,74,0.30)' : 'rgba(0,229,255,0.30)') : 'rgba(15,35,50,0.6)';
+          x.fillRect(t.x, 58, t.w, 28);
+          x.strokeStyle = on ? (t.id === 'videos' ? '#ffd24a' : '#00e5ff') : 'rgba(102,230,255,0.25)';
+          x.lineWidth = on ? 2 : 1;
+          x.strokeRect(t.x, 58, t.w, 28);
           x.textAlign = 'center';
-          npText(x, NNEWS.playingId === q.id ? '▶ ON AIR · VOICE' : (art.speaker || 'TALIA VANCE'), 920, 218, 'bold 12px monospace', NNEWS.playingId === q.id ? '#021019' : '#00e5ff', 130);
+          npText(x, t.l, t.x + t.w / 2, 77, 'bold 12px monospace', on ? '#ffffff' : '#88aacc');
+          x.textAlign = 'left';
+        });
+
+        // Top Scroll button [ ▲ PREV STORY ]
+        const canUp = NNEWS.i > 0;
+        x.fillStyle = canUp ? 'rgba(0,229,255,0.12)' : 'rgba(10,25,35,0.5)';
+        x.fillRect(14, 90, 348, 24);
+        x.strokeStyle = canUp ? 'rgba(102,230,255,0.45)' : 'rgba(102,230,255,0.15)';
+        x.lineWidth = 1;
+        x.strokeRect(14, 90, 348, 24);
+        x.textAlign = 'center';
+        npText(x, '▲ PREV STORY', 188, 107, 'bold 12px monospace', canUp ? '#66e6ff' : '#456677');
+        x.textAlign = 'left';
+
+        // 5 Headline rows
+        const VIS = 5;
+        for (let r = 0; r < VIS; r++) {
+          const idx = NNEWS.listScroll + r;
+          const Y = 118 + r * 38;
+          if (idx >= L.length) {
+            x.fillStyle = 'rgba(255,255,255,0.015)';
+            x.fillRect(14, Y, 348, 35);
+            continue;
+          }
+          const a = L[idx];
+          const on = idx === NNEWS.i;
+          x.fillStyle = on ? 'rgba(0,229,255,0.24)' : (r % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)');
+          x.fillRect(14, Y, 348, 35);
+          if (on) {
+            x.fillStyle = a.type === 'video' ? '#ffd24a' : '#00e5ff';
+            x.fillRect(14, Y, 4, 35);
+          }
+          const icon = a.type === 'video' ? '🎬' : (a.article && a.article.audio ? '🎙️' : '📡');
+          npText(x, icon, 20, Y + 23, '14px sans-serif', '#ffffff');
+          if (!NNEWS.read.has(a.id)) {
+            x.fillStyle = a.c || '#00e5ff';
+            x.beginPath();
+            x.arc(38, Y + 17, 3.5, 0, Math.PI * 2);
+            x.fill();
+          }
+          npText(x, a.title, 46, Y + 23, 'bold 14px monospace', on ? '#ffffff' : (a.c || '#9fc3d8'), 310);
+        }
+
+        // Bottom Scroll button [ ▼ NEXT STORY ]
+        const canDown = NNEWS.i < L.length - 1;
+        x.fillStyle = canDown ? 'rgba(0,229,255,0.12)' : 'rgba(10,25,35,0.5)';
+        x.fillRect(14, 312, 348, 24);
+        x.strokeStyle = canDown ? 'rgba(102,230,255,0.45)' : 'rgba(102,230,255,0.15)';
+        x.lineWidth = 1;
+        x.strokeRect(14, 312, 348, 24);
+        x.textAlign = 'center';
+        npText(x, '▼ NEXT STORY', 188, 329, 'bold 12px monospace', canDown ? '#66e6ff' : '#456677');
+        x.textAlign = 'left';
+
+        // Column Divider
+        x.fillStyle = 'rgba(102,230,255,0.35)';
+        x.fillRect(376, 54, 2, 284);
+
+        // 2. RIGHT COLUMN: Story details & Anchor portrait
+        npText(x, q.tag, 392, 78, 'bold 16px monospace', q.c, 340);
+
+        // Auto-feed ticker indicator badge
+        x.fillStyle = NNEWS.autoIdle ? 'rgba(51,255,153,0.15)' : 'rgba(136,170,204,0.1)';
+        x.fillRect(734, 60, 94, 22);
+        x.strokeStyle = NNEWS.autoIdle ? '#33ff99' : '#88aacc';
+        x.lineWidth = 1;
+        x.strokeRect(734, 60, 94, 22);
+        x.textAlign = 'center';
+        npText(x, NNEWS.autoIdle ? '⏱ AUTO: 9s' : '⏱ PAUSED', 781, 75, 'bold 10px monospace', NNEWS.autoIdle ? '#33ff99' : '#88aacc');
+        x.textAlign = 'left';
+
+        // Title
+        npText(x, q.title, 392, 108, 'bold 22px monospace', '#ffffff', 430);
+
+        // Deck and Body text
+        x.font = '16px sans-serif';
+        x.fillStyle = '#cfefff';
+        let y = 136, line = '';
+        const write = text => {
+          String(text).split(' ').forEach(w => {
+            const t = line ? line + ' ' + w : w;
+            if (x.measureText(t).width > 430 && line) {
+              if (y < 232) x.fillText(line, 392, y);
+              y += 20;
+              line = w;
+            } else line = t;
+          });
+          if (line && y < 232) {
+            x.fillText(line, 392, y);
+            y += 22;
+            line = '';
+          }
+        };
+        write(q.deck);
+        (q.body || []).slice(0, 3).forEach(write);
+
+        // Anchor Portrait / Video Thumbnail (x = 836, y = 58, w = 164, h = 146)
+        const portraitUrl = q.portrait || (q.article && q.article.portrait) || './news/images/talia_vance.webp';
+        const speakerName = q.speaker || (q.article && q.article.speaker) || (q.type === 'video' ? 'BROADCAST DISPATCH' : 'TALIA VANCE');
+        const img = nnewsGetPortrait(portraitUrl);
+        const bx = 836, by = 58, bw = 164, bh = 146;
+
+        x.fillStyle = 'rgba(6, 20, 32, 0.95)';
+        x.fillRect(bx, by, bw, bh);
+
+        let drawnImg = false;
+        if (img && img.complete && img.naturalWidth > 0) {
+          try {
+            x.drawImage(img, bx, by, bw, bh);
+            drawnImg = true;
+          } catch (e) {}
+        }
+
+        if (!drawnImg) {
+          x.fillStyle = 'rgba(0, 35, 55, 0.9)';
+          x.fillRect(bx, by, bw, bh);
+          x.fillStyle = 'rgba(0, 229, 255, 0.08)';
+          for (let s = 0; s < bh; s += 6) x.fillRect(bx, by + s, bw, 2);
+          x.fillStyle = 'rgba(0, 229, 255, 0.35)';
+          x.beginPath(); x.arc(bx + bw / 2, by + 48, 26, 0, Math.PI * 2); x.fill();
+          x.beginPath(); x.ellipse(bx + bw / 2, by + 114, 46, 28, 0, Math.PI, 0, true); x.fill();
+          x.fillStyle = '#00e5ff'; x.fillRect(bx + bw / 2 - 18, by + 44, 36, 5);
+          x.textAlign = 'center';
+          npText(x, 'HOLO-LINK FEED', bx + bw / 2, by + 138, 'bold 11px monospace', '#00e5ff');
           x.textAlign = 'left';
         }
 
-        npText(x, q.tag, 392, 80, 'bold 17px monospace', q.c, 440);
-        npText(x, q.title, 392, 114, 'bold 24px monospace', '#ffffff', 440);
-        x.font = '18px sans-serif'; x.fillStyle = '#cfefff'; let y = 144, line = '';
-        const write = text => { String(text).split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 440 && line) { if (y < 230) x.fillText(line, 392, y); y += 22; line = w; } else line = t; }); if (line && y < 230) { x.fillText(line, 392, y); y += 24; line = ''; } };
-        write(q.deck); (q.body || []).slice(0, 2).forEach(write);
+        const isVoicePlaying = NNEWS.playingId === q.id;
+        const isVideo = q.type === 'video';
+        x.strokeStyle = isVoicePlaying ? '#00ffcc' : (isVideo ? '#ffd24a' : 'rgba(102,230,255,0.7)');
+        x.lineWidth = 2.5;
+        x.strokeRect(bx, by, bw, bh);
 
-        // 3 Interactive Morality Choice Buttons
+        x.strokeStyle = isVideo ? '#ffe680' : '#00e5ff';
+        x.lineWidth = 3;
+        const cl = 12;
+        x.beginPath(); x.moveTo(bx, by + cl); x.lineTo(bx, by); x.lineTo(bx + cl, by); x.stroke();
+        x.beginPath(); x.moveTo(bx + bw - cl, by); x.lineTo(bx + bw, by); x.lineTo(bx + bw, by + cl); x.stroke();
+        x.beginPath(); x.moveTo(bx, by + bh - cl); x.lineTo(bx, by + bh); x.lineTo(bx + cl, by + bh); x.stroke();
+        x.beginPath(); x.moveTo(bx + bw - cl, by + bh); x.lineTo(bx + bw, by + bh); x.lineTo(bx + bw, by + bh - cl); x.stroke();
+
+        if (isVideo) {
+          x.fillStyle = 'rgba(0, 0, 0, 0.65)';
+          x.fillRect(bx + 16, by + bh / 2 - 18, bw - 32, 36);
+          x.strokeStyle = '#ffd24a';
+          x.lineWidth = 2;
+          x.strokeRect(bx + 16, by + bh / 2 - 18, bw - 32, 36);
+          x.textAlign = 'center';
+          npText(x, '▶ WATCH VIDEO', bx + bw / 2, by + bh / 2 + 5, 'bold 13px monospace', '#ffe680');
+          x.textAlign = 'left';
+        } else if (isVoicePlaying) {
+          x.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          x.fillRect(bx + 10, by + bh - 30, bw - 20, 24);
+          x.strokeStyle = '#00ffcc';
+          x.lineWidth = 1.5;
+          x.strokeRect(bx + 10, by + bh - 30, bw - 20, 24);
+          x.textAlign = 'center';
+          npText(x, 'ılılı ON AIR ılılı', bx + bw / 2, by + bh - 13, 'bold 12px monospace', '#00ffcc');
+          x.textAlign = 'left';
+        }
+
+        x.fillStyle = isVoicePlaying ? '#00ffcc' : (isVideo ? 'rgba(255, 210, 74, 0.25)' : 'rgba(10,30,45,0.92)');
+        x.fillRect(bx, by + bh + 4, bw, 22);
+        x.strokeStyle = isVoicePlaying ? '#00ffcc' : (isVideo ? '#ffd24a' : 'rgba(102,230,255,0.4)');
+        x.lineWidth = 1.5;
+        x.strokeRect(bx, by + bh + 4, bw, 22);
+        x.textAlign = 'center';
+        npText(x, speakerName, bx + bw / 2, by + bh + 19, 'bold 11px monospace', isVoicePlaying ? '#021019' : (isVideo ? '#ffd24a' : '#00e5ff'), bw - 10);
+        x.textAlign = 'left';
+
+        // Morality choices or Large Action Pad (y = 244..306)
+        const art = q.article;
         if (art && art.choices && art.choices.length) {
-          x.fillStyle = 'rgba(102,230,255,0.2)'; x.fillRect(392, 236, 608, 1);
+          x.fillStyle = 'rgba(102,230,255,0.2)';
+          x.fillRect(392, 238, 608, 1);
           const chosen = NNEWS.chosen[art.id];
           const cols = ['#33ff99', '#00e5ff', '#ff3355'];
           art.choices.forEach((c, idx) => {
-            const bx = 392 + idx * 206, by = 246, bw = 196, bh = 54;
+            const cbx = 392 + idx * 206, cby = 244, cbw = 196, cbh = 58;
             const isPicked = (chosen === idx);
             x.fillStyle = isPicked ? cols[idx] : 'rgba(8,32,48,0.85)';
-            x.fillRect(bx, by, bw, bh);
+            x.fillRect(cbx, cby, cbw, cbh);
             x.strokeStyle = cols[idx];
             x.lineWidth = isPicked ? 3 : 1.5;
-            x.strokeRect(bx, by, bw, bh);
+            x.strokeRect(cbx, cby, cbw, cbh);
             x.textAlign = 'center';
-            npText(x, c.label, bx + bw / 2, by + 22, 'bold 14px monospace', isPicked ? '#05101a' : cols[idx], bw - 8);
-            npText(x, isPicked ? '✓ COMMITTED' : c.desc, bx + bw / 2, by + 42, 'bold 11px monospace', isPicked ? '#05101a' : '#88aacc', bw - 8);
+            npText(x, c.label, cbx + cbw / 2, cby + 24, 'bold 14px monospace', isPicked ? '#05101a' : cols[idx], cbw - 8);
+            npText(x, isPicked ? '✓ COMMITTED' : c.desc, cbx + cbw / 2, cby + 46, 'bold 11px monospace', isPicked ? '#05101a' : '#88aacc', cbw - 8);
             x.textAlign = 'left';
           });
+        } else {
+          const btnColor = isVideo ? '#ffd24a' : (isVoicePlaying ? '#ff4455' : '#00e5ff');
+          x.fillStyle = isVideo ? 'rgba(255, 210, 74, 0.22)' : 'rgba(0, 229, 255, 0.18)';
+          x.fillRect(392, 244, 380, 58);
+          x.strokeStyle = btnColor;
+          x.lineWidth = 2.5;
+          x.strokeRect(392, 244, 380, 58);
+          x.textAlign = 'center';
+          let btnLabel = q.action || 'INTERACT';
+          if (isVideo) btnLabel = '🎬 WATCH VIDEO BROADCAST';
+          else if (q.article && q.article.audio) btnLabel = isVoicePlaying ? '■ STOP VOICE BROADCAST' : '▶ PLAY VOICE BROADCAST';
+          npText(x, btnLabel, 392 + 190, 279, 'bold 17px monospace', btnColor, 360);
+          x.textAlign = 'left';
         }
 
-        x.textAlign = 'right'; npText(x, `${NNEWS.i + 1} / ${L.length}`, 1004, 334, 'bold 17px monospace', '#7fb6d0'); x.textAlign = 'left';
-      } };
+        // Story Index Counter
+        x.textAlign = 'right';
+        npText(x, `${NNEWS.i + 1} / ${L.length}`, 1004, 332, 'bold 16px monospace', '#7fb6d0');
+        x.textAlign = 'left';
+      }
+    };
     const NP_OBJ = { name: 'OBJECTIVE', c: '#ffcc00', hint: 'ROUTE warps you to the objective when the route is known \u00b7 the compass diamond points to it',
       row: () => { try { nsObjectivePick(); } catch (e) { } },
       pads: [{ l: 'ROUTE', c: '#ffcc00', fn: () => { try { nsObjectivePick(); } catch (e) { } } }, { l: 'BRIEFING', c: '#b266ff', fn: () => { const ch = CAMPAIGN[campaignChapter]; if (ch) nkIntroStart(true, { k: ch.title, t: ch.objective, b: [ch.hint, '"' + ch.intro + '"', '\u2014 ' + ch.speaker], last: true }); } },
@@ -18056,9 +18453,10 @@ const GAME_VERSION = 'Alpha 1.4';
         const T = P.cfg.tabs[P.tab];
         if (P.cfg.id === 'L') {
           if (P.hailHit) P.hailHit.visible = T === NP_COMMS;
-          (P.padHits || []).forEach(m => { m.visible = T !== NP_FLIGHT && T !== NP_WARP && !!(T.pads && T.pads.length); });
+          (P.padHits || []).forEach(m => { m.visible = T !== NP_FLIGHT && T !== NP_WARP && T !== NP_NEWS && !!(T.pads && T.pads.length); });
           (P.flightHits || []).forEach(m => { m.visible = T === NP_FLIGHT; });
           (P.warpHits || []).forEach(m => { m.visible = T === NP_WARP; });
+          (P.newsHits || []).forEach(m => { m.visible = T === NP_NEWS; });
         }
         if (P.cfg.id === 'R') {
           let market = false; try { market = T === NP_CARGO && !!nmkNear(); } catch (e) { }
@@ -18076,6 +18474,20 @@ const GAME_VERSION = 'Alpha 1.4';
         P.holo.visible = !!want; P.holo.rotation.y += dt * 0.6;
         P.hb.forEach(m => { const f = m.userData.flash || 0; if (f > 0) m.userData.flash = Math.max(0, f - dt); m.scale.setScalar(f > 0 ? 0.88 : 1); });
         if (P.c.t >= 1.8) { P.k += ((P.stow ? 1 : 0) - P.k) * Math.min(1, dt * 6); P.c.root.position.copy(P.c.dep).add(new THREE.Vector3(0.10 * P.c.side, -0.26, 0.08).multiplyScalar(P.k)); }
+        if (T === NP_NEWS && NNEWS.autoIdle && !NNEWS.playingId && !window.novaCinematicPlaying) {
+          const now = performance.now();
+          if (now - (NNEWS.lastIdleStep || 0) > 8500) {
+            NNEWS.lastIdleStep = now;
+            const L = nnewsItems();
+            if (L.length > 1) {
+              NNEWS.i = (NNEWS.i + 1) % L.length;
+              NNEWS.read.add(L[NNEWS.i].id);
+              NNEWS.lastId = L[NNEWS.i].id;
+              nnewsEnsureVisible();
+              P.drawT = 0;
+            }
+          }
+        }
         P.drawT -= dt; if (P.drawT <= 0 && cockpit.visible) { P.drawT = 0.3; npDraw(P); }
       });
     }
@@ -18171,7 +18583,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function npGestureStart(P, src, px, py) {
       const T = P.cfg.tabs[P.tab];
       if (py < 50 || py > 412) return false;                       // tab strip and footer keep their own buttons
-      if (T.pads && T.pads.length && py > 338 && (px > 412 && T !== NP_WARP)) return false;   // pads
+      if (T.pads && T.pads.length && py > 338 && (px > 412 && T !== NP_WARP && T !== NP_NEWS)) return false;   // pads
       if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT && T !== NP_CREW_TAB && T !== NP_NEWS && T !== NP_CARGO) return false;
       if (T === NP_COMMS && px > 420 && !(px >= 425 && px <= 705 && py >= 205 && py <= 275)) return false;
       if (T === NP_CARGO && px > 560) return false;
@@ -18200,15 +18612,16 @@ const GAME_VERSION = 'Alpha 1.4';
         G.acc += dx;
         if (Math.abs(G.acc) > 150) { npWarpStep(G.acc < 0 ? 1 : -1); G.acc = 0; }   // swipe left = next
       } else if (T === NP_NEWS) {
+        NNEWS.lastIdleStep = performance.now();
         if (Math.abs(dy) > Math.abs(dx)) {
           G.accY = (G.accY || 0) + dy;
-          if (Math.abs(G.accY) > 34) {
+          if (Math.abs(G.accY) > 28) {
             nnewsStep(G.accY < 0 ? 1 : -1);
             G.accY = 0;
           }
         } else {
           G.acc += dx;
-          if (Math.abs(G.acc) > 38) {
+          if (Math.abs(G.acc) > 34) {
             nnewsStep(G.acc < 0 ? 1 : -1);
             G.acc = 0;
           }
@@ -18228,29 +18641,53 @@ const GAME_VERSION = 'Alpha 1.4';
         }
         else if (T === NP_CREW_TAB) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) NP_CREW_TAB.row(P, r); }
         else if (T === NP_NEWS) {
-          if (G.x0 < 370) {
-            if (G.y0 < 92 && nnewsFirst() > 0) {
+          NNEWS.lastIdleStep = performance.now();
+          if (G.y0 >= 338) {
+            // Tapping bottom pads row on NEWS tab
+            const padIdx = Math.max(0, Math.min(3, Math.floor((G.x0 - 8) / 251)));
+            const pd = (NP_NEWS.pads || [])[padIdx];
+            if (pd && pd.fn) pd.fn(P);
+          } else if (G.x0 < 376) {
+            if (G.y0 >= 56 && G.y0 <= 88) {
+              if (G.x0 <= 116) nnewsSetFilter('all');
+              else if (G.x0 <= 236) nnewsSetFilter('videos');
+              else nnewsSetFilter('articles');
+            } else if (G.y0 >= 90 && G.y0 <= 116) {
               nnewsStep(-1);
-            } else if (G.y0 > 336 && nnewsFirst() + 6 < nnewsItems().length) {
+            } else if (G.y0 >= 312 && G.y0 <= 338) {
               nnewsStep(1);
-            } else {
-              const r = Math.floor((G.y0 - 94) / 42);
-              if (r >= 0 && r < Math.min(6, nnewsItems().length)) nnewsSelect(nnewsFirst() + r);
+            } else if (G.y0 >= 118 && G.y0 <= 310) {
+              const r = Math.floor((G.y0 - 118) / 38);
+              const L = nnewsItems();
+              if (r >= 0 && NNEWS.listScroll + r < L.length) {
+                nnewsSelect(NNEWS.listScroll + r);
+              }
             }
-          } else if (G.x0 >= 850 && G.x0 <= 990 && G.y0 >= 58 && G.y0 <= 226) {
-            // Tap portrait to toggle voice
+          } else if (G.x0 >= 830 && G.x0 <= 1004 && G.y0 >= 56 && G.y0 <= 236) {
+            // Tap portrait or video thumbnail to toggle voice or play video
             const q = nnewsItems()[NNEWS.i];
-            if (q && q.article) nnewsToggleVoice(q.article);
-          } else if (G.y0 >= 246 && G.y0 <= 300) {
-            // Tap one of the 3 morality choices
+            if (q) {
+              if (q.type === 'video' && window.novaWatchVideo) {
+                window.novaWatchVideo(q.video || 'deep_cold_dispatch_ep01');
+              } else if (q.article) {
+                nnewsToggleVoice(q.article);
+              } else if (q.fn) {
+                q.fn();
+              }
+            }
+          } else if (G.y0 >= 240 && G.y0 <= 308) {
             const q = nnewsItems()[NNEWS.i];
-            if (q && q.article && q.article.choices) {
-              for (let idx = 0; idx < 3; idx++) {
-                const bx = 392 + idx * 206, bw = 196;
-                if (G.x0 >= bx && G.x0 <= bx + bw) {
-                  nnewsPickChoice(q.article, idx);
-                  break;
+            if (q) {
+              if (q.article && q.article.choices && q.article.choices.length) {
+                for (let idx = 0; idx < 3; idx++) {
+                  const bx = 392 + idx * 206, bw = 196;
+                  if (G.x0 >= bx && G.x0 <= bx + bw) {
+                    nnewsPickChoice(q.article, idx);
+                    break;
+                  }
                 }
+              } else if (G.x0 >= 392 && G.x0 <= 772) {
+                if (q.fn) q.fn();
               }
             }
           }
@@ -18340,6 +18777,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (T === NP_COMMS) { const mx = Math.max(0, h.P.list.length - 8); h.P.scroll = Math.max(0, Math.min(mx, h.P.scroll + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
       else if (T === NP_CARGO) { const st = nmkNear(); const total = st ? nmkRows(st).length : 8; const mx = Math.max(0, total - NMK_VIS); h.P.scroll = Math.max(0, Math.min(mx, (h.P.scroll || 0) + Math.sign(e.deltaY))); h.P.scrollF = h.P.scroll; h.P.drawT = 0; e.preventDefault(); }
       else if (T === NP_WARP) { npWarpStep(Math.sign(e.deltaY || e.deltaX)); e.preventDefault(); }
+      else if (T === NP_NEWS) { nnewsStep(Math.sign(e.deltaY || e.deltaX)); h.P.drawT = 0; e.preventDefault(); }
       else if (T === NP_CHAT) {
         if (h.px < 320) { const mx = Math.max(0, npChatContacts().length - 6); NPCH.contactScroll = Math.max(0, Math.min(mx, Math.round(NPCH.contactScroll) + Math.sign(e.deltaY))); }
         else NPCH.scroll = Math.max(0, NPCH.scroll + Math.sign(e.deltaY) * 2);
