@@ -17,32 +17,27 @@ Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. D
 - Then: thruster/shield/explosion polish inside `fx_ultra.js` / new small modules.
 - Vendor postprocessing addons later for APK/offline.
 
-### Antigravity (Gemini) — **ASSIGNED** (quota free again)
-Owner will have Antigravity sync this branch / STATUS.
-
-**Art tasks (pick up in order):**
-1. **Missile thruster** — owner request; plume / thruster art for missiles (fits ULTRA VFX pass).
-2. **Epilogue storyboard 04–06** — finish remaining frames (`art_src/storyboard/`).
-3. Optional stretch: improved explosion / shield-hit sprite sheets for `public/fx/` if time allows.
-
-Work on own branch (e.g. `gemini/vfx-thruster` or continue `gemini/storyboard`). Do **not** edit `standalone.html`. Drop assets under `art_src/` or `public/fx/` as appropriate; Grok will wire them into modules.
+### Antigravity (Gemini) — **DONE**
+- **Missile thruster art**: Done (`vfx_missile_plume.jpg`, `vfx_thruster_plume.jpg`, source in `art_src/gemini/missile_plume.jpg`).
+- **Epilogue storyboard 04–06**: Done (`art_src/storyboard/epilogue_04.png`..`06.png`, `storyboard.md` updated).
+- **Shield impact VFX**: Done (`public/fx/vfx_shield_impact.jpg`, source in `art_src/gemini/shield_impact.jpg`).
+- Merged onto `grok/graphics-overhaul` (and branch `gemini/vfx-thruster`).
 
 ### Claude / ChatGPT
 Still offline (usage). When back: Claude resumes lead and reviews/merges `grok/graphics-overhaul`. GPT: playtest items 5–6 (ADVANCED yaw, missiles in VR).
 
 ### Owner
 - Desktop test FORCE ULTRA on this branch; report FPS / look.
-- Point Antigravity at this STATUS for the art list above.
 - Quest scaling after desktop pass looks good.
 
 ## Handoff table
 | AI | Done | Open / next | Branch |
 |---|---|---|---|
-| **Grok** (temp lead) | AI list #57; `postfx.js`; `fx_ultra` ULTRA bump; Force Ultra in OPTIONS (`2f4d43d`) | Modules-first VFX; minimal postfx render hook; STATUS | `grok/graphics-overhaul` |
-| **Antigravity** | Storyboard intro 01–08, epilogue 01–03 | **Missile thruster art; epilogue 04–06;** optional VFX sheets | own branch |
+| **Grok** (temp lead) | AI list #57; `postfx.js`; `fx_ultra` ULTRA bump; Force Ultra in OPTIONS (`2f4d43d`); autopilot enemy tracking patch (`0147c6b`) | Modules-first VFX; postfx render hook; STATUS | `grok/graphics-overhaul` |
+| **Antigravity** | Storyboard intro 01–08, epilogue 01–06; missile thruster art; shield impact VFX | Await next assignments | `gemini/vfx-thruster` / `grok/graphics-overhaul` |
 | **Claude** (offline) | Prior lead work | Resume lead; merge graphics branch when back | — |
 | **ChatGPT** (offline) | Flight, DOCK, boarding… | ADVANCED yaw + missiles VR when back | — |
-| **Owner** | Restored/patched standalone on branch | Desktop ULTRA test; assign Antigravity; Quest later | |
+| **Owner** | Restored/patched standalone on branch | Desktop ULTRA test; Quest later | |
 
 ## Rules (all AIs)
 1. Prefer **modules** over `standalone.html` (token cost). Edit standalone only for tiny hooks.
