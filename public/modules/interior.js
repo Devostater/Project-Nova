@@ -58,7 +58,8 @@ export function init(api) {
     scene.add(S.root);S.pos.set(def.start[0],0,def.start[2]);S.score=S.shots=S.hits=0;
     S.prevParent=cameraRig.parent;S.prevRigPos=cameraRig.position.clone();S.prevRigQ=cameraRig.quaternion.clone();
     scene.add(cameraRig);cameraRig.quaternion.identity();camera.rotation.set(0,0,0);S.active=true;S.exiting=false;
-    const floorY=renderer?.xr?.isPresenting?0:1.65;
+    const hy=Number(camera.position.y)||0;
+    const floorY=renderer?.xr?.isPresenting?(hy>1.25?0:Math.max(0,1.65-hy)):1.65;
     cameraRig.position.set(ORIGIN.x+S.pos.x,ORIGIN.y+floorY,ORIGIN.z+S.pos.z);api.setActive?.(true);
     const colliders=[[-4.55,-1.95,-10.19,-9.81],[1.95,4.55,-10.19,-9.81]].map(c=>({minX:ORIGIN.x+c[0],maxX:ORIGIN.x+c[1],minZ:ORIGIN.z+c[2],maxZ:ORIGIN.z+c[3]}));
     const fps=api.modules?.get?.('fps_core')||api.modules?.fps_core;
@@ -82,7 +83,8 @@ export function init(api) {
   function frame(dt){
     if(!S.active||!S.root){if(S.active)exit('root_missing');return;}
     interiorFrames++;
-    const floorY=renderer?.xr?.isPresenting?0:1.65;
+    const hy=Number(camera.position.y)||0;
+    const floorY=renderer?.xr?.isPresenting?(hy>1.25?0:Math.max(0,1.65-hy)):1.65;
     const targetY=ORIGIN.y+floorY;
     if(cameraRig.position.y<targetY-8||cameraRig.position.y>targetY+25){
       if(interiorFrames<60){cameraRig.position.y=targetY;}

@@ -220,7 +220,17 @@ export function init(nova) {
     hudTexture.needsUpdate=true;
   }
 
-  function joint(hand,name){return hand?.getObjectByName?.(name)||null;}
+  function joint(hand,name){
+    if(!name)return null;
+    if(hand?.joints?.[name])return hand.joints[name];
+    if(hand?.getObjectByName?.(name))return hand.getObjectByName(name);
+    for(let i=0;i<2;i++){
+      const h=renderer?.xr?.getHand?.(i);
+      if(h?.joints?.[name])return h.joints[name];
+      if(h?.getObjectByName?.(name))return h.getObjectByName(name);
+    }
+    return null;
+  }
   function handPoint(hand,name,out){const j=joint(hand,name);if(!j)return false;j.getWorldPosition(out);return true;}
   function resolveHand(handedness){
     for(let i=0;i<2;i++){
@@ -244,13 +254,13 @@ export function init(nova) {
   function slotOf(src){if(!src)return -1;const i=slotSource.indexOf(src);if(i>=0)return i;const s=[...(renderer?.xr?.getSession?.()?.inputSources||[])];return s.indexOf(src);}
   function stickAxes(gamepad){const a=gamepad?.axes||[];return a.length>=4?[a[a.length-2]||0,a[a.length-1]||0]:[a[0]||0,a[1]||0];}
   function dead(v,z=.17){return Math.abs(v)<z?0:v;}
-  let handGunYaw=(function(){try{const q=new URLSearchParams(location.search);if(q.has('gunyaw'))return(parseFloat(q.get('gunyaw'))||0)*Math.PI/180;}catch(_){}return Math.PI/2;})();
-  let handGunPitch=(function(){try{const q=new URLSearchParams(location.search);if(q.has('gunpitch'))return(parseFloat(q.get('gunpitch'))||0)*Math.PI/180;}catch(_){}return 0;})();
-  let handGunRoll=(function(){try{const q=new URLSearchParams(location.search);if(q.has('gunroll'))return(parseFloat(q.get('gunroll'))||0)*Math.PI/180;}catch(_){}return 0;})();
+  let handGunYaw=(function(){try{const q=new URLSearchParams(location.search);if(q.has('gunyaw'))return(parseFloat(q.get('gunyaw'))||0)*Math.PI/180;}catch(_){}return 0;})();
+  let handGunPitch=(function(){try{const q=new URLSearchParams(location.search);if(q.has('gunpitch'))return(parseFloat(q.get('gunpitch'))||0)*Math.PI/180;}catch(_){}return -0.14;})();
+  let handGunRoll=(function(){try{const q=new URLSearchParams(location.search);if(q.has('gunroll'))return(parseFloat(q.get('gunroll'))||0)*Math.PI/180;}catch(_){}return Math.PI/2;})();
   function setWeaponParent(parent,hand=false){
     if(!parent)return;
     if(pistol.parent!==parent)parent.add(pistol);
-    pistol.position.set(hand ? .035 : .015,(hand ? -.035 : -.035) + recoilPitch*.03,(hand ? -.12 : -.09) + recoilKick);
+    pistol.position.set(hand ? .018 : .015,(hand ? -.018 : -.035) + recoilPitch*.03,(hand ? -.075 : -.09) + recoilKick);
     pistol.rotation.set((hand ? handGunPitch : 0) - recoilPitch,hand ? handGunYaw : 0,hand ? handGunRoll : 0);
   }
   function playLaserSound(){
@@ -463,9 +473,14 @@ export function init(nova) {
   }
   function correctRoomScale(){
     if(!session)return;
-    camera.getWorldPosition(origin);const dx=origin.x-rig.position.x,dz=origin.z-rig.position.z;
-    if(blockedAt(origin.x,origin.z)){moveRigXZ(-dx,0);moveRigXZ(0,-dz);}
-    const b=options.bounds;if(b){const cx=T.MathUtils.clamp(origin.x,b[0],b[1]),cz=T.MathUtils.clamp(origin.z,b[2],b[3]);rig.position.x+=cx-origin.x;rig.position.z+=cz-origin.z;}
+    camera.getWorldPosition(origin);
+    const b=options.bounds;
+    if(b){
+      if(origin.x<b[0])rig.position.x+=b[0]-origin.x;
+      else if(origin.x>b[1])rig.position.x+=b[1]-origin.x;
+      if(origin.z<b[2])rig.position.z+=b[2]-origin.z;
+      else if(origin.z>b[3])rig.position.z+=b[3]-origin.z;
+    }
   }
   function walk(x,z,dt){
     x=dead(x);z=dead(z);if(Math.abs(x)+Math.abs(z)<.01)return;
@@ -649,25 +664,26 @@ export function init(nova) {
       padUseHeld=use;padExitHeld=leave;
       const leftThumbValid=leftIsHand&&handPoint(leftHand,'thumb-tip',leftThumb);
       const leftIndexValid=leftIsHand&&handPoint(leftHand,'index-finger-tip',leftIndex);
-      const leftPinch=leftIsHand&&leftThumbValid&&leftIndexValid&&leftThumb.distanceTo(leftIndex)<.044;
+      const leftWristValid=leftIsHand&&handPoint(leftHand,'wrist',leftWrist);
+      const leftPinch=leftIsHand&&leftThumbValid&&leftIndexValid&&leftThumb.distanceTo(leftIndex)<.048;
 
       const rightThumbValid=rightIsHand&&handPoint(rightHand,'thumb-tip',rightThumb);
       const rightIndexValid=rightIsHand&&handPoint(rightHand,'index-finger-tip',rightIndex);
       const rightWristValid=rightIsHand&&handPoint(rightHand,'wrist',rightWrist);
       const rPinchDist=(rightThumbValid&&rightIndexValid)?rightThumb.distanceTo(rightIndex):999;
       const rIndexCurled=(rightIndexValid&&rightWristValid)?(rightIndex.distanceTo(rightWrist)<.118):false;
-      const rightPinch=rightIsHand&&(rPinchDist<.046||rIndexCurled);
+      const rightPinch=rightIsHand&&(rPinchDist<.048||rIndexCurled);
       if(leftPinch&&!leftPinchHeld){leftPinchTime=0;leftPinchUsed=false;}if(leftPinch)leftPinchTime+=d;
       if(leftPinch&&rightPinch){bothPinchTime+=d;if(bothPinchTime>=1.0&&!bothPinchExit){bothPinchExit=true;requestExit('hands');}}else{bothPinchTime=0;bothPinchExit=false;}
 
-      // Left Pinch Floor Teleport: point downward at floor with left pinch to target, release to teleport
-      if(leftPinch&&!rightPinch&&leftIsHand&&leftIndexValid){
-        camera.getWorldPosition(origin);
-        const pDir=new T.Vector3().subVectors(leftIndex,origin).normalize();
-        if(pDir.y<-0.05){
+      // Left Pinch Floor Teleport: point downward at floor with left hand while pinching to target, release to teleport
+      if(leftPinch&&!rightPinch&&leftIsHand&&leftIndexValid&&leftWristValid){
+        const pDir=new T.Vector3().subVectors(leftIndex,leftWrist).normalize();
+        if(pDir.y<-0.10){
+          origin.copy(leftIndex);
           const floorY=rig.position.y;
           const t=(floorY-origin.y)/pDir.y;
-          if(t>0.4&&t<35){
+          if(t>0.2&&t<35){
             const hitX=origin.x+pDir.x*t,hitZ=origin.z+pDir.z*t;
             const b=options.bounds;
             const cx=b?T.MathUtils.clamp(hitX,b[0],b[1]):hitX,cz=b?T.MathUtils.clamp(hitZ,b[2],b[3]):hitZ;
@@ -705,9 +721,10 @@ export function init(nova) {
       const hasLeftMid=handPoint(leftHand,'middle-finger-tip',leftMiddle);
       const curled=leftIsHand&&hasLeftWrist&&((hasLeftMid&&leftMiddle.distanceTo(leftWrist)<.13)||(leftIndexValid&&leftIndex.distanceTo(leftWrist)<.13))&&!leftPinch&&!tpMarker.visible;
       if(curled){
-        if(!leftFist){leftAnchor=leftWrist.clone();leftFist=true;}
-        const off=leftWrist.clone().sub(leftAnchor);off.y=0;
-        if(off.length()>.018){
+        const localWrist=rig.worldToLocal(leftWrist.clone());
+        if(!leftFist){leftAnchor=localWrist.clone();leftFist=true;}
+        const off=localWrist.clone().sub(leftAnchor);off.y=0;
+        if(off.length()>.016){
           camera.getWorldDirection(forward);forward.y=0;if(forward.lengthSq()<.001)forward.set(0,0,-1);forward.normalize();
           right.crossVectors(forward,up).normalize();
           const k=1/.06;

@@ -10560,7 +10560,15 @@ const GAME_VERSION = 'Alpha 1.4';
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
-      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) { novaCruiseStop('INTERIOR'); try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); } novaHandTurnFrame(frame, now); cameraRig.updateWorldMatrix(true, true); renderer.render(scene, camera); return; }   // on foot: flight is fully off
+      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) {
+        novaCruiseStop('INTERIOR');
+        try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); }
+        novaHandTurnFrame(frame, now);
+        try { novaUpdateWatchOnFoot(delta, frame, now); } catch (e) { console.error('[watch on foot]', e); }
+        cameraRig.updateWorldMatrix(true, true);
+        renderer.render(scene, camera);
+        return;
+      }   // on foot: flight is fully off
 
       // Starfield follows ship so stars are always visible to infinity
       if (starfieldGroup && shipGroup) {
@@ -12421,6 +12429,118 @@ const GAME_VERSION = 'Alpha 1.4';
         novaTurnLast = now; novaTurnLatched = true;
       }
       novaTurnTouch = touch; novaTurnDirection = direction;
+    }
+
+    function novaUpdateWatchOnFoot(delta, frame, now) {
+      if (!renderer.xr.isPresenting) return;
+      const session = renderer.xr.getSession();
+      if (!session) return;
+      let leftWristWorld = null, rightTipWorld = null, rightPinching = false;
+      const ref = renderer.xr.getReferenceSpace();
+
+      [h1, h2].forEach(hand => {
+        const joints = hand.joints;
+        if (!joints) return;
+        const isLeft = hand.userData.handedness === 'left';
+        const isRight = hand.userData.handedness === 'right';
+        if (isLeft && joints['wrist'] && joints['wrist'].position) {
+          leftWristWorld = new THREE.Vector3();
+          joints['wrist'].getWorldPosition(leftWristWorld);
+        }
+        if (isRight && joints['index-finger-tip'] && joints['index-finger-tip'].position) {
+          rightTipWorld = new THREE.Vector3();
+          joints['index-finger-tip'].getWorldPosition(rightTipWorld);
+          if (joints['thumb-tip'] && joints['thumb-tip'].position) {
+            const thumbWorld = new THREE.Vector3();
+            joints['thumb-tip'].getWorldPosition(thumbWorld);
+            rightPinching = rightTipWorld.distanceTo(thumbWorld) < 0.055;
+          }
+        }
+      });
+
+      // If hand joints weren't found on h1/h2, check frame input sources directly
+      if ((!leftWristWorld || !rightTipWorld) && frame && ref) {
+        for (const src of session.inputSources) {
+          if (!src.hand) continue;
+          if (!leftWristWorld && src.handedness === 'left') {
+            const wSpace = src.hand.get('wrist');
+            const pose = wSpace && frame.getJointPose(wSpace, ref);
+            if (pose) leftWristWorld = new THREE.Vector3(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+          }
+          if (!rightTipWorld && src.handedness === 'right') {
+            const tSpace = src.hand.get('index-finger-tip');
+            const pose = tSpace && frame.getJointPose(tSpace, ref);
+            if (pose) rightTipWorld = new THREE.Vector3(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+          }
+        }
+      }
+
+      // Anchor wrist beacon puck to left wrist joint
+      if (leftWristWorld && wristBeaconGroup) {
+        const beaconTarget = cameraRig.worldToLocal(leftWristWorld.clone());
+        if (!wristBeaconGroup.visible || wristBeaconGroup.position.distanceTo(beaconTarget) > 0.18) {
+          wristBeaconGroup.position.copy(beaconTarget);
+        } else {
+          wristBeaconGroup.position.lerp(beaconTarget, 0.45);
+        }
+        wristBeaconGroup.visible = true;
+
+        if (debugWatchGroup) {
+          debugWatchGroup.visible = isWristMenuOpen;
+          if (isWristMenuOpen) {
+            const headWorldPos = new THREE.Vector3();
+            camera.getWorldPosition(headWorldPos);
+            const toHead = headWorldPos.clone().sub(leftWristWorld).normalize();
+            const watchWorldPos = leftWristWorld.clone().add(toHead.clone().multiplyScalar(0.20)).add(new THREE.Vector3(0, 0.05, 0));
+            debugWatchGroup.position.copy(cameraRig.worldToLocal(watchWorldPos));
+            const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+            const xAxis = new THREE.Vector3().crossVectors(camUp, toHead).normalize();
+            const yAxis = new THREE.Vector3().crossVectors(toHead, xAxis).normalize();
+            const rotM = new THREE.Matrix4().makeBasis(xAxis, yAxis, toHead);
+            debugWatchGroup.quaternion.setFromRotationMatrix(rotM);
+          }
+        }
+      }
+
+      // Right hand touches physical wrist toggle button on left wrist
+      if (rightTipWorld && wristToggleBtn && wristBeaconGroup && wristBeaconGroup.visible) {
+        const wristBtnWorld = new THREE.Vector3();
+        wristToggleBtn.getWorldPosition(wristBtnWorld);
+        novaBeaconPress('hand-beacon-onfoot', rightTipWorld.distanceTo(wristBtnWorld) < 0.050, rightPinching, now);
+      }
+
+      // Right Hand index fingertip touches Smartwatch screen
+      if (rightTipWorld && debugWatchScreen && debugWatchGroup && debugWatchGroup.visible) {
+        const localTip = debugWatchScreen.worldToLocal(rightTipWorld.clone());
+        if (localTip.z > -0.040 && localTip.z < 0.100 && Math.abs(localTip.x) <= 0.125 && Math.abs(localTip.y) <= 0.125) {
+          const u = THREE.MathUtils.clamp(localTip.x / 0.230 + 0.5, 0.0, 1.0);
+          const v = THREE.MathUtils.clamp(localTip.y / 0.230 + 0.5, 0.0, 1.0);
+          handleWatchTouch(u, v);
+        }
+      }
+
+      // Controllers touching wrist beacon or watch screen
+      for (let i = 0; i < 2; i++) {
+        const ctrl = renderer.xr.getController(i);
+        if (!ctrl) continue;
+        const cPos = new THREE.Vector3();
+        ctrl.getWorldPosition(cPos);
+        if (wristToggleBtn && wristBeaconGroup && wristBeaconGroup.visible) {
+          const beaconWorld = new THREE.Vector3();
+          wristToggleBtn.getWorldPosition(beaconWorld);
+          if (cPos.distanceTo(beaconWorld) < 0.065) {
+            novaBeaconPress('ctrl-beacon-onfoot', true, false, now);
+          }
+        }
+        if (debugWatchScreen && debugWatchGroup && debugWatchGroup.visible) {
+          const localTip = debugWatchScreen.worldToLocal(cPos);
+          if (localTip.z > -0.040 && localTip.z < 0.100 && Math.abs(localTip.x) <= 0.125 && Math.abs(localTip.y) <= 0.125) {
+            const u = THREE.MathUtils.clamp(localTip.x / 0.230 + 0.5, 0.0, 1.0);
+            const v = THREE.MathUtils.clamp(localTip.y / 0.230 + 0.5, 0.0, 1.0);
+            handleWatchTouch(u, v);
+          }
+        }
+      }
     }
 
     // ── NOVA INPUT v2 (Alpha): direct XR poses -> hands, lasers, hover, trigger + poke presses ──
@@ -20191,7 +20311,7 @@ const GAME_VERSION = 'Alpha 1.4';
         boneMeshes1.forEach(m => m.visible = false); boneMeshes2.forEach(m => m.visible = false);
         controllerGhostLeft.visible = false; controllerGhostRight.visible = false;
         c1Laser.visible = false; c2Laser.visible = false;
-        wristBeaconGroup.visible = false;
+        // wristBeaconGroup remains visible so player can always access the smartwatch menu on foot
         ['left', 'right'].forEach(side => {
           const h = novaHands[side]; if (!h) return;
           if (h.grip) h.grip.visible = false; if (h.ray) h.ray.visible = false; if (h.dot) h.dot.visible = false;
