@@ -113,6 +113,13 @@ def main():
     quest_connected = setup_quest(adb_exe, sync_id)
     lan_ip = get_lan_ip()
 
+    desktop_url = f"http://localhost:{PORT}/standalone.html?sync={sync_id}"
+    try:
+        webbrowser.open(desktop_url)
+        print(f"  [OK] Opened Desktop Browser: {desktop_url}")
+    except Exception as e:
+        print(f"  [WARN] Could not auto-launch browser: {e}")
+
     print("-" * 68)
     print(f"  Local PC URL:   http://localhost:{PORT}/standalone.html")
     if quest_connected:
