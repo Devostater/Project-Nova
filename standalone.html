@@ -3537,7 +3537,9 @@ const GAME_VERSION = 'Alpha 1.4';
         commsRecognition.onresult = (ev) => {
           if (ev.results && ev.results[0] && ev.results[0][0]) {
             const spokenText = ev.results[0][0].transcript;
-            transmitPilotText(spokenText);
+            if (!handlePilotVoiceCommand(spokenText)) {
+              transmitPilotText(spokenText);
+            }
           }
           isCommsMicListening = false;
           drawCommsPanel();
@@ -3552,6 +3554,111 @@ const GAME_VERSION = 'Alpha 1.4';
         };
       }
     } catch(e) {}
+
+    function handlePilotVoiceCommand(rawText) {
+      if (!rawText) return false;
+      const t = rawText.toLowerCase().trim();
+
+      // 1. Warp / Lightspeed
+      if (t.includes('warp') || t.includes('lightspeed') || t.includes('jump')) {
+        try {
+          if (typeof triggerLightspeed === 'function') triggerLightspeed();
+          showToast('🗣️ VOICE CMD: LIGHTSPEED TOGGLED', 3000, '#00ffff');
+          return true;
+        } catch (e) {}
+      }
+
+      // 2. Throttle & Speed Control
+      if (t.includes('full stop') || t.includes('stop ship') || t.includes('engines stop') || t.includes('brake') || t.includes('halt')) {
+        throttlePct = 0;
+        currentThrottleNotch = 0;
+        try { updateThrottleNotchLights(); sound.beep(440, 0.1); } catch (e) {}
+        showToast('🗣️ VOICE CMD: ALL ENGINES STOP (0%)', 2500, '#ffaa00');
+        return true;
+      }
+      if (t.includes('full throttle') || t.includes('maximum speed') || t.includes('full speed') || t.includes('punch it') || t.includes('max speed')) {
+        throttlePct = 1.0;
+        currentThrottleNotch = 4;
+        try { updateThrottleNotchLights(); sound.beep(880, 0.1); } catch (e) {}
+        showToast('🗣️ VOICE CMD: FULL THROTTLE (100%)', 2500, '#00ff88');
+        return true;
+      }
+      if (t.includes('half throttle') || t.includes('half speed') || t.includes('speed 50')) {
+        throttlePct = 0.5;
+        currentThrottleNotch = 2;
+        try { updateThrottleNotchLights(); sound.beep(660, 0.1); } catch (e) {}
+        showToast('🗣️ VOICE CMD: HALF THROTTLE (50%)', 2500, '#00e5ff');
+        return true;
+      }
+
+      // 3. Combat / Missiles & Targeting
+      if (t.includes('fire missile') || t.includes('launch missile') || t.includes('missile')) {
+        try {
+          if (typeof fireHomingMissile === 'function') fireHomingMissile();
+          showToast('🗣️ VOICE CMD: MISSILE LAUNCHED', 2500, '#ff3344');
+          return true;
+        } catch (e) {}
+      }
+      if (t.includes('target') || t.includes('lock') || t.includes('next target') || t.includes('cycle target')) {
+        try {
+          if (typeof cycleTarget === 'function') cycleTarget();
+          showToast('🗣️ VOICE CMD: TARGET CYCLED', 2000, '#ffcc00');
+          return true;
+        } catch (e) {}
+      }
+
+      // 4. Flight Assist, Dampeners & Autopilot
+      if (t.includes('flight assist') || t.includes('assist')) {
+        isFlightAssistOn = !isFlightAssistOn;
+        try { sound.switchClick(); } catch (e) {}
+        showToast(`🗣️ VOICE CMD: FLIGHT ASSIST ${isFlightAssistOn ? 'ONLINE' : 'OFFLINE'}`, 2500, '#00ffcc');
+        return true;
+      }
+      if (t.includes('dampener') || t.includes('rotation') || t.includes('gyro')) {
+        try {
+          if (typeof toggleRotationDampeners === 'function') toggleRotationDampeners();
+          showToast(`🗣️ VOICE CMD: DAMPENERS ${isRotationDampenerOn ? 'ONLINE' : 'OFFLINE'}`, 2500, '#00ffcc');
+          return true;
+        } catch (e) {}
+      }
+      if (t.includes('autopilot')) {
+        try {
+          if (typeof toggleAutopilot === 'function') toggleAutopilot();
+          showToast(`🗣️ VOICE CMD: AUTOPILOT ${isAutopilotActive ? 'ENGAGED' : 'DISENGAGED'}`, 2500, '#33ff99');
+          return true;
+        } catch (e) {}
+      }
+
+      // 5. Shield & Hull Status Check
+      if (t.includes('status') || t.includes('sitrep') || t.includes('damage') || t.includes('report') || t.includes('hull')) {
+        const hullVal = Math.round(window.novaHull ?? 100);
+        const shldVal = Math.round(window.novaShield ?? 100);
+        showToast(`🗣️ SHIP STATUS: HULL ${hullVal}% | SHIELDS ${shldVal}% | MISSILES: ${missileAmmo ?? 6}`, 3500, '#00ffcc');
+        try { sound.beep(920, 0.12); } catch (e) {}
+        return true;
+      }
+
+      // 6. Recenter & Seat
+      if (t.includes('recenter') || t.includes('reset view') || t.includes('seat')) {
+        try {
+          if (typeof recenterPilotView === 'function') recenterPilotView();
+          if (typeof resetSeat === 'function') resetSeat();
+          showToast('🗣️ VOICE CMD: PILOT VIEW & SEAT RECENTERED', 2500, '#00ff88');
+          return true;
+        } catch (e) {}
+      }
+
+      // 7. BGM / Radio Music
+      if (t.includes('music') || t.includes('bgm') || t.includes('radio')) {
+        try {
+          if (typeof toggleBgm === 'function') toggleBgm();
+          showToast(`🗣️ VOICE CMD: RADIO ${isBgmPlaying ? 'PLAYING' : 'MUTED'}`, 2000, '#cc88ff');
+          return true;
+        } catch (e) {}
+      }
+
+      return false;
+    }
 
     function toggleCommsMic() {
       if (!commsRecognition) {
@@ -7587,6 +7694,7 @@ const GAME_VERSION = 'Alpha 1.4';
       { id: 'toggle-mr', label: '👁️ TOGGLE MR / VR', x: 262, y: 330, w: 232, h: 58, color: '#ff33aa', action: () => togglePassthrough() },
       { id: 'exit-xr', label: '🚪 EMERGENCY EXIT VR', x: 18, y: 400, w: 232, h: 58, color: '#ff3344', action: () => exitImmersiveMode() },
       { id: 'mission-next', label: '🎯 CYCLE MISSION OBJ', x: 262, y: 400, w: 232, h: 58, color: '#00ffaa', action: () => selectMission(activeMissionIdx + 1) },
+      { id: 'voice-mic', label: () => (isCommsMicListening ? '🎙️ MIC: LISTENING...' : '🎙️ VOICE COMMANDS'), x: 18, y: 464, w: 476, h: 40, color: '#00ffcc', action: () => { toggleCommsMic(); drawDebugWatch(); } },
       { id: 'close-watch-menu', label: '✕ CLOSE', x: 410, y: 14, w: 86, h: 36, color: '#ff6677', action: () => toggleWristMenu(false) }
     ];
 
@@ -8675,6 +8783,8 @@ const GAME_VERSION = 'Alpha 1.4';
         toggleRotationDampeners();
       } else if (e.code === 'KeyP') {
         togglePassthrough();
+      } else if (e.code === 'KeyV') {
+        toggleCommsMic();
       } else if (e.code === 'ArrowUp') {
         adjustSeat(0.05);
       } else if (e.code === 'ArrowDown') {
@@ -17178,7 +17288,9 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     const NP_COMMS = { name: 'COMMS', c: '#00e5ff', holo: true, hint: 'swipe the list to scroll · tap a contact to lock it · HAIL / TALK / QUICK on the buttons below',
       row: (P, i) => { const c = P.list[P.scroll + i]; if (c) novaHoloSelect(c); },
-      pads: [],
+      pads: [
+        { l: () => (isCommsMicListening ? '🎙️ LISTENING...' : '🎙️ VOICE MIC'), c: '#00ffcc', fn: P => { toggleCommsMic(); if (P) P.drawT = 0; } }
+      ],
       draw: (x, P) => {
         const lk = currentLockedTarget && currentLockedTarget.targetObj;
         for (let i = 0; i < 8; i++) {
