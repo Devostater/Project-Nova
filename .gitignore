@@ -32,4 +32,6 @@ optimize_log.txt
 /index.html
 /public/standalone.html
 /video/
+__pycache__/
+*.pyc
 

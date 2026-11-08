@@ -1669,6 +1669,60 @@ const GAME_VERSION = 'Alpha 1.4';
     testEnvironment.visible = false;
 
     
+    // ── High-Fidelity Anti-Aliased Star & Nebula Sprite Textures (Zero Pixelation) ──
+    const novaTexLoader = new THREE.TextureLoader();
+    const novaSetupSpriteTex = (t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.minFilter = THREE.LinearMipmapLinearFilter;
+      t.magFilter = THREE.LinearFilter;
+      t.generateMipmaps = true;
+    };
+
+    // Dedicated smooth glowing star sprite (radial falloff + soft diffraction spikes)
+    const novaStarTex = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      const x = c.getContext('2d');
+      const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.12, 'rgba(255, 255, 255, 0.96)');
+      g.addColorStop(0.28, 'rgba(235, 245, 255, 0.7)');
+      g.addColorStop(0.55, 'rgba(160, 210, 255, 0.25)');
+      g.addColorStop(0.82, 'rgba(120, 180, 255, 0.06)');
+      g.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+      x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+      const sgX = x.createLinearGradient(0, 64, 128, 64);
+      sgX.addColorStop(0, 'rgba(255,255,255,0)');
+      sgX.addColorStop(0.5, 'rgba(255,255,255,0.4)');
+      sgX.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = sgX; x.fillRect(0, 63, 128, 2);
+      const sgY = x.createLinearGradient(64, 0, 64, 128);
+      sgY.addColorStop(0, 'rgba(255,255,255,0)');
+      sgY.addColorStop(0.5, 'rgba(255,255,255,0.4)');
+      sgY.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = sgY; x.fillRect(63, 0, 2, 128);
+      const t = new THREE.CanvasTexture(c);
+      novaSetupSpriteTex(t);
+      try { novaTexLoader.load('fx/vfx_star.png', (loaded) => { novaSetupSpriteTex(loaded); starMat.map = loaded; starMat.needsUpdate = true; }); } catch (_) {}
+      return t;
+    })();
+
+    // Dedicated volumetric nebula cloud puff
+    const novaNebulaTex = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 256;
+      const x = c.getContext('2d');
+      const g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+      g.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+      g.addColorStop(0.25, 'rgba(240, 220, 255, 0.55)');
+      g.addColorStop(0.55, 'rgba(180, 150, 255, 0.22)');
+      g.addColorStop(0.85, 'rgba(100, 70, 220, 0.05)');
+      g.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+      x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+      const t = new THREE.CanvasTexture(c);
+      novaSetupSpriteTex(t);
+      try { novaTexLoader.load('fx/vfx_nebula_cloud.png', (loaded) => { novaSetupSpriteTex(loaded); nebulaMat.map = loaded; nebulaMat.needsUpdate = true; }); } catch (_) {}
+      return t;
+    })();
+
     // ── Deep Starfield & Procedural Asteroids (Isolated Space Environment) ──
     const starfieldGroup = new THREE.Group();
     scene.add(starfieldGroup);
@@ -1693,7 +1747,15 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
     starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
-    const starMat = new THREE.PointsMaterial({ size: 1.2, vertexColors: true, transparent: true, opacity: 0.85 });
+    const starMat = new THREE.PointsMaterial({
+      map: novaStarTex,
+      size: 4.8,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
     const stars = new THREE.Points(starGeo, starMat);
     starfieldGroup.add(stars);
 
@@ -1746,7 +1808,15 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     nebulaGeo.setAttribute('position', new THREE.BufferAttribute(nebPositions, 3));
     nebulaGeo.setAttribute('color', new THREE.BufferAttribute(nebColors, 3));
-    const nebulaMat = new THREE.PointsMaterial({ size: 16.0, vertexColors: true, transparent: true, opacity: 0.4 });
+    const nebulaMat = new THREE.PointsMaterial({
+      map: novaNebulaTex,
+      size: 160.0,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
     const nebulaPoints = new THREE.Points(nebulaGeo, nebulaMat);
     scene.add(nebulaPoints);
 
@@ -2171,10 +2241,13 @@ const GAME_VERSION = 'Alpha 1.4';
     holoStarGeo.setAttribute('position', new THREE.BufferAttribute(holoStarPositions, 3));
     holoStarGeo.setAttribute('color', new THREE.BufferAttribute(holoStarColors, 3));
     const holoStarMat = new THREE.PointsMaterial({
-      size: 0.024,
+      map: novaStarTex,
+      size: 0.048,
       vertexColors: true,
       transparent: true,
-      opacity: 0.90
+      opacity: 0.90,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
     });
     const galaxyStarsPoints = new THREE.Points(holoStarGeo, holoStarMat);
     galaxyMapGroup.add(galaxyStarsPoints);
@@ -3029,7 +3102,8 @@ const GAME_VERSION = 'Alpha 1.4';
         flMesh.position.copy(shipWorldPos).add(offset);
         scene.add(flMesh);
         const vel = new THREE.Vector3(side * 6 + (Math.random() - 0.5) * 2, -3, 22 + Math.random() * 6).applyQuaternion(shipWorldQuat);
-        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffaa33, transparent: true, opacity: 0.9, ...NOVA_LIGHT_BLEND, depthWrite: false })); glow.scale.set(3.2, 3.2, 1); flMesh.add(glow);
+        const flareTex = (typeof NVX !== 'undefined' && NVX.flare) ? NVX.flare : novaStarTex;
+        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex, color: 0xffaa33, transparent: true, opacity: 0.95, ...NOVA_LIGHT_BLEND, depthWrite: false })); glow.scale.set(3.6, 3.6, 1); flMesh.add(glow);
         activeFlares.push({ mesh: flMesh, vel, life: 5.5, glow });   // NOVA14: burn ~5 s and pull enemy missiles off you
       }
     });
@@ -15144,7 +15218,15 @@ const GAME_VERSION = 'Alpha 1.4';
       const n = 320, pos = new Float32Array(n * 3);
       for (let i = 0; i < n * 3; i++) pos[i] = (Math.random() - 0.5) * 70;
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      novaLife.dust = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xbfd8ff, size: 0.12, transparent: true, opacity: 0.55, depthWrite: false }));
+      novaLife.dust = new THREE.Points(geo, new THREE.PointsMaterial({
+        map: novaStarTex,
+        color: 0xbfd8ff,
+        size: 0.35,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      }));
       novaLife.dust.frustumCulled = false; scene.add(novaLife.dust);
     }
     // A real sun: bright disc with a soft halo, placed along the key light direction
