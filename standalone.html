@@ -350,6 +350,38 @@
         }
       } catch (_) {}
 
+      // If clicked from 2D Main Menu on an XR-capable device (e.g. Meta Quest 3 Browser),
+      // enter temporary immersive VR session specifically for the cinema test, then exit back to 2D Main Menu.
+      var startedTemporaryXR = false;
+      var tempSession = null;
+      if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
+        try {
+          var isAlreadyPresenting = !!(window.renderer && window.renderer.xr && window.renderer.xr.isPresenting);
+          if (!isAlreadyPresenting) {
+            var vrSupported = await navigator.xr.isSessionSupported('immersive-vr');
+            if (vrSupported) {
+              tempSession = await navigator.xr.requestSession('immersive-vr', {
+                optionalFeatures: ['local-floor', 'hand-tracking']
+              });
+              if (tempSession && window.renderer && window.renderer.xr) {
+                startedTemporaryXR = true;
+                if (typeof window.novaBindXRInputSession === 'function') {
+                  window.novaBindXRInputSession(tempSession);
+                }
+                try { window.renderer.xr.setReferenceSpaceType('local-floor'); } catch (_) {}
+                await window.renderer.xr.setSession(tempSession);
+                tempSession.addEventListener('end', function() {
+                  startedTemporaryXR = false;
+                  tempSession = null;
+                });
+              }
+            }
+          }
+        } catch (xrErr) {
+          console.warn('[novaWatchVideo] Could not enter temporary immersive VR session:', xrErr);
+        }
+      }
+
       try {
         var c = window.novaCine || (window.nova?.modules?.get ? window.nova.modules.get('cinematics.js') : null);
         if (!c && window.novaModulesReady) {
@@ -364,6 +396,11 @@
       } catch (err) {
         console.error('[novaWatchVideo]', err);
       } finally {
+        if (startedTemporaryXR && tempSession) {
+          try {
+            await tempSession.end();
+          } catch (_) {}
+        }
         // ALWAYS return cleanly to the main menu without spawning into the game
         if (wasVisible && modal) {
           modal.style.display = 'flex';

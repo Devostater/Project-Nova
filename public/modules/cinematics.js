@@ -460,6 +460,7 @@ export function init(nova = {}) {
       if (ses) {
         ses.addEventListener('selectstart', onSelect);
         ses.addEventListener('squeezestart', onSqueeze);
+        ses.addEventListener('end', end);
       }
 
       cleanup.push(() => {
@@ -467,6 +468,7 @@ export function init(nova = {}) {
         if (ses) {
           ses.removeEventListener('selectstart', onSelect);
           ses.removeEventListener('squeezestart', onSqueeze);
+          ses.removeEventListener('end', end);
         }
         host.remove(xrGroup);
         tex.dispose(); capTex.dispose(); exitTex.dispose();
