@@ -3577,7 +3577,24 @@ const GAME_VERSION = 'Alpha 1.4';
     let commsTextInput = '';
     let isCommsKeyboardOpen = false;
     let isCommsMicListening = false;
+    let isVoiceAlwaysListening = true; // Always listening for hands-free flight & debug
+    let voiceDebugToast = true;        // Show toast of spoken phrases for debug verification
     let commsRecognition = null;
+    let recognitionRestartTimeout = null;
+
+    function restartVoiceRecognition() {
+      if (recognitionRestartTimeout) clearTimeout(recognitionRestartTimeout);
+      recognitionRestartTimeout = setTimeout(() => {
+        if (commsRecognition && (isCommsMicListening || isVoiceAlwaysListening)) {
+          try {
+            commsRecognition.start();
+            isCommsMicListening = true;
+          } catch (_) {}
+          drawCommsPanel();
+          if (typeof drawDebugWatch === 'function') drawDebugWatch();
+        }
+      }, 180);
+    }
 
     // Initialize Web Speech API for voice comms if available
     try {
@@ -3590,6 +3607,10 @@ const GAME_VERSION = 'Alpha 1.4';
           for (let i = ev.resultIndex; i < ev.results.length; ++i) {
             if (ev.results[i].isFinal) {
               const spokenText = ev.results[i][0].transcript;
+              console.log('[PILOT VOICE]:', spokenText);
+              if (voiceDebugToast) {
+                showToast(`🎙️ HEARD: "${spokenText.trim()}"`, 1600, '#88ccff');
+              }
               if (!handlePilotVoiceCommand(spokenText)) {
                 transmitPilotText(spokenText);
               }
@@ -3598,32 +3619,229 @@ const GAME_VERSION = 'Alpha 1.4';
           drawCommsPanel();
         };
         commsRecognition.onerror = (err) => {
-          if (isCommsMicListening && err && (err.error === 'no-speech' || err.error === 'network')) {
-            try { commsRecognition.start(); } catch (_) {}
+          console.warn('[VOICE MIC] error:', err?.error);
+          if (isCommsMicListening || isVoiceAlwaysListening) {
+            if (err?.error !== 'not-allowed') {
+              restartVoiceRecognition();
+            } else {
+              isCommsMicListening = false;
+              isVoiceAlwaysListening = false;
+              drawCommsPanel();
+            }
           } else {
             isCommsMicListening = false;
             drawCommsPanel();
           }
         };
         commsRecognition.onend = () => {
-          if (isCommsMicListening) {
-            try { commsRecognition.start(); } catch (_) { isCommsMicListening = false; }
+          if (isCommsMicListening || isVoiceAlwaysListening) {
+            restartVoiceRecognition();
+          } else {
+            isCommsMicListening = false;
+            drawCommsPanel();
           }
-          drawCommsPanel();
         };
       }
     } catch(e) {}
+
+    let voiceGestureBound = false;
+    function initAlwaysListeningOnGesture() {
+      if (voiceGestureBound) return;
+      voiceGestureBound = true;
+      if (commsRecognition && isVoiceAlwaysListening && !isCommsMicListening) {
+        try {
+          commsRecognition.start();
+          isCommsMicListening = true;
+          console.log('[VOICE] Always-listening active via user gesture');
+          showToast('🎙️ ALWAYS-LISTENING ACTIVE — SPEAK COMMANDS AT ANY TIME', 3000, '#00ffcc');
+          drawCommsPanel();
+          if (typeof drawDebugWatch === 'function') drawDebugWatch();
+        } catch (err) {
+          console.warn('[VOICE] Gesture start error:', err);
+        }
+      }
+    }
+    ['pointerdown', 'keydown', 'touchstart'].forEach(e => {
+      window.addEventListener(e, initAlwaysListeningOnGesture, { once: true, passive: true });
+    });
 
     function handlePilotVoiceCommand(rawText) {
       if (!rawText) return false;
       const t = rawText.toLowerCase().trim();
 
-      // 1. Warp / Lightspeed / Jump
-      if (t.includes('warp') || t.includes('lightspeed') || t.includes('jump')) {
+      // ── 0. VOICE SYSTEM & DEBUG CONTROLS ──
+      if (t.includes('stop listening') || t.includes('disable mic') || t.includes('mute microphone') || t.includes('mute mic') || t.includes('voice off')) {
+        isVoiceAlwaysListening = false;
+        isCommsMicListening = false;
+        if (commsRecognition) { try { commsRecognition.stop(); } catch(e){} }
+        showToast('🗣️ VOICE: ALWAYS-LISTENING DISABLED', 2500, '#ffaa00');
+        drawCommsPanel();
+        if (typeof drawDebugWatch === 'function') drawDebugWatch();
+        return true;
+      }
+      if (t.includes('always listening on') || t.includes('keep listening') || t.includes('debug voice') || t.includes('voice on')) {
+        isVoiceAlwaysListening = true;
+        voiceDebugToast = true;
+        isCommsMicListening = true;
+        if (commsRecognition) { try { commsRecognition.start(); } catch(e){} }
+        showToast('🗣️ VOICE: ALWAYS-LISTENING ACTIVE', 2500, '#00ffcc');
+        drawCommsPanel();
+        if (typeof drawDebugWatch === 'function') drawDebugWatch();
+        return true;
+      }
+
+      // ── 1. DEBUG CHEATS & SHIP MODIFIERS ──
+      if (t.includes('god mode') || t.includes('invulnerable') || t.includes('infinite shield') || t.includes('invincible')) {
+        window.novaShield = 99999;
+        window.novaHull = 99999;
+        try { sound.beep(1200, 0.2); } catch(e){}
+        showToast('🗣️ CHEAT: GOD MODE ACTIVATED! (99,999 HP/Shields)', 3500, '#ffff00');
+        return true;
+      }
+      if (t.includes('repair ship') || t.includes('fix ship') || t.includes('restore ship') || t.includes('full repair')) {
+        window.novaHull = 100;
+        window.novaShield = 100;
+        missileAmmo = 6;
+        drawRightDash();
+        try { sound.beep(950, 0.15); } catch(e){}
+        showToast('🗣️ REPAIR: HULL & SHIELDS 100% — MISSILES RELOADED', 3000, '#00ff88');
+        return true;
+      }
+      if (t.includes('reload missile') || t.includes('max ammo') || t.includes('replenish missile') || t.includes('infinite ammo') || t.includes('free missile') || t.includes('reload ammo')) {
+        missileAmmo = 6;
+        drawRightDash();
+        try { sound.missileLock(); } catch(e){}
+        showToast('🗣️ WEAPONS: MISSILE PODS RESTOCKED (6/6)', 2500, '#ff3344');
+        return true;
+      }
+      if (t.includes('add credits') || t.includes('give money') || t.includes('free money') || t.includes('free credits') || t.includes('million credits')) {
+        bankCredits += 50000;
+        if (typeof novaPilot !== 'undefined') novaPilot.credits = bankCredits;
+        try { sound.switchClick(); } catch(e){}
+        showToast(`🗣️ CHEAT: +50,000 CR ADDED! TOTAL: ${bankCredits.toLocaleString()} CR`, 3000, '#ffd24a');
+        return true;
+      }
+      if (t.includes('unlock all ships') || t.includes('unlock ships') || t.includes('free ships') || t.includes('own all ships')) {
+        if (typeof window.novaUnlockShips === 'function') {
+          window.novaUnlockShips(true);
+          return true;
+        }
+      }
+      if (t.includes('destroy enemy') || t.includes('kill pirate') || t.includes('clear hostiles') || t.includes('kill raider')) {
+        if (pirateBoss && !isPirateDefeated) {
+          pirateHealth = 0;
+          if (typeof destroyPirateBoss === 'function') destroyPirateBoss();
+          showToast('🗣️ CHEAT: HOSTILE RAIDER DESTROYED!', 3000, '#ff2244');
+          return true;
+        }
+      }
+      if (t.includes('spawn enemy') || t.includes('spawn pirate') || t.includes('spawn raider')) {
+        if (typeof novaSpawnRaider === 'function') {
+          novaSpawnRaider(500, true);
+          showToast('🗣️ SPAWN: HOSTILE CORSAIR RAIDER INBOUND!', 3000, '#ff3344');
+          return true;
+        }
+      }
+
+      // ── 2. RADIO, BGM & SOUNDTRACK ──
+      if (t.includes('stop music') || t.includes('mute music') || t.includes('mute radio') || t.includes('music off') || t.includes('radio off')) {
+        if (isBgmPlaying && typeof toggleBgm === 'function') toggleBgm();
+        showToast('🗣️ VOICE: RADIO MUTED', 1800, '#cc88ff');
+        return true;
+      }
+      if (t.includes('next song') || t.includes('next track') || t.includes('skip song') || t.includes('skip track')) {
+        if (typeof cycleBgmTrack === 'function') cycleBgmTrack(1);
+        return true;
+      }
+      if (t.includes('previous song') || t.includes('prev track') || t.includes('last song')) {
+        if (typeof cycleBgmTrack === 'function') cycleBgmTrack(-1);
+        return true;
+      }
+      if (t.includes('voyager')) {
+        const idx = BGM_TRACKS.findIndex(b => b.name.toLowerCase().includes('voyager'));
+        if (idx >= 0) {
+          bgmTrackIdx = idx; bgmStep = 0; isBgmPlaying = true;
+          try { updateBgmDisplay(); } catch(e){}
+          showToast('🗣️ VOICE: PLAYING "VOYAGER"', 2200, '#cc88ff');
+          return true;
+        }
+      }
+      if (t.includes('space caravan') || t.includes('caravan')) {
+        const idx = BGM_TRACKS.findIndex(b => b.name.toLowerCase().includes('caravan'));
+        if (idx >= 0) {
+          bgmTrackIdx = idx; bgmStep = 0; isBgmPlaying = true;
+          try { updateBgmDisplay(); } catch(e){}
+          showToast('🗣️ VOICE: PLAYING "SPACE CARAVAN"', 2200, '#cc88ff');
+          return true;
+        }
+      }
+      if (t.includes('battle in the market') || t.includes('market')) {
+        const idx = BGM_TRACKS.findIndex(b => b.name.toLowerCase().includes('market'));
+        if (idx >= 0) {
+          bgmTrackIdx = idx; bgmStep = 0; isBgmPlaying = true;
+          try { updateBgmDisplay(); } catch(e){}
+          showToast('🗣️ VOICE: PLAYING "BATTLE IN THE MARKET"', 2200, '#cc88ff');
+          return true;
+        }
+      }
+      if (t.includes('obi\'s mix') || t.includes('obi mix') || t.includes('obi song')) {
+        const idx = BGM_TRACKS.findIndex(b => b.name.toLowerCase().includes('obi'));
+        if (idx >= 0) {
+          bgmTrackIdx = idx; bgmStep = 0; isBgmPlaying = true;
+          try { updateBgmDisplay(); } catch(e){}
+          showToast('🗣️ VOICE: PLAYING "OBI\'S MIX"', 2200, '#cc88ff');
+          return true;
+        }
+      }
+      if (t.includes('pirate circuit')) {
+        const idx = BGM_TRACKS.findIndex(b => b.name.toLowerCase().includes('circuit'));
+        if (idx >= 0) {
+          bgmTrackIdx = idx; bgmStep = 0; isBgmPlaying = true;
+          try { updateBgmDisplay(); } catch(e){}
+          showToast('🗣️ VOICE: PLAYING "PIRATE CIRCUIT"', 2200, '#cc88ff');
+          return true;
+        }
+      }
+      if (t.includes('orbital drift')) {
+        const idx = BGM_TRACKS.findIndex(b => b.name.toLowerCase().includes('drift'));
+        if (idx >= 0) {
+          bgmTrackIdx = idx; bgmStep = 0; isBgmPlaying = true;
+          try { updateBgmDisplay(); } catch(e){}
+          showToast('🗣️ VOICE: PLAYING "ORBITAL DRIFT"', 2200, '#cc88ff');
+          return true;
+        }
+      }
+      if (t.includes('play music') || t.includes('music on') || t.includes('radio on') || t.includes('start radio')) {
+        if (!isBgmPlaying && typeof toggleBgm === 'function') toggleBgm();
+        showToast('🗣️ VOICE: RADIO PLAYING', 1800, '#cc88ff');
+        return true;
+      }
+
+      // ── 3. NEWS BROADCAST & ARTICLES ──
+      if (t.includes('close news') || t.includes('stop news') || t.includes('hide news')) {
+        if (typeof novaNewsClose === 'function') novaNewsClose();
+        showToast('🗣️ VOICE: NEWS BROADCAST CLOSED', 1800, '#aaddff');
+        return true;
+      }
+      if (t.includes('news') || t.includes('broadcast') || t.includes('deep cold dispatch') || t.includes('headline')) {
+        if (typeof novaNewsOpen === 'function') novaNewsOpen();
+        showToast('🗣️ VOICE: OPENING DEEP COLD DISPATCH', 2500, '#00ffff');
+        return true;
+      }
+
+      // ── 4. HYPERSPACE & WARP ──
+      if (t.includes('exit warp') || t.includes('drop out of warp') || t.includes('disengage warp') || t.includes('stop warp')) {
+        if (isLightspeedActive) {
+          exitLightspeed();
+          showToast('🗣️ VOICE: DROPPING OUT OF WARP', 2500, '#ffaa00');
+          return true;
+        }
+      }
+      if (t.includes('warp') || t.includes('lightspeed') || t.includes('hyperspace') || t.includes('jump') || t.includes('engage warp') || t.includes('spool warp')) {
         try {
           if (isLightspeedActive) {
             exitLightspeed();
-            showToast('🗣️ VOICE CMD: DROPPING OUT OF WARP', 2500, '#ffaa00');
+            showToast('🗣️ VOICE: DROPPING OUT OF WARP', 2500, '#ffaa00');
             return true;
           }
           let started = false;
@@ -3636,100 +3854,370 @@ const GAME_VERSION = 'Alpha 1.4';
           if (!started) {
             _nwOrigTrigger();
           }
-          showToast('🗣️ VOICE CMD: WARP DRIVE ENGAGED', 3000, '#00ffff');
+          showToast('🗣️ VOICE: WARP DRIVE ENGAGED', 3000, '#00ffff');
           return true;
-        } catch (e) {
-          console.warn('[voice warp]', e);
-        }
+        } catch (e) {}
       }
 
-      // 2. Throttle & Speed Control
-      if (t.includes('full stop') || t.includes('stop ship') || t.includes('engines stop') || t.includes('brake') || t.includes('halt')) {
-        throttlePct = 0;
+      // ── 5. THROTTLE & PROPULSION ──
+      if (t.includes('full stop') || t.includes('stop ship') || t.includes('engines stop') || t.includes('cut engines') || t.includes('brake') || t.includes('halt') || t.includes('zero throttle') || t.includes('all stop')) {
+        if (typeof setThrottle === 'function') setThrottle(0.0); else throttlePct = 0;
         currentThrottleNotch = 0;
         try { updateThrottleNotchLights(); sound.beep(440, 0.1); } catch (e) {}
-        showToast('🗣️ VOICE CMD: ALL ENGINES STOP (0%)', 2500, '#ffaa00');
+        showToast('🗣️ VOICE: ALL ENGINES STOP (0%)', 2200, '#ffaa00');
         return true;
       }
-      if (t.includes('full throttle') || t.includes('maximum speed') || t.includes('full speed') || t.includes('punch it') || t.includes('max speed')) {
-        throttlePct = 1.0;
+      if (t.includes('full throttle') || t.includes('maximum speed') || t.includes('full speed') || t.includes('punch it') || t.includes('max speed') || t.includes('throttle 100') || t.includes('flank speed') || t.includes('warp speed')) {
+        if (typeof setThrottle === 'function') setThrottle(1.0); else throttlePct = 1.0;
         currentThrottleNotch = 4;
         try { updateThrottleNotchLights(); sound.beep(880, 0.1); } catch (e) {}
-        showToast('🗣️ VOICE CMD: FULL THROTTLE (100%)', 2500, '#00ff88');
+        showToast('🗣️ VOICE: FULL THROTTLE (100% - WARP READY)', 2200, '#00ff88');
         return true;
       }
-      if (t.includes('half throttle') || t.includes('half speed') || t.includes('speed 50')) {
-        throttlePct = 0.5;
+      if (t.includes('three quarter') || t.includes('75 percent') || t.includes('speed 75') || t.includes('throttle 75')) {
+        if (typeof setThrottle === 'function') setThrottle(0.75); else throttlePct = 0.75;
+        currentThrottleNotch = 3;
+        try { updateThrottleNotchLights(); sound.beep(770, 0.1); } catch (e) {}
+        showToast('🗣️ VOICE: THREE-QUARTER THROTTLE (75%)', 2200, '#33ffbb');
+        return true;
+      }
+      if (t.includes('half throttle') || t.includes('half speed') || t.includes('speed 50') || t.includes('throttle 50') || t.includes('cruising speed') || t.includes('cruise speed')) {
+        if (typeof setThrottle === 'function') setThrottle(0.5); else throttlePct = 0.5;
         currentThrottleNotch = 2;
         try { updateThrottleNotchLights(); sound.beep(660, 0.1); } catch (e) {}
-        showToast('🗣️ VOICE CMD: HALF THROTTLE (50%)', 2500, '#00e5ff');
+        showToast('🗣️ VOICE: HALF THROTTLE (50%)', 2200, '#00e5ff');
         return true;
       }
+      if (t.includes('quarter throttle') || t.includes('one quarter') || t.includes('speed 25') || t.includes('throttle 25') || t.includes('slow speed')) {
+        if (typeof setThrottle === 'function') setThrottle(0.25); else throttlePct = 0.25;
+        currentThrottleNotch = 1;
+        try { updateThrottleNotchLights(); sound.beep(550, 0.1); } catch (e) {}
+        showToast('🗣️ VOICE: ONE-QUARTER THROTTLE (25%)', 2200, '#88aacc');
+        return true;
+      }
+      if (t.includes('reverse') || t.includes('back up')) {
+        if (typeof setThrottle === 'function') setThrottle(-0.35); else throttlePct = -0.35;
+        showToast('🗣️ VOICE: REVERSE THRUST ENGAGED', 2200, '#ffaa00');
+        return true;
+      }
+      if (t.includes('afterburner') || t.includes('boost') || t.includes('nitro') || t.includes('turbo')) {
+        try {
+          if (typeof triggerAfterburner === 'function') triggerAfterburner();
+          showToast('🗣️ VOICE: AFTERBURNER BOOST ENGAGED!', 2200, '#ff6600');
+          return true;
+        } catch (e) {}
+      }
+      if (t.includes('supercruise') || t.includes('cruise mode') || t.includes('cruise')) {
+        try {
+          if (typeof novaCruiseToggle === 'function') novaCruiseToggle();
+          showToast(`🗣️ VOICE: CRUISE MODE ${novaCruise?.active ? 'ENGAGED' : 'DISENGAGED'}`, 2200, '#66ffcc');
+          return true;
+        } catch (e) {}
+      }
 
-      // 3. Combat / Missiles & Targeting
-      if (t.includes('fire missile') || t.includes('launch missile') || t.includes('missile')) {
+      // ── 6. COMBAT, WEAPONS & COUNTERMEASURES ──
+      if (t.includes('fire missile') || t.includes('launch missile') || t.includes('missile') || t.includes('torpedo') || t.includes('fox two')) {
         try {
           if (typeof fireHomingMissile === 'function') fireHomingMissile();
-          showToast('🗣️ VOICE CMD: MISSILE LAUNCHED', 2500, '#ff3344');
+          showToast('🗣️ VOICE: MISSILE LAUNCHED!', 2200, '#ff3344');
           return true;
         } catch (e) {}
       }
-      if (t.includes('target') || t.includes('lock') || t.includes('next target') || t.includes('cycle target')) {
+      if (t.includes('arm missile') || t.includes('open missile') || t.includes('missile lid') || t.includes('missile cover')) {
+        try {
+          toggleMissileLid(true);
+          showToast('🗣️ VOICE: MISSILE COVER OPENED (ARMED)', 2000, '#ffaa22');
+          return true;
+        } catch (e) {}
+      }
+      if (t.includes('safe missile') || t.includes('close missile') || t.includes('disarm missile')) {
+        try {
+          toggleMissileLid(false);
+          showToast('🗣️ VOICE: MISSILES ON SAFE', 2000, '#88aacc');
+          return true;
+        } catch (e) {}
+      }
+      if (t.includes('fire laser') || t.includes('fire gun') || t.includes('shoot') || t.includes('open fire') || t.includes('weapons free') || t.includes('fire weapon')) {
+        try {
+          if (typeof triggerFire === 'function') triggerFire();
+          showToast('🗣️ VOICE: FIRING WEAPONS', 1500, '#00ffcc');
+          return true;
+        } catch (e) {}
+      }
+      if (t.includes('fire mode auto') || t.includes('full auto') || t.includes('auto fire')) {
+        if (typeof NFM !== 'undefined') { NFM.i = NFM.modes.indexOf('AUTO'); if (NFM.i < 0) NFM.i = 0; }
+        showToast('🗣️ VOICE: FIRE MODE SET TO AUTO', 2000, '#ff5566');
+        return true;
+      }
+      if (t.includes('fire mode burst') || t.includes('burst fire') || t.includes('burst mode')) {
+        if (typeof NFM !== 'undefined') { NFM.i = NFM.modes.indexOf('BURST'); if (NFM.i < 0) NFM.i = 2; }
+        showToast('🗣️ VOICE: FIRE MODE SET TO BURST', 2000, '#ffaa00');
+        return true;
+      }
+      if (t.includes('fire mode single') || t.includes('single fire') || t.includes('semi auto')) {
+        if (typeof NFM !== 'undefined') { NFM.i = NFM.modes.indexOf('SINGLE'); if (NFM.i < 0) NFM.i = 1; }
+        showToast('🗣️ VOICE: FIRE MODE SET TO SINGLE', 2000, '#00e5ff');
+        return true;
+      }
+      if (t.includes('cycle fire mode') || t.includes('switch fire mode') || t.includes('fire mode')) {
+        if (typeof novaFireModeCycle === 'function') novaFireModeCycle();
+        return true;
+      }
+      if (t.includes('flare') || t.includes('countermeasure') || t.includes('deploy flare') || t.includes('chaff')) {
+        const flareBtn = cockpitInteractables.find(e => e.label === 'FLARES' || e.label === 'DEPLOY FLARES');
+        if (flareBtn && flareBtn.action) { flareBtn.action(); showToast('🗣️ VOICE: FLARES DEPLOYED', 2200, '#ffaa33'); return true; }
+      }
+      if (t.includes('shield boost') || t.includes('emergency shield') || t.includes('recharge shield') || t.includes('boost shields')) {
+        const shldBtn = cockpitInteractables.find(e => e.label === 'SHIELD BOOST' || e.label === 'EMERGENCY SHIELDS');
+        if (shldBtn && shldBtn.action) { shldBtn.action(); showToast('🗣️ VOICE: SHIELD GENERATOR BOOSTED', 2200, '#00e5ff'); return true; }
+        window.novaShield = Math.min(100, (window.novaShield || 0) + 40);
+        showToast('🗣️ VOICE: SHIELDS REINFORCED', 2200, '#00e5ff');
+        return true;
+      }
+      if (t.includes('launch drone') || t.includes('deploy drone') || t.includes('attack drone') || t.includes('drones launch')) {
+        if (typeof novaWingLaunch === 'function') { novaWingLaunch(); return true; }
+      }
+      if (t.includes('recall drone') || t.includes('return drone') || t.includes('drones recall')) {
+        if (typeof novaWingRecall === 'function') { novaWingRecall(); showToast('🗣️ VOICE: DRONE WING RECALLED', 2000, '#88aacc'); return true; }
+      }
+
+      // ── 7. TARGETING & SENSORS ──
+      if (t.includes('next target') || t.includes('cycle target') || t.includes('switch target') || t.includes('target next')) {
         try {
           if (typeof cycleTarget === 'function') cycleTarget();
-          showToast('🗣️ VOICE CMD: TARGET CYCLED', 2000, '#ffcc00');
+          showToast('🗣️ VOICE: NEXT TARGET LOCKED', 1800, '#ffcc00');
+          return true;
+        } catch (e) {}
+      }
+      if (t.includes('target enemy') || t.includes('target hostile') || t.includes('target pirate') || t.includes('target raider') || t.includes('lock enemy')) {
+        const cands = typeof getAllTargets === 'function' ? getAllTargets() : [];
+        const hostile = cands.find(c => c.isHostile);
+        if (hostile) {
+          currentLockedTarget = hostile;
+          try { sound.lockTone(); } catch(e){}
+          showToast(`🗣️ VOICE: LOCKED HOSTILE [${hostile.name}]`, 2200, '#ff3344');
+          drawMissileTargetScreen(); drawRightDash();
+          return true;
+        }
+      }
+      if (t.includes('target station') || t.includes('lock station') || t.includes('target nova') || t.includes('find station')) {
+        const cands = typeof getAllTargets === 'function' ? getAllTargets() : [];
+        const st = cands.find(c => c.type === 'station');
+        if (st) {
+          currentLockedTarget = st;
+          try { sound.lockTone(); } catch(e){}
+          showToast(`🗣️ VOICE: LOCKED STARBASE [${st.name}]`, 2200, '#00ff88');
+          drawMissileTargetScreen(); drawRightDash();
+          return true;
+        }
+      }
+      if (t.includes('target wingman') || t.includes('target ally') || t.includes('lock valkyrie') || t.includes('target valkyrie')) {
+        const cands = typeof getAllTargets === 'function' ? getAllTargets() : [];
+        const ally = cands.find(c => c.type === 'wingman');
+        if (ally) {
+          currentLockedTarget = ally;
+          try { sound.lockTone(); } catch(e){}
+          showToast(`🗣️ VOICE: LOCKED WINGMAN [${ally.name}]`, 2200, '#00e5ff');
+          drawMissileTargetScreen(); drawRightDash();
+          return true;
+        }
+      }
+      if (t.includes('target asteroid') || t.includes('target rock') || t.includes('mining target') || t.includes('find asteroid')) {
+        const cands = typeof getAllTargets === 'function' ? getAllTargets() : [];
+        const ast = cands.find(c => c.type === 'asteroid');
+        if (ast) {
+          currentLockedTarget = ast;
+          try { sound.lockTone(); } catch(e){}
+          showToast(`🗣️ VOICE: LOCKED ASTEROID [${ast.name}]`, 2200, '#ffaa00');
+          drawMissileTargetScreen(); drawRightDash();
+          return true;
+        }
+      }
+      if (t.includes('target salvage') || t.includes('target pod') || t.includes('target heat core') || t.includes('lock core')) {
+        const cands = typeof getAllTargets === 'function' ? getAllTargets() : [];
+        const salv = cands.find(c => c.type === 'salvage' || String(c.name).includes('SALVAGE'));
+        if (salv) {
+          currentLockedTarget = salv;
+          try { sound.lockTone(); } catch(e){}
+          showToast(`🗣️ VOICE: LOCKED SALVAGE [${salv.name}]`, 2200, '#66ffee');
+          drawMissileTargetScreen(); drawRightDash();
+          return true;
+        }
+      }
+      if (t.includes('clear target') || t.includes('unlock') || t.includes('untarget')) {
+        currentLockedTarget = null;
+        showToast('🗣️ VOICE: TARGET CLEARED', 1800, '#88aacc');
+        drawMissileTargetScreen(); drawRightDash();
+        return true;
+      }
+      if (t.includes('sensor observe') || t.includes('observe mode') || t.includes('scan') || t.includes('sensor sweep')) {
+        if (typeof toggleObserveMode === 'function') toggleObserveMode();
+        return true;
+      }
+      if (t.includes('target') || t.includes('lock')) {
+        try {
+          if (typeof cycleTarget === 'function') cycleTarget();
           return true;
         } catch (e) {}
       }
 
-      // 4. Flight Assist, Dampeners & Autopilot
+      // ── 8. RADAR & HOLO DISPLAYS ──
+      if (t.includes('radar') || t.includes('holo radar') || t.includes('3d radar')) {
+        if (typeof window.novaRadarToggle === 'function') {
+          window.novaRadarToggle();
+          showToast('🗣️ VOICE: 3D HOLO-RADAR TOGGLED', 2000, '#00ffaa');
+          return true;
+        }
+      }
+      if (t.includes('ping') || t.includes('sonar')) {
+        const pingBtn = cockpitInteractables.find(e => e.label === 'RADAR PING');
+        if (pingBtn && pingBtn.action) { pingBtn.action(); showToast('🗣️ VOICE: RADAR PING SENT', 2000, '#00ffaa'); return true; }
+      }
+
+      // ── 9. FLIGHT ASSIST, AUTOPILOT & ATTITUDE ──
       if (t.includes('flight assist') || t.includes('assist')) {
         isFlightAssistOn = !isFlightAssistOn;
         try { sound.switchClick(); } catch (e) {}
-        showToast(`🗣️ VOICE CMD: FLIGHT ASSIST ${isFlightAssistOn ? 'ONLINE' : 'OFFLINE'}`, 2500, '#00ffcc');
+        showToast(`🗣️ VOICE: FLIGHT ASSIST ${isFlightAssistOn ? 'ONLINE' : 'OFFLINE (DRIFT)'}`, 2500, '#00ffcc');
         return true;
       }
-      if (t.includes('dampener') || t.includes('rotation') || t.includes('gyro')) {
+      if (t.includes('dampener') || t.includes('rotation') || t.includes('gyro') || t.includes('stabilizer')) {
         try {
           if (typeof toggleRotationDampeners === 'function') toggleRotationDampeners();
-          showToast(`🗣️ VOICE CMD: DAMPENERS ${isRotationDampenerOn ? 'ONLINE' : 'OFFLINE'}`, 2500, '#00ffcc');
+          showToast(`🗣️ VOICE: DAMPENERS ${isRotationDampenerOn ? 'ONLINE' : 'OFFLINE'}`, 2500, '#00ffcc');
           return true;
         } catch (e) {}
       }
       if (t.includes('autopilot')) {
         try {
           if (typeof toggleAutopilot === 'function') toggleAutopilot();
-          showToast(`🗣️ VOICE CMD: AUTOPILOT ${isAutopilotActive ? 'ENGAGED' : 'DISENGAGED'}`, 2500, '#33ff99');
+          showToast(`🗣️ VOICE: AUTOPILOT ${isAutopilotActive ? 'ENGAGED' : 'DISENGAGED'}`, 2500, '#33ff99');
           return true;
         } catch (e) {}
       }
+      if (t.includes('level ship') || t.includes('level out') || t.includes('stabilize')) {
+        if (shipBody) {
+          shipBody.angularVelocity.set(0, 0, 0);
+          stickPivot.rotation.set(0, 0, 0);
+          stickPitchDeg = 0; stickRollDeg = 0;
+        }
+        showToast('🗣️ VOICE: ATTITUDE STABILIZED', 2000, '#00ffcc');
+        return true;
+      }
 
-      // 5. Shield & Hull Status Check
+      // ── 10. DOCKING, TRACTOR & BOARDING ──
+      if (t.includes('dock') || t.includes('request docking') || t.includes('land') || t.includes('approach station')) {
+        try {
+          if (typeof executeDocking === 'function') {
+            executeDocking();
+            showToast('🗣️ VOICE: DOCKING CORRIDOR ENGAGED', 2500, '#00ffcc');
+            return true;
+          }
+        } catch (e) {}
+      }
+      if (t.includes('tractor') || t.includes('reel in') || t.includes('pull salvage')) {
+        if (typeof novaTractorPress === 'function') {
+          novaTractorPress();
+          showToast('🗣️ VOICE: TRACTOR BEAM ACTIVATED', 2500, '#66ffee');
+          return true;
+        }
+      }
+      if (t.includes('board') || t.includes('breach')) {
+        if (typeof ncrTryBoard === 'function') { ncrTryBoard(); return true; }
+        if (typeof window.novaColdRunBoard === 'function') { window.novaColdRunBoard(); return true; }
+      }
+
+      // ── 11. COMMS & WINGMAN COMMANDS ──
+      if (t.includes('form up') || t.includes('form on me') || t.includes('escort me')) {
+        isWingmanFormedUp = true;
+        showToast('🗣️ VOICE: WINGMAN FORMING ON YOUR SIX', 2500, '#00e5ff');
+        try { if (sound.valkyrieChirp) sound.valkyrieChirp(); } catch(e){}
+        return true;
+      }
+      if (t.includes('break formation') || t.includes('patrol') || t.includes('hunt freely')) {
+        isWingmanFormedUp = false;
+        showToast('🗣️ VOICE: WINGMAN PATROLLING INDEPENDENTLY', 2500, '#ffaa00');
+        try { if (sound.valkyrieChirp) sound.valkyrieChirp(); } catch(e){}
+        return true;
+      }
+      if (t.includes('slide comms') || t.includes('comms arm') || t.includes('toggle comms')) {
+        if (typeof toggleCommsArm === 'function') toggleCommsArm();
+        return true;
+      }
+
+      // ── 12. COCKPIT, SEAT & VR/MR ──
+      if (t.includes('recenter') || t.includes('reset view') || t.includes('center headset') || t.includes('calibrate')) {
+        try {
+          if (typeof recenterPilotView === 'function') recenterPilotView();
+          if (typeof resetSeat === 'function') resetSeat();
+          showToast('🗣️ VOICE: PILOT VIEW & SEAT RECENTERED', 2500, '#00ff88');
+          return true;
+        } catch (e) {}
+      }
+      if (t.includes('reset controls') || t.includes('reset stick') || t.includes('reset hotas')) {
+        if (typeof resetControls === 'function') { resetControls(); showToast('🗣️ VOICE: FLIGHT CONTROLS RESET', 2000, '#ffaa00'); return true; }
+      }
+      if (t.includes('raise seat') || t.includes('seat up')) {
+        seatOffset = Math.min(0.20, seatOffset + 0.04);
+        showToast(`🗣️ VOICE: SEAT RAISED (${Math.round(seatOffset * 100)}cm)`, 1800, '#00f0ff');
+        drawDebugWatch(); return true;
+      }
+      if (t.includes('lower seat') || t.includes('seat down')) {
+        seatOffset = Math.max(-0.20, seatOffset - 0.04);
+        showToast(`🗣️ VOICE: SEAT LOWERED (${Math.round(seatOffset * 100)}cm)`, 1800, '#00f0ff');
+        drawDebugWatch(); return true;
+      }
+      if (t.includes('invert pitch') || t.includes('flight y') || t.includes('invert y')) {
+        if (typeof toggleInvertPitch === 'function') toggleInvertPitch();
+        return true;
+      }
+      if (t.includes('passthrough') || t.includes('mixed reality') || t.includes('mr mode') || t.includes('toggle mr')) {
+        if (typeof togglePassthrough === 'function') { togglePassthrough(); return true; }
+      }
+      if (t.includes('wrist menu') || t.includes('smartwatch') || t.includes('watch menu')) {
+        if (typeof toggleWristMenu === 'function') { toggleWristMenu(); return true; }
+      }
+      if (t.includes('cargo') || t.includes('inventory')) {
+        if (typeof toggleInventory === 'function') toggleInventory();
+        return true;
+      }
+      if (t.includes('canopy tint') || t.includes('tint glass') || t.includes('polarize')) {
+        if (typeof novaToggleCanopy === 'function') novaToggleCanopy();
+        showToast('🗣️ VOICE: CANOPY POLARIZATION TOGGLED', 2000, '#00e5ff');
+        return true;
+      }
+      if (t.includes('canopy') || t.includes('blast shield')) {
+        if (typeof novaToggleCanopy === 'function') novaToggleCanopy();
+        showToast('🗣️ VOICE: CANOPY BLAST SHIELD TOGGLED', 2000, '#00e5ff');
+        return true;
+      }
+
+      // ── 13. SHIP HANGAR & CARRIER COMMANDS ──
+      if (t.includes('enter carrier') || t.includes('carrier hangar') || t.includes('board carrier')) {
+        if (typeof novaEnterCarrier === 'function') { novaEnterCarrier(); return true; }
+      }
+      if (t.includes('launch fighter') || t.includes('carrier launch') || t.includes('scramble fighter')) {
+        if (typeof novaCarrierLaunch === 'function') { novaCarrierLaunch(); return true; }
+      }
+      if (t.includes('recover fighter') || t.includes('carrier recover') || t.includes('land on carrier')) {
+        if (typeof novaCarrierRecover === 'function') { novaCarrierRecover(); return true; }
+      }
+
+      // ── 14. CANTINA LOUNGE ──
+      if (t.includes('enter cantina') || t.includes('visit bar') || t.includes('visit station')) {
+        if (typeof enterCantina === 'function') { enterCantina(); return true; }
+      }
+      if (t.includes('exit cantina') || t.includes('back to cockpit') || t.includes('return to ship')) {
+        if (typeof exitCantina === 'function') { exitCantina(); return true; }
+      }
+
+      // ── 15. STATUS & SITREP ──
       if (t.includes('status') || t.includes('sitrep') || t.includes('damage') || t.includes('report') || t.includes('hull')) {
         const hullVal = Math.round(window.novaHull ?? 100);
         const shldVal = Math.round(window.novaShield ?? 100);
         showToast(`🗣️ SHIP STATUS: HULL ${hullVal}% | SHIELDS ${shldVal}% | MISSILES: ${missileAmmo ?? 6}`, 3500, '#00ffcc');
         try { sound.beep(920, 0.12); } catch (e) {}
         return true;
-      }
-
-      // 6. Recenter & Seat
-      if (t.includes('recenter') || t.includes('reset view') || t.includes('seat')) {
-        try {
-          if (typeof recenterPilotView === 'function') recenterPilotView();
-          if (typeof resetSeat === 'function') resetSeat();
-          showToast('🗣️ VOICE CMD: PILOT VIEW & SEAT RECENTERED', 2500, '#00ff88');
-          return true;
-        } catch (e) {}
-      }
-
-      // 7. BGM / Radio Music
-      if (t.includes('music') || t.includes('bgm') || t.includes('radio')) {
-        try {
-          if (typeof toggleBgm === 'function') toggleBgm();
-          showToast(`🗣️ VOICE CMD: RADIO ${isBgmPlaying ? 'PLAYING' : 'MUTED'}`, 2000, '#cc88ff');
-          return true;
-        } catch (e) {}
       }
 
       return false;
@@ -3742,19 +4230,22 @@ const GAME_VERSION = 'Alpha 1.4';
       }
       try {
         if (!isCommsMicListening) {
+          isVoiceAlwaysListening = true;
           isCommsMicListening = true;
           sound.beep(1200, 0.08);
-          showToast('🎙️ VOICE COMMANDS ACTIVE: Say "Warp", "Throttle 100", "Brake", "Missile", "Target"', 3500, '#00ffcc');
-          commsRecognition.start();
+          showToast('🎙️ ALWAYS-LISTENING ACTIVE — SPEAK COMMANDS AT ANY TIME', 3500, '#00ffcc');
+          try { commsRecognition.start(); } catch (_) {}
         } else {
+          isVoiceAlwaysListening = false;
           isCommsMicListening = false;
-          commsRecognition.stop();
+          try { commsRecognition.stop(); } catch (_) {}
           showToast('🎙️ VOICE COMMANDS MUTED', 1800, '#ffaa00');
         }
       } catch(e) {
         isCommsMicListening = false;
       }
       drawCommsPanel();
+      if (typeof drawDebugWatch === 'function') drawDebugWatch();
     }
 
     function transmitPilotText(textToSend) {

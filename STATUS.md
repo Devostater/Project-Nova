@@ -18,6 +18,8 @@ Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. D
 - Vendor postprocessing addons later for APK/offline.
 
 ### Antigravity (Gemini) — **DONE (OFFLINE READY)**
+- **Voice command engine overhaul**: Added 120+ voice commands across 15 categories (Throttle 0–100%, Afterburner, Cruise, Warp/Jump, Missiles, Fire Modes Auto/Burst/Single, Flares, Shields, Drones, Target Hostile/Station/Wingman/Asteroid/Salvage, 3D Radar, Docking & Tractor, Wingman Form/Patrol, Seat/View Recenter, Radio/Tracks, News, Carrier Hangar, God Mode, Full Repair, Reload Missiles, +50k Credits, Spawn/Kill Enemy).
+- **Always-listening debug mode**: Auto-starts on first user interaction with continuous self-healing restart loop (`onend`/`onerror`), live debug toast transcript (`🎙️ HEARD: "..."`), and full hands-free flight authority.
 - **News panel upgrade**: Anchor portraits (Jax Rawlins, Talia Vance), video/article tabs, touch swipe + scroll buttons, idle news ticker.
 - **Menu full-page scroll**: Modal container fix allowing seamless scrolling of main menu, options, and controls.
 - **3D volumetric world spawning**: Doubled asteroid field density (220 rocks), 3D spherical pitch distribution (±75° elevation on 90° vertical axis), 3D pirate/traffic patrol routes.
