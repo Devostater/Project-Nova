@@ -9066,10 +9066,10 @@ const GAME_VERSION = 'Alpha 1.4';
       window.novaPewPewOverdrive = (force !== undefined) ? !!force : !window.novaPewPewOverdrive;
       if (window.novaPewPewOverdrive) {
         sound.victoryFanfare?.();
-        showToast('⚡ QUAD-LASER OVERDRIVE ACTIVATED! MORE PEW PEW!', 3200, '#ff0055');
+        showToast('⚡ ARC-PISTOL OVERDRIVE ACTIVATED! MORE PEW PEW!', 3200, '#ff0055');
       } else {
         sound.switchClick?.();
-        showToast('🎯 LASERS RETURNED TO STANDARD TACTICAL SALVO', 2000, '#00ffff');
+        showToast('🎯 WEAPONS RETURNED TO STANDARD SALVO', 2000, '#00ffff');
       }
       return window.novaPewPewOverdrive;
     }
@@ -9079,10 +9079,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function spawnLaserBolts() {
       const shipQuat = shipGroup.quaternion;
       // Laser muzzle offsets forward of wing cannon barrels (Z = -1.65m)
-      const overdrive = !!window.novaPewPewOverdrive;
-      const wingOffsets = overdrive
-        ? [new THREE.Vector3(-1.85, -0.15, -1.65), new THREE.Vector3(-1.15, -0.12, -1.65), new THREE.Vector3(1.15, -0.12, -1.65), new THREE.Vector3(1.85, -0.15, -1.65)]
-        : [new THREE.Vector3(-1.35, -0.15, -1.65), new THREE.Vector3(1.35, -0.15, -1.65)];
+      const wingOffsets = [new THREE.Vector3(-1.35, -0.15, -1.65), new THREE.Vector3(1.35, -0.15, -1.65)];
       const fwdDir = new THREE.Vector3(0, 0, -1).applyQuaternion(shipQuat);
       const shipSpeed = (shipBody && shipBody.velocity) ? shipBody.velocity.length() : (throttlePct * 55.0);
 
@@ -9097,20 +9094,18 @@ const GAME_VERSION = 'Alpha 1.4';
           spawnTime: performance.now(),
           dir: fwdDir.clone(),
           // Speed strictly inherits ship forward velocity so lasers always shoot forward down crosshairs
-          speed: (overdrive ? 360.0 : 260.0) + shipSpeed
+          speed: 260.0 + shipSpeed
         });
       });
     }
 
     function triggerFire() {
       if (isLightspeedActive) return; // Weapons offline during hyperspace transit
-      const overdrive = !!window.novaPewPewOverdrive;
-      const cooldown = overdrive ? 65 : 160;
       const now = performance.now();
-      if (now - lastFireTime < cooldown) return;
+      if (now - lastFireTime < 160) return;
       lastFireTime = now;
       isFiring = true;
-      if (typeof novaPulse === 'function') novaPulse('right', overdrive ? 0.45 : 0.65, 30);
+      if (typeof novaPulse === 'function') novaPulse('right', 0.65, 40);
       sound.laser();
       spawnLaserBolts();
       drawHUD();
@@ -9119,7 +9114,7 @@ const GAME_VERSION = 'Alpha 1.4';
         isFiring = false;
         drawHUD();
         drawDebugWatch();
-      }, overdrive ? 55 : 150);
+      }, 150);
     }
 
     // ── Post-Spacewarp Pirate AI Boss & Victory Celebration (Alpha 0.2) ──
