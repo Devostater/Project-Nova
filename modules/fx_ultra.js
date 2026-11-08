@@ -52,10 +52,16 @@ export function init(nova = {}) {
   const loader = new THREE.TextureLoader();
   const glow = loader.load(rootUrl('vfx_engine_glow.png'));
   glow.colorSpace = THREE.SRGBColorSpace || glow.colorSpace;
+  glow.wrapS = glow.wrapT = THREE.ClampToEdgeWrapping;
+  glow.minFilter = THREE.LinearMipmapLinearFilter;
+  glow.magFilter = THREE.LinearFilter;
+  glow.generateMipmaps = true;
   const spark = loader.load(rootUrl('vfx_spark.png'));
   spark.colorSpace = THREE.SRGBColorSpace || spark.colorSpace;
-  glow.wrapS = glow.wrapT = THREE.ClampToEdgeWrapping;
   spark.wrapS = spark.wrapT = THREE.ClampToEdgeWrapping;
+  spark.minFilter = THREE.LinearMipmapLinearFilter;
+  spark.magFilter = THREE.LinearFilter;
+  spark.generateMipmaps = true;
 
   const additive = THREE.AdditiveBlending;
   const spriteMat = new THREE.SpriteMaterial({
@@ -124,7 +130,7 @@ export function init(nova = {}) {
   pointsGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   pointsGeo.setDrawRange(0, 0);
   const pointMat = new THREE.PointsMaterial({
-    map: glow, size: quality === 'ultra' ? 0.28 : 0.16, vertexColors: true,
+    map: glow, size: quality === 'ultra' ? 0.35 : 0.22, vertexColors: true,
     transparent: true, opacity: 0, blending: additive, depthWrite: false, sizeAttenuation: true
   });
   const points = new THREE.Points(pointsGeo, pointMat);
