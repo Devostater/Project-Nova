@@ -30,6 +30,24 @@ export function init(nova) {
   tpDot.rotation.x=-Math.PI/2;tpDot.position.y=.01;tpMarker.add(tpDot);
   tpMarker.visible=false;tpMarker.raycast=()=>{};tpMarker.traverse(o=>{o.raycast=()=>{};});scene.add(tpMarker);
 
+  // ── Tactical Chest Grenade (Grab from left chest & throw; 3s fuse detonation) ──
+  const grenadeGroup=new T.Group();grenadeGroup.name='NOVA_FPS_GRENADE';
+  const grenadeBodyGeo=new T.CylinderGeometry(.026,.032,.09,16);
+  const grenadeBodyMat=new T.MeshStandardMaterial({color:0x182432,metalness:.85,roughness:.3});
+  const grenadeBody=new T.Mesh(grenadeBodyGeo,grenadeBodyMat);grenadeGroup.add(grenadeBody);
+  const grenadeCapGeo=new T.SphereGeometry(.028,16,8,0,Math.PI*2,0,Math.PI/2);
+  const grenadeCap=new T.Mesh(grenadeCapGeo,grenadeBodyMat);grenadeCap.position.y=.045;grenadeGroup.add(grenadeCap);
+  const grenadeRingGeo=new T.TorusGeometry(.032,.004,8,24);
+  const grenadeRingMat=new T.MeshBasicMaterial({color:0x00f0ff,toneMapped:false});
+  const grenadeRing=new T.Mesh(grenadeRingGeo,grenadeRingMat);grenadeRing.rotation.x=Math.PI/2;grenadeGroup.add(grenadeRing);
+  const grenadePinGeo=new T.TorusGeometry(.01,.0025,6,16);
+  const grenadePinMat=new T.MeshStandardMaterial({color:0xff4433,metalness:.6,roughness:.4});
+  const grenadePin=new T.Mesh(grenadePinGeo,grenadePinMat);grenadePin.position.set(.024,.05,0);grenadePin.rotation.y=Math.PI/2;grenadeGroup.add(grenadePin);
+  grenadeGroup.visible=false;grenadeGroup.raycast=()=>{};grenadeGroup.traverse(o=>{o.raycast=()=>{};});scene.add(grenadeGroup);
+
+  const grenadeChestPos=new T.Vector3(),grenadeVel=new T.Vector3(),grenadeTempPos=new T.Vector3();
+  let grenadeState='holstered',grenadeFuse=3.0,grenadeCooldown=0;
+
   // Dynamic 3D crosshair separate from the helmet HUD, tracking where the gun will hit in the world
   const crosshairGroup=new T.Group();crosshairGroup.name='NOVA_FPS_CROSSHAIR';
   const chRingGeo=new T.RingGeometry(.032,.042,32);
@@ -199,7 +217,8 @@ export function init(nova) {
   const endPoint=new T.Vector3(),midPoint=new T.Vector3(),tpHit=new T.Vector3();
   const controllerQ=new T.Quaternion();
   const down=new Set();
-  let active=false,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=25,yaw=0,pitch=0,hudTimer=0,muzzleTimer=0;
+  let active=false,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=100,maxShield=100,yaw=0,pitch=0,hudTimer=0,muzzleTimer=0;
+  let timeSinceDamage=0,ctrlTpHeld=false;
   let rightController=null,leftController=null,rightGrip=null,leftGrip=null,rightHand=null,leftHand=null,rightIsHand=false,leftIsHand=false,leftFist=false,leftAnchor=null;
   let leftPinchHeld=false,rightPinchHeld=false,leftPinchTime=0,leftPinchUsed=false,bothPinchTime=0,bothPinchExit=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false,pointerWasLocked=false;
   let tpValid=false;
@@ -213,10 +232,12 @@ export function init(nova) {
     c.moveTo(46,420);c.lineTo(46,472);c.lineTo(210,472);c.moveTo(814,472);c.lineTo(978,472);c.lineTo(978,420);c.stroke();
     c.fillStyle='rgba(3,18,28,.78)';c.fillRect(48,406,928,68);
     c.font='bold 25px monospace';c.textAlign='left';c.fillStyle='#7ffcff';c.fillText('HELMET · '+String(options.mode||'FPS').toUpperCase(),70,438);
-    c.fillStyle=health>35?'#65ffad':'#ff596d';c.fillText('HULL '+Math.round(health)+'%',360,438);
-    c.fillStyle='#58dfff';c.fillText('SHIELD '+Math.round(shield)+'%',540,438);
-    c.fillStyle=weaponOn?'#ffcf58':'#8295a0';c.fillText(weaponOn?'ARMED':'HANDS',760,438);
-    c.font='18px monospace';c.fillStyle='#a9d8e8';c.fillText(renderer?.xr?.isPresenting?'PINCH FLOOR: TELEPORT · FIST: MOVE · R-PINCH: FIRE · BOTH: EXIT':'WASD / STICKS MOVE · CLICK / RT FIRE · E / A USE · ESC / B EXIT',70,464);
+    c.fillStyle=health>35?'#65ffad':'#ff596d';c.fillText('HULL '+Math.round(health)+'%',350,438);
+    c.fillStyle='#58dfff';c.fillText('SHIELD '+Math.round(shield)+'%',500,438);
+    c.fillStyle=weaponOn?'#ffcf58':'#8295a0';c.fillText(weaponOn?'ARMED':'HANDS',670,438);
+    c.font='bold 21px monospace';c.fillStyle=grenadeState==='holstered'?'#33e5ff':'#ff9933';
+    c.fillText(grenadeState==='holstered'?'GRENADE:READY':(grenadeState==='cooldown'?'GRENADE:RELOAD':'GRENADE:'+Math.max(0,grenadeFuse).toFixed(1)+'s'),780,438);
+    c.font='18px monospace';c.fillStyle='#a9d8e8';c.fillText(renderer?.xr?.isPresenting?'PINCH/STICK: TELEPORT · FIST: MOVE · GRENADE: LEFT CHEST · R-PINCH: FIRE':'WASD / STICKS MOVE · G GRENADE · CLICK / RT FIRE · E / A USE · ESC EXIT',70,464);
     hudTexture.needsUpdate=true;
   }
 
@@ -455,9 +476,58 @@ export function init(nova) {
     if(typeof options.onExit==='function')options.onExit(reason);else disable();
     exiting=false;
   }
+  function explodeGrenade(pos){
+    grenadeState='cooldown';grenadeCooldown=3.5;grenadeGroup.visible=false;
+    playImpactSound();
+    try{if(nova.sound?.explosion)nova.sound.explosion();else if(window.sound?.explosion)window.sound.explosion();}catch(_){}
+    spawnImpactVfx(pos,new T.Vector3(0,1,0),true);
+    for(let a=0;a<Math.PI*2;a+=Math.PI/3){
+      spawnImpactVfx(pos.clone().add(new T.Vector3(Math.cos(a)*.45,0,Math.sin(a)*.45)),new T.Vector3(0,1,0),true);
+    }
+    try{
+      scene.traverse(node=>{
+        if(!node.visible||isPlayerHierarchy(node))return;
+        const target=node.userData?.rangeTarget?node:findUserData(node,'rangeTarget');
+        if(target&&target.userData){
+          const tPos=target.getWorldPosition(new T.Vector3());
+          const dist=tPos.distanceTo(pos);
+          if(dist<=6.0){
+            const dmg=Math.round(150*(1-dist/6.0));
+            if(typeof target.userData.onHit==='function'){
+              target.userData.onHit(dmg,{origin:pos.clone(),point:tPos.clone(),normal:new T.Vector3(0,1,0)});
+            }else if(typeof target.userData.health==='number'){
+              target.userData.health=Math.max(0,target.userData.health-dmg);
+              if(target.userData.health===0)target.visible=false;
+            }
+            nova.emit?.('targetHit',{target,damage:dmg,point:tPos,aoe:true});
+          }
+        }
+      });
+    }catch(_){}
+    camera.getWorldPosition(origin);
+    const pDist=origin.distanceTo(pos);
+    if(pDist<4.5)damage(Math.round(60*(1-pDist/4.5)));
+    nova.toast?.('💥 GRENADE DETONATED',1400,'#ffaa33');
+  }
+
   function damage(amount){
-    let n=Math.max(0,Number(amount)||0),absorbed=Math.min(shield,n);shield-=absorbed;n-=absorbed;health=Math.max(0,health-n);
-    lastDamage=1.25;if(!renderer?.xr?.isPresenting)damageOverlay.style.opacity='1';drawHud();
+    let n=Math.max(0,Number(amount)||0);
+    timeSinceDamage=0;
+    const prevShield=shield;
+    const absorbed=Math.min(shield,n);
+    shield-=absorbed;
+    n-=absorbed;
+    health=Math.max(0,health-n);
+    lastDamage=1.25;
+    if(!renderer?.xr?.isPresenting){
+      damageOverlay.style.background=absorbed>0?'radial-gradient(transparent 46%, rgba(0,220,255,.55) 100%)':'radial-gradient(transparent 46%, rgba(220,10,20,.60) 100%)';
+      damageOverlay.style.opacity='1';
+    }
+    if(prevShield>0&&shield<=0){
+      try{nova.sound?.beep?.(240,.18,'sawtooth');}catch(_){}
+      nova.toast?.('SHIELD DEPLETED',1400,'#ff4455');
+    }
+    drawHud();
     nova.emit?.('playerDamaged',{health,shield,amount});
     if(health===0){nova.toast?.('SUIT FAILURE · EVACUATING',1800,'#ff4359');requestExit('down');}
   }
@@ -503,18 +573,37 @@ export function init(nova) {
     if(document.pointerLockElement===renderer.domElement){pointerWasLocked=true;return;}
     if(active&&pointerWasLocked){pointerWasLocked=false;requestExit('keyboard');}
   }
+  function throwGrenadeForward(){
+    if(!active||grenadeState!=='holstered')return;
+    camera.getWorldPosition(camWorldPos);
+    camera.getWorldDirection(spawnDir);
+    grenadeGroup.position.copy(camWorldPos).addScaledVector(spawnDir,.4);
+    grenadeVel.copy(spawnDir).multiplyScalar(15).add(new T.Vector3(0,3.2,0));
+    grenadeState='thrown';
+    grenadeFuse=3.0;
+    grenadeGroup.visible=true;
+    try{if(nova.sound?.switchClick)nova.sound.switchClick();}catch(_){}
+    nova.toast?.('💥 GRENADE THROWN · 3s FUSE',1400,'#ffaa00');
+  }
+
   function keyDown(e){
     if(!active)return;down.add(e.code);
     if(!/^F\d+$/.test(e.code))e.stopImmediatePropagation();   // flight keys are disabled while on foot (F-keys still reach the browser)
     if(e.code==='Escape'){e.preventDefault();requestExit('keyboard');}
     else if(e.code==='Space'){e.preventDefault();fire();}
     else if(e.code==='KeyE'||e.code==='Enter'){e.preventDefault();interact();}
+    else if(e.code==='KeyG'){e.preventDefault();throwGrenadeForward();}
   }
   function keyUp(e){down.delete(e.code);}
   function tick(dt){
     if(!active)return;const d=Math.min(.05,Math.max(0,Number(dt)||0));
     lastDamage=Math.max(0,lastDamage-d);
     if(!lastDamage)damageOverlay.style.opacity='0';
+    timeSinceDamage+=d;
+    if(timeSinceDamage>3.5&&shield<maxShield){
+      const prevS=shield;shield=Math.min(maxShield,shield+d*25);
+      if(Math.floor(shield/5)!==Math.floor(prevS/5))drawHud();
+    }
     if(muzzleTimer>0){
       muzzleTimer=Math.max(0,muzzleTimer-d);
       if(muzzleTimer<=0){muzzleFlash.visible=false;muzzleRing.visible=false;}
@@ -678,10 +767,42 @@ export function init(nova) {
       if(leftPinch&&!leftPinchHeld){leftPinchTime=0;leftPinchUsed=false;}if(leftPinch)leftPinchTime+=d;
       if(leftPinch&&rightPinch){bothPinchTime+=d;if(bothPinchTime>=1.0&&!bothPinchExit){bothPinchExit=true;requestExit('hands');}}else{bothPinchTime=0;bothPinchExit=false;}
 
+      // Controller Teleport (push left stick forward steep la[1] < -0.72 or click left stick)
+      const ctrlTp=!leftIsHand&&((la[1]<-.72)||!!leftSource?.gamepad?.buttons?.[3]?.pressed);
+      if(ctrlTp&&leftController){
+        leftController.getWorldPosition(origin);
+        leftController.getWorldQuaternion(controllerQ);
+        direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+        const floorY=rig.position.y;
+        if(direction.y<-0.05){
+          const t=(floorY-origin.y)/direction.y;
+          if(t>0.2&&t<35){
+            const hitX=origin.x+direction.x*t,hitZ=origin.z+direction.z*t;
+            const b=options.bounds;
+            const cx=b?T.MathUtils.clamp(hitX,b[0],b[1]):hitX,cz=b?T.MathUtils.clamp(hitZ,b[2],b[3]):hitZ;
+            if(!blockedAt(cx,cz)){
+              tpHit.set(cx,floorY+.02,cz);
+              tpMarker.position.copy(tpHit);
+              tpMarker.visible=true;
+              tpValid=true;
+            }else{tpMarker.visible=false;tpValid=false;}
+          }else{tpMarker.visible=false;tpValid=false;}
+        }else{tpMarker.visible=false;tpValid=false;}
+      }
+      if(!ctrlTp&&ctrlTpHeld&&tpValid&&tpMarker.visible){
+        camera.getWorldPosition(origin);
+        const cDx=origin.x-rig.position.x,cDz=origin.z-rig.position.z;
+        rig.position.x=tpHit.x-cDx;
+        rig.position.z=tpHit.z-cDz;
+        try{nova.sound?.beep?.(1100,.06);}catch(_){}
+        tpMarker.visible=false;tpValid=false;
+      }
+      ctrlTpHeld=ctrlTp;
+
       // Left Pinch Floor Teleport: point downward at floor with left hand while pinching to target, release to teleport
       if(leftPinch&&!rightPinch&&leftIsHand&&leftIndexValid&&leftWristValid){
         const pDir=new T.Vector3().subVectors(leftIndex,leftWrist).normalize();
-        if(pDir.y<-0.10){
+        if(pDir.y<-0.06){
           origin.copy(leftIndex);
           const floorY=rig.position.y;
           const t=(floorY-origin.y)/pDir.y;
@@ -750,12 +871,109 @@ export function init(nova) {
       rig.rotation.set(0,yaw,0);camera.rotation.set(pitch,0,0,"YXZ");walk(x,z,d);
       if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('gamepad');padUseHeld=use;padExitHeld=leave;
     }
+
+    // ── Update Chest Grenade (Grab from left chest, throw, 3s fuse, explosion) ──
+    if(active){
+      camera.getWorldPosition(camWorldPos);
+      camera.getWorldQuaternion(controllerQ);
+      camRightVec.set(1,0,0).applyQuaternion(controllerQ);
+      camUpVec.set(0,1,0).applyQuaternion(controllerQ);
+      camera.getWorldDirection(spawnDir);
+
+      if(grenadeState==='holstered'){
+        // Mounted on left chest: 30cm below head, 16cm to left, 13cm forward
+        grenadeChestPos.copy(camWorldPos)
+          .addScaledVector(camUpVec,-.30)
+          .addScaledVector(camRightVec,-.16)
+          .addScaledVector(spawnDir,.13);
+        grenadeGroup.position.copy(grenadeChestPos);
+        grenadeGroup.quaternion.copy(controllerQ);
+        grenadeGroup.visible=true;
+        grenadeRingMat.color.setHex(0x00f0ff);
+
+        // Check if VR hand or controller reaches near left chest to grab grenade
+        if(session){
+          let rightGrab=false,leftGrab=false;
+          if(rightGrip||rightController||(rightHandAnchor&&rightAnchorState.ready)){
+            const rhPos=(rightHandAnchor&&rightAnchorState.ready)?rightHandAnchor.position:(rightGrip||rightController).position;
+            if(rhPos&&rhPos.distanceTo(grenadeChestPos)<.24){
+              const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>.6)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
+              if(rSqueeze||(rightIsHand&&rightPinch)){rightGrab=true;}
+            }
+          }
+          if(leftGrip||leftController||(leftHandAnchor&&leftAnchorState.ready)){
+            const lhPos=(leftHandAnchor&&leftAnchorState.ready)?leftHandAnchor.position:(leftGrip||leftController).position;
+            if(lhPos&&lhPos.distanceTo(grenadeChestPos)<.24){
+              const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>.6)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
+              if(lSqueeze||(leftIsHand&&leftPinch)){leftGrab=true;}
+            }
+          }
+          if(rightGrab){
+            grenadeState='held_right';grenadeFuse=3.0;
+            try{nova.sound?.switchClick?.();}catch(_){}
+            nova.toast?.('💣 GRENADE ARMED · 3s FUSE',1600,'#ffaa00');
+          }else if(leftGrab){
+            grenadeState='held_left';grenadeFuse=3.0;
+            try{nova.sound?.switchClick?.();}catch(_){}
+            nova.toast?.('💣 GRENADE ARMED · 3s FUSE',1600,'#ffaa00');
+          }
+        }
+      }else if(grenadeState==='held_right'||grenadeState==='held_left'){
+        const isR=grenadeState==='held_right';
+        const holder=isR?(rightHandAnchor&&rightAnchorState.ready?rightHandAnchor:(rightGrip||rightController||camera)):(leftHandAnchor&&leftAnchorState.ready?leftHandAnchor:(leftGrip||leftController||camera));
+        holder.getWorldPosition(grenadeTempPos);
+        grenadeGroup.position.copy(grenadeTempPos);
+        grenadeGroup.visible=true;
+        grenadeFuse-=d;
+        const blink=(Math.sin(performance.now()*.02)>0);
+        grenadeRingMat.color.setHex(blink?0xff2200:0xffaa00);
+        if(grenadeFuse<=0){explodeGrenade(grenadeGroup.position.clone());}
+        else{
+          let releasing=false;
+          if(isR){
+            const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>.4)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
+            if(!rSqueeze&&(!rightIsHand||!rightPinch))releasing=true;
+          }else{
+            const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>.4)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
+            if(!lSqueeze&&(!leftIsHand||!leftPinch))releasing=true;
+          }
+          if(releasing){
+            camera.getWorldDirection(spawnDir);
+            grenadeVel.copy(spawnDir).multiplyScalar(15).add(new T.Vector3(0,3.2,0));
+            grenadeState='thrown';
+            try{nova.sound?.laser?.();}catch(_){}
+            nova.toast?.('💥 GRENADE OUT!',1200,'#ff9933');
+          }
+        }
+      }else if(grenadeState==='thrown'){
+        grenadeGroup.position.addScaledVector(grenadeVel,d);
+        grenadeVel.y-=9.8*d;grenadeVel.multiplyScalar(.992);
+        const floorY=rig.position.y;
+        if(grenadeGroup.position.y<=floorY+.04){
+          grenadeGroup.position.y=floorY+.04;
+          grenadeVel.y=-grenadeVel.y*.42;grenadeVel.x*=.65;grenadeVel.z*=.65;
+        }
+        grenadeGroup.rotation.x+=7*d;grenadeGroup.rotation.z+=5*d;
+        grenadeFuse-=d;
+        const rate=(3-grenadeFuse)*.025+.015;
+        const blink=(Math.sin(performance.now()*rate)>0);
+        grenadeRingMat.color.setHex(blink?0xff1100:0xffaa00);
+        if(grenadeFuse<=0){explodeGrenade(grenadeGroup.position.clone());}
+      }else if(grenadeState==='cooldown'){
+        grenadeCooldown-=d;
+        if(grenadeCooldown<=0){
+          grenadeState='holstered';grenadeGroup.visible=true;grenadeRingMat.color.setHex(0x00f0ff);
+          try{nova.sound?.beep?.(980,.05);}catch(_){}
+        }
+      }
+    }
+
     // Update dynamic 3D crosshair at the point where the gun will hit
     if(active&&weaponOn){
       const hits=aimRay();
       let hitDist=22,targetLocked=false;
       for(const hit of hits){
-        if(findUserData(hit.object,'rangeTarget')){
+        if(findUserData(hit.object,'rangeTarget')||findUserData(hit.object,'enemy')||findUserData(hit.object,'fpsEnemy')||findUserData(hit.object,'nfUnit')){
           hitDist=Math.max(.2,hit.distance);targetLocked=true;break;
         }
         if(isOccluder(hit.object)){
@@ -774,6 +992,11 @@ export function init(nova) {
         chTickMat.color.setHex(col);
       }
       crosshairGroup.visible=true;
+
+      // Auto-fire bullet at weapon fire rate when crosshair is locked onto an enemy
+      if(targetLocked&&weaponOn&&!leftFist&&!tpMarker.visible&&!bothPinchExit&&grenadeState!=='held_right'){
+        fire();
+      }
     }else{
       crosshairGroup.visible=false;
     }
@@ -782,7 +1005,7 @@ export function init(nova) {
 
   function enable(next={}){
     if(active){options={...options,...next};drawHud();return true;}
-    options=next||{};active=true;exiting=false;weaponOn=true;health=100;shield=25;lastDamage=0;
+    options=next||{};active=true;exiting=false;weaponOn=true;health=100;shield=100;maxShield=100;lastDamage=0;timeSinceDamage=0;grenadeState='holstered';grenadeFuse=3.0;grenadeCooldown=0;
     yaw=rig.rotation.y;pitch=camera.rotation.x;hud.visible=true;pistol.visible=true;
     rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;
     leftPinchHeld=rightPinchHeld=leftPinchUsed=bothPinchExit=false;leftPinchTime=bothPinchTime=0;
@@ -801,7 +1024,7 @@ export function init(nova) {
         b.style.cssText=`width:${size}px;height:${size}px;border-radius:50%;border:3px solid ${col};background:rgba(4,18,28,.72);color:${col};font:inherit;cursor:pointer;box-shadow:0 0 18px ${col}55`;
         let rep=null;const start=e=>{e.preventDefault();e.stopPropagation();fn();if(label==='FIRE'){clearInterval(rep);rep=setInterval(fn,180);}};const stop=()=>{clearInterval(rep);rep=null;};
         b.addEventListener('pointerdown',start);b.addEventListener('pointerup',stop);b.addEventListener('pointerleave',stop);b.addEventListener('pointercancel',stop);btnBar.appendChild(b);return b;};
-      mk('EXIT','#ff6b7d',64,()=>requestExit('button'));mk('USE','#ffd166',78,()=>interact());mk('FIRE','#00e5ff',118,()=>fire());
+      mk('EXIT','#ff6b7d',64,()=>requestExit('button'));mk('USE','#ffd166',78,()=>interact());mk('GRENADE','#ff9933',78,()=>throwGrenadeForward());mk('FIRE','#00e5ff',118,()=>fire());
       document.body.appendChild(btnBar);
     }
     if(btnBar)btnBar.style.display=on&&!renderer?.xr?.isPresenting?'flex':'none';
@@ -809,7 +1032,7 @@ export function init(nova) {
   function preventMenu(e){if(active)e.preventDefault();}
   function disable(){
     if(!active)return false;active=false;down.clear();pistol.visible=false;hud.visible=false;damageOverlay.style.opacity='0';
-    leftGlove.visible=false;rightGlove.visible=false;crosshairGroup.visible=false;
+    leftGlove.visible=false;rightGlove.visible=false;crosshairGroup.visible=false;grenadeGroup.visible=false;grenadeState='holstered';
     if(tpMarker)tpMarker.visible=false;tpValid=false;
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
     window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
@@ -826,9 +1049,10 @@ export function init(nova) {
   const state=()=>({active,mode:options.mode||null,weaponOn,health,shield,input:session?{left:leftIsHand?'hand':leftController?'controller':'none',right:rightIsHand?'hand':rightController?'controller':'none'}:{left:'desktop',right:'desktop'},colliders:(options.colliders||[]).length,position:rig.position.toArray()});
   window.novaTest=window.novaTest||{};window.novaTest.fpsState=state;
   window.novaTest.setGunHandRotation=(yawDeg=90,pitchDeg=0,rollDeg=0)=>{handGunYaw=yawDeg*Math.PI/180;handGunPitch=pitchDeg*Math.PI/180;handGunRoll=rollDeg*Math.PI/180;if(pistol.parent===rightHandAnchor)pistol.rotation.set(handGunPitch,handGunYaw,handGunRoll);};
-  return{ready:true,enable,disable,fire,interact,damage,state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
+  return{ready:true,enable,disable,fire,interact,damage,throwGrenade:throwGrenadeForward,state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
     disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(projRoot);scene.remove(vfxRoot);damageOverlay.remove();
     scene.remove(leftGlove);scene.remove(rightGlove);scene.remove(leftHandAnchor);scene.remove(rightHandAnchor);
+    scene.remove(grenadeGroup);grenadeBodyGeo.dispose();grenadeBodyMat.dispose();grenadeCapGeo.dispose();grenadeRingGeo.dispose();grenadeRingMat.dispose();grenadePinGeo.dispose();grenadePinMat.dispose();
     scene.remove(crosshairGroup);chRingGeo.dispose();chRingMat.dispose();chDotGeo.dispose();chDotMat.dispose();chTickGeo.dispose();chTickMat.dispose();
     if(tpMarker){scene.remove(tpMarker);tpRing.geometry?.dispose?.();tpRing.material?.dispose?.();tpBeam.geometry?.dispose?.();tpBeam.material?.dispose?.();tpDot.geometry?.dispose?.();tpDot.material?.dispose?.();}
     leftGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
