@@ -602,12 +602,23 @@
   <meta name="theme-color" content="#00e5ff">
   <link rel="icon" href="./art/icon_192.png">
   <script>
-    // offline play: cache the game the first time it loads (needs https or localhost)
+    // Offline play on production / GitHub Pages; bypass & clear cache entirely during local dev & testing
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(e => console.warn('[NOVA] offline cache unavailable', e)));
-      // a new game version took over: reload once so the new code runs instead of the old cached copy
-      let novaSwReloaded = false;
-      if (navigator.serviceWorker.controller) navigator.serviceWorker.addEventListener('controllerchange', () => { if (!novaSwReloaded) { novaSwReloaded = true; location.reload(); } });
+      const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '';
+      if (isLocalDev) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          for (const reg of regs) reg.unregister();
+        }).catch(() => {});
+        if ('caches' in window) {
+          caches.keys().then(keys => {
+            for (const k of keys) caches.delete(k);
+          }).catch(() => {});
+        }
+      } else {
+        window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(e => console.warn('[NOVA] offline cache unavailable', e)));
+        let novaSwReloaded = false;
+        if (navigator.serviceWorker.controller) navigator.serviceWorker.addEventListener('controllerchange', () => { if (!novaSwReloaded) { novaSwReloaded = true; location.reload(); } });
+      }
     }
   </script>
 </head>
