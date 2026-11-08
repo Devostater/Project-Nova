@@ -31,4 +31,5 @@ optimize_log.txt
 # generated from standalone.html by tools/sync_html.mjs (edit standalone.html only)
 /index.html
 /public/standalone.html
+/video/
 

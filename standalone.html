@@ -338,6 +338,41 @@
     window.novaOpenGitHubModal = function() {
       window.novaMenuView('github');
     };
+    window.novaWatchVideo = async function(name) {
+      var modal = document.getElementById('modal-overlay');
+      var wasVisible = modal && modal.style.display !== 'none';
+      if (modal) modal.style.display = 'none';
+
+      // Silence all game audio immediately so zero game sounds are heard
+      try {
+        if (window.sound && window.sound.ctx && window.sound.ctx.state === 'running') {
+          window.sound.ctx.suspend();
+        }
+      } catch (_) {}
+
+      try {
+        var c = window.novaCine || (window.nova?.modules?.get ? window.nova.modules.get('cinematics.js') : null);
+        if (!c && window.novaModulesReady) {
+          var mods = await window.novaModulesReady;
+          c = mods?.get?.('cinematics.js');
+        }
+        if (c && c.play) {
+          await c.play(name, { fromMenu: true });
+        } else {
+          if (typeof window.showToast === 'function') window.showToast('Loading cinematic player...', 2000, '#00f0ff');
+        }
+      } catch (err) {
+        console.error('[novaWatchVideo]', err);
+      } finally {
+        // ALWAYS return cleanly to the main menu without spawning into the game
+        if (wasVisible && modal) {
+          modal.style.display = 'flex';
+          if (typeof window.novaMenuView === 'function') window.novaMenuView('main');
+        }
+      }
+    };
+    window.novaPlayIntro = function(e) { if (e && e.stopPropagation) e.stopPropagation(); return window.novaWatchVideo('intro'); };
+    window.novaPlayEpilogue = function(e) { if (e && e.stopPropagation) e.stopPropagation(); return window.novaWatchVideo('epilogue'); };
     window.novaPlay = function() {
       var mode = window.novaDevice.detectedMode || '2D';
       if (mode === 'MR') {
@@ -648,8 +683,8 @@
       <!-- Clean, focused Main Menu -->
       <div id="menu-main">
         <button class="modal-btn btn-2d" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
-        <button class="modal-btn" id="btn-intro" style="border-color: #ffd24d; color: #ffe680; background: rgba(255, 210, 77, 0.15);" onclick="if(window.novaPlayIntro) window.novaPlayIntro(event); else window.novaPlay(); event.stopPropagation();">&#9654; PLAY INTRO</button>
-        <button class="modal-btn" id="btn-epilogue" style="border-color: #ff9933; color: #ffcc66; background: rgba(255, 153, 51, 0.15);" onclick="if(window.novaPlayEpilogue) window.novaPlayEpilogue(event); event.stopPropagation();">&#9654; PLAY EPILOGUE</button>
+        <button class="modal-btn" id="btn-intro" style="border-color: #ffd24d; color: #ffe680; background: rgba(255, 210, 77, 0.15);" onclick="window.novaWatchVideo('intro'); event.stopPropagation();">&#9654; PLAY INTRO</button>
+        <button class="modal-btn" id="btn-epilogue" style="border-color: #ff9933; color: #ffcc66; background: rgba(255, 153, 51, 0.15);" onclick="window.novaWatchVideo('epilogue'); event.stopPropagation();">&#9654; PLAY EPILOGUE</button>
         <button class="modal-btn" id="btn-range" style="border-color: #ff3377; color: #ff88aa; background: rgba(255, 51, 119, 0.15);" onclick="if(window.novaStartRange) window.novaStartRange(event); event.stopPropagation();">&#127919; FIRING RANGE</button>
         <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS &amp; MODES</button>
         <button class="modal-btn" id="btn-exit" style="border-color:#885566;color:#cc8899;background:rgba(120,30,50,0.15);" onclick="window.novaExit(); event.stopPropagation();">&#10006; EXIT</button>
@@ -932,7 +967,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
       }
       beep(freq = 880, dur = 0.08, type = 'sine') {
-        if (!this.ctx) return;
+        if (!this.ctx || window.novaCinematicPlaying) return;
         try {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
@@ -947,7 +982,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch (e) {}
       }
       lockTone() {
-        if (!this.ctx) return;
+        if (!this.ctx || window.novaCinematicPlaying) return;
         try {
           const t0 = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
@@ -11206,6 +11241,10 @@ const GAME_VERSION = 'Alpha 1.4';
       const now = performance.now();
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
+      if (window.novaCinematicPlaying) {
+        try { renderer.render(scene, camera); } catch (_) {}
+        return;
+      }
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
       if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) {
         novaCruiseStop('INTERIOR');
@@ -21497,49 +21536,15 @@ const GAME_VERSION = 'Alpha 1.4';
     };
     window.novaAfterLaunch = novaAfterLaunch;
 
-    window.novaPlayIntro = async function (e) {
+    window.novaCine = novaCine;
+    window.novaPlayIntro = function (e) {
       if (e && e.stopPropagation) e.stopPropagation();
-      let played = false;
-      try {
-        const c = novaCine || (window.nova?.modules?.get ? window.nova.modules.get('cinematics.js') : null);
-        if (c && c.play) played = await c.play('intro');
-      } catch (er) { }
-      if (!played) {
-        try {
-          if (typeof nkIntroStart === 'function') {
-            window.dismissModal();
-            nkIntroStart(true);
-            played = true;
-          }
-        } catch (er) { }
-      }
-      if (!played && typeof showToast === 'function') {
-        showToast('Intro video not found (public/video/intro.mp4)', 2500, '#ff8866');
-      } else {
-        try { localStorage.setItem('novaIntroSeen', '1'); } catch (er) { }
-      }
-      window.novaPlay();
+      return window.novaWatchVideo('intro');
     };
 
-    window.novaPlayEpilogue = async function (e) {
+    window.novaPlayEpilogue = function (e) {
       if (e && e.stopPropagation) e.stopPropagation();
-      let played = false;
-      try {
-        const c = novaCine || (window.nova?.modules?.get ? window.nova.modules.get('cinematics.js') : null);
-        if (c && c.play) played = await c.play('epilogue');
-      } catch (er) { }
-      if (!played) {
-        try {
-          if (typeof window.novaPlayEnding === 'function') {
-            window.dismissModal();
-            window.novaPlayEnding();
-            played = true;
-          }
-        } catch (er) { }
-      }
-      if (!played && typeof showToast === 'function') {
-        showToast('Epilogue video not found (public/video/epilogue.mp4)', 2500, '#ff8866');
-      }
+      return window.novaWatchVideo('epilogue');
     };
 
     window.novaStartRange = function (e) {
