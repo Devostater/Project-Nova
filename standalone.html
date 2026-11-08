@@ -5809,13 +5809,13 @@ const GAME_VERSION = 'Alpha 1.4';
 
 
     // ── Cantina rebuild (owner, 2026-11-07): new room from the owner's panel-wall and grate-floor textures; old procedural room removed ──
-    const NCAN = { room: new THREE.Group() };
+    const NCAN = { room: new THREE.Group(), floor: null };
     (function novaCantinaRoom() {
       const TL = new THREE.TextureLoader(), an = renderer.capabilities.getMaxAnisotropy();
       const T = (f, rx, ry) => { const t = TL.load(f); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = an; return t; };
       const S = 36, H = 6.5, R = NCAN.room; R.name = 'CANTINA_ROOM'; cantinaGroup.add(R);
       const floorM = new THREE.MeshStandardMaterial({ map: T('art/textures/tex_cantina_floor.jpg', 12, 6.5), roughness: 0.55, metalness: 0.75 });
-      const floor = new THREE.Mesh(new THREE.PlaneGeometry(S, S), floorM); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; R.add(floor);
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(S, S), floorM); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; R.add(floor); NCAN.floor = floor;
       const wallM = () => new THREE.MeshStandardMaterial({ map: T('art/textures/tex_cantina_wall.jpg', S / (H * 1.79), 1), roughness: 0.5, metalness: 0.7 });
       const wall = (w, x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, H), wallM()); m.material.map.repeat.set(w / (H * 1.79), 1); m.position.set(x, H / 2, z); m.rotation.y = ry; m.receiveShadow = true; R.add(m); return m; };
       wall(S, 0, -S / 2, 0); wall(S, -S / 2, 0, Math.PI / 2); wall(S, S / 2, 0, -Math.PI / 2);
@@ -5844,7 +5844,8 @@ const GAME_VERSION = 'Alpha 1.4';
       try {
         [cantinaFloorMesh, cantinaCeilingMesh, cantinaWallsGroup, cantinaFloorBorder, barBannerMesh].forEach(o => { if (o) o.visible = false; });
         const mr = window.isPassthroughActive || (renderer.xr.isPresenting && window.xrSessionType === 'immersive-ar');
-        NCAN.room.visible = !mr;
+        NCAN.room.visible = true;
+        NCAN.room.traverse(o => { if (o.isMesh) o.visible = !mr || o === NCAN.floor; });
       } catch (e) { }
     }
     { const _ec = enterCantina; enterCantina = function () { const r = _ec.apply(this, arguments); novaCantinaRoomSync(); try { NCAN.stationWas = stationGroup.visible; stationGroup.visible = false; } catch (e) { } return r; }; }   // the station hull cuts through the room
@@ -7124,6 +7125,10 @@ const GAME_VERSION = 'Alpha 1.4';
 
     const handMeshes1 = [];
     const handMeshes2 = [];
+    const novaTrackedHandFilter = {
+      left: { ready: false, wrist: new THREE.Vector3(), tip: new THREE.Vector3(), thumb: new THREE.Vector3() },
+      right: { ready: false, wrist: new THREE.Vector3(), tip: new THREE.Vector3(), thumb: new THREE.Vector3() }
+    };
     for (let i = 0; i < 25; i++) {
       const isTip = [4, 9, 14, 19, 24].includes(i);
       const m1 = new THREE.Mesh(isTip ? tipGeo : jointGeo, isTip ? tipMat : jMat);
@@ -7510,6 +7515,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (typeof nebulaPoints !== "undefined") nebulaPoints.visible = true;
         showToast('🌌 Immersive VR Space Active!', 2500, '#00f0ff');
       }
+      window.isPassthroughActive = passthroughActive;
       drawHUD();
       drawDebugWatch();
     }
@@ -8299,6 +8305,7 @@ const GAME_VERSION = 'Alpha 1.4';
         novaBindXRInputSession(session);
         session.addEventListener('end', () => {
           isStartingXR = false;
+          window.xrSessionType = null;
           togglePassthrough(false);
           const m = document.getElementById('modal-overlay');
           if (m) m.style.display = 'flex';
@@ -8306,6 +8313,7 @@ const GAME_VERSION = 'Alpha 1.4';
         });
         renderer.xr.setReferenceSpaceType('local-floor');
         await renderer.xr.setSession(session);
+        window.xrSessionType = sessionMode;
         togglePassthrough(passthrough);
         dismissModal();
         recenterPilotView();
@@ -8317,11 +8325,13 @@ const GAME_VERSION = 'Alpha 1.4';
           novaBindXRInputSession(fallback);
           fallback.addEventListener('end', () => {
             isStartingXR = false;
+            window.xrSessionType = null;
             togglePassthrough(false);
             const m = document.getElementById('modal-overlay');
             if (m) m.style.display = 'flex';
           });
           await renderer.xr.setSession(fallback);
+          window.xrSessionType = sessionMode;
           togglePassthrough(passthrough);
           dismissModal();
           recenterPilotView();
@@ -8335,11 +8345,13 @@ const GAME_VERSION = 'Alpha 1.4';
             novaBindXRInputSession(arFallback);
             arFallback.addEventListener('end', () => {
               isStartingXR = false;
+              window.xrSessionType = null;
               togglePassthrough(false);
               const m = document.getElementById('modal-overlay');
               if (m) m.style.display = 'flex';
             });
             await renderer.xr.setSession(arFallback);
+            window.xrSessionType = 'immersive-ar';
             togglePassthrough(passthrough);
             dismissModal();
             recenterPilotView();
@@ -11409,9 +11421,9 @@ const GAME_VERSION = 'Alpha 1.4';
           const middleKnuckle = joints['middle-finger-metacarpal'] || joints['middle-finger-phalanx-proximal'];
           if (!wrist || !wrist.position || !tip || !tip.position) return;
 
-          const wristWorld = new THREE.Vector3();
+          let wristWorld = new THREE.Vector3();
           wrist.getWorldPosition(wristWorld);
-          const tipWorld = new THREE.Vector3();
+          let tipWorld = new THREE.Vector3();
           tip.getWorldPosition(tipWorld);
 
           // Deterministic Per-Hand Resolution:
@@ -11431,6 +11443,14 @@ const GAME_VERSION = 'Alpha 1.4';
 
           const meshes = isLeftHand ? handMeshes1 : handMeshes2;
           const bones = isLeftHand ? boneMeshes1 : boneMeshes2;
+          const filter = novaTrackedHandFilter[isLeftHand ? 'left' : 'right'];
+          const thumbRaw = new THREE.Vector3();
+          if (thumbTip && thumbTip.position) thumbTip.getWorldPosition(thumbRaw);
+          const trackingJump = !filter.ready || filter.wrist.distanceTo(wristWorld) > 0.20 || filter.tip.distanceTo(tipWorld) > 0.20;
+          const handAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * 20);
+          if (trackingJump) { filter.wrist.copy(wristWorld); filter.tip.copy(tipWorld); if (thumbTip && thumbTip.position) filter.thumb.copy(thumbRaw); filter.ready = true; }
+          else { filter.wrist.lerp(wristWorld, handAlpha); filter.tip.lerp(tipWorld, handAlpha); if (thumbTip && thumbTip.position) filter.thumb.lerp(thumbRaw, handAlpha); }
+          wristWorld = filter.wrist.clone(); tipWorld = filter.tip.clone();
 
           if (isLeftHand) isLeftHandTracked = true;
           else isRightHandTracked = true;
@@ -11438,8 +11458,7 @@ const GAME_VERSION = 'Alpha 1.4';
           // Pinch detection
           let isPinching = false;
           if (thumbTip && thumbTip.position) {
-            const thumbWorld = new THREE.Vector3();
-            thumbTip.getWorldPosition(thumbWorld);
+            const thumbWorld = filter.thumb;
             isPinching = tipWorld.distanceTo(thumbWorld) < 0.055;
           }
 
@@ -11450,11 +11469,11 @@ const GAME_VERSION = 'Alpha 1.4';
             const j = joints[jName];
             const m = meshes[jIdx];
             if (j && j.visible !== false) {
-              m.visible = true;
+              const wasVisible = m.visible; m.visible = true;
               const jp = new THREE.Vector3();
               j.getWorldPosition(jp);
               cameraRig.worldToLocal(jp);
-              m.position.copy(jp);
+              if (!wasVisible || m.position.distanceTo(jp) > 0.18) m.position.copy(jp); else m.position.lerp(jp, handAlpha);
             } else {
               m.visible = false;
             }
@@ -11478,7 +11497,8 @@ const GAME_VERSION = 'Alpha 1.4';
           if (isLeftHand) {
             // Anchor tactile beacon puck to the left wrist joint
             if (wristBeaconGroup) {
-              wristBeaconGroup.position.copy(cameraRig.worldToLocal(wristWorld.clone()));
+              const beaconTarget = cameraRig.worldToLocal(wristWorld.clone());
+              if (!wristBeaconGroup.visible || wristBeaconGroup.position.distanceTo(beaconTarget) > 0.18) wristBeaconGroup.position.copy(beaconTarget); else wristBeaconGroup.position.lerp(beaconTarget, handAlpha);
               wristBeaconGroup.visible = true;
             }
 
@@ -11841,6 +11861,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
         // Hide untracked optical hand meshes
         if (!isLeftHandTracked) {
+          novaTrackedHandFilter.left.ready = false;
           handMeshes1.forEach(m => m.visible = false);
           boneMeshes1.forEach(b => b.visible = false);
           isGrippingThrottleHand = false;
@@ -11856,6 +11877,7 @@ const GAME_VERSION = 'Alpha 1.4';
           }
         }
         if (!isRightHandTracked) {
+          novaTrackedHandFilter.right.ready = false;
           handMeshes2.forEach(m => m.visible = false);
           boneMeshes2.forEach(b => b.visible = false);
           isGrippingStickHand = false;
@@ -12328,6 +12350,7 @@ const GAME_VERSION = 'Alpha 1.4';
       button.position.x = (i - 0.5) * 0.065; novaTurnUI.add(button); return button;
     });
     let novaTurnTouch = -1, novaTurnSince = 0, novaTurnDirection = 0, novaTurnLatched = false, novaTurnLast = -Infinity;
+    let novaTurnPoseReady = false, novaTurnPinchTouch = -1, novaTurnPinchSince = 0, novaTurnPinchLatched = false;
     function novaHandTurnFrame(frame, now) {
       novaTurnUI.visible = false;
       const session = renderer.xr.getSession();
@@ -12341,35 +12364,38 @@ const GAME_VERSION = 'Alpha 1.4';
         return pose ? new THREE.Vector3().copy(pose.transform.position) : null;
       };
       if (!frame || !ref || !left || blocked) {
-        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; return;
+        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; novaTurnPoseReady = false; novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false; return;
       }
       const wrist = joint(left, 'wrist'), index = joint(left, 'index-finger-tip'), thumb = joint(left, 'thumb-tip');
       const knuckle = joint(left, 'index-finger-metacarpal'), pinky = joint(left, 'pinky-finger-metacarpal');
       if (!wrist || !index || !thumb || !knuckle || !pinky) {
-        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; return;
+        novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; novaTurnPoseReady = false; novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false; return;
       }
-      novaTurnUI.position.copy(wrist).add(new THREE.Vector3(0, 0.09, 0));
-      novaTurnUI.quaternion.copy(camera.quaternion);
+      const turnTarget = wrist.clone().add(new THREE.Vector3(0, 0.09, 0));
+      if (!novaTurnPoseReady || novaTurnUI.position.distanceTo(turnTarget) > 0.18) { novaTurnUI.position.copy(turnTarget); novaTurnUI.quaternion.copy(camera.quaternion); novaTurnPoseReady = true; }
+      else { novaTurnUI.position.lerp(turnTarget, 0.18); novaTurnUI.quaternion.slerp(camera.quaternion, 0.18); }
       novaTurnUI.visible = true;
       novaTurnUI.updateWorldMatrix(true, true);
       const otherTip = joint(right, 'index-finger-tip');
       let touch = -1;
       if (otherTip) {
         const local = novaTurnUI.worldToLocal(cameraRig.localToWorld(otherTip.clone()));
-        touch = novaTurnButtons.findIndex(b => Math.abs(local.x - b.position.x) < 0.027 && Math.abs(local.y) < 0.027 && Math.abs(local.z) < 0.025);
+        touch = novaTurnButtons.findIndex(b => Math.abs(local.x - b.position.x) < 0.021 && Math.abs(local.y) < 0.021 && Math.abs(local.z) < 0.018);
       }
       const palm = new THREE.Vector3().crossVectors(knuckle.clone().sub(wrist), pinky.clone().sub(wrist)).normalize();
-      const direction = index.distanceTo(thumb) < 0.03 && Math.abs(palm.x) > 0.75 ? (palm.x > 0 ? 1 : -1) : 0;
+      const direction = index.distanceTo(thumb) < 0.024 && Math.abs(palm.x) > 0.88 ? (palm.x > 0 ? 1 : -1) : 0;
       if (!direction) { novaTurnSince = 0; novaTurnLatched = false; }
       else if (direction !== novaTurnDirection) novaTurnSince = now;
-      const gesture = direction && !novaTurnLatched && now - novaTurnSince >= 350;
+      const gesture = direction && !novaTurnLatched && now - novaTurnSince >= 650;
       const otherThumb = joint(right, 'thumb-tip');
       const deliberatePinch = otherTip && otherThumb && otherTip.distanceTo(otherThumb) < 0.028;
-      const pressL = novaDeliberatePress('turn-L', touch === 0, deliberatePinch, now);
-      const pressR = novaDeliberatePress('turn-R', touch === 1, deliberatePinch, now);
-      const tap = pressL || pressR;
-      if ((tap || gesture) && now - novaTurnLast > 650) {
-        const sign = tap ? (touch === 0 ? 1 : -1) : direction;
+      let tapSign = 0;
+      if (touch >= 0 && deliberatePinch) {
+        if (touch !== novaTurnPinchTouch) { novaTurnPinchTouch = touch; novaTurnPinchSince = now; novaTurnPinchLatched = false; }
+        if (!novaTurnPinchLatched && now - novaTurnPinchSince >= 350) { novaTurnPinchLatched = true; tapSign = touch === 0 ? 1 : -1; }
+      } else if (!deliberatePinch) { novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false; }
+      if ((tapSign || gesture) && now - novaTurnLast > 900) {
+        const sign = tapSign || direction;
         const headBefore = camera.position.clone().applyQuaternion(cameraRig.quaternion);
         cameraRig.rotateY(sign * Math.PI / 6);
         const headAfter = camera.position.clone().applyQuaternion(cameraRig.quaternion);
@@ -15902,7 +15928,7 @@ const GAME_VERSION = 'Alpha 1.4';
       (window.commsChatLog || []).slice(-8).forEach(it => { const words = (it.s + ': ' + it.m).split(' '); let line = ''; words.forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > W && line) { out.push([line, it.c]); line = w; } else line = t; }); if (line) out.push([line, it.c]); });
       out.slice(-n).forEach(([t, c], i) => { x.fillStyle = c || '#cfefff'; x.fillText(t, X, Y + i * 23); });
     }
-    const NP_TAB_ICON = { COMMS: '\u25C9', CHAT: '\u2709', CREW: '\u2665', FLIGHT: '\u2708', OBJECTIVE: '\u25CE', WARP: '\u27A4', COMBAT: '\u2316', CARGO: '\u25A6', MARKET: '\u25A6', SYSTEM: '\u2699', 'SYSTEM / OPTIONS': '\u2699', MUSIC: '\u266B' };
+    const NP_TAB_ICON = { COMMS: '\u25C9', CHAT: '\u2709', CREW: '\u2665', NEWS: '\u25A4', FLIGHT: '\u2708', OBJECTIVE: '\u25CE', WARP: '\u27A4', COMBAT: '\u2316', CARGO: '\u25A6', MARKET: '\u25A6', SYSTEM: '\u2699', 'SYSTEM / OPTIONS': '\u2699', MUSIC: '\u266B' };
     function npDraw(P) {
       const x = P.cv.getContext('2d'), cfg = P.cfg, T = cfg.tabs[P.tab];
       x.setTransform(1, 0, 0, 1, 0, 0);
@@ -15998,6 +16024,78 @@ const GAME_VERSION = 'Alpha 1.4';
           x.fillStyle = b[3] ? b[2] : 'rgba(255,255,255,0.055)'; x.fillRect(X, Y, 280, 104); x.strokeStyle = b[2]; x.lineWidth = 4; x.strokeRect(X, Y, 280, 104);
           x.textAlign = 'center'; npText(x, b[0], X + 140, Y + 43, 'bold 25px monospace', b[3] ? '#021019' : b[2], 250); npText(x, b[1], X + 140, Y + 76, 'bold 18px monospace', b[3] ? '#021019' : '#9fc3d8', 250); x.textAlign = 'left';
         });
+      } };
+    // NOVA NET: live in-universe headlines assembled from state that already exists in the simulation.
+    // Urgent stories can route the pilot toward the event before its normal game consequence fires.
+    const NNEWS = { i: 0, read: new Set(), lastId: '' };
+    function nnewsLock(name, obj, type, hostile) {
+      if (!obj) { showToast('That contact is no longer on sensors.', 1800, '#88aacc'); return; }
+      try {
+        const c = nmContactList(12000 * NOVA_WORLD_SCALE, true).find(q => q.obj === obj);
+        if (c) novaHoloSelect(c);
+        else { currentLockedTarget = { name, type, targetObj: obj, isHostile: !!hostile, dist: obj.position.distanceTo(shipGroup.position) }; drawRightDash(); drawCommsPanel(); }
+        showToast('NOVA NET TRACKING: ' + name, 2200, hostile ? '#ff4455' : '#00e5ff');
+      } catch (e) { console.warn('[NOVA NET] track', e); }
+    }
+    function nnewsItems() {
+      const out = [], add = q => out.push(q);
+      const fr = (typeof cargoFreighters !== 'undefined' && cargoFreighters) ? cargoFreighters[0] : null;
+      if (novaMayday && fr) add({ id: 'mayday', tag: 'BREAKING · ' + Math.max(0, Math.ceil(novaMayday.t)) + ' S', c: '#ff4455',
+        title: 'FREIGHTER MAYDAY ON LOCAL BAND', deck: 'Starlifter-7 reports a stalled reactor and requests immediate assistance.',
+        body: ['Pilots must approach within 400 m before the emergency window closes.', 'Failure to respond will damage convoy trust.'], action: 'TRACK', fn: () => nnewsLock('STARLIFTER-7', fr, 'freighter', false) });
+      if (pirateBoss && !isPirateDefeated && pirateBoss.visible) add({ id: 'pirate-alert', tag: 'SECURITY ALERT', c: '#ff3344',
+        title: 'CORSAIR CONTACT DISRUPTS LOCAL TRAFFIC', deck: 'Nova-1 Control advises civilian ships to clear the active combat lane.',
+        body: [`Pirate standing: ${Math.round(novaPirRep)} / 100.`, 'The hostile contact can jam nearby warp traffic.'], action: 'TRACK', fn: () => nnewsLock('CORSAIR RAIDER', pirateBoss, 'hostile', true) });
+      try { const m = ncrMission(); if (m && m.active) add({ id: 'cold-run', tag: 'DEEP SPACE', c: '#66e6ff', title: 'COLD RUN SIGNAL REMAINS ACTIVE',
+        deck: String(m.currentObjective || 'A cold-region operation is underway.'), body: ['Heat and fusion cores remain the most valuable cargo in the cooling system.', `Mission step ${m.progress.cursor + 1} of ${m.progress.total + 1}.`],
+        action: 'OBJECTIVE', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } }); } catch (e) { }
+      if (novaContract) add({ id: 'contract-' + novaContract.id, tag: 'CONTRACT WATCH', c: '#33ff99', title: String(novaContract.title).toUpperCase(),
+        deck: `${NOVA_AFF_NAMES[novaContract.giver] || 'Local dispatch'} confirms an active pilot contract.`, body: [`Progress ${Math.floor(novaContract.prog)} / ${novaContract.goal}.`, `Completion pays ${novaContract.pay} credits.`],
+        action: 'OBJECTIVE', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } });
+      const ch = CAMPAIGN[campaignChapter];
+      add({ id: 'chapter-' + campaignChapter, tag: 'SECTOR DESK', c: '#ffcc00', title: ch ? ch.title : 'OPEN SKIES',
+        deck: ch ? ch.objective : 'The sector enters a quieter period of open trade and exploration.', body: ch ? [ch.hint, `Filed by ${ch.speaker || 'Nova-1 Control'}.`] : ['Independent pilots continue mining, trade and patrol operations.'],
+        action: 'BRIEFING', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } });
+      const cores = (typeof NSV !== 'undefined' && NSV) ? (NSV.cores || 0) : 0;
+      add({ id: 'heat-core-market', tag: 'MARKETS', c: '#ff9f43', title: 'HEAT-CORE DEMAND CLIMBS AGAIN',
+        deck: 'Humanity is growing colder. Stations and colonies continue competing for reliable heat.',
+        body: [`Your hold reports ${cores} recovered heat core${cores === 1 ? '' : 's'}.`, 'Fusion cores command high prices, but every sale decides who stays warm.'], action: null });
+      add({ id: 'standing', tag: 'PUBLIC RECORD', c: '#ff88cc', title: 'PILOT RELATIONS SHAPE THE LANES',
+        deck: 'Dispatchers are publishing updated trust and security assessments.',
+        body: [`Nova-1 ${Math.round(novaAff.station)} · Convoy ${Math.round(novaAff.convoy)} · Valkyrie ${Math.round(novaAff.valkyrie)}`, `Corsair network standing ${Math.round(novaPirRep)} / 100.`], action: null });
+      return out;
+    }
+    function nnewsSelect(i) {
+      const L = nnewsItems(); if (!L.length) return;
+      NNEWS.i = (i + L.length) % L.length; NNEWS.read.add(L[NNEWS.i].id); NNEWS.lastId = L[NNEWS.i].id;
+      const P = NP.panels[0]; if (P) P.drawT = 0; try { sound.beep(820 + NNEWS.i * 25, 0.035); } catch (e) { }
+    }
+    function nnewsStep(d) { nnewsSelect(NNEWS.i + d); }
+    function nnewsFirst() { const L = nnewsItems(); return Math.max(0, Math.min(Math.max(0, L.length - 6), NNEWS.i - 2)); }
+    const NP_NEWS = { name: 'NEWS', c: '#66e6ff', get hint() { return 'NOVA NET live feed · tap a headline or swipe · urgent stories can be tracked before consequences'; },
+      get pads() { const L = nnewsItems(), q = L[NNEWS.i] || L[0]; return [
+        { l: '\u25C0 PREV', c: '#66e6ff', fn: () => nnewsStep(-1) },
+        { l: q && q.action ? q.action : 'NO ACTION', c: q && q.action ? q.c : '#39566a', fn: () => { if (q && q.fn) q.fn(); } },
+        { l: 'NEXT \u25B6', c: '#66e6ff', fn: () => nnewsStep(1) },
+        { l: 'OBJECTIVE', c: '#ffcc00', fn: () => { const P = NP.panels[0]; if (P) npTab(P, P.cfg.tabs.indexOf(NP_OBJ)); } }
+      ]; },
+      draw: (x, P) => {
+        const L = nnewsItems(); if (!L.length) return;
+        NNEWS.i = Math.max(0, Math.min(NNEWS.i, L.length - 1)); const q = L[NNEWS.i]; NNEWS.read.add(q.id); NNEWS.lastId = q.id;
+        x.fillStyle = 'rgba(8,28,43,0.92)'; x.fillRect(8, 54, 350, 296); x.strokeStyle = 'rgba(102,230,255,0.4)'; x.lineWidth = 2; x.strokeRect(8, 54, 350, 296);
+        npText(x, 'NOVA NET', 20, 82, 'bold 22px monospace', '#66e6ff');
+        const first = nnewsFirst(); L.slice(first, first + 6).forEach((a, i) => { const Y = 94 + i * 42, on = first + i === NNEWS.i;
+          x.fillStyle = on ? 'rgba(102,230,255,0.20)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(14, Y, 338, 39);
+          if (!NNEWS.read.has(a.id)) { x.fillStyle = a.c; x.beginPath(); x.arc(26, Y + 19, 5, 0, 7); x.fill(); }
+          npText(x, a.title, 38, Y + 26, 'bold 17px monospace', on ? '#ffffff' : a.c, 304);
+        });
+        x.fillStyle = 'rgba(102,230,255,0.35)'; x.fillRect(370, 54, 2, 296);
+        npText(x, q.tag, 392, 82, 'bold 18px monospace', q.c, 610);
+        npText(x, q.title, 392, 122, 'bold 30px monospace', '#ffffff', 610);
+        x.font = '20px sans-serif'; x.fillStyle = '#cfefff'; let y = 158, line = '';
+        const write = text => { String(text).split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > 600 && line) { if (y < 318) x.fillText(line, 392, y); y += 25; line = w; } else line = t; }); if (line && y < 318) { x.fillText(line, 392, y); y += 30; line = ''; } };
+        write(q.deck); (q.body || []).forEach(write);
+        x.textAlign = 'right'; npText(x, `${NNEWS.i + 1} / ${L.length}`, 1004, 338, 'bold 18px monospace', '#7fb6d0'); x.textAlign = 'left';
       } };
     const NP_OBJ = { name: 'OBJECTIVE', c: '#ffcc00', hint: 'ROUTE warps you to the objective when the route is known \u00b7 the compass diamond points to it',
       pads: [{ l: 'ROUTE', c: '#ffcc00', fn: () => { try { nsObjectivePick(); } catch (e) { } } }, { l: 'BRIEFING', c: '#b266ff', fn: () => { const ch = CAMPAIGN[campaignChapter]; if (ch) nkIntroStart(true, { k: ch.title, t: ch.objective, b: [ch.hint, '"' + ch.intro + '"', '\u2014 ' + ch.speaker], last: true }); } },
@@ -16189,7 +16287,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function npTick(dt) {
       if (!NP.panels.length) {
         if (!novaConsoles[0] || !novaConsoles[1]) return;
-        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_CREW_TAB, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'MESSAGES' : T === NP_CREW_TAB ? 'CREW / FLEET' : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
+        const L = npBuild(novaConsoles[0], { id: 'L', tabs: [NP_COMMS, NP_CHAT, NP_CREW_TAB, NP_NEWS, NP_FLIGHT, NP_OBJ, NP_WARP], status: P => { const T = P.cfg.tabs[P.tab]; return T === NP_COMMS ? `${P.list.length} CONTACTS` : T === NP_CHAT ? 'MESSAGES' : T === NP_CREW_TAB ? 'CREW / FLEET' : T === NP_NEWS ? `${nnewsItems().length} STORIES` : T === NP_FLIGHT ? 'FLIGHT' : T === NP_OBJ ? 'STORY' : 'JUMP DRIVE'; },
           holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => { if (P.cfg.tabs[P.tab] === NP_COMMS) npOpenTargetChat(P); else npTab(P, P.cfg.tabs.indexOf(NP_COMMS)); } }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
             { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CREW_TAB)) }, { g: '✈', l: 'FLIGHT', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_FLIGHT)) },
             { g: '◎', l: 'OBJECTIVE', c: '#ffcc00', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_OBJ)) }, { g: '➤', l: 'WARP', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_WARP)) }] });
@@ -16318,7 +16416,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const T = P.cfg.tabs[P.tab];
       if (py < 50 || py > 412) return false;                       // tab strip and footer keep their own buttons
       if (T.pads && T.pads.length && py > 338 && (T === NP_WARP || px > 412)) return false;   // pads
-      if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT && T !== NP_CREW_TAB && !(T === NP_CARGO && nmkNear())) return false;
+      if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT && T !== NP_CREW_TAB && T !== NP_NEWS && !(T === NP_CARGO && nmkNear())) return false;
       if (T === NP_COMMS && px > 420) return false;
       if (T === NP_CARGO && px > 560) return false;
       NPG.g = { P, src, x0: px, y0: py, lx: px, ly: py, acc: 0, moved: 0, t: performance.now() }; NPG.vel = 0;
@@ -16344,6 +16442,9 @@ const GAME_VERSION = 'Alpha 1.4';
       } else if (T === NP_WARP) {
         G.acc += dx;
         if (Math.abs(G.acc) > 150) { npWarpStep(G.acc < 0 ? 1 : -1); G.acc = 0; }   // swipe left = next
+      } else if (T === NP_NEWS) {
+        G.acc += dx;
+        if (Math.abs(G.acc) > 120) { nnewsStep(G.acc < 0 ? 1 : -1); G.acc = 0; }
       }
     }
     function npGestureEnd() {
@@ -16352,6 +16453,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (G.moved < 22) {   // tap
         if (T === NP_COMMS) { const r = Math.floor((G.y0 - 52) / 44); const c = r >= 0 && r < 8 ? P.list[P.scroll + r] : null; if (c) { novaHoloSelect(c); P.drawT = 0; } }
         else if (T === NP_CREW_TAB) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) NP_CREW_TAB.row(P, r); }
+        else if (T === NP_NEWS && G.x0 < 360) { const r = Math.floor((G.y0 - 94) / 42); if (r >= 0 && r < Math.min(6, nnewsItems().length)) nnewsSelect(nnewsFirst() + r); }
         else if (T === NP_CARGO && nmkNear()) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) { NP_CARGO.row(P, r); P.drawT = 0; } }
         else if (T === NP_WARP) { if (G.x0 < 140) npWarpStep(-1); else if (G.x0 > 884) npWarpStep(1); }
         else if (T === NP_CHAT) {
@@ -20029,11 +20131,25 @@ const GAME_VERSION = 'Alpha 1.4';
         try { handler(dt); } catch (error) { console.error('[NOVA module tick]', error); }
       }
     }
+    function novaSetOnFootVisualOwnership(active) {
+      if (!active) return; // the normal cockpit input frame restores whichever source is live
+      try {
+        handMeshes1.forEach(m => m.visible = false); handMeshes2.forEach(m => m.visible = false);
+        boneMeshes1.forEach(m => m.visible = false); boneMeshes2.forEach(m => m.visible = false);
+        controllerGhostLeft.visible = false; controllerGhostRight.visible = false;
+        c1Laser.visible = false; c2Laser.visible = false;
+        wristBeaconGroup.visible = false;
+        ['left', 'right'].forEach(side => {
+          const h = novaHands[side]; if (!h) return;
+          if (h.grip) h.grip.visible = false; if (h.ray) h.ray.visible = false; if (h.dot) h.dot.visible = false;
+        });
+      } catch (e) { console.warn('[NOVA FPS] Could not hide a cockpit input visual.', e); }
+    }
     window.nova = {
       THREE, scene, camera, cameraRig, renderer, shipGroup, shipBody, sound,
       toast: (...args) => showToast(...args),
       crew: line => { try { ncAnnounce(line); } catch (e) {} },
-      setActive: active => { try { cockpit.visible = !active; setThrottle(0); } catch (e) {} },
+      setActive: active => { try { cockpit.visible = !active; setThrottle(0); novaSetOnFootVisualOwnership(active); } catch (e) {} },
       onExit: detail => novaEmit('interiorExit', detail || {}),
       onTick: novaOnTick, on: novaOn, emit: novaEmit,
       combatUnits: () => NF.units,
@@ -20100,9 +20216,9 @@ const GAME_VERSION = 'Alpha 1.4';
       const ready = () => {
         let starting = false; try { starting = !!isStartingXR; } catch (e) { }
         const modal = document.getElementById('modal-overlay'), menuUp = !!(modal && modal.style.display !== 'none');
-        return !starting && !menuUp && (renderer.xr.isPresenting || (window.novaDevice && window.novaDevice.detectedMode === '2D') || !navigator.xr);
+        return !starting && !menuUp && !novaSafeZoneActive && (renderer.xr.isPresenting || (window.novaDevice && window.novaDevice.detectedMode === '2D') || !navigator.xr);
       };
-      const poll = () => { if (ready() || performance.now() - t0 > 20000) setTimeout(fn, 700); else setTimeout(poll, 250); };
+      const poll = () => { if (ready() || (performance.now() - t0 > 20000 && !renderer.xr.isPresenting)) setTimeout(fn, 700); else setTimeout(poll, 250); };
       setTimeout(poll, 300);
     };
     const _play = window.novaPlay;

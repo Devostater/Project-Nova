@@ -19,11 +19,12 @@ export function init(api) {
     const floorM=new THREE.MeshStandardMaterial({map:tex('art/textures/tex_metal_floor_1024.jpg',W/4,L/4),roughness:.55,metalness:.7});
     const wallM=new THREE.MeshStandardMaterial({map:tex('art/textures/tex_metal_wall_1024.jpg',L/6,H/6),roughness:.6,metalness:.6});
     const endM=new THREE.MeshStandardMaterial({map:tex('art/textures/tex_metal_wall_1024.jpg',W/6,H/6),roughness:.6,metalness:.6});
-    const floor=new THREE.Mesh(new THREE.PlaneGeometry(W,L),floorM);floor.rotation.x=-Math.PI/2;floor.position.z=-L/2+6;root.add(floor);
-    const ceil=new THREE.Mesh(new THREE.PlaneGeometry(W,L),new THREE.MeshStandardMaterial({color:0x1a2128,roughness:.9}));ceil.rotation.x=Math.PI/2;ceil.position.set(0,H,-L/2+6);root.add(ceil);
-    for(const side of[-1,1]){const w=new THREE.Mesh(new THREE.PlaneGeometry(L,H),wallM);w.rotation.y=-side*Math.PI/2;w.position.set(side*W/2,H/2,-L/2+6);root.add(w);}
-    const back=new THREE.Mesh(new THREE.PlaneGeometry(W,H),endM);back.position.set(0,H/2,-L+6);root.add(back);
-    const front=new THREE.Mesh(new THREE.PlaneGeometry(W,H),endM);front.rotation.y=Math.PI;front.position.set(0,H/2,6);root.add(front);
+    const solid=o=>{o.userData.fpsOccluder=true;return o;};
+    const floor=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,L),floorM));floor.rotation.x=-Math.PI/2;floor.position.z=-L/2+6;root.add(floor);
+    const ceil=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,L),new THREE.MeshStandardMaterial({color:0x1a2128,roughness:.9})));ceil.rotation.x=Math.PI/2;ceil.position.set(0,H,-L/2+6);root.add(ceil);
+    for(const side of[-1,1]){const w=solid(new THREE.Mesh(new THREE.PlaneGeometry(L,H),wallM));w.rotation.y=-side*Math.PI/2;w.position.set(side*W/2,H/2,-L/2+6);root.add(w);}
+    const back=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,H),endM));back.position.set(0,H/2,-L+6);root.add(back);
+    const front=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,H),endM));front.rotation.y=Math.PI;front.position.set(0,H/2,6);root.add(front);
     const stripe=new THREE.Mesh(new THREE.PlaneGeometry(W,.6),new THREE.MeshStandardMaterial({map:tex('art/textures/tex_hazard_stripes_1024.jpg',8,.3),roughness:.5}));stripe.rotation.x=-Math.PI/2;stripe.position.set(0,.01,-2);root.add(stripe);
     const rail=new THREE.Mesh(new THREE.BoxGeometry(W-1,.08,.08),new THREE.MeshStandardMaterial({color:0xffaa22,emissive:0x442200,metalness:.8,roughness:.3}));rail.position.set(0,1,-2.2);root.add(rail);
     for(let z=2;z>-L+6;z-=8){const strip=new THREE.Mesh(new THREE.BoxGeometry(W*.7,.05,.3),new THREE.MeshBasicMaterial({color:0xcfefff,toneMapped:false}));strip.position.set(0,H-.05,z);root.add(strip);const light=new THREE.PointLight(0xcfefff,18,16,1.6);light.position.set(0,H-.6,z);root.add(light);}
@@ -57,7 +58,8 @@ export function init(api) {
     scene.add(cameraRig);cameraRig.quaternion.identity();camera.rotation.set(0,0,0);S.active=true;S.exiting=false;
     const floorY=renderer?.xr?.isPresenting?0:1.65;
     cameraRig.position.set(ORIGIN.x+S.pos.x,ORIGIN.y+floorY,ORIGIN.z+S.pos.z);api.setActive?.(true);
-    api.modules?.fps_core?.enable?.({mode:'RANGE',speed:3.2,bounds:[ORIGIN.x+def.bounds[0],ORIGIN.x+def.bounds[1],ORIGIN.z+def.bounds[2],ORIGIN.z+def.bounds[3]],onExit:()=>exit('input'),onShot:()=>{S.shots++;S.sign?.userData.draw?.();}});
+    const colliders=[[-4.55,-1.95,-10.19,-9.81],[1.95,4.55,-10.19,-9.81]].map(c=>({minX:ORIGIN.x+c[0],maxX:ORIGIN.x+c[1],minZ:ORIGIN.z+c[2],maxZ:ORIGIN.z+c[3]}));
+    api.modules?.fps_core?.enable?.({mode:'RANGE',speed:3.2,bounds:[ORIGIN.x+def.bounds[0],ORIGIN.x+def.bounds[1],ORIGIN.z+def.bounds[2],ORIGIN.z+def.bounds[3]],colliders,onExit:()=>exit('input'),onShot:()=>{S.shots++;S.sign?.userData.draw?.();}});
     api.modules?.fps_ai?.start?.({origin:S.root.position});
     toast?.(def.name+': WASD/mouse or sticks. Walk through EXIT, Esc or B to leave.',4200,'#00e5ff');return true;
   }

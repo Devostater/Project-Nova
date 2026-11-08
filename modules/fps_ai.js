@@ -12,11 +12,12 @@ export function init(nova) {
   const armorMat=new T.MeshStandardMaterial({color:0x283b50,metalness:.88,roughness:.27});
   const lensMat=new T.MeshStandardMaterial({color:0x26dcff,emissive:0x087d9b,emissiveIntensity:1.8,metalness:.3});
   const coverMat=new T.MeshStandardMaterial({color:0x26394a,metalness:.78,roughness:.48});
-  const boltMat=new T.MeshBasicMaterial({color:0xff4d84});
-  const forward=new T.Vector3(),aim=new T.Vector3(),delta=new T.Vector3(),cameraPos=new T.Vector3(),cameraLocal=new T.Vector3(),boltStart=new T.Vector3(),coverPoint=new T.Vector3();
+  const boltMat=new T.MeshBasicMaterial({color:0xff4d84,transparent:true,depthWrite:false,blending:T.CustomBlending,blendEquation:T.AddEquation,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendEquationAlpha:T.AddEquation,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor});
+  const forward=new T.Vector3(),aim=new T.Vector3(),delta=new T.Vector3(),cameraPos=new T.Vector3(),cameraLocal=new T.Vector3(),boltStart=new T.Vector3(),coverPoint=new T.Vector3(),boltPrev=new T.Vector3(),boltDir=new T.Vector3(),boltWorldStart=new T.Vector3(),boltWorldEnd=new T.Vector3();
+  const boltRay=new T.Raycaster();
   const coverPositions=[new T.Vector3(-3.25,0,-10),new T.Vector3(3.25,0,-10)];
   const covers=[];
-  for(const x of [-3.25,3.25]){const m=new T.Mesh(coverGeo,coverMat);m.position.set(x,.68,-10);m.visible=false;root.add(m);covers.push(m);}
+  for(const x of [-3.25,3.25]){const m=new T.Mesh(coverGeo,coverMat);m.position.set(x,.68,-10);m.visible=false;m.userData.fpsOccluder=true;root.add(m);covers.push(m);}
   const bolts=Array.from({length:12},()=>{const mesh=new T.Mesh(boltGeo,boltMat);mesh.visible=false;boltsRoot.add(mesh);return{mesh,velocity:new T.Vector3(),life:0,active:false};});
   const drones=[0,1].map(i=>{
     const group=new T.Group();group.name='NOVA_RANGE_DRONE_'+(i+1);group.userData.rangeTarget=true;
@@ -102,8 +103,10 @@ export function init(nova) {
     }
     for(const b of bolts){
       if(!b.active)continue;
-      b.life-=step;b.mesh.position.addScaledVector(b.velocity,step);
+      b.life-=step;boltPrev.copy(b.mesh.position);b.mesh.position.addScaledVector(b.velocity,step);
       if(b.life<=0){b.active=false;b.mesh.visible=false;continue;}
+      boltDir.subVectors(b.mesh.position,boltPrev);const travel=boltDir.length();
+      if(travel>.0001){boltWorldStart.copy(boltPrev);boltsRoot.localToWorld(boltWorldStart);boltWorldEnd.copy(b.mesh.position);boltsRoot.localToWorld(boltWorldEnd);boltDir.subVectors(boltWorldEnd,boltWorldStart);boltRay.set(boltWorldStart,boltDir.normalize());boltRay.far=travel;const blocked=boltRay.intersectObjects(scene.children,true).some(h=>{let o=h.object,n=0;while(o&&n++<12){if(o.userData?.fpsOccluder)return true;o=o.parent;}return false;});if(blocked){b.active=false;b.mesh.visible=false;continue;}}
       if(b.mesh.position.distanceTo(cameraLocal)<.42){b.active=false;b.mesh.visible=false;nova.modules?.fps_core?.damage?.(11);}
     }
   }

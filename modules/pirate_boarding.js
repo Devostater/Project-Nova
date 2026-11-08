@@ -72,7 +72,7 @@ export function init(nova){
     rig.position.copy(spawn);rig.quaternion.identity();camera.rotation.set(0,0,0);S.checkpoint=S.section;
     const exit=S.level.exits.find(e=>e.id===(S.escape?'aft':'forward'));exitMarker(exit.position,S.escape?0xff533f:0x2de5ff);
     const ai=getMod('fps_ai');S.startKills=ai?.kills||0;S.wave=1;S.waveNeed=S.route.length<5?1:[1,2,3,2,2][levelIndex];ai?.start?.({origin:S.level.root.position});
-    getMod('fps_core')?.enable?.({mode:S.escape?'BOARDING · EVAC':'PIRATE BOARDING',speed:S.escape?3.8:3.05,bounds:[-7.4,7.4,-17.3,7.2],onExit:reason=>evacuate(reason),onInteract:()=>interact()});
+    getMod('fps_core')?.enable?.({mode:S.escape?'BOARDING · EVAC':'PIRATE BOARDING',speed:S.escape?3.8:3.05,bounds:[-7.4,7.4,-17.3,7.2],colliders:S.level.colliders||[],onExit:reason=>evacuate(reason),onInteract:()=>interact()});
     if(levelIndex===4&&!S.escape)spawnBoss();
     nova.emit?.('boardingCheckpoint',{section:levelIndex,index:S.section,restarted:!!fromCheckpoint});
     nova.toast?.(`CHECKPOINT ${S.section+1}/${S.route.length} · ${['AIRLOCK','CREW QUARTERS','CARGO BAY','ENGINEERING','CAPTAIN’S BRIDGE'][levelIndex]}`,2800,'#44eaff');

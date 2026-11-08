@@ -3,11 +3,12 @@
  * Desktop: WASD + mouse look, click/Space fire, E interact, Esc exit.
  * Gamepad: left/right sticks, RT fire, A interact, B exit.
  * Quest controllers: left stick move, right stick snap turn, trigger fire, A interact, B exit.
- * Hand tracking: left fist moves, left pinch toggles the weapon, right pinch fires.
+ * Hand tracking: left fist moves, left pinch draws/uses, right pinch fires, both pinches exit.
  */
 export function init(nova) {
   const T=nova?.THREE,scene=nova?.scene,camera=nova?.camera,rig=nova?.cameraRig,renderer=nova?.renderer;
   if(!T||!scene||!camera||!rig)return{ready:false,enable(){},disable(){},damage(){}};
+  const lightBlend={transparent:true,depthWrite:false,blending:T.CustomBlending,blendEquation:T.AddEquation,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendEquationAlpha:T.AddEquation,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor};
 
   const pistol=new T.Group();pistol.name='NOVA_FPS_PISTOL';
   const fallbackGun=new T.Group();fallbackGun.name='NOVA_FPS_PISTOL_FALLBACK';pistol.add(fallbackGun);
@@ -16,7 +17,7 @@ export function init(nova) {
   fallbackGun.add(new T.Mesh(new T.BoxGeometry(.075,.09,.26),gunMat));
   const grip=new T.Mesh(new T.BoxGeometry(.06,.15,.075),gunMat);grip.position.set(0,-.1,.065);fallbackGun.add(grip);
   const muzzle=new T.Mesh(new T.CylinderGeometry(.025,.025,.09,12),glowMat);muzzle.rotation.x=Math.PI/2;muzzle.position.z=-.16;fallbackGun.add(muzzle);
-  const muzzleFlash=new T.Mesh(new T.SphereGeometry(.045,8,6),new T.MeshBasicMaterial({color:0xbffcff,toneMapped:false,transparent:true,opacity:.95}));
+  const muzzleFlash=new T.Mesh(new T.SphereGeometry(.045,8,6),new T.MeshBasicMaterial({color:0xbffcff,toneMapped:false,opacity:.95,...lightBlend}));
   muzzleFlash.position.set(0,.025,-.21);muzzleFlash.visible=false;pistol.add(muzzleFlash);
   pistol.visible=false;scene.add(pistol);
 
@@ -52,7 +53,7 @@ export function init(nova) {
   })();
 
   const tracerGeo=new T.BoxGeometry(.018,.018,1);
-  const tracerMat=new T.MeshBasicMaterial({color:0x69f5ff,toneMapped:false,transparent:true,opacity:.85,depthWrite:false,blending:T.AdditiveBlending});
+  const tracerMat=new T.MeshBasicMaterial({color:0x69f5ff,toneMapped:false,opacity:.85,...lightBlend});
   const tracerRoot=new T.Group();tracerRoot.name='NOVA_FPS_TRACERS';scene.add(tracerRoot);
   const tracers=Array.from({length:10},()=>{const mesh=new T.Mesh(tracerGeo,tracerMat);mesh.visible=false;tracerRoot.add(mesh);return{mesh,life:0};});
 
@@ -86,6 +87,13 @@ export function init(nova) {
   }
   const leftGlove=createGloveVisual(true);
   const rightGlove=createGloveVisual(false);
+  const leftHandAnchor=new T.Group(),rightHandAnchor=new T.Group();leftHandAnchor.name='NOVA_FPS_HAND_ANCHOR_L';rightHandAnchor.name='NOVA_FPS_HAND_ANCHOR_R';scene.add(leftHandAnchor,rightHandAnchor);
+  const leftAnchorState={ready:false},rightAnchorState={ready:false},anchorPos=new T.Vector3(),anchorQ=new T.Quaternion();
+  function trackHandAnchor(anchor,jointObject,state,dt){
+    jointObject.getWorldPosition(anchorPos);jointObject.getWorldQuaternion(anchorQ);const jump=!state.ready||anchor.position.distanceTo(anchorPos)>.22,a=1-Math.exp(-Math.max(.001,dt)*22);
+    if(jump){anchor.position.copy(anchorPos);anchor.quaternion.copy(anchorQ);state.ready=true;}else{anchor.position.lerp(anchorPos,a);anchor.quaternion.slerp(anchorQ,a);}
+    anchor.updateMatrixWorld(true);
+  }
 
   const damageOverlay=document.createElement('div');
   Object.assign(damageOverlay.style,{position:'fixed',inset:'0',pointerEvents:'none',zIndex:'35',opacity:'0',transition:'opacity .12s',background:'radial-gradient(transparent 48%, rgba(220,10,20,.55) 100%)'});
@@ -97,8 +105,8 @@ export function init(nova) {
   const controllerQ=new T.Quaternion();
   const down=new Set();
   let active=false,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=25,yaw=0,pitch=0,hudTimer=0,muzzleTimer=0;
-  let rightController=null,leftController=null,rightGrip=null,leftGrip=null,rightHand=null,leftHand=null,leftFist=false,leftAnchor=null;
-  let leftPinchHeld=false,rightPinchHeld=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false,pointerWasLocked=false;
+  let rightController=null,leftController=null,rightGrip=null,leftGrip=null,rightHand=null,leftHand=null,rightIsHand=false,leftIsHand=false,leftFist=false,leftAnchor=null;
+  let leftPinchHeld=false,rightPinchHeld=false,leftPinchTime=0,leftPinchUsed=false,bothPinchTime=0,bothPinchExit=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false,pointerWasLocked=false;
   let options={};
 
   function drawHud(){
@@ -113,7 +121,7 @@ export function init(nova) {
     c.fillStyle=health>35?'#65ffad':'#ff596d';c.fillText('HULL '+Math.round(health)+'%',360,438);
     c.fillStyle='#58dfff';c.fillText('SHIELD '+Math.round(shield)+'%',540,438);
     c.fillStyle=weaponOn?'#ffcf58':'#8295a0';c.fillText(weaponOn?'ARMED':'HANDS',760,438);
-    c.font='18px monospace';c.fillStyle='#a9d8e8';c.fillText('WASD / STICKS MOVE · CLICK / RT FIRE · E / A USE · ESC / B EXIT',70,464);
+    c.font='18px monospace';c.fillStyle='#a9d8e8';c.fillText(renderer?.xr?.isPresenting?'RT / RIGHT PINCH FIRE · A / LEFT HOLD USE · B / BOTH HOLD EXIT':'WASD / STICKS MOVE · CLICK / RT FIRE · E / A USE · ESC / B EXIT',70,464);
     hudTexture.needsUpdate=true;
   }
 
@@ -133,7 +141,7 @@ export function init(nova) {
   }
   function aimRay(){
     camera.getWorldPosition(origin);camera.getWorldDirection(direction);
-    if(session&&rightHand&&weaponOn&&handPoint(rightHand,'index-finger-tip',index)&&handPoint(rightHand,'wrist',wrist)){
+    if(session&&rightIsHand&&rightHand&&weaponOn&&handPoint(rightHand,'index-finger-tip',index)&&handPoint(rightHand,'wrist',wrist)){
       origin.copy(index);direction.subVectors(index,wrist).normalize();
     }else if(session&&(rightGrip||rightController)){
       const src=rightGrip||rightController;
@@ -147,6 +155,7 @@ export function init(nova) {
     while(node&&depth++<12){if(node.userData&&node.userData[key])return node;node=node.parent;}
     return null;
   }
+  function isOccluder(object){return !!findUserData(object,'fpsOccluder');}
   function showTracer(distance){
     const t=tracers.find(x=>x.life<=0)||tracers[0];const d=Math.max(.5,Math.min(16,distance||12));
     endPoint.copy(origin).addScaledVector(direction,d);midPoint.copy(origin).add(endPoint).multiplyScalar(.5);
@@ -157,7 +166,8 @@ export function init(nova) {
     const hits=aimRay();let targetHit=null,hitDistance=14;
     options.onShot?.();
     for(const hit of hits){
-      const target=findUserData(hit.object,'rangeTarget');if(!target)continue;
+      const target=findUserData(hit.object,'rangeTarget');
+      if(!target){if(isOccluder(hit.object)){hitDistance=hit.distance;break;}continue;}
       targetHit=target;hitDistance=hit.distance;
       const data=target.userData||{};
       if(typeof data.onHit==='function')data.onHit(25,{origin:origin.clone(),point:hit.point.clone()});
@@ -173,9 +183,10 @@ export function init(nova) {
     if(!active)return false;
     const hits=aimRay();
     for(const hit of hits){
+      if(hit.distance>(options.interactRange||3))break;
       const target=findUserData(hit.object,'fpsInteract');
       if(target){target.userData.fpsInteract();return true;}
-      if(hit.distance>3)break;
+      if(isOccluder(hit.object))break;
     }
     return options.onInteract?.()!==false;
   }
@@ -190,12 +201,27 @@ export function init(nova) {
     nova.emit?.('playerDamaged',{health,shield,amount});
     if(health===0){nova.toast?.('SUIT FAILURE · EVACUATING',1800,'#ff4359');requestExit('down');}
   }
+  function blockedAt(x,z){
+    const r=Math.max(.12,Number(options.playerRadius)||.28);
+    for(const c of options.colliders||[]){if(x>c.minX-r&&x<c.maxX+r&&z>c.minZ-r&&z<c.maxZ+r)return true;}
+    return false;
+  }
+  function moveRigXZ(dx,dz){
+    const b=options.bounds,ox=rig.position.x,oz=rig.position.z;
+    let nx=ox+dx;if(b)nx=T.MathUtils.clamp(nx,b[0],b[1]);if(!blockedAt(nx,oz))rig.position.x=nx;
+    let nz=oz+dz;if(b)nz=T.MathUtils.clamp(nz,b[2],b[3]);if(!blockedAt(rig.position.x,nz))rig.position.z=nz;
+  }
+  function correctRoomScale(){
+    if(!session)return;
+    camera.getWorldPosition(origin);const dx=origin.x-rig.position.x,dz=origin.z-rig.position.z;
+    if(blockedAt(origin.x,origin.z)){moveRigXZ(-dx,0);moveRigXZ(0,-dz);}
+    const b=options.bounds;if(b){const cx=T.MathUtils.clamp(origin.x,b[0],b[1]),cz=T.MathUtils.clamp(origin.z,b[2],b[3]);rig.position.x+=cx-origin.x;rig.position.z+=cz-origin.z;}
+  }
   function walk(x,z,dt){
     x=dead(x);z=dead(z);if(Math.abs(x)+Math.abs(z)<.01)return;
     camera.getWorldDirection(forward);forward.y=0;if(forward.lengthSq()<.001)forward.set(0,0,-1);forward.normalize();
     right.crossVectors(forward,up).normalize();move.set(0,0,0).addScaledVector(right,x).addScaledVector(forward,-z);
-    if(move.lengthSq()>1)move.normalize();rig.position.addScaledVector(move,(options.speed||3.1)*dt);
-    const b=options.bounds;if(b){rig.position.x=T.MathUtils.clamp(rig.position.x,b[0],b[1]);rig.position.z=T.MathUtils.clamp(rig.position.z,b[2],b[3]);}
+    if(move.lengthSq()>1)move.normalize();move.multiplyScalar((options.speed||3.1)*dt);moveRigXZ(move.x,move.z);
   }
   function mouseMove(e){
     if(!active||renderer?.xr?.isPresenting||document.pointerLockElement!==renderer.domElement)return;
@@ -220,8 +246,6 @@ export function init(nova) {
     else if(e.code==='KeyE'||e.code==='Enter'){e.preventDefault();interact();}
   }
   function keyUp(e){down.delete(e.code);}
-  function selectStart(){if(active)fire();}
-
   function tick(dt){
     if(!active)return;const d=Math.min(.05,Math.max(0,Number(dt)||0));
     lastDamage=Math.max(0,lastDamage-d);muzzleTimer=Math.max(0,muzzleTimer-d);if(!muzzleTimer)muzzleFlash.visible=false;
@@ -230,62 +254,62 @@ export function init(nova) {
     session=renderer?.xr?.getSession?.()||null;
     if(session){
       const sources=[...session.inputSources],rightSource=sources.find(s=>s.handedness==='right'),leftSource=sources.find(s=>s.handedness==='left');
+      pistol.visible=weaponOn&&!!rightSource;
       // three.js controller slots are NOT in session.inputSources order (they drift when hands/controllers swap),
       // so find the slot whose 'connected' event carried this exact input source.
       const rightIndex=slotOf(rightSource),leftIndex=slotOf(leftSource);
-      if(rightIndex>=0){
-        rightController=renderer.xr.getController?.(rightIndex)||rightController;
-        rightGrip=renderer.xr.getControllerGrip?.(rightIndex)||rightGrip;
-        rightHand=renderer.xr.getHand?.(rightIndex)||rightHand;
-      }
-      if(leftIndex>=0){
-        leftController=renderer.xr.getController?.(leftIndex)||leftController;
-        leftGrip=renderer.xr.getControllerGrip?.(leftIndex)||leftGrip;
-        leftHand=renderer.xr.getHand?.(leftIndex)||leftHand;
-      }
+      rightIsHand=!!rightSource?.hand;leftIsHand=!!leftSource?.hand;
+      rightController=rightIndex>=0?renderer.xr.getController?.(rightIndex)||null:null;rightGrip=rightIndex>=0&&!rightIsHand?renderer.xr.getControllerGrip?.(rightIndex)||null:null;rightHand=rightIndex>=0&&rightIsHand?renderer.xr.getHand?.(rightIndex)||null:null;
+      leftController=leftIndex>=0?renderer.xr.getController?.(leftIndex)||null:null;leftGrip=leftIndex>=0&&!leftIsHand?renderer.xr.getControllerGrip?.(leftIndex)||null:null;leftHand=leftIndex>=0&&leftIsHand?renderer.xr.getHand?.(leftIndex)||null:null;
       const rightWristJ=joint(rightHand,'wrist');
       const leftWristJ=joint(leftHand,'wrist');
       if(rightSource?.hand&&rightWristJ){
-        setWeaponParent(rightWristJ,true);
+        trackHandAnchor(rightHandAnchor,rightWristJ,rightAnchorState,d);setWeaponParent(rightHandAnchor,true);
       }else if(rightGrip||rightController){
+        rightAnchorState.ready=false;
         setWeaponParent(rightGrip||rightController,false);
-      }
+      }else rightAnchorState.ready=false;
 
       // Update glove tracking on both hands
       if(leftSource?.hand&&leftWristJ&&handPoint(leftHand,'wrist',wrist)){
-        if(leftGlove.parent!==leftWristJ)leftWristJ.add(leftGlove);
+        trackHandAnchor(leftHandAnchor,leftWristJ,leftAnchorState,d);
+        if(leftGlove.parent!==leftHandAnchor)leftHandAnchor.add(leftGlove);
         leftGlove.position.set(0,0,0);leftGlove.rotation.set(0,0,0);
         leftGlove.visible=true;
       }else if(leftGrip){
+        leftAnchorState.ready=false;
         if(leftGlove.parent!==leftGrip)leftGrip.add(leftGlove);
         leftGlove.position.set(0,0,0);leftGlove.rotation.set(0,0,0);
         leftGlove.visible=true;
-      }else{leftGlove.visible=false;}
+      }else{leftAnchorState.ready=false;leftGlove.visible=false;}
 
       if(rightSource?.hand&&rightWristJ&&handPoint(rightHand,'wrist',wrist)){
-        if(rightGlove.parent!==rightWristJ)rightWristJ.add(rightGlove);
+        if(rightGlove.parent!==rightHandAnchor)rightHandAnchor.add(rightGlove);
         rightGlove.position.set(0,0,0);rightGlove.rotation.set(0,0,0);
         rightGlove.visible=true;
       }else if(rightGrip){
         if(rightGlove.parent!==rightGrip)rightGrip.add(rightGlove);
         rightGlove.position.set(0,0,0);rightGlove.rotation.set(0,0,0);
         rightGlove.visible=true;
-      }else{rightGlove.visible=false;}
+      }else{rightAnchorState.ready=false;rightGlove.visible=false;}
 
       let mx=0,mz=0,turn=0,trigger=false,use=false,leave=false;
-      const la=stickAxes(leftSource?.gamepad),ra=stickAxes(rightSource?.gamepad);
+      const la=stickAxes(leftIsHand?null:leftSource?.gamepad),ra=stickAxes(rightIsHand?null:rightSource?.gamepad);
       mx=dead(la[0]);mz=dead(la[1]);turn=dead(ra[0],.55);
-      trigger=(rightSource?.gamepad?.buttons?.[0]?.value||0)>.45;
-      use=!!rightSource?.gamepad?.buttons?.[4]?.pressed||!!rightSource?.gamepad?.buttons?.[1]?.pressed;
-      leave=!!rightSource?.gamepad?.buttons?.[5]?.pressed;
+      trigger=!rightIsHand&&(rightSource?.gamepad?.buttons?.[0]?.value||0)>.45;
+      use=!rightIsHand&&(!!rightSource?.gamepad?.buttons?.[4]?.pressed||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
+      leave=!rightIsHand&&!!rightSource?.gamepad?.buttons?.[5]?.pressed;
       if(turn){if(!snapHeld){rig.rotation.y-=Math.sign(turn)*Math.PI/6;snapHeld=true;}}else snapHeld=false;
       walk(mx,mz,d);if(trigger)fire();if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('vr');
       padUseHeld=use;padExitHeld=leave;
-      const leftPinch=handPoint(leftHand,'thumb-tip',thumb)&&handPoint(leftHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.034;
-      if(leftPinch&&!leftPinchHeld){weaponOn=!weaponOn;pistol.visible=weaponOn;drawHud();}leftPinchHeld=leftPinch;
-      const rightPinch=handPoint(rightHand,'thumb-tip',thumb)&&handPoint(rightHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.034;
-      if(rightPinch&&!rightPinchHeld&&weaponOn)fire();rightPinchHeld=rightPinch;
-      const curled=handPoint(leftHand,'middle-finger-tip',middle)&&handPoint(leftHand,'wrist',wrist)&&middle.distanceTo(wrist)<.085;
+      const leftPinch=leftIsHand&&handPoint(leftHand,'thumb-tip',thumb)&&handPoint(leftHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.034;
+      const rightPinch=rightIsHand&&handPoint(rightHand,'thumb-tip',thumb)&&handPoint(rightHand,'index-finger-tip',index)&&thumb.distanceTo(index)<.034;
+      if(leftPinch&&!leftPinchHeld){leftPinchTime=0;leftPinchUsed=false;}if(leftPinch)leftPinchTime+=d;
+      if(leftPinch&&rightPinch){bothPinchTime+=d;if(bothPinchTime>=1.0&&!bothPinchExit){bothPinchExit=true;requestExit('hands');}}else{bothPinchTime=0;bothPinchExit=false;}
+      if(leftPinch&&!rightPinch&&leftPinchTime>=.32&&!leftPinchUsed){interact();leftPinchUsed=true;}
+      if(!leftPinch&&leftPinchHeld&&!leftPinchUsed&&leftPinchTime<.32){weaponOn=!weaponOn;pistol.visible=weaponOn;drawHud();}
+      if(rightPinch&&!rightPinchHeld&&weaponOn&&!leftPinch)fire();leftPinchHeld=leftPinch;rightPinchHeld=rightPinch;
+      const curled=leftIsHand&&handPoint(leftHand,'middle-finger-tip',middle)&&handPoint(leftHand,'wrist',wrist)&&middle.distanceTo(wrist)<.085;
       if(curled&&!leftPinch){
         if(!leftFist){leftAnchor=wrist.clone();leftFist=true;}
         // fist joystick: wrist offset from where the fist closed, turned into head-relative strafe/forward
@@ -298,6 +322,7 @@ export function init(nova) {
         }
       }
       else{leftFist=false;leftAnchor=null;}
+      correctRoomScale();
     }else{
       if(pistol.parent!==camera){camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,0,0);}
       let x=(down.has('KeyD')?1:0)-(down.has('KeyA')?1:0),z=(down.has('KeyS')?1:0)-(down.has('KeyW')?1:0);
@@ -318,14 +343,12 @@ export function init(nova) {
     if(active){options={...options,...next};drawHud();return true;}
     options=next||{};active=true;exiting=false;weaponOn=true;health=100;shield=25;lastDamage=0;
     yaw=rig.rotation.y;pitch=camera.rotation.x;hud.visible=true;pistol.visible=true;
-    rightController=renderer?.xr?.getController?.(1)||null;leftController=renderer?.xr?.getController?.(0)||null;
-    rightGrip=renderer?.xr?.getControllerGrip?.(1)||null;leftGrip=renderer?.xr?.getControllerGrip?.(0)||null;
-    rightHand=renderer?.xr?.getHand?.(1)||null;leftHand=renderer?.xr?.getHand?.(0)||null;
+    rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;
+    leftPinchHeld=rightPinchHeld=leftPinchUsed=bothPinchExit=false;leftPinchTime=bothPinchTime=0;
     if(renderer?.xr?.isPresenting&&(rightGrip||rightController))setWeaponParent(rightGrip||rightController,false);else{camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,0,0);}
     window.addEventListener('keydown',keyDown,true);window.addEventListener('keyup',keyUp,true);window.addEventListener('mousemove',mouseMove);document.addEventListener('pointerlockchange',pointerLockChange);
     window.addEventListener('pointerdown',pointerDown,true);window.addEventListener('contextmenu',preventMenu,true);showButtons(true);
-    rightController?.addEventListener?.('selectstart',selectStart);
-    drawHud();nova.toast?.('FPS ACTIVE · WASD/MOUSE · RT FIRE · A USE · B EXIT',2800,'#00e5ff');return true;
+    drawHud();nova.toast?.('FPS ACTIVE · RT / RIGHT PINCH FIRE · A / LEFT HOLD USE · B / BOTH HOLD EXIT',3200,'#00e5ff');return true;
   }
   // on-screen FIRE / USE / EXIT buttons (mouse, touch and tablet; hidden in VR)
   let btnBar=null;
@@ -349,14 +372,15 @@ export function init(nova) {
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
     window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
     window.removeEventListener('pointerdown',pointerDown,true);window.removeEventListener('contextmenu',preventMenu,true);
-    rightController?.removeEventListener?.('selectstart',selectStart);
-    for(const t of tracers){t.life=0;t.mesh.visible=false;}options={};session=null;return true;
+    for(const t of tracers){t.life=0;t.mesh.visible=false;}options={};session=null;rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;return true;
   }
 
   const off=nova.onTick?.(tick);
-  return{ready:true,enable,disable,fire,interact,damage,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
+  const state=()=>({active,mode:options.mode||null,weaponOn,health,shield,input:session?{left:leftIsHand?'hand':leftController?'controller':'none',right:rightIsHand?'hand':rightController?'controller':'none'}:{left:'desktop',right:'desktop'},colliders:(options.colliders||[]).length,position:rig.position.toArray()});
+  window.novaTest=window.novaTest||{};window.novaTest.fpsState=state;
+  return{ready:true,enable,disable,fire,interact,damage,state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
     disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(tracerRoot);damageOverlay.remove();
-    scene.remove(leftGlove);scene.remove(rightGlove);
+    scene.remove(leftGlove);scene.remove(rightGlove);scene.remove(leftHandAnchor);scene.remove(rightHandAnchor);
     leftGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
     rightGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
     tracerGeo.dispose();tracerMat.dispose();hud.geometry.dispose();hudMaterial.dispose();hudTexture.dispose();

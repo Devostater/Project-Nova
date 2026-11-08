@@ -37,7 +37,8 @@ export function build(section=0){
   const index=typeof section==='string'?Math.max(0,IDS.indexOf(section)):THREE.MathUtils.clamp(Number(section)||0,0,4);
   const id=IDS[index],root=new THREE.Group(),batches={floor:[],wall:[],hazard:[],trim:[],glow:[],core:[],red:[]},geometries=[];
   root.name=`NOVA_BOARDING_${id.toUpperCase()}`;
-  const add=(mat,w,h,d,x,y,z)=>batches[mat].push([w,h,d,x,y,z]);
+  const colliders=[];
+  const add=(mat,w,h,d,x,y,z)=>{batches[mat].push([w,h,d,x,y,z]);if(['wall','trim','red','core'].includes(mat)&&y+h/2>.15&&y-h/2<2.2&&w>.15&&d>.15)colliders.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2});};
   shell(add,index===2?16:index===4?15:12,index===2?30:26);
   const cover=[],enemySpawns=[],checkpoints=[new THREE.Vector3(0,0,6)],exits=[
     {id:'aft',label:index?'RETURN TO '+IDS[index-1].toUpperCase():'AIRLOCK',position:new THREE.Vector3(0,1,6.8),to:index-1},
@@ -67,8 +68,9 @@ export function build(section=0){
     enemySpawns.push(new THREE.Vector3(-4,1.8,-9),new THREE.Vector3(4,1.8,-9),new THREE.Vector3(0,1.1,-11));
   }
   const mats=getMaterials();Object.entries(batches).forEach(([key,items])=>addBatch(root,items,mats[key],geometries));
+  root.traverse(o=>{if(o.isInstancedMesh)o.userData.fpsOccluder=true;});
   root.userData.section=index;root.userData.dispose=()=>geometries.forEach(g=>g.dispose());
-  return{root,spawn:new THREE.Vector3(0,0,5.8),checkpoints,cover,enemySpawns,exits};
+  return{root,spawn:new THREE.Vector3(0,0,5.8),checkpoints,cover,enemySpawns,exits,colliders};
 }
 
 export function init(){return{ready:true,build};}
