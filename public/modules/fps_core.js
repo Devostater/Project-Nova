@@ -423,7 +423,7 @@ export function init(nova) {
     p.prevPos.copy(spawnPos);
     p.spawnPos.copy(spawnPos);
     p.dir.copy(spawnDir);
-    p.vel.copy(spawnDir).multiplyScalar(75);
+    p.vel.copy(spawnDir).multiplyScalar(48);
     p.mesh.position.copy(spawnPos);
     p.mesh.quaternion.setFromUnitVectors(new T.Vector3(0,0,-1),spawnDir);
     p.mesh.visible=true;
@@ -656,7 +656,7 @@ export function init(nova) {
       let mx=0,mz=0,turn=0,trigger=false,use=false,leave=false;
       const la=stickAxes(leftIsHand?null:leftSource?.gamepad),ra=stickAxes(rightIsHand?null:rightSource?.gamepad);
       mx=dead(la[0]);mz=dead(la[1]);turn=dead(ra[0],.55);
-      trigger=!rightIsHand&&(rightSource?.gamepad?.buttons?.[0]?.value||0)>.45;
+      trigger=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[0]?.value||0)>.45)||((rightSource?.gamepad?.buttons?.[1]?.value||0)>.75));
       use=!rightIsHand&&(!!rightSource?.gamepad?.buttons?.[4]?.pressed||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
       leave=!rightIsHand&&!!rightSource?.gamepad?.buttons?.[5]?.pressed;
       if(turn){if(!snapHeld){rig.rotation.y-=Math.sign(turn)*Math.PI/6;snapHeld=true;}}else snapHeld=false;
@@ -665,14 +665,16 @@ export function init(nova) {
       const leftThumbValid=leftIsHand&&handPoint(leftHand,'thumb-tip',leftThumb);
       const leftIndexValid=leftIsHand&&handPoint(leftHand,'index-finger-tip',leftIndex);
       const leftWristValid=leftIsHand&&handPoint(leftHand,'wrist',leftWrist);
-      const leftPinch=leftIsHand&&leftThumbValid&&leftIndexValid&&leftThumb.distanceTo(leftIndex)<.048;
+      const leftPinch=leftIsHand&&leftThumbValid&&leftIndexValid&&leftThumb.distanceTo(leftIndex)<.055;
 
       const rightThumbValid=rightIsHand&&handPoint(rightHand,'thumb-tip',rightThumb);
       const rightIndexValid=rightIsHand&&handPoint(rightHand,'index-finger-tip',rightIndex);
+      const rightMiddleValid=rightIsHand&&handPoint(rightHand,'middle-finger-tip',rightMiddle);
       const rightWristValid=rightIsHand&&handPoint(rightHand,'wrist',rightWrist);
       const rPinchDist=(rightThumbValid&&rightIndexValid)?rightThumb.distanceTo(rightIndex):999;
-      const rIndexCurled=(rightIndexValid&&rightWristValid)?(rightIndex.distanceTo(rightWrist)<.118):false;
-      const rightPinch=rightIsHand&&(rPinchDist<.048||rIndexCurled);
+      const rMidPinchDist=(rightThumbValid&&rightMiddleValid)?rightThumb.distanceTo(rightMiddle):999;
+      const rIndexCurled=(rightIndexValid&&rightWristValid)?(rightIndex.distanceTo(rightWrist)<.142):false;
+      const rightPinch=rightIsHand&&(rPinchDist<.058||rMidPinchDist<.056||rIndexCurled);
       if(leftPinch&&!leftPinchHeld){leftPinchTime=0;leftPinchUsed=false;}if(leftPinch)leftPinchTime+=d;
       if(leftPinch&&rightPinch){bothPinchTime+=d;if(bothPinchTime>=1.0&&!bothPinchExit){bothPinchExit=true;requestExit('hands');}}else{bothPinchTime=0;bothPinchExit=false;}
 

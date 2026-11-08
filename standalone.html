@@ -787,6 +787,21 @@ git push -u origin main</pre>
       });
     }
 
+    // Only allow button pushing if the button is within the pilot's field of view on screen
+    const _novaCamFwd = new THREE.Vector3(), _novaCamPos = new THREE.Vector3(), _novaToBtn = new THREE.Vector3();
+    function novaIsObjectOnScreen(obj, minDot = 0.48) {
+      if (!renderer.xr.isPresenting) return true;
+      if (!obj) return false;
+      const pos = (obj.isVector3) ? obj : obj.getWorldPosition(_novaToBtn);
+      camera.getWorldPosition(_novaCamPos);
+      camera.getWorldDirection(_novaCamFwd);
+      const toPos = (pos === _novaToBtn) ? pos.sub(_novaCamPos) : new THREE.Vector3().subVectors(pos, _novaCamPos);
+      if (toPos.lengthSq() < 0.002) return true;
+      toPos.normalize();
+      return _novaCamFwd.dot(toPos) >= minDot;
+    }
+    window.novaIsObjectOnScreen = novaIsObjectOnScreen;
+
         let pirateBoss = null;
     let pirateBossSpawned = false;
 const GAME_VERSION = 'Alpha 1.4';
@@ -3473,6 +3488,76 @@ const GAME_VERSION = 'Alpha 1.4';
       return list;
     }
 
+    let commsScreenMode = 'intel'; // 'intel' | 'conversation'
+    let commsContactLogs = {};
+    function openCommsConversation(ent) {
+      if (!ent) return;
+      commsScreenMode = 'conversation';
+      if (!commsContactLogs[ent.name]) {
+        commsContactLogs[ent.name] = [
+          { s: 'PILOT', m: `Hailing ${ent.name} on ${ent.freq || '142.80 MHz'}. Link established.`, c: '#00e5ff' }
+        ];
+        setTimeout(() => {
+          if (sound && sound.valkyrieChirp) sound.valkyrieChirp();
+          const replies = [
+            `"${ent.callsign || ent.name} acknowledging hail, Nova Lead! Frequency is open."`,
+            `"${ent.callsign || ent.name} reading your signal loud and clear. Subspace link verified."`,
+            `"Copy Nova Lead. Maintaining tactical perimeter. Transponder verified optimal."`
+          ];
+          const rep = replies[Math.floor(Math.random() * replies.length)];
+          commsContactLogs[ent.name].push({ s: ent.callsign || ent.name, m: rep, c: ent.color || '#33ffaa' });
+          broadcastCommsTransmission(ent.callsign || ent.name, rep);
+          drawCommsPanel();
+        }, 320);
+      }
+      if (sound && sound.switchClick) sound.switchClick();
+      drawCommsPanel();
+    }
+
+    function sendContactDialogue(type, ent) {
+      if (!ent) return;
+      if (!commsContactLogs[ent.name]) commsContactLogs[ent.name] = [];
+      const log = commsContactLogs[ent.name];
+      if (sound && sound.switchClick) sound.switchClick();
+      if (sound && sound.commsChirp) sound.commsChirp();
+      if (type === 'sitrep') {
+        log.push({ s: 'PILOT', m: `Nova Lead to ${ent.callsign || ent.name}: Requesting tactical SITREP.`, c: '#00e5ff' });
+        drawCommsPanel();
+        setTimeout(() => {
+          if (sound && sound.valkyrieChirp) sound.valkyrieChirp();
+          const sitreps = [
+            `"SITREP: Station Nova-1 and approach corridor are clear. Heavy titanium deposits in eastern asteroid belt."`,
+            `"SITREP: Long-range radar detected corsair pirate raiders beyond the warp corridor. Keep lasers primed!"`,
+            `"SITREP: All allied shipping lanes reading green. Patrol units active on grid two."`
+          ];
+          const rep = sitreps[Math.floor(Math.random() * sitreps.length)];
+          log.push({ s: ent.callsign || ent.name, m: rep, c: '#00ff88' });
+          broadcastCommsTransmission(ent.callsign || ent.name, rep);
+          drawCommsPanel();
+        }, 350);
+      } else if (type === 'backup') {
+        log.push({ s: 'PILOT', m: `Nova Lead to ${ent.callsign || ent.name}: Confirm vector and cover vector.`, c: '#00e5ff' });
+        drawCommsPanel();
+        setTimeout(() => {
+          if (sound && sound.stationChirp) sound.stationChirp();
+          const rep = `"Roger Nova Lead! Vector confirmed. Matching telemetry, covering your flank!"`;
+          log.push({ s: ent.callsign || ent.name, m: rep, c: '#ffd24a' });
+          broadcastCommsTransmission(ent.callsign || ent.name, rep);
+          drawCommsPanel();
+        }, 350);
+      } else if (type === 'cargo') {
+        log.push({ s: 'PILOT', m: `Nova Lead to ${ent.callsign || ent.name}: Inquiring on cargo trade & refinery demand.`, c: '#00e5ff' });
+        drawCommsPanel();
+        setTimeout(() => {
+          if (sound && sound.stationChirp) sound.stationChirp();
+          const rep = `"Refinery status: Buying titanium ore at 250 CR/Ton. Drones on standby for offload."`;
+          log.push({ s: ent.callsign || ent.name, m: rep, c: '#00ffcc' });
+          broadcastCommsTransmission(ent.callsign || ent.name, rep);
+          drawCommsPanel();
+        }, 350);
+      }
+    }
+
     function handleCommsTouch(u, v) {
       const now = performance.now();
       if (now - lastCommsTouchTime < 200) return;
@@ -3483,6 +3568,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const entities = getSensorEntities();
 
       // 1. Left Sensor Entity List Selection (x: 8 to 175)
+      // Scrolling or clicking DOES NOT lock target - previews contact only!
       if (cx >= 8 && cx <= 175) {
         // Scroll Up arrow (y: 38 to 62, x: 125 to 148)
         if (cy >= 38 && cy <= 62 && cx >= 125 && cx <= 148) {
@@ -3499,38 +3585,58 @@ const GAME_VERSION = 'Alpha 1.4';
           return;
         }
 
-        // Entity rows (y: 65 to 376, row height 51px)
+        // Entity rows (y: 65 to 376, row height 51px) - Select contact without overriding target lock
         const rowIdx = Math.floor((cy - 65) / 51) + commsScrollOffset;
         if (rowIdx >= 0 && rowIdx < entities.length) {
           selectedEntityIdx = rowIdx;
           const ent = entities[rowIdx];
           selectedStationIdx = Math.min(rowIdx, commsStations.length - 1);
-
-          // Synchronize locked target with selected entity!
-          if (ent.obj) {
-            currentLockedTarget = {
-              name: ent.name,
-              type: ent.type,
-              targetObj: ent.obj,
-              dist: ent.dist,
-              isHostile: ent.isHostile
-            };
-          }
-
           if (sound && sound.switchClick) sound.switchClick();
-          showToast(`🎯 SENSOR TARGET LOCKED: ${ent.name} (${Math.round(ent.dist)}m)`, 2200, ent.color);
-          drawMissileTargetScreen();
-          drawRightDash();
           drawCommsPanel();
           return;
         }
       }
 
-      // 2. DOCK / CLOSE-IN button (x: 340 to 495, y: 172 to 205)
-      if (cx >= 340 && cx <= 495 && cy >= 172 && cy <= 205) {
-        const ent = entities[Math.min(selectedEntityIdx, entities.length - 1)];
-        if (ent && ent.obj && window.ndkState === 'idle') {
-          currentLockedTarget = { name: ent.name, type: ent.type, targetObj: ent.obj, dist: ent.dist, isHostile: ent.isHostile };
+      const selEnt = entities[Math.min(selectedEntityIdx, entities.length - 1)];
+
+      // 2. Conversation View Controls
+      if (commsScreenMode === 'conversation') {
+        // [ ◀ INTEL ] button at top right (cx: 412 to 496, cy: 38 to 62)
+        if (cx >= 412 && cx <= 496 && cy >= 38 && cy <= 62) {
+          commsScreenMode = 'intel';
+          if (sound && sound.switchClick) sound.switchClick();
+          drawCommsPanel();
+          return;
+        }
+        // Conversation Action Buttons at Bottom Right (y: 324 to 372)
+        if (cy >= 324 && cy <= 372) {
+          if (cx >= 182 && cx <= 284) {
+            sendContactDialogue('sitrep', selEnt);
+            return;
+          }
+          if (cx >= 290 && cx <= 392) {
+            sendContactDialogue('backup', selEnt);
+            return;
+          }
+          if (cx >= 398 && cx <= 504) {
+            sendContactDialogue('cargo', selEnt);
+            return;
+          }
+        }
+        return;
+      }
+
+      // 3. Intel View Controls
+      // On-Screen [ 📡 HAIL / COMM ] Button (cx: 326 to 496, cy: 122 to 156)
+      if (cx >= 326 && cx <= 496 && cy >= 122 && cy <= 156) {
+        openCommsConversation(selEnt);
+        return;
+      }
+
+      // On-Screen [ ⚓ DOCK / CLOSE-IN ] Button (cx: 326 to 496, cy: 160 to 194)
+      if (cx >= 326 && cx <= 496 && cy >= 160 && cy <= 194) {
+        if (selEnt && selEnt.obj && window.ndkState === 'idle') {
+          currentLockedTarget = { name: selEnt.name, type: selEnt.type, targetObj: selEnt.obj, dist: selEnt.dist, isHostile: selEnt.isHostile };
         }
         if (currentLockedTarget && currentLockedTarget.type === 'derelict' && window.novaColdRunBoard && window.novaColdRunBoard()) { drawCommsPanel(); return; }
         novaDockAny();
@@ -3538,29 +3644,27 @@ const GAME_VERSION = 'Alpha 1.4';
         return;
       }
 
-      // 3. Quick Action Buttons at Bottom Right (y: 324 to 372)
+      // Quick Action Buttons at Bottom Right (y: 324 to 372)
       if (cy >= 324 && cy <= 372) {
-        // [ HAIL / TALK ] (x: 182 to 284)
+        // [ HAIL / TALK ] (x: 182 to 284) -> Switches to conversation panel
         if (cx >= 182 && cx <= 284) {
-          const ent = entities[Math.min(selectedEntityIdx, entities.length - 1)];
-          novaKeyboardToggle(ent);
+          openCommsConversation(selEnt);
           return;
         }
 
-        // [ LOCK / DOCK ] (x: 290 to 392)
+        // [ LOCK / DOCK ] (x: 290 to 392) -> Explicitly locks target
         if (cx >= 290 && cx <= 392) {
-          const ent = entities[Math.min(selectedEntityIdx, entities.length - 1)];
-          if (ent.obj) {
+          if (selEnt && selEnt.obj) {
             currentLockedTarget = {
-              name: ent.name,
-              type: ent.type,
-              targetObj: ent.obj,
-              dist: ent.dist,
-              isHostile: ent.isHostile
+              name: selEnt.name,
+              type: selEnt.type,
+              targetObj: selEnt.obj,
+              dist: selEnt.dist,
+              isHostile: selEnt.isHostile
             };
           }
           if (sound && sound.lockTone) sound.lockTone();
-          showToast(`🎯 TARGET LOCK ENGAGED: ${ent.name} (${Math.round(ent.dist)}m)`, 2500, '#00ffff');
+          showToast(`🎯 TARGET LOCK ENGAGED: ${selEnt.name} (${Math.round(selEnt.dist)}m)`, 2500, '#00ffff');
           drawMissileTargetScreen();
           drawRightDash();
           drawCommsPanel();
@@ -3663,156 +3767,264 @@ const GAME_VERSION = 'Alpha 1.4';
         ctx.fillText(ent.stealth ? '[STEALTH]' : '[ACTIVE]', 10 + colW - 10, ry + 36);
       }
 
-      // ── TOP RIGHT: 3D Wireframe Target Render & Intel Panel ──
+      // ── RIGHT COLUMN: Conversation View OR Intel View ──
       const rightX = 182;
       const rightW = w - rightX - 8;
-      const topH = 172;
 
-      ctx.fillStyle = 'rgba(6, 18, 32, 0.92)';
-      ctx.fillRect(rightX, 38, rightW, topH);
-      ctx.strokeStyle = '#0088cc';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(rightX, 38, rightW, topH);
+      if (commsScreenMode === 'conversation') {
+        // ── Active Messages / Conversation Panel ──
+        ctx.fillStyle = 'rgba(4, 14, 26, 0.96)';
+        ctx.fillRect(rightX, 38, rightW, h - 46);
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(rightX, 38, rightW, h - 46);
 
-      // Header
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
-      ctx.fillRect(rightX, 38, rightW, 22);
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = 'bold 11px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(`🎯 TARGET WIREFRAME: ${selEnt.name}`, rightX + 8, 53);
+        // Header Bar
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.18)';
+        ctx.fillRect(rightX, 38, rightW, 26);
+        ctx.fillStyle = selEnt.color || '#00f0ff';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`📡 LIVE COMM: ${selEnt.name}`, rightX + 8, 55);
 
-      // 3D Isometric Wireframe Target Model Render
-      wireframeTargetAngle += 0.02;
-      const wfx = rightX + 68;
-      const wfy = 126;
-      ctx.save();
-      ctx.translate(wfx, wfy);
+        // [ ◀ INTEL ] Toggle Button
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+        ctx.fillRect(rightX + rightW - 82, 41, 78, 20);
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(rightX + rightW - 82, 41, 78, 20);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('◀ INTEL', rightX + rightW - 43, 55);
 
-      // Rotating wireframe projection
-      ctx.strokeStyle = selEnt.color;
-      ctx.lineWidth = 1.6;
-
-      const cosA = Math.cos(wireframeTargetAngle);
-      const sinA = Math.sin(wireframeTargetAngle);
-
-      if (selEnt.type === 'station') {
-        // Hexagonal rotating orbital station ring
-        ctx.beginPath();
-        for (let a = 0; a < 6; a++) {
-          const ang = (a / 6) * Math.PI * 2 + wireframeTargetAngle;
-          const px = Math.cos(ang) * 44;
-          const py = Math.sin(ang) * 22;
-          if (a === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-        ctx.stroke();
-        // Station core
-        ctx.strokeRect(-10, -10, 20, 20);
-        ctx.beginPath();
-        ctx.moveTo(0, -22); ctx.lineTo(0, 22);
-        ctx.moveTo(-44, 0); ctx.lineTo(44, 0);
-        ctx.stroke();
-      } else {
-        // Sleek Starfighter Wireframe
-        const pts = [
-          { x: 0, y: -38, z: 0 },       // Nose
-          { x: -32, y: 18, z: 0 },      // Left wing
-          { x: 0, y: 10, z: 12 },       // Fuselage top
-          { x: 32, y: 18, z: 0 },       // Right wing
-          { x: 0, y: 24, z: -8 }        // Thruster
-        ];
-        // Rotate around Y and project
-        const proj = pts.map(p => {
-          const rx = p.x * cosA - p.z * sinA;
-          const rz = p.x * sinA + p.z * cosA;
-          return { x: rx, y: p.y + rz * 0.35 };
-        });
-        ctx.beginPath();
-        ctx.moveTo(proj[0].x, proj[0].y); ctx.lineTo(proj[1].x, proj[1].y);
-        ctx.lineTo(proj[2].x, proj[2].y); ctx.lineTo(proj[0].x, proj[0].y);
-        ctx.lineTo(proj[3].x, proj[3].y); ctx.lineTo(proj[2].x, proj[2].y);
-        ctx.moveTo(proj[1].x, proj[1].y); ctx.lineTo(proj[4].x, proj[4].y); ctx.lineTo(proj[3].x, proj[3].y);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // Diagnostic Details Column (Right side of top box)
-      const diagX = rightX + 144;
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(`CALL: ${selEnt.callsign || 'N/A'}`, diagX, 80);
-      ctx.fillText(`FREQ: ${selEnt.freq || '142.8 MHz'}`, diagX, 98);
-      ctx.fillText(`RANGE: ${Math.round(selEnt.dist)}m`, diagX, 116);
-      ctx.fillText(`SHIELDS: 100% | HULL: 100%`, diagX, 134);
-      ctx.fillStyle = selEnt.stealth ? '#ff00aa' : '#00ff88';
-      ctx.fillText(`SIGNATURE: ${selEnt.stealth ? 'STEALTH CLOAK' : 'TRANSPONDER ACTIVE'}`, diagX, 152);
-
-      // DOCK / CLOSE-IN pill (docks with whatever is selected)
-      {
-        const holdNow = (window.ndkState === 'hold' || window.ndkState === 'approach');
-        const nope = !!selEnt.isHostile;
-        const pc = nope ? '#ff3344' : (holdNow ? '#ffaa00' : '#00ffcc');
-        ctx.fillStyle = nope ? 'rgba(255,51,68,0.18)' : 'rgba(0,255,204,0.22)';
-        ctx.fillRect(diagX, 164, 150, 24);
-        ctx.strokeStyle = pc; ctx.lineWidth = 1.5; ctx.strokeRect(diagX, 164, 150, 24);
-        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-        ctx.fillText(nope ? '\u2715 HOSTILE: NO DOCK' : (holdNow ? '\u2693 RELEASE' : '\u2693 DOCK / CLOSE IN'), diagX + 75, 180);
-      }
-
-      // ── BOTTOM RIGHT: Dedicated Interactive Sci-Fi Chat Feed ──
-      const botY = 216;
-      const botH = h - botY - 8;
-
-      ctx.fillStyle = 'rgba(4, 14, 26, 0.96)';
-      ctx.fillRect(rightX, botY, rightW, botH);
-      ctx.strokeStyle = '#0088cc';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(rightX, botY, rightW, botH);
-
-      // Header Bar
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
-      ctx.fillRect(rightX, botY, rightW, 24);
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = 'bold 11px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText('💬 SUB-SPACE LIVE CHAT FEED', rightX + 8, botY + 16);
-
-      ctx.textAlign = 'right';
-      ctx.fillStyle = isCommsVoiceMuted ? '#ffaa00' : '#00ff88';
-      ctx.fillText(isCommsVoiceMuted ? '● MUTED' : '● LIVE TRANSCEIVER', rightX + rightW - 8, botY + 16);
-
-      // Multi-Line Chat Log Entries
-      // Real conversation log (word-wrapped, newest at bottom)
-      const chatLines = [];
-      const wrapW = Math.floor((rightW - 16) / 6.1);
-      (window.commsChatLog || []).slice(-6).forEach(item => {
-        const words = (item.s + ': ' + item.m).split(' ');
-        let line = '';
-        words.forEach(wd => {
-          if ((line + ' ' + wd).trim().length > wrapW) { chatLines.push({ t: line.trim(), c: item.c }); line = wd; }
-          else line += ' ' + wd;
-        });
-        if (line.trim()) chatLines.push({ t: line.trim(), c: item.c });
-      });
-      let msgY = botY + 38;
-      const maxChatLines = Math.max(3, Math.floor((botH - 52) / 13));
-      chatLines.slice(-maxChatLines).forEach(ln => {
-        ctx.fillStyle = ln.c;
+        // Sub-channel Info Bar
+        ctx.fillStyle = 'rgba(10, 30, 50, 0.6)';
+        ctx.fillRect(rightX + 4, 68, rightW - 8, 20);
+        ctx.fillStyle = '#ffcc00';
         ctx.font = '10px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText(ln.t, rightX + 8, msgY);
-        msgY += 13;
-      });
+        ctx.fillText(`FREQ: ${selEnt.freq || '142.80 MHz'} · CARRIER: LOCKED · SIG: CLEAN`, rightX + 10, 82);
 
-      // Active Terminal Input Cursor
-      const blink = (Math.floor(performance.now() / 450) % 2 === 0);
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = 'bold 10px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(`> SECURE FREQ: ${selEnt.freq || '142.80 MHz'} ${blink ? '█' : ''}`, rightX + 8, botY + botH - 8);
+        // Word-Wrapped Conversation Log Box
+        const logBoxY = 92;
+        const logBoxH = 224;
+        ctx.fillStyle = 'rgba(6, 18, 32, 0.9)';
+        ctx.fillRect(rightX + 4, logBoxY, rightW - 8, logBoxH);
+        ctx.strokeStyle = '#1a3a5a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(rightX + 4, logBoxY, rightW - 8, logBoxH);
+
+        const convLog = commsContactLogs[selEnt.name] || [];
+        const lines = [];
+        const maxWrap = Math.floor((rightW - 20) / 6.1);
+        convLog.forEach(item => {
+          const words = (`${item.s}: ${item.m}`).split(' ');
+          let line = '';
+          words.forEach(wd => {
+            if ((line + ' ' + wd).trim().length > maxWrap) {
+              lines.push({ t: line.trim(), c: item.c });
+              line = wd;
+            } else {
+              line += ' ' + wd;
+            }
+          });
+          if (line.trim()) lines.push({ t: line.trim(), c: item.c });
+        });
+
+        let cyLog = logBoxY + 18;
+        const maxLines = Math.floor((logBoxH - 24) / 14);
+        lines.slice(-maxLines).forEach(ln => {
+          ctx.fillStyle = ln.c || '#ffffff';
+          ctx.font = '10px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(ln.t, rightX + 10, cyLog);
+          cyLog += 14;
+        });
+
+        // Blinking active frequency indicator
+        const blink = (Math.floor(performance.now() / 450) % 2 === 0);
+        ctx.fillStyle = '#00f0ff';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`> COMM TRANSCEIVER ACTIVE ${blink ? '█' : ''}`, rightX + 10, logBoxY + logBoxH - 8);
+
+        // 3 Dialogue Quick Action Buttons at Bottom (y: 324 to 372)
+        // 1. [ 📊 SITREP ]
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
+        ctx.fillRect(182, 324, 102, 48);
+        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1.5; ctx.strokeRect(182, 324, 102, 48);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('📊 SITREP', 233, 353);
+
+        // 2. [ 🛡️ BACKUP ]
+        ctx.fillStyle = 'rgba(255, 210, 74, 0.22)';
+        ctx.fillRect(290, 324, 102, 48);
+        ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 1.5; ctx.strokeRect(290, 324, 102, 48);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('🛡️ BACKUP', 341, 353);
+
+        // 3. [ 📦 CARGO ]
+        ctx.fillStyle = 'rgba(0, 255, 204, 0.22)';
+        ctx.fillRect(398, 324, 106, 48);
+        ctx.strokeStyle = '#00ffcc'; ctx.lineWidth = 1.5; ctx.strokeRect(398, 324, 106, 48);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('📦 CARGO', 451, 353);
+
+      } else {
+        // ── TOP RIGHT: 3D Wireframe Target Render & Intel Panel ──
+        const topH = 172;
+
+        ctx.fillStyle = 'rgba(6, 18, 32, 0.92)';
+        ctx.fillRect(rightX, 38, rightW, topH);
+        ctx.strokeStyle = '#0088cc';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(rightX, 38, rightW, topH);
+
+        // Header
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+        ctx.fillRect(rightX, 38, rightW, 22);
+        ctx.fillStyle = '#00f0ff';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`🎯 TARGET WIREFRAME: ${selEnt.name}`, rightX + 8, 53);
+
+        // 3D Isometric Wireframe Target Model Render
+        wireframeTargetAngle += 0.02;
+        const wfx = rightX + 68;
+        const wfy = 126;
+        ctx.save();
+        ctx.translate(wfx, wfy);
+
+        // Rotating wireframe projection
+        ctx.strokeStyle = selEnt.color;
+        ctx.lineWidth = 1.6;
+
+        const cosA = Math.cos(wireframeTargetAngle);
+        const sinA = Math.sin(wireframeTargetAngle);
+
+        if (selEnt.type === 'station') {
+          // Hexagonal rotating orbital station ring
+          ctx.beginPath();
+          for (let a = 0; a < 6; a++) {
+            const ang = (a / 6) * Math.PI * 2 + wireframeTargetAngle;
+            const px = Math.cos(ang) * 44;
+            const py = Math.sin(ang) * 22;
+            if (a === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          // Station core
+          ctx.strokeRect(-10, -10, 20, 20);
+          ctx.beginPath();
+          ctx.moveTo(0, -22); ctx.lineTo(0, 22);
+          ctx.moveTo(-44, 0); ctx.lineTo(44, 0);
+          ctx.stroke();
+        } else {
+          // Sleek Starfighter Wireframe
+          const pts = [
+            { x: 0, y: -38, z: 0 },       // Nose
+            { x: -32, y: 18, z: 0 },      // Left wing
+            { x: 0, y: 10, z: 12 },       // Fuselage top
+            { x: 32, y: 18, z: 0 },       // Right wing
+            { x: 0, y: 24, z: -8 }        // Thruster
+          ];
+          const proj = pts.map(p => {
+            const rx = p.x * cosA - p.z * sinA;
+            const rz = p.x * sinA + p.z * cosA;
+            return { x: rx, y: p.y + rz * 0.35 };
+          });
+          ctx.beginPath();
+          ctx.moveTo(proj[0].x, proj[0].y); ctx.lineTo(proj[1].x, proj[1].y);
+          ctx.lineTo(proj[2].x, proj[2].y); ctx.lineTo(proj[0].x, proj[0].y);
+          ctx.lineTo(proj[3].x, proj[3].y); ctx.lineTo(proj[2].x, proj[2].y);
+          ctx.moveTo(proj[1].x, proj[1].y); ctx.lineTo(proj[4].x, proj[4].y); ctx.lineTo(proj[3].x, proj[3].y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Diagnostic Details Column (Right side of top box)
+        const diagX = rightX + 144;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`CALL: ${selEnt.callsign || 'N/A'}`, diagX, 74);
+        ctx.fillText(`FREQ: ${selEnt.freq || '142.8 MHz'}`, diagX, 89);
+        ctx.fillText(`RANGE: ${Math.round(selEnt.dist)}m`, diagX, 104);
+        ctx.fillStyle = selEnt.stealth ? '#ff00aa' : '#00ff88';
+        ctx.fillText(`SIG: ${selEnt.stealth ? 'STEALTH CLOAK' : 'TRANSPONDER ON'}`, diagX, 118);
+
+        // Prominent On-Screen [ 📡 HAIL / COMM ] Button
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+        ctx.fillRect(diagX, 126, 150, 26);
+        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1.5; ctx.strokeRect(diagX, 126, 150, 26);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('📡 HAIL / COMM', diagX + 75, 143);
+
+        // DOCK / CLOSE-IN pill (docks with whatever is selected)
+        {
+          const holdNow = (window.ndkState === 'hold' || window.ndkState === 'approach');
+          const nope = !!selEnt.isHostile;
+          const pc = nope ? '#ff3344' : (holdNow ? '#ffaa00' : '#00ffcc');
+          ctx.fillStyle = nope ? 'rgba(255,51,68,0.18)' : 'rgba(0,255,204,0.22)';
+          ctx.fillRect(diagX, 160, 150, 24);
+          ctx.strokeStyle = pc; ctx.lineWidth = 1.5; ctx.strokeRect(diagX, 160, 150, 24);
+          ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+          ctx.fillText(nope ? '\u2715 HOSTILE: NO DOCK' : (holdNow ? '\u2693 RELEASE' : '\u2693 DOCK / CLOSE IN'), diagX + 75, 176);
+        }
+
+        // ── BOTTOM RIGHT: Dedicated Interactive Sci-Fi Chat Feed ──
+        const botY = 216;
+        const botH = h - botY - 8;
+
+        ctx.fillStyle = 'rgba(4, 14, 26, 0.96)';
+        ctx.fillRect(rightX, botY, rightW, botH);
+        ctx.strokeStyle = '#0088cc';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(rightX, botY, rightW, botH);
+
+        // Header Bar
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+        ctx.fillRect(rightX, botY, rightW, 24);
+        ctx.fillStyle = '#00f0ff';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('💬 SUB-SPACE LIVE CHAT FEED', rightX + 8, botY + 16);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = isCommsVoiceMuted ? '#ffaa00' : '#00ff88';
+        ctx.fillText(isCommsVoiceMuted ? '● MUTED' : '● LIVE TRANSCEIVER', rightX + rightW - 8, botY + 16);
+
+        // Multi-Line Chat Log Entries
+        const chatLines = [];
+        const wrapW = Math.floor((rightW - 16) / 6.1);
+        (window.commsChatLog || []).slice(-6).forEach(item => {
+          const words = (item.s + ': ' + item.m).split(' ');
+          let line = '';
+          words.forEach(wd => {
+            if ((line + ' ' + wd).trim().length > wrapW) { chatLines.push({ t: line.trim(), c: item.c }); line = wd; }
+            else line += ' ' + wd;
+          });
+          if (line.trim()) chatLines.push({ t: line.trim(), c: item.c });
+        });
+        let msgY = botY + 38;
+        const maxChatLines = Math.max(3, Math.floor((botH - 52) / 13));
+        chatLines.slice(-maxChatLines).forEach(ln => {
+          ctx.fillStyle = ln.c;
+          ctx.font = '10px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(ln.t, rightX + 8, msgY);
+          msgY += 13;
+        });
+
+        // Active Terminal Input Cursor
+        const blink = (Math.floor(performance.now() / 450) % 2 === 0);
+        ctx.fillStyle = '#00f0ff';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`> SECURE FREQ: ${selEnt.freq || '142.80 MHz'} ${blink ? '█' : ''}`, rightX + 8, botY + botH - 8);
+      }
 
       commsTexture.needsUpdate = true;
     }
@@ -3851,13 +4063,7 @@ const GAME_VERSION = 'Alpha 1.4';
     registerCockpitButton(commsHailBtn, 'HAIL TARGET', () => {
       const entities = getSensorEntities();
       const ent = entities[Math.min(selectedEntityIdx, entities.length - 1)];
-      const banterList = [
-        `Nova-Lead, standing by on channel ${ent.freq || '142.8'}. Transponder lock verified.`,
-        `Starfighter Nova, all flight systems reading optimal. Covering your vector!`,
-        `Subspace frequency verified. Sector perimeter secure. Keep lasers primed!`
-      ];
-      const m = banterList[Math.floor(Math.random() * banterList.length)];
-      broadcastCommsTransmission(ent.callsign || ent.name, m);
+      openCommsConversation(ent);
     }, 0.05);
 
     // 2. [ ⚓ DOCK ]
@@ -6221,11 +6427,15 @@ const GAME_VERSION = 'Alpha 1.4';
 
       scene.add(mGroup);
 
+      const shipFwdSpeed = Math.max(0, (typeof shipBody !== 'undefined' && shipBody) ? shipBody.velocity.length() : 0);
+      const launchSpeed = Math.max(120, shipFwdSpeed + 55);
       activeMissiles.push({
         group: mGroup,
         target: targetObj,
-        speed: 75,
-        spawnTime: performance.now()
+        speed: launchSpeed,
+        baseSpeed: launchSpeed,
+        spawnTime: performance.now(),
+        boostIgnited: false
       });
     }
 
@@ -6688,10 +6898,50 @@ const GAME_VERSION = 'Alpha 1.4';
       isAfterburnerActive = true;
       afterburnerTimer = 2.4;
       if (sound && sound.engineRev) sound.engineRev();
+      if (sound && sound.afterburnerBoost) sound.afterburnerBoost();
       showToast('🔥 AFTERBURNER ENGAGED: 200% THRUST SURGE!', 2200, '#ff4400');
     }
 
-    registerCockpitButton(throttleBoosterBtn, 'AFTERBURNER BOOST', () => {
+    // ── Dedicated Rendered Red Afterburner Button on Left Console Rail ──
+    const afterburnerGroup = new THREE.Group();
+    afterburnerGroup.position.set(-0.25, 0.16, -0.38);
+    cockpit.add(afterburnerGroup);
+
+    const abBezelMat = new THREE.MeshStandardMaterial({ color: 0x111c26, metalness: 0.85, roughness: 0.35 });
+    const abBezel = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.042, 0.018, 24), abBezelMat);
+    abBezel.rotation.x = 0.38;
+    afterburnerGroup.add(abBezel);
+
+    const abCapMat = new THREE.MeshStandardMaterial({
+      color: 0xff1828,
+      emissive: 0xff0022,
+      emissiveIntensity: 0.95,
+      roughness: 0.25,
+      metalness: 0.2
+    });
+    const abCap = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.030, 0.022, 24), abCapMat);
+    abCap.position.y = 0.012;
+    abBezel.add(abCap);
+
+    const abCanvas = document.createElement('canvas'); abCanvas.width = 128; abCanvas.height = 128;
+    const abCtx = abCanvas.getContext('2d');
+    abCtx.fillStyle = '#ff1122'; abCtx.fillRect(0, 0, 128, 128);
+    abCtx.fillStyle = '#ffffff'; abCtx.font = 'bold 36px monospace'; abCtx.textAlign = 'center'; abCtx.textBaseline = 'middle';
+    abCtx.fillText('BOOST', 64, 64);
+    const abLabelMesh = new THREE.Mesh(
+      new THREE.CircleGeometry(0.025, 24),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(abCanvas), transparent: true, depthWrite: false })
+    );
+    abLabelMesh.rotation.x = -Math.PI / 2;
+    abLabelMesh.position.y = 0.0115;
+    abCap.add(abLabelMesh);
+
+    registerCockpitButton(abCap, 'AFTERBURNER BOOST', () => {
+      triggerAfterburner();
+      if (sound && sound.switchClick) sound.switchClick();
+    }, 0.065);
+
+    registerCockpitButton(throttleBoosterBtn, 'THROTTLE BOOST', () => {
       triggerAfterburner();
     }, 0.04);
 
@@ -11301,11 +11551,25 @@ const GAME_VERSION = 'Alpha 1.4';
         }
         if (hasDetonated) continue;
 
-        // Homing Guidance towards locked target OR Straight Rocket Cruise
-        if (m.target && m.target.visible) {
-          const toT = m.target.position.clone().sub(mPos);
-          toT.normalize();
-          m.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), toT), 0.24);
+        // Two-stage missile propulsion:
+        // Stage 1 (0 to 0.35s): Safe tube ejection / glide
+        // Stage 2 (> 0.35s): Secondary rocket booster ignition! Rapidly accelerates up to 320 m/s
+        const ageSec = (now - m.spawnTime) / 1000;
+        if (ageSec > 0.35) {
+          if (!m.boostIgnited) {
+            m.boostIgnited = true;
+            try { if (sound && sound.engineRev) sound.engineRev(); } catch (e) {}
+          }
+          m.speed = Math.min(320, m.speed + delta * 380);
+        }
+
+        // Homing Guidance towards locked target / crosshair enemies OR Straight Rocket Cruise
+        const tgtObj = (m.target && m.target.visible !== false) ? m.target : (currentLockedTarget && currentLockedTarget.targetObj && currentLockedTarget.targetObj.visible !== false ? currentLockedTarget.targetObj : null);
+        if (tgtObj) {
+          const tgtPos = tgtObj.getWorldPosition ? tgtObj.getWorldPosition(new THREE.Vector3()) : tgtObj.position.clone();
+          const toT = tgtPos.sub(mPos).normalize();
+          const turnRate = m.boostIgnited ? 0.45 : 0.24;
+          m.group.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), toT), turnRate);
           m.group.translateZ(-m.speed * delta);
         } else {
           // Free unguided rocket flight forward
@@ -11555,7 +11819,7 @@ const GAME_VERSION = 'Alpha 1.4';
             }
           }
 
-          // ── Smartwatch on Left Hand (Activated ONLY via Wrist Beacon Button) ──
+          // ── Smartwatch on Left Hand (Pops up when palm is facing UP or via Wrist Beacon Button) ──
           let isHandBusyWithControls = false;
           if (isLeftHand) {
             // Anchor tactile beacon puck to the left wrist joint
@@ -11565,16 +11829,25 @@ const GAME_VERSION = 'Alpha 1.4';
               wristBeaconGroup.visible = true;
             }
 
-            // Holographic Watch is STRICTLY OFF unless player pushed the wrist button!
+            let leftPalmUp = false;
+            const kJoint = joints['index-finger-metacarpal'], pJoint = joints['pinky-finger-metacarpal'];
+            if (kJoint && pJoint) {
+              const kW = new THREE.Vector3(), pW = new THREE.Vector3();
+              kJoint.getWorldPosition(kW); pJoint.getWorldPosition(pW);
+              const pNorm = new THREE.Vector3().crossVectors(kW.sub(wristWorld), pW.sub(wristWorld)).normalize();
+              if (pNorm.y > 0.35) leftPalmUp = true;
+            }
+
             if (debugWatchGroup) {
-              debugWatchGroup.visible = isWristMenuOpen;
-              if (isWristMenuOpen) {
+              debugWatchGroup.visible = isWristMenuOpen || leftPalmUp;
+              if (debugWatchGroup.visible) {
                 // Pop up cleanly floating above and in front of the left wrist
                 const headWorldPos = new THREE.Vector3();
                 camera.getWorldPosition(headWorldPos);
                 const toHead = headWorldPos.clone().sub(wristWorld).normalize();
                 const watchWorldPos = wristWorld.clone().add(toHead.clone().multiplyScalar(0.20)).add(new THREE.Vector3(0, 0.05, 0));
                 debugWatchGroup.position.copy(cameraRig.worldToLocal(watchWorldPos));
+                debugWatchGroup.quaternion.copy(camera.quaternion);
               }
             }
           }
@@ -11590,8 +11863,8 @@ const GAME_VERSION = 'Alpha 1.4';
             }
           }
 
-          // Comms Tactical Screen Fingertip Touch (Both Hands Supported!)
-          if (commsScreen && isCommsArmDeployed) {
+          // Comms Tactical Screen Fingertip Touch (Both Hands Supported! Gated to screen view)
+          if (commsScreen && isCommsArmDeployed && novaIsObjectOnScreen(commsScreen, 0.45)) {
             const localTip = commsScreen.worldToLocal(tipWorld.clone());
             // Comms plane is 0.28m x 0.19m
             if (localTip.z > -0.030 && localTip.z < 0.075 && Math.abs(localTip.x) <= 0.140 && Math.abs(localTip.y) <= 0.095) {
@@ -11602,8 +11875,8 @@ const GAME_VERSION = 'Alpha 1.4';
             }
           }
 
-          // Ship Inventory Screen Fingertip Touch (Both Hands Supported!)
-          if (invScreen && isInvArmDeployed) {
+          // Ship Inventory Screen Fingertip Touch (Both Hands Supported! Gated to screen view)
+          if (invScreen && isInvArmDeployed && novaIsObjectOnScreen(invScreen, 0.45)) {
             const localTip = invScreen.worldToLocal(tipWorld.clone());
             // Generous touch volume: depth -6cm to +12cm, full face and lower bezel
             if (localTip.z > -0.060 && localTip.z < 0.120 && Math.abs(localTip.x) <= 0.160 && localTip.y >= -0.130 && localTip.y <= 0.120) {
@@ -11616,7 +11889,7 @@ const GAME_VERSION = 'Alpha 1.4';
           // Ship Inventory Toggle Button Touch (on rightArmBay)
           const invBtnWorldPos = new THREE.Vector3();
           invBtn.getWorldPosition(invBtnWorldPos);
-          if (tipWorld.distanceTo(invBtnWorldPos) < 0.065) {
+          if (tipWorld.distanceTo(invBtnWorldPos) < 0.065 && novaIsObjectOnScreen(invBtn, 0.48)) {
             if (now - lastFaceBtnTime > 380) {
               lastFaceBtnTime = now;
               toggleInventory();
@@ -11846,10 +12119,10 @@ const GAME_VERSION = 'Alpha 1.4';
           }
           // Physical Disarm Tab (Visual reference only; latch is controlled via hold-down on gripTab)
 
-          // Comms Arm Fold/Deploy Tab Button
+          // Comms Arm Fold/Deploy Tab Button (Gated to screen view)
           const foldBtnWorldPos = new THREE.Vector3();
           if (typeof commsFoldBtn !== 'undefined' && commsFoldBtn) commsFoldBtn.getWorldPosition(foldBtnWorldPos); else foldBtnWorldPos.set(9999, 9999, 9999);
-          if (tipWorld.distanceTo(foldBtnWorldPos) < 0.075) {
+          if (tipWorld.distanceTo(foldBtnWorldPos) < 0.075 && novaIsObjectOnScreen(commsFoldBtn, 0.48)) {
             isHandBusyWithControls = true;
             if (now - lastFaceBtnTime > 500) {
               lastFaceBtnTime = now;
@@ -11857,7 +12130,7 @@ const GAME_VERSION = 'Alpha 1.4';
             }
           }
 
-          // Interactive Cockpit Buttons Array Outside Front Dash (Closest Button Selection)
+          // Interactive Cockpit Buttons Array Outside Front Dash (Closest Button Selection - Gated to screen view)
           let closestBtn = null;
           let closestDist = Infinity;
           const handGripping = isLeftHand ? isGrippingThrottleHand : isGrippingStickHand;
@@ -11871,6 +12144,8 @@ const GAME_VERSION = 'Alpha 1.4';
           for (let b = 0; b < cockpitInteractables.length && !handGripping; b++) {
             const btn = cockpitInteractables[b];
             if (!btn.mesh || !novaWorldVisible(btn.mesh)) continue;
+            // Prevent pushing buttons that are off the pilot's screen!
+            if (!novaIsObjectOnScreen(btn.mesh, 0.48)) continue;
             const dist = novaButtonDistance(tipWorld, btn.mesh);
             if (dist < Math.max(btn.radius, 0.03) && dist < closestDist) {
               closestDist = dist;
@@ -12396,46 +12671,78 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!wrist || !index || !thumb || !knuckle || !pinky) {
         novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; novaTurnPoseReady = false; novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false; return;
       }
-      const turnTarget = wrist.clone().add(new THREE.Vector3(0, 0.09, 0));
-      if (!novaTurnPoseReady || novaTurnUI.position.distanceTo(turnTarget) > 0.18) { novaTurnUI.position.copy(turnTarget); novaTurnUI.quaternion.copy(camera.quaternion); novaTurnPoseReady = true; }
-      else { novaTurnUI.position.lerp(turnTarget, 0.18); novaTurnUI.quaternion.slerp(camera.quaternion, 0.18); }
-      novaTurnUI.visible = true;
-      novaTurnUI.updateWorldMatrix(true, true);
-      const otherTip = joint(right, 'index-finger-tip');
-      let touch = -1;
-      if (otherTip) {
-        const local = novaTurnUI.worldToLocal(cameraRig.localToWorld(otherTip.clone()));
-        touch = novaTurnButtons.findIndex(b => Math.abs(local.x - b.position.x) < 0.021 && Math.abs(local.y) < 0.021 && Math.abs(local.z) < 0.018);
+
+      // Check whether left hand palm is facing UP
+      const palmNormal = new THREE.Vector3().crossVectors(knuckle.clone().sub(wrist), pinky.clone().sub(wrist)).normalize();
+      const worldPalmNormal = palmNormal.clone().applyQuaternion(cameraRig.quaternion);
+      const palmFacingUp = worldPalmNormal.y > 0.35;
+
+      // Pop up smartwatch and LR buttons when left palm is facing UP
+      if (palmFacingUp) {
+        if (debugWatchGroup) {
+          debugWatchGroup.visible = true;
+          const headWorld = new THREE.Vector3();
+          camera.getWorldPosition(headWorld);
+          const wristWorld = cameraRig.localToWorld(wrist.clone());
+          const toHead = headWorld.clone().sub(wristWorld).normalize();
+          const watchWorld = wristWorld.clone().add(toHead.clone().multiplyScalar(0.20)).add(new THREE.Vector3(0, 0.04, 0));
+          debugWatchGroup.position.copy(cameraRig.worldToLocal(watchWorld));
+          debugWatchGroup.quaternion.copy(camera.quaternion);
+        }
+        const turnTarget = wrist.clone().add(new THREE.Vector3(0, 0.12, 0));
+        if (!novaTurnPoseReady || novaTurnUI.position.distanceTo(turnTarget) > 0.18) {
+          novaTurnUI.position.copy(turnTarget);
+          novaTurnUI.quaternion.copy(camera.quaternion);
+          novaTurnPoseReady = true;
+        } else {
+          novaTurnUI.position.lerp(turnTarget, 0.22);
+          novaTurnUI.quaternion.slerp(camera.quaternion, 0.22);
+        }
+        novaTurnUI.visible = true;
+      } else {
+        novaTurnUI.visible = false;
+        if (debugWatchGroup && !isWristMenuOpen) debugWatchGroup.visible = false;
       }
-      const palm = new THREE.Vector3().crossVectors(knuckle.clone().sub(wrist), pinky.clone().sub(wrist)).normalize();
-      const direction = index.distanceTo(thumb) < 0.024 && Math.abs(palm.x) > 0.88 ? (palm.x > 0 ? 1 : -1) : 0;
-      if (!direction) { novaTurnSince = 0; novaTurnLatched = false; }
-      else if (direction !== novaTurnDirection) novaTurnSince = now;
-      const gesture = direction && !novaTurnLatched && now - novaTurnSince >= 650;
+      novaTurnUI.updateWorldMatrix(true, true);
+
+      // Pinch to activate L/R rotate
+      const otherTip = joint(right, 'index-finger-tip');
       const otherThumb = joint(right, 'thumb-tip');
-      const deliberatePinch = otherTip && otherThumb && otherTip.distanceTo(otherThumb) < 0.028;
+      const deliberatePinch = otherTip && otherThumb && otherTip.distanceTo(otherThumb) < 0.042;
+      let touch = -1;
+      if (otherTip && novaTurnUI.visible) {
+        const local = novaTurnUI.worldToLocal(cameraRig.localToWorld(otherTip.clone()));
+        touch = novaTurnButtons.findIndex(b => Math.abs(local.x - b.position.x) < 0.032 && Math.abs(local.y) < 0.032 && Math.abs(local.z) < 0.030);
+      }
       let tapSign = 0;
       if (touch >= 0 && deliberatePinch) {
         if (touch !== novaTurnPinchTouch) { novaTurnPinchTouch = touch; novaTurnPinchSince = now; novaTurnPinchLatched = false; }
-        if (!novaTurnPinchLatched && now - novaTurnPinchSince >= 350) { novaTurnPinchLatched = true; tapSign = touch === 0 ? 1 : -1; }
-      } else if (!deliberatePinch) { novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false; }
-      if ((tapSign || gesture) && now - novaTurnLast > 900) {
-        const sign = tapSign || direction;
+        if (!novaTurnPinchLatched && now - novaTurnPinchSince >= 100) {
+          novaTurnPinchLatched = true;
+          tapSign = touch === 0 ? 1 : -1;
+        }
+      } else if (!deliberatePinch) {
+        novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false;
+      }
+
+      if (tapSign && now - novaTurnLast > 500) {
+        const sign = tapSign;
         const headBefore = camera.position.clone().applyQuaternion(cameraRig.quaternion);
         cameraRig.rotateY(sign * Math.PI / 6);
         const headAfter = camera.position.clone().applyQuaternion(cameraRig.quaternion);
         cameraRig.position.add(headBefore.sub(headAfter));
         cameraRig.updateWorldMatrix(true, true);
-        novaTurnLast = now; novaTurnLatched = true;
+        novaTurnLast = now;
+        try { if (sound && sound.switchClick) sound.switchClick(); else if (sound && sound.beep) sound.beep(sign > 0 ? 980 : 840, 0.05); } catch (e) {}
       }
-      novaTurnTouch = touch; novaTurnDirection = direction;
+      novaTurnTouch = touch;
     }
 
     function novaUpdateWatchOnFoot(delta, frame, now) {
       if (!renderer.xr.isPresenting) return;
       const session = renderer.xr.getSession();
       if (!session) return;
-      let leftWristWorld = null, rightTipWorld = null, rightPinching = false;
+      let leftWristWorld = null, rightTipWorld = null, rightPinching = false, leftPalmFacingUp = false;
       const ref = renderer.xr.getReferenceSpace();
 
       [h1, h2].forEach(hand => {
@@ -12446,6 +12753,13 @@ const GAME_VERSION = 'Alpha 1.4';
         if (isLeft && joints['wrist'] && joints['wrist'].position) {
           leftWristWorld = new THREE.Vector3();
           joints['wrist'].getWorldPosition(leftWristWorld);
+          if (joints['index-finger-metacarpal'] && joints['pinky-finger-metacarpal']) {
+            const kW = new THREE.Vector3(), pW = new THREE.Vector3();
+            joints['index-finger-metacarpal'].getWorldPosition(kW);
+            joints['pinky-finger-metacarpal'].getWorldPosition(pW);
+            const pNorm = new THREE.Vector3().crossVectors(kW.sub(leftWristWorld), pW.sub(leftWristWorld)).normalize();
+            if (pNorm.y > 0.35) leftPalmFacingUp = true;
+          }
         }
         if (isRight && joints['index-finger-tip'] && joints['index-finger-tip'].position) {
           rightTipWorld = new THREE.Vector3();
@@ -12465,7 +12779,17 @@ const GAME_VERSION = 'Alpha 1.4';
           if (!leftWristWorld && src.handedness === 'left') {
             const wSpace = src.hand.get('wrist');
             const pose = wSpace && frame.getJointPose(wSpace, ref);
-            if (pose) leftWristWorld = new THREE.Vector3(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+            if (pose) {
+              leftWristWorld = new THREE.Vector3(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+              const kSpace = src.hand.get('index-finger-metacarpal'), pSpace = src.hand.get('pinky-finger-metacarpal');
+              const kPose = kSpace && frame.getJointPose(kSpace, ref), pPose = pSpace && frame.getJointPose(pSpace, ref);
+              if (kPose && pPose) {
+                const kv = new THREE.Vector3(kPose.transform.position.x, kPose.transform.position.y, kPose.transform.position.z).sub(leftWristWorld);
+                const pv = new THREE.Vector3(pPose.transform.position.x, pPose.transform.position.y, pPose.transform.position.z).sub(leftWristWorld);
+                const pNorm = new THREE.Vector3().crossVectors(kv, pv).normalize().applyQuaternion(cameraRig.quaternion);
+                if (pNorm.y > 0.35) leftPalmFacingUp = true;
+              }
+            }
           }
           if (!rightTipWorld && src.handedness === 'right') {
             const tSpace = src.hand.get('index-finger-tip');
@@ -12486,8 +12810,8 @@ const GAME_VERSION = 'Alpha 1.4';
         wristBeaconGroup.visible = true;
 
         if (debugWatchGroup) {
-          debugWatchGroup.visible = isWristMenuOpen;
-          if (isWristMenuOpen) {
+          debugWatchGroup.visible = isWristMenuOpen || leftPalmFacingUp;
+          if (debugWatchGroup.visible) {
             const headWorldPos = new THREE.Vector3();
             camera.getWorldPosition(headWorldPos);
             const toHead = headWorldPos.clone().sub(leftWristWorld).normalize();
@@ -12499,6 +12823,12 @@ const GAME_VERSION = 'Alpha 1.4';
             const rotM = new THREE.Matrix4().makeBasis(xAxis, yAxis, toHead);
             debugWatchGroup.quaternion.setFromRotationMatrix(rotM);
           }
+        }
+        if (leftPalmFacingUp) {
+          const lrPos = cameraRig.worldToLocal(leftWristWorld.clone().add(new THREE.Vector3(0, 0.12, 0)));
+          novaTurnUI.position.copy(lrPos);
+          novaTurnUI.quaternion.copy(camera.quaternion);
+          novaTurnUI.visible = true;
         }
       }
 
@@ -15109,7 +15439,7 @@ const GAME_VERSION = 'Alpha 1.4';
         let n = 0;
         ['tripo_part_14', 'tripo_part_15'].forEach(nm => { const m = w.getObjectByName(nm); if (m && m.isMesh) { nmRecenter(m); nmPressable(m, 'AFTERBURNER BOOST', old.action, 0.03, 'y', 0.04); n++; } });
         const top = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })); top.position.set(0, 0.96, 0.08); w.add(top);
-        registerCockpitButton(top, 'AFTERBURNER BOOST', old.action, 0.05); cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
+        registerCockpitButton(top, 'THROTTLE TOP BOOST', old.action, 0.05); cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
         console.log('[NOVA12] afterburner paddles wired:', n);
       } catch (e) { console.warn('afterburner wiring failed', e); }
     }
@@ -15119,7 +15449,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const old = cockpitInteractables.find(e => e.label === 'AFTERBURNER BOOST'); if (!old) return;
         const hm = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
         const h = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), hm); h.position.set(0, 0.96, 0.08); w.add(h);
-        registerCockpitButton(h, 'AFTERBURNER BOOST', old.action, 0.05); cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
+        registerCockpitButton(h, 'THROTTLE TOP BOOST', old.action, 0.05); cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
         console.log('[NOVA13] throttle handle wired (large top afterburner button)');
       } catch (e) { console.warn('throttle wiring failed', e); }
     }
