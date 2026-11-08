@@ -3559,11 +3559,22 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!rawText) return false;
       const t = rawText.toLowerCase().trim();
 
-      // 1. Warp / Lightspeed
+      // 1. Warp / Lightspeed / Jump
       if (t.includes('warp') || t.includes('lightspeed') || t.includes('jump')) {
         try {
-          if (typeof triggerLightspeed === 'function') triggerLightspeed();
-          showToast('🗣️ VOICE CMD: LIGHTSPEED TOGGLED', 3000, '#00ffff');
+          if (isLightspeedActive) {
+            exitLightspeed();
+            showToast('🗣️ VOICE CMD: DROPPING OUT OF WARP', 2500, '#ffaa00');
+            return true;
+          }
+          if (typeof npWarpGo === 'function') {
+            npWarpGo();
+          } else if (typeof novaWarpStart === 'function') {
+            novaWarpStart('fwd');
+          } else if (typeof triggerLightspeed === 'function') {
+            triggerLightspeed();
+          }
+          showToast('🗣️ VOICE CMD: WARP DRIVE ENGAGED', 3000, '#00ffff');
           return true;
         } catch (e) {}
       }
@@ -14505,12 +14516,22 @@ const GAME_VERSION = 'Alpha 1.4';
       showToast(def.id === 'fwd' ? 'WARP ENGAGED: FORWARD JUMP. Cut throttle to drop out.' : `WARP ENGAGED: ${def.name}. Auto-nav is steering.`, 3500, '#00ffff');
       if (def.id !== 'fwd') ncAnnounce(`Route locked: ${def.name}. Sit tight, ${novaAddr()}.`);
     }
-    // The main warp button now opens the Warp Nav; pressing it again in warp drops you out
+    // The main warp button opens Warp Nav on first press, or actualizes the jump if already on the warp page / pressed again
     const _nwOrigTrigger = triggerLightspeed;
     triggerLightspeed = function () {
       if (isLightspeedActive) { exitLightspeed(); return; }
       if (NW.spool) return;
-      NavUI.open();
+      const P = (typeof NP !== 'undefined' && NP.panels) ? NP.panels[0] : null;
+      const w = (P && P.cfg && P.cfg.tabs) ? P.cfg.tabs.indexOf(NP_WARP) : -1;
+      if (P && P.tab === w) {
+        // Already on Jump Drive page: ACTUALIZE THE JUMP!
+        if (typeof npWarpGo === 'function') npWarpGo();
+        else if (typeof novaWarpStart === 'function') novaWarpStart('fwd');
+        else _nwOrigTrigger();
+      } else {
+        NavUI.open();
+        showToast('WARP NAV: Tap JUMP or press WARP again to engage!', 2800, '#00ffff');
+      }
     };
     const _nwOrigExit = exitLightspeed;
     exitLightspeed = function (force) {
@@ -18071,7 +18092,7 @@ const GAME_VERSION = 'Alpha 1.4';
     function npGestureStart(P, src, px, py) {
       const T = P.cfg.tabs[P.tab];
       if (py < 50 || py > 412) return false;                       // tab strip and footer keep their own buttons
-      if (T.pads && T.pads.length && py > 338 && (T === NP_WARP || px > 412)) return false;   // pads
+      if (T.pads && T.pads.length && py > 338 && (px > 412 && T !== NP_WARP)) return false;   // pads
       if (T !== NP_COMMS && T !== NP_WARP && T !== NP_CHAT && T !== NP_CREW_TAB && T !== NP_NEWS && T !== NP_CARGO) return false;
       if (T === NP_COMMS && px > 420 && !(px >= 425 && px <= 705 && py >= 205 && py <= 275)) return false;
       if (T === NP_CARGO && px > 560) return false;
@@ -18156,7 +18177,26 @@ const GAME_VERSION = 'Alpha 1.4';
           }
         }
         else if (T === NP_CARGO) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) { NP_CARGO.row(P, r); P.drawT = 0; } }
-        else if (T === NP_WARP) { if (G.x0 < 140) npWarpStep(-1); else if (G.x0 > 884) npWarpStep(1); }
+        else if (T === NP_WARP) {
+          if (G.y0 >= 338) {
+            // Tapping bottom pads row on WARP tab:
+            if (G.x0 < 256) npWarpStep(-1);
+            else if (G.x0 < 512) npWarpGo();
+            else if (G.x0 < 768) npWarpStep(1);
+            else {
+              if (isLightspeedActive) exitLightspeed();
+              else showToast('Not in warp.', 1400, '#88aacc');
+            }
+          } else {
+            // Tapping upper screen on WARP tab:
+            if (G.x0 < 140) npWarpStep(-1);
+            else if (G.x0 > 884) npWarpStep(1);
+            else {
+              // Tapping central route card or green ROUTE READY bar actuates the jump!
+              npWarpGo();
+            }
+          }
+        }
         else if (T === NP_CHAT) {
           if (G.x0 < 320) {
             const r = Math.floor((G.y0 - 88) / 51), c = r >= 0 && r < 6 ? npChatContacts()[Math.round(NPCH.contactScroll) + r] : null;
