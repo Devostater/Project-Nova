@@ -1,4 +1,4 @@
-# Agent instructions (Codex, Gemini/Antigravity and other AI tools)
+# Agent instructions (Codex, Gemini/Antigravity, Grok and other AI tools)
 
 Project Nova is a WebXR space-flight sim (Quest 3, 2D, gamepad, VR and MR). The owner (Devostater) has final say, and **Claude is the lead and integrator**.
 
@@ -9,6 +9,12 @@ Key rules (full list in STATUS.md):
 - Put new systems in `public/modules/<name>.js`, with a copy in `modules/`.
 - Work on your own branch, starting from the latest `main`. Never push to `main`.
 - Don't read `vendor/`, `models/`, `art/`, `art_src/`, `music*/`, `android/app/build/` or `docs/archive/`.
+
+## AI roles
+- **Claude** — Lead / integrator. Reviews, merges, updates STATUS.md.
+- **ChatGPT / Codex** — Code tasks (flight, docking, systems, modules).
+- **Antigravity (Gemini)** — Art, storyboard, small single-file work.
+- **Grok (xAI)** — Independent analysis, technical critique, alternative solutions, research, and risk identification. Prefer Grok for second opinions and architecture review.
 
 ## Reviewing
 Focus on runtime errors and regressions in 2D, gamepad, VR and MR, Quest performance (draw calls, overdraw, per-frame allocations), and lost work. Verify a claim against the code before reporting it.
