@@ -2140,10 +2140,11 @@ const GAME_VERSION = 'Alpha 1.4';
       stationGroup.add(panel);
     }
 
-    // ── Asteroid Field (Expanded Solar Sector: 120 Procedural Asteroids up to 8000m) ──
+    // ── Asteroid Field (Expanded 3D Solar Sector: 220 Procedural Asteroids with 90° Vertical Volume) ──
     const asteroids = [];
-    for (let i = 0; i < 120; i++) {
-      const radius = (i < 20 ? 4.0 + Math.random() * 8.0 : 12.0 + Math.random() * 45.0);
+    const ASTEROID_COUNT = 220; // Almost double (was 120) for true 3D volumetric richness
+    for (let i = 0; i < ASTEROID_COUNT; i++) {
+      const radius = (i < 40 ? 4.0 + Math.random() * 8.0 : 12.0 + Math.random() * 45.0);
       const detail = radius > 20 ? 1 : 2;
       const astGeo = new THREE.DodecahedronGeometry(radius, detail);
       
@@ -2158,26 +2159,28 @@ const GAME_VERSION = 'Alpha 1.4';
       astGeo.computeVertexNormals();
 
       const astMesh = new THREE.Mesh(astGeo, asteroidMat);
-      // Disperse across an 8000m solar sector with near, mid, and deep-space clusters
-      let dist, angle, astY;
-      if (i < 30) {
-        // Immediate local flight test belt (45m to 250m)
-        dist = 45 + Math.random() * 200;
-        angle = (i / 30) * Math.PI * 2;
-        astY = -25 + (Math.random() - 0.5) * 80;
-      } else if (i < 70) {
-        // Mid-distance orbital field (300m to 1200m)
-        dist = 300 + Math.random() * 900;
-        angle = (i / 40) * Math.PI * 2 + 0.4;
-        astY = -80 + (Math.random() - 0.5) * 350;
+      // Disperse across 3D spherical space with near, mid, and deep-space clusters along the 90° vertical axis
+      let dist, azimuth, pitch;
+      if (i < 55) {
+        // Immediate local flight test belt (45m to 280m)
+        dist = 45 + Math.random() * 235;
+        azimuth = (i / 55) * Math.PI * 2;
+        pitch = (Math.random() - 0.5) * (Math.random() < 0.4 ? 0.5 : 1.45);
+      } else if (i < 130) {
+        // Mid-distance orbital field (300m to 1400m)
+        dist = 300 + Math.random() * 1100;
+        azimuth = (i / 75) * Math.PI * 2 + 0.4;
+        pitch = (Math.random() - 0.5) * (Math.random() < 0.35 ? 0.6 : 1.55);
       } else {
-        // Deep space asteroid field (1200m to 8000m)
-        dist = 1200 + Math.random() * 6800;
-        angle = Math.random() * Math.PI * 2;
-        astY = -200 + (Math.random() - 0.5) * 800;
+        // Deep space asteroid field (1400m to 8500m)
+        dist = 1400 + Math.random() * 7100;
+        azimuth = Math.random() * Math.PI * 2;
+        pitch = (Math.random() - 0.5) * (Math.random() < 0.3 ? 0.7 : 1.6);
       }
-      const astX = Math.cos(angle) * dist;
-      const astZ = -25 - Math.sin(angle) * dist;
+      const cosPitch = Math.cos(pitch);
+      const astX = Math.cos(azimuth) * cosPitch * dist;
+      const astY = Math.sin(pitch) * dist; // Full vertical distribution along the 90° axis!
+      const astZ = -25 - Math.sin(azimuth) * cosPitch * dist;
       astMesh.position.set(astX, astY, astZ).multiplyScalar(NOVA_WORLD_SCALE);
       astMesh.userData = {
         radius,
@@ -10675,7 +10678,7 @@ const GAME_VERSION = 'Alpha 1.4';
       try {
         spawnPirateBoss(); pirateBossSpawned = true;
         if (!pirateBoss) return;
-        const dir = new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 0.3, -1).normalize().applyQuaternion(shipGroup.quaternion);
+        const dir = new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.1, -1).normalize().applyQuaternion(shipGroup.quaternion);
         pirateBoss.position.copy(shipGroup.position).addScaledVector(dir, dist);
         novaHunt = dormant ? { home: pirateBoss.position.clone(), woke: false } : null;
         const msg = dormant ? 'Corsair scout located about 2 km out. It is running dark. Go find it.' : 'Bounty target inbound. Corsair raider closing on your position.';
@@ -14497,12 +14500,13 @@ const GAME_VERSION = 'Alpha 1.4';
     })();
     // Mineable ore rocks around the colony (reuse the game's own asteroid material so lasers, ore and drops all work)
     (() => {
-      for (let i = 0; i < 18; i++) {
+      for (let i = 0; i < 32; i++) {
         const radius = 7 + Math.random() * 9;
         const geo = new THREE.DodecahedronGeometry(radius, 1);
         const m = new THREE.Mesh(geo, asteroidMat);
         const a = Math.random() * Math.PI * 2, d = 160 + Math.random() * 220;
-        m.position.set(NW_COLONY_POS.x + Math.cos(a) * d, NW_COLONY_POS.y + (Math.random() - 0.5) * 120, NW_COLONY_POS.z + Math.sin(a) * d);
+        const pitch = (Math.random() - 0.5) * 1.5;
+        m.position.set(NW_COLONY_POS.x + Math.cos(a) * Math.cos(pitch) * d, NW_COLONY_POS.y + Math.sin(pitch) * d, NW_COLONY_POS.z + Math.sin(a) * Math.cos(pitch) * d);
         m.userData = { radius, rotX: (Math.random() - 0.5) * 0.008, rotY: (Math.random() - 0.5) * 0.012, rotZ: (Math.random() - 0.5) * 0.006, health: Math.round(radius * 15) };
         asteroidGroup.add(m); asteroids.push(m);
       }
@@ -14511,10 +14515,11 @@ const GAME_VERSION = 'Alpha 1.4';
       const g = new THREE.Group(); g.position.copy(NW_REEF_POS);
       const rock = new THREE.MeshStandardMaterial({ color: 0x2a1c20, roughness: 0.9, metalness: 0.2 });
       const red = new THREE.MeshBasicMaterial({ color: 0xff2244 });
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 72; i++) {
         const m = new THREE.Mesh(new THREE.DodecahedronGeometry(8 + Math.random() * 24, 1), rock);
         const a = Math.random() * Math.PI * 2, d = 160 + Math.random() * 300;
-        m.position.set(Math.cos(a) * d, (Math.random() - 0.5) * 140, Math.sin(a) * d); m.rotation.set(Math.random() * 6, Math.random() * 6, 0); g.add(m);
+        const pitch = (Math.random() - 0.5) * 1.5;
+        m.position.set(Math.cos(a) * Math.cos(pitch) * d, Math.sin(pitch) * d, Math.sin(a) * Math.cos(pitch) * d); m.rotation.set(Math.random() * 6, Math.random() * 6, 0); g.add(m);
       }
       for (let i = 0; i < 4; i++) {
         const w = new THREE.Mesh(new THREE.BoxGeometry(14 + i * 4, 6, 60 + i * 12), new THREE.MeshStandardMaterial({ color: 0x15171c, metalness: 0.8, roughness: 0.5 }));
@@ -15639,10 +15644,11 @@ const GAME_VERSION = 'Alpha 1.4';
       const g = new THREE.Group(); g.position.copy(NS_POS.frost);
       const ice = asteroidMat.clone(); ice.color = new THREE.Color(0x9fd8ff); ice.roughness = 0.35;
       g.userData.rocks = [];
-      for (let i = 0; i < 34; i++) {
+      for (let i = 0; i < 60; i++) {
         const radius = 6 + Math.random() * 11, m = new THREE.Mesh(new THREE.DodecahedronGeometry(radius, 1), ice);
         const a = Math.random() * Math.PI * 2, d = 150 + Math.random() * 280;
-        m.position.set(NS_POS.frost.x + Math.cos(a) * d, NS_POS.frost.y + (Math.random() - 0.5) * 60, NS_POS.frost.z + Math.sin(a) * d);
+        const pitch = (Math.random() - 0.5) * 1.4;
+        m.position.set(NS_POS.frost.x + Math.cos(a) * Math.cos(pitch) * d, NS_POS.frost.y + Math.sin(pitch) * d, NS_POS.frost.z + Math.sin(a) * Math.cos(pitch) * d);
         m.userData = { radius, rotX: (Math.random() - 0.5) * 0.006, rotY: (Math.random() - 0.5) * 0.01, rotZ: (Math.random() - 0.5) * 0.005, health: Math.round(radius * 15), frost: true };
         asteroidGroup.add(m); asteroids.push(m); g.userData.rocks.push(m);
       }
@@ -21292,20 +21298,20 @@ const GAME_VERSION = 'Alpha 1.4';
         return r;
       }; }
     function nrwSpawn(list) { list.forEach(([slug, n, off]) => { for (let i = 0; i < n; i++) nfSpawn(slug, shipGroup.position.clone().add(off(i)), { force: true, home: shipGroup.position.clone() }); }); }
-    const nrwFwd = (d, side) => new THREE.Vector3(side || 0, (Math.random() - 0.5) * 60, -d).applyQuaternion(shipGroup.quaternion);
+    const nrwFwd = (d, side) => new THREE.Vector3(side || 0, (Math.random() - 0.5) * 220, -d).applyQuaternion(shipGroup.quaternion);
     { const _ex = exitLightspeed; exitLightspeed = function (force) {
         const was = isLightspeedActive; const r = _ex.apply(this, arguments);
         if (was && !isLightspeedActive) {
           if (NRW.interdict) {   // pulled out by a blockade
             NRW.interdict = false;
-            nrwSpawn([['pirate_frigate', 1, () => nrwFwd(520, 0)], ['pirate_fighter', 3, i => nrwFwd(380, (i - 1) * 120)], ['mine', 6, i => new THREE.Vector3(Math.cos(i) * 240, (Math.random() - 0.5) * 50, Math.sin(i) * 240)]]);
+            nrwSpawn([['pirate_frigate', 1, () => nrwFwd(520, 0)], ['pirate_fighter', 3, i => nrwFwd(380, (i - 1) * 120)], ['mine', 6, i => new THREE.Vector3(Math.cos(i) * 240, (Math.random() - 0.5) * 160, Math.sin(i) * 240)]]);
             const fr = NF.units.filter(u => u.slug === 'pirate_frigate').slice(-1)[0]; if (fr) { fr.jamR = 900; fr.name = 'BLOCKADE FRIGATE'; }
             showToast('\u26A0 INTERDICTION! A pirate blockade pulled you out of warp. Kill the frigate to clear the jam.', 5000, '#ff3344');
             try { novaChatLog('CORSAIR BLOCKADE', 'Drop your cargo, Fleet. Nobody jumps through our lane for free.', '#ffaa33'); if (sound.pirateAlarm) sound.pirateAlarm(); } catch (e) { }
           } else if (NRW.chase) {   // they followed you through
             NRW.chase = false;
             setTimeout(() => { try {
-              nrwSpawn([['pirate_fighter', 2, i => new THREE.Vector3((i ? 1 : -1) * 90, 20, 420).applyQuaternion(shipGroup.quaternion)]]);
+              nrwSpawn([['pirate_fighter', 2, i => new THREE.Vector3((i ? 1 : -1) * 90, (i ? 60 : -60), 420).applyQuaternion(shipGroup.quaternion)]]);
               if (Math.random() < 0.35) nrwSpawn([['pirate_stealth', 1, () => new THREE.Vector3(0, 0, 600).applyQuaternion(shipGroup.quaternion)]]);
               showToast('\u26A0 CORSAIRS FOLLOWED YOU OUT OF WARP!', 3500, '#ff3344'); try { if (sound.pirateAlarm) sound.pirateAlarm(); } catch (e) { }
             } catch (e) { } }, 3000);
