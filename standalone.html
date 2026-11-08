@@ -15386,7 +15386,7 @@ const GAME_VERSION = 'Alpha 1.4';
       base: './models/', cache: {}, loader: null, mixers: [], done: [],
       off: /[?&]nomodels/.test(location.search),
       flips: new Set(((new URLSearchParams(location.search)).get('flip') || '').split(',').filter(Boolean)),
-      skip: new Set(((new URLSearchParams(location.search)).get('skip') || '').split(',').filter(Boolean))
+      skip: new Set(['seat', 'seat_v2', ...((new URLSearchParams(location.search)).get('skip') || '').split(',').filter(Boolean)])
     };
     window.NM = NM;
     async function nmGetLoader() {
@@ -20942,9 +20942,12 @@ const GAME_VERSION = 'Alpha 1.4';
       const seS = Math.max(0.3, Math.min(2.5, parseFloat((new URLSearchParams(location.search)).get('seat')) || 1.6));   // ?seat=1.6 to resize
       nmCockpit().then(ok => {
         if (!ok) nmSkin(hullDeckGroup, 'cockpit_shell', { tag: 'shell', yaw: Math.PI, keepBelow: 0, scale3: [1.6 * shF, 0.85 * shF, 0.85 * shF], pos: [0, -0.41 + 0.585 * 0.85 * shF / 2, 0.02] });
-        const seatSlug = (typeof NOPT !== 'undefined' && NOPT.o && (NOPT.o.gfx === 'ultra' || NOPT.o.forceUltra)) ? 'seat_v2' : 'seat';
-        nmSkin(seatGroup, seatSlug, { tag: 'seat', yaw: -Math.PI / 2, keepBelow: 0, scale: seS, pos: [0, -0.02 + 0.135 * seS - 0.0, 0] });   // cushion just under the pilot
-        try { const sz = parseFloat((new URLSearchParams(location.search)).get('seatz')); seatGroup.position.z = isNaN(sz) ? 0.24 : sz; } catch (e) { }
+        // Maintain clean procedural command throne; prevent overlapping GLB seat from blocking player view
+        try {
+          const sz = parseFloat((new URLSearchParams(location.search)).get('seatz'));
+          seatGroup.position.z = !isNaN(sz) ? sz : 0.30;
+          if (new URLSearchParams(location.search).has('noseat')) seatGroup.visible = false;
+        } catch (e) { }
         window.novaHands = novaHands;
         try { nhBuild(); } catch (e) { console.warn('[NOVA13] holo failed', e); }
       });
@@ -21065,6 +21068,7 @@ const GAME_VERSION = 'Alpha 1.4';
       window.slalomGates = slalomGates;
       window.targetDrones = targetDrones;
       window.seatGroup = seatGroup;
+      window.toggleCockpitSeat = (v) => { seatGroup.visible = v !== undefined ? v : !seatGroup.visible; return seatGroup.visible; };
       window.broadcastCommsTransmission = broadcastCommsTransmission;
 
     function toggleWristMenu(forceState) {
