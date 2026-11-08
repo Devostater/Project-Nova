@@ -5,7 +5,7 @@ export function init(api) {
   const ORIGIN=new THREE.Vector3(0,-40000,0);
   const tl=new THREE.TextureLoader();
   const tex=(f,rx,ry)=>{const t=tl.load(f);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,ry);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;};
-  const S={active:false,exiting:false,def:null,root:null,targets:[],pos:new THREE.Vector3(),score:0,shots:0,hits:0,sign:null,door:null,prevParent:null,prevRigPos:null,prevRigQ:null};
+  const S={active:false,exiting:false,def:null,root:null,targets:[],pos:new THREE.Vector3(),score:0,shots:0,hits:0,sign:null,door:null,ceil:null,front:null,prevParent:null,prevRigPos:null,prevRigQ:null};
 
   function makeTextPanel(title,subtitle,w=6,h=1.5){
     const c=document.createElement('canvas');c.width=1024;c.height=256;const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
@@ -21,10 +21,10 @@ export function init(api) {
     const endM=new THREE.MeshStandardMaterial({map:tex('art/textures/tex_metal_wall_1024.jpg',W/6,H/6),roughness:.6,metalness:.6});
     const solid=o=>{o.userData.fpsOccluder=true;return o;};
     const floor=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,L),floorM));floor.rotation.x=-Math.PI/2;floor.position.z=-L/2+6;root.add(floor);
-    const ceil=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,L),new THREE.MeshStandardMaterial({color:0x1a2128,roughness:.9})));ceil.rotation.x=Math.PI/2;ceil.position.set(0,H,-L/2+6);root.add(ceil);
+    const ceil=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,L),new THREE.MeshStandardMaterial({color:0x1a2128,roughness:.9})));ceil.rotation.x=Math.PI/2;ceil.position.set(0,H,-L/2+6);root.add(ceil);S.ceil=ceil;
     for(const side of[-1,1]){const w=solid(new THREE.Mesh(new THREE.PlaneGeometry(L,H),wallM));w.rotation.y=-side*Math.PI/2;w.position.set(side*W/2,H/2,-L/2+6);root.add(w);}
     const back=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,H),endM));back.position.set(0,H/2,-L+6);root.add(back);
-    const front=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,H),endM));front.rotation.y=Math.PI;front.position.set(0,H/2,6);root.add(front);
+    const front=solid(new THREE.Mesh(new THREE.PlaneGeometry(W,H),endM));front.rotation.y=Math.PI;front.position.set(0,H/2,6);root.add(front);S.front=front;
     const stripe=new THREE.Mesh(new THREE.PlaneGeometry(W,.6),new THREE.MeshStandardMaterial({map:tex('art/textures/tex_hazard_stripes_1024.jpg',8,.3),roughness:.5}));stripe.rotation.x=-Math.PI/2;stripe.position.set(0,.01,-2);root.add(stripe);
     const rail=new THREE.Mesh(new THREE.BoxGeometry(W-1,.08,.08),new THREE.MeshStandardMaterial({color:0xffaa22,emissive:0x442200,metalness:.8,roughness:.3}));rail.position.set(0,1,-2.2);root.add(rail);
     for(let z=2;z>-L+6;z-=8){const strip=new THREE.Mesh(new THREE.BoxGeometry(W*.7,.05,.3),new THREE.MeshBasicMaterial({color:0xcfefff,toneMapped:false}));strip.position.set(0,H-.05,z);root.add(strip);const light=new THREE.PointLight(0xcfefff,18,16,1.6);light.position.set(0,H-.6,z);root.add(light);}
@@ -99,6 +99,10 @@ export function init(api) {
     S.pos.x=THREE.MathUtils.clamp(S.pos.x,B[0],B[1]);S.pos.z=THREE.MathUtils.clamp(S.pos.z,B[2],B[3]);
     cameraRig.position.x=ORIGIN.x+S.pos.x;cameraRig.position.z=ORIGIN.z+S.pos.z;
     if(S.pos.z>5.12&&Math.abs(S.pos.x)<1.45){exit('door');return;}
+    const isMR=!!(window.isPassthroughActive||(renderer?.xr?.isPresenting&&window.xrSessionType==='immersive-ar'));
+    if(S.ceil)S.ceil.visible=!isMR;
+    if(S.front)S.front.visible=!isMR;
+    if(isMR&&scene.background)scene.background=null;
     const time=performance.now()*.001;
     for(const target of S.targets){if(target.down>0){target.down-=dt;target.pivot.rotation.x=Math.max(-Math.PI/2,target.pivot.rotation.x-dt*8);}else target.pivot.rotation.x=Math.min(0,target.pivot.rotation.x+dt*4);target.pivot.position.x=target.x+Math.sin(time*.6+target.sway)*(Math.abs(target.z)>20?1.5:.4);}
     if(S.door)S.door.material.opacity=.3+.18*Math.sin(time*3);
