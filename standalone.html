@@ -13362,8 +13362,27 @@ const GAME_VERSION = 'Alpha 1.4';
       if (isInsideCarrier) { novaCarrierLaunch(); return; }
       if (novaShipDef().id === 'carrier') novaEnterCarrier(); else if (novaShipDef().id === 'fighter') novaCarrierRecover();
     });
-    function novaShipGate(s) { return novaGateStatus({ act: s.act || 1, level: s.lvl || 1, standing: s.standing || 50, faction: s.faction || 'station', chapter: s.chapter || 0 }); }
+    window.novaDebugUnlockShips = (urlParams.get('unlock') === '1' || urlParams.get('unlock_ships') === '1' || urlParams.get('debug') === '1' || urlParams.get('ships') === '1');
+    function novaShipGate(s) {
+      if (window.novaDebugUnlockShips) return [];
+      return novaGateStatus({ act: s.act || 1, level: s.lvl || 1, standing: s.standing || 50, faction: s.faction || 'station', chapter: s.chapter || 0 });
+    }
     function novaShipsPersist() { try { localStorage.setItem('novaShips', JSON.stringify(novaShipSave)); } catch (e) {} }
+    function novaUnlockShips(ownAll = false) {
+      window.novaDebugUnlockShips = true;
+      if (ownAll) {
+        NOVA_SHIPS.forEach(s => {
+          if (!novaShipSave.owned.includes(s.id)) novaShipSave.owned.push(s.id);
+        });
+        novaShipsPersist();
+        showToast('DEBUG: All ships owned! Touch any ship in Hangar to fly.', 3500, '#00ffcc');
+      } else {
+        showToast('DEBUG: All ships unlocked for purchase at Hangar board!', 3500, '#00ffcc');
+      }
+      try { novaHangarDraw(); } catch (e) {}
+      try { novaSave13(); } catch (e) {}
+    }
+    window.novaUnlockShips = novaUnlockShips;
     function novaShipAction(id) {
       const s = NOVA_SHIPS.find(x => x.id === id); if (!s) return;
       const own = novaShipSave.owned.includes(id);
@@ -13371,8 +13390,16 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!own) {
         const locked = novaShipGate(s);
         if (locked.length) { showToast(`LOCKED: ${locked.join(' · ')}`, 2800, '#ff6644'); return; }
-        if (bankCredits < s.cost) { showToast(`${s.name} costs ${s.cost.toLocaleString()} CR. You have ${bankCredits.toLocaleString()}.`, 2800, '#ff6644'); return; }
-        bankCredits -= s.cost; novaShipSave.owned.push(id);
+        if (bankCredits < s.cost) {
+          if (window.novaDebugUnlockShips) {
+            bankCredits = Math.max(0, bankCredits - s.cost);
+            novaShipSave.owned.push(id);
+          } else {
+            showToast(`${s.name} costs ${s.cost.toLocaleString()} CR. You have ${bankCredits.toLocaleString()}.`, 2800, '#ff6644'); return;
+          }
+        } else {
+          bankCredits -= s.cost; novaShipSave.owned.push(id);
+        }
       }
       novaShipSave.active = id; novaShipsPersist(); novaBuildShipCockpit();
       missileAmmo = own ? Math.min(missileAmmo, novaMslCap()) : novaMslCap();
@@ -16898,6 +16925,7 @@ const GAME_VERSION = 'Alpha 1.4';
         ['SAVE / LOAD GAME', '#33ff99', (P, side) => { if (side === 'right') nsvLoad(1); else nsvSave(1); }, 'Save and restore game state.', { split: true, leftText: 'SAVE GAME', leftCol: '#33ff99', leftFn: () => nsvSave(1), rightText: 'LOAD GAME', rightCol: '#ffd24a', rightFn: () => nsvLoad(1) }],
         [`MASTER VOLUME  ${Math.round(NOPT.o.master * 100)}%`, '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }, 'Touch to step the overall sound level.'],
         [`GRAPHICS  ${String(NOPT.o.gfx).toUpperCase()}`, '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); }, 'Quest performance / visual quality.'],
+        ['DEBUG SHIPS', '#00ffcc', (P, side) => { if (side === 'right') window.novaUnlockShips(true); else window.novaUnlockShips(false); }, 'Unlock shop / own all ships for testing.', { split: true, leftText: 'UNLOCK SHOP', leftSub: 'Clear rank gates', leftCol: '#00ffcc', leftFn: () => window.novaUnlockShips(false), rightText: 'OWN ALL SHIPS', rightSub: 'Fly any craft', rightCol: '#ffd24a', rightFn: () => window.novaUnlockShips(true) }],
         [(NPX.arm > performance.now() ? 'TOUCH AGAIN TO EXIT' : 'EXIT GAME'), '#ff3344', () => npExitArm(), 'Second touch confirms exit.']
       ],
       draw: (x, P) => {
@@ -16907,20 +16935,20 @@ const GAME_VERSION = 'Alpha 1.4';
           const r = rows[P.scroll + i]; if (!r) break; const X = 120, Y = 52 + i * 118;
           if (r[4] && r[4].split) {
             const wHalf = 384;
-            // Left Half: SAVE GAME (#33ff99)
+            // Left Half
             x.fillStyle = 'rgba(3,18,32,0.95)'; x.fillRect(X, Y, wHalf, 108);
             x.strokeStyle = r[4].leftCol; x.lineWidth = 4; x.strokeRect(X + 3, Y + 3, wHalf - 6, 102);
             x.fillStyle = r[4].leftCol; x.fillRect(X + 14, Y + 14, 8, 80);
             npText(x, r[4].leftText, X + 36, Y + 48, 'bold 27px monospace', r[4].leftCol, wHalf - 46);
-            npText(x, 'Write slot 1', X + 36, Y + 80, '17px monospace', '#b9d7e8', wHalf - 46);
+            npText(x, r[4].leftSub || 'Write slot 1', X + 36, Y + 80, '17px monospace', '#b9d7e8', wHalf - 46);
 
-            // Right Half: LOAD GAME (#ffd24a)
+            // Right Half
             const rX = X + wHalf + 16;
             x.fillStyle = 'rgba(3,18,32,0.95)'; x.fillRect(rX, Y, wHalf, 108);
             x.strokeStyle = r[4].rightCol; x.lineWidth = 4; x.strokeRect(rX + 3, Y + 3, wHalf - 6, 102);
             x.fillStyle = r[4].rightCol; x.fillRect(rX + 14, Y + 14, 8, 80);
             npText(x, r[4].rightText, rX + 36, Y + 48, 'bold 27px monospace', r[4].rightCol, wHalf - 46);
-            npText(x, 'Restore slot 1', rX + 36, Y + 80, '17px monospace', '#b9d7e8', wHalf - 46);
+            npText(x, r[4].rightSub || 'Restore slot 1', rX + 36, Y + 80, '17px monospace', '#b9d7e8', wHalf - 46);
           } else {
             x.fillStyle = 'rgba(3,18,32,0.95)'; x.fillRect(X, Y, 784, 108); x.strokeStyle = r[1]; x.lineWidth = 4; x.strokeRect(X + 3, Y + 3, 778, 102);
             x.fillStyle = r[1]; x.fillRect(X + 14, Y + 14, 10, 80);
@@ -17400,7 +17428,10 @@ const GAME_VERSION = 'Alpha 1.4';
     window.novaTest = Object.assign(window.novaTest || {}, {
       teamState: () => ({ view: NTEAM.view, jobs: JSON.parse(JSON.stringify(NTEAM.jobs)), jumps: NW.jumps }),
       teamDispatch: (id = 'obi', type = 'salvage') => { nteamDispatch(id, type); return NTEAM.jobs[id] || null; },
-      teamReturn: () => { Object.values(NTEAM.jobs).forEach(j => { j.due = NW.jumps; }); nteamTick(); return NTEAM.jobs; }
+      teamReturn: () => { Object.values(NTEAM.jobs).forEach(j => { j.due = NW.jumps; }); nteamTick(); return NTEAM.jobs; },
+      unlockShips: (ownAll = false) => { window.novaUnlockShips(ownAll); return novaShipSave; },
+      flyShip: (id) => { novaShipAction(id); return novaShipDef(); },
+      ships: () => ({ active: novaShipSave.active, owned: novaShipSave.owned.slice(), list: NOVA_SHIPS.map(s => ({ id: s.id, name: s.name, cost: s.cost, locked: novaShipGate(s) })) })
     });
     // crew only: your companion, wingmen, Obi, John and you (stations, sensors and strangers stay on COMMS)
     const NP_CREW_RE = /^(YOU|NYX|MATRIX|VALKYRIE|OBI|JOHN|KIP)/i;
