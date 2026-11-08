@@ -7415,6 +7415,9 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // ── Pilot Seat Height & Headset Recenter Calibration ──
     function recenterPilotView() {
+      if (typeof window.novaOnFoot === 'function' && window.novaOnFoot()) return;
+      if (window.novaInteriorMod && window.novaInteriorMod.active) return;
+      if (window._novaRangeNext || (typeof wantRange !== 'undefined' && wantRange) || (new URLSearchParams(location.search).get('arena') === 'range')) return;
       // Align the headset to cockpit-local -Z, regardless of the ship's world yaw.
       // Three.js positive Y rotation points -Z toward -X, so atan2(x, -z)
       // is the correction itself (negating it doubles the heading error).
@@ -8354,7 +8357,7 @@ const GAME_VERSION = 'Alpha 1.4';
         window.xrSessionType = sessionMode;
         togglePassthrough(passthrough);
         dismissModal();
-        recenterPilotView();
+        if (!window._novaRangeNext && !(typeof wantRange !== 'undefined' && wantRange) && !novaOnFoot() && !(window.novaInteriorMod && window.novaInteriorMod.active) && new URLSearchParams(location.search).get('arena') !== 'range') recenterPilotView();
         isStartingXR = false;
       } catch (err) {
         console.warn('XR standard request failed, attempting minimal session...', err);
@@ -8372,7 +8375,7 @@ const GAME_VERSION = 'Alpha 1.4';
           window.xrSessionType = sessionMode;
           togglePassthrough(passthrough);
           dismissModal();
-          recenterPilotView();
+          if (!window._novaRangeNext && !(typeof wantRange !== 'undefined' && wantRange) && !novaOnFoot() && !(window.novaInteriorMod && window.novaInteriorMod.active) && new URLSearchParams(location.search).get('arena') !== 'range') recenterPilotView();
           isStartingXR = false;
         } catch (e2) {
           console.warn('Fallback failed, trying AR pipeline with opaque background...', e2);
@@ -8392,7 +8395,7 @@ const GAME_VERSION = 'Alpha 1.4';
             window.xrSessionType = 'immersive-ar';
             togglePassthrough(passthrough);
             dismissModal();
-            recenterPilotView();
+            if (!window._novaRangeNext && !(typeof wantRange !== 'undefined' && wantRange) && !novaOnFoot() && !(window.novaInteriorMod && window.novaInteriorMod.active) && new URLSearchParams(location.search).get('arena') !== 'range') recenterPilotView();
             isStartingXR = false;
           } catch (e3) {
             console.error('All XR attempts failed:', e3);
@@ -10631,7 +10634,9 @@ const GAME_VERSION = 'Alpha 1.4';
       }
       if (renderer.xr.isPresenting && !hasAutoRecenteredOnFirstFrame) {
         if (camera.position.lengthSq() > 0.01) {
-          recenterPilotView();
+          if (!window._novaRangeNext && !(typeof wantRange !== 'undefined' && wantRange) && !novaOnFoot() && !(window.novaInteriorMod && window.novaInteriorMod.active) && new URLSearchParams(location.search).get('arena') !== 'range') {
+            recenterPilotView();
+          }
           hasAutoRecenteredOnFirstFrame = true;
         }
       }
@@ -12351,7 +12356,14 @@ const GAME_VERSION = 'Alpha 1.4';
     function novaLaunchFromSafeZone() {
       if (!novaSafeZoneActive || !novaSafeReady) return;
       novaSafeZoneActive = false;
-      try { recenterPilotView(); } catch (e) {}
+      const goingToRange = !!(window._novaRangeNext || (typeof wantRange !== 'undefined' && wantRange) || (new URLSearchParams(location.search).get('arena') === 'range'));
+      if (!goingToRange && !novaOnFoot() && !(window.novaInteriorMod && window.novaInteriorMod.active)) {
+        try { recenterPilotView(); } catch (e) {}
+      }
+      if (goingToRange) {
+        window._novaRangeNext = 0;
+        setTimeout(() => { if (typeof window.novaRange === 'function') window.novaRange(); }, 150);
+      }
       showToast('LAUNCHING... Overhead EXIT button or MENU leaves VR anytime.', 3000, '#00ff88');
     }
     renderer.xr.addEventListener('sessionstart', () => {
@@ -20272,6 +20284,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     window.novaInterior = window.novaInteriorMod ? { enter: d => window.novaInteriorMod.enter(d), exit: () => window.novaInteriorMod.exit(), state: () => window.novaInteriorMod.state() } : null;
     window.novaRange = () => {
+      window._novaRangeNext = 0;
       const nm = document.getElementById('nc-modal');
       if (nm) nm.style.display = 'none';
       if (typeof window.dismissModal === 'function') window.dismissModal();
@@ -20301,7 +20314,8 @@ const GAME_VERSION = 'Alpha 1.4';
         return !starting && !menuUp;
       };
       const poll = () => {
-        if (ready() || (performance.now() - t0 > 2500)) setTimeout(fn, 80);
+        if (ready()) setTimeout(fn, 80);
+        else if (performance.now() - t0 > 30000) setTimeout(fn, 80);
         else setTimeout(poll, 120);
       };
       setTimeout(poll, 80);
@@ -20365,7 +20379,6 @@ const GAME_VERSION = 'Alpha 1.4';
     if (_play) window.novaPlay = function () {
       const r = _play.apply(this, arguments);
       if (wantRange || window._novaRangeNext) {
-        window._novaRangeNext = 0;
         novaAfterLaunch(() => window.novaRange?.());
       }
       return r;

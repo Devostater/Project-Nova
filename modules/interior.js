@@ -49,8 +49,10 @@ export function init(api) {
   }
 
   const ARENAS={range:{build:buildRange,start:[0,0,3],bounds:[-7.4,7.4,-52,5.4],name:'FIRING RANGE'}};
+  let interiorFrames=0;
   function enter(def){
     if(S.active)return true;if(typeof def==='string')def=ARENAS[def];if(!def)return false;
+    interiorFrames=0;
     S.def=def;S.root=def.build();
     if(!S.root){exit('load_failed');return false;}
     scene.add(S.root);S.pos.set(def.start[0],0,def.start[2]);S.score=S.shots=S.hits=0;
@@ -67,6 +69,7 @@ export function init(api) {
   }
   function exit(reason='exit'){
     if(!S.active||S.exiting)return false;S.exiting=true;S.active=false;
+    console.log('[interior] exit called with reason:', reason);
     const fpsAi=api.modules?.get?.('fps_ai')||api.modules?.fps_ai;
     fpsAi?.stop?.();
     const fps=api.modules?.get?.('fps_core')||api.modules?.fps_core;
@@ -78,11 +81,21 @@ export function init(api) {
   }
   function frame(dt){
     if(!S.active||!S.root){if(S.active)exit('root_missing');return;}
+    interiorFrames++;
     const floorY=renderer?.xr?.isPresenting?0:1.65;
-    if(cameraRig.position.y<ORIGIN.y+floorY-8||cameraRig.position.y>ORIGIN.y+floorY+25){exit('out_of_bounds');return;}
+    const targetY=ORIGIN.y+floorY;
+    if(cameraRig.position.y<targetY-8||cameraRig.position.y>targetY+25){
+      if(interiorFrames<60){cameraRig.position.y=targetY;}
+      else{exit('out_of_bounds');return;}
+    }
     S.pos.set(cameraRig.position.x-ORIGIN.x,0,cameraRig.position.z-ORIGIN.z);
     const B=S.def.bounds;
-    if(S.pos.x<B[0]-6||S.pos.x>B[1]+6||S.pos.z<B[2]-8||S.pos.z>B[3]+8){exit('out_of_bounds');return;}
+    if(S.pos.x<B[0]-6||S.pos.x>B[1]+6||S.pos.z<B[2]-8||S.pos.z>B[3]+8){
+      if(interiorFrames<60){
+        cameraRig.position.x=ORIGIN.x+S.def.start[0];cameraRig.position.z=ORIGIN.z+S.def.start[2];
+        S.pos.set(S.def.start[0],0,S.def.start[2]);
+      }else{exit('out_of_bounds');return;}
+    }
     S.pos.x=THREE.MathUtils.clamp(S.pos.x,B[0],B[1]);S.pos.z=THREE.MathUtils.clamp(S.pos.z,B[2],B[3]);
     cameraRig.position.x=ORIGIN.x+S.pos.x;cameraRig.position.z=ORIGIN.z+S.pos.z;
     if(S.pos.z>5.12&&Math.abs(S.pos.x)<1.45){exit('door');return;}
