@@ -80,10 +80,74 @@ export function init(nova) {
     }catch(e){console.warn('[NOVA FPS] GLTFLoader unavailable; using fallback pistol.',e);}
   })();
 
-  const tracerGeo=new T.BoxGeometry(.018,.018,1);
-  const tracerMat=new T.MeshBasicMaterial({color:0x69f5ff,toneMapped:false,opacity:.85,...lightBlend});
-  const tracerRoot=new T.Group();tracerRoot.name='NOVA_FPS_TRACERS';tracerRoot.raycast=()=>{};tracerRoot.traverse(o=>{o.raycast=()=>{};});scene.add(tracerRoot);
-  const tracers=Array.from({length:10},()=>{const mesh=new T.Mesh(tracerGeo,tracerMat);mesh.raycast=()=>{};mesh.visible=false;tracerRoot.add(mesh);return{mesh,life:0};});
+  const texLoader=new T.TextureLoader();
+  function loadTex(name,file){
+    if(typeof window!=='undefined'&&window.NOVA_VFX?.tex?.[name])return window.NOVA_VFX.tex[name];
+    try{const t=texLoader.load(new URL(file,import.meta.url).href);t.colorSpace=T.SRGBColorSpace;return t;}catch(e){return null;}
+  }
+  const laserTex=loadTex('laser','../fx/vfx_laser.png');
+  const flareTex=loadTex('flare','../fx/vfx_flare.png');
+  const sparkTex=loadTex('spark','../fx/vfx_spark.png');
+  const ringTex=loadTex('shockwave','../fx/vfx_shockwave.png');
+
+  // Dedicated Plasma Projectile Pool (24 active bolts)
+  const MAX_PROJECTILES=24;
+  const projPool=[];
+  const projRoot=new T.Group();projRoot.name='NOVA_FPS_PROJECTILES';projRoot.raycast=()=>{};scene.add(projRoot);
+
+  const boltCoreGeo=new T.CylinderGeometry(.015,.022,.62,8);boltCoreGeo.rotateX(Math.PI/2);
+  const boltCoreMat=new T.MeshBasicMaterial({color:0xbaffff,toneMapped:false,...lightBlend});
+
+  const boltFinGeo1=new T.PlaneGeometry(.14,.76);boltFinGeo1.rotateX(Math.PI/2);
+  const boltFinGeo2=boltFinGeo1.clone();boltFinGeo2.rotateZ(Math.PI/2);
+  const finMat=new T.MeshBasicMaterial({map:laserTex||null,color:0x00f0ff,transparent:true,opacity:.95,side:T.DoubleSide,depthWrite:false,toneMapped:false,...lightBlend});
+
+  const tipFlareMat=new T.SpriteMaterial({map:flareTex||null,color:0xd8ffff,transparent:true,opacity:.98,depthWrite:false,toneMapped:false,...lightBlend});
+  const tailFlareMat=new T.SpriteMaterial({map:flareTex||null,color:0x00a8ff,transparent:true,opacity:.65,depthWrite:false,toneMapped:false,...lightBlend});
+
+  for(let i=0;i<MAX_PROJECTILES;i++){
+    const group=new T.Group();group.name='NOVA_FPS_BOLT_'+i;
+    const core=new T.Mesh(boltCoreGeo,boltCoreMat);core.raycast=()=>{};group.add(core);
+    const f1=new T.Mesh(boltFinGeo1,finMat);f1.raycast=()=>{};group.add(f1);
+    const f2=new T.Mesh(boltFinGeo2,finMat);f2.raycast=()=>{};group.add(f2);
+    const tip=new T.Sprite(tipFlareMat);tip.scale.set(.36,.36,.36);tip.position.set(0,0,-.34);tip.raycast=()=>{};group.add(tip);
+    const tail=new T.Sprite(tailFlareMat);tail.scale.set(.24,.24,.24);tail.position.set(0,0,.30);tail.raycast=()=>{};group.add(tail);
+    group.visible=false;group.raycast=()=>{};group.traverse(o=>{o.raycast=()=>{};});
+    projRoot.add(group);
+    projPool.push({mesh:group,pos:new T.Vector3(),prevPos:new T.Vector3(),vel:new T.Vector3(),dir:new T.Vector3(),spawnPos:new T.Vector3(),life:0,active:false,dist:0,speed:75});
+  }
+
+  // Dedicated Impact VFX Pools (Sparks, Expanding Rings, Flares)
+  const vfxRoot=new T.Group();vfxRoot.name='NOVA_FPS_VFX';vfxRoot.raycast=()=>{};scene.add(vfxRoot);
+  const MAX_SPARKS=48;
+  const sparkGeo=new T.BoxGeometry(.014,.014,.09);
+  const sparkMat=new T.MeshBasicMaterial({map:sparkTex||null,color:0x69f5ff,toneMapped:false,...lightBlend});
+  const sparkPool=[];
+  for(let i=0;i<MAX_SPARKS;i++){
+    const mesh=new T.Mesh(sparkGeo,sparkMat);mesh.visible=false;mesh.raycast=()=>{};vfxRoot.add(mesh);
+    sparkPool.push({mesh,pos:new T.Vector3(),vel:new T.Vector3(),life:0,maxLife:0,active:false});
+  }
+
+  const MAX_RINGS=8;
+  const ringGeo=new T.RingGeometry(.03,.08,24);
+  const ringMat=new T.MeshBasicMaterial({map:ringTex||null,color:0x00f0ff,side:T.DoubleSide,transparent:true,opacity:.95,depthWrite:false,toneMapped:false,...lightBlend});
+  const ringPool=[];
+  for(let i=0;i<MAX_RINGS;i++){
+    const mesh=new T.Mesh(ringGeo,ringMat);mesh.visible=false;mesh.raycast=()=>{};vfxRoot.add(mesh);
+    ringPool.push({mesh,life:0,maxLife:.18,active:false});
+  }
+
+  const MAX_IMPACT_FLARES=8;
+  const impactFlareMat=new T.SpriteMaterial({map:flareTex||null,color:0xd8ffff,transparent:true,opacity:.95,depthWrite:false,toneMapped:false,...lightBlend});
+  const impactFlarePool=[];
+  for(let i=0;i<MAX_IMPACT_FLARES;i++){
+    const sprite=new T.Sprite(impactFlareMat);sprite.visible=false;sprite.raycast=()=>{};vfxRoot.add(sprite);
+    impactFlarePool.push({sprite,life:0,maxLife:.14,active:false,size:.55});
+  }
+
+  const muzzleRing=new T.Mesh(new T.RingGeometry(.025,.07,24),ringMat);
+  muzzleRing.position.set(0,.025,-.24);muzzleRing.visible=false;muzzleRing.raycast=()=>{};pistol.add(muzzleRing);
+  let recoilKick=0,recoilPitch=0;
 
   const hudCanvas=document.createElement('canvas');hudCanvas.width=1024;hudCanvas.height=512;
   const hudTexture=new T.CanvasTexture(hudCanvas);hudTexture.colorSpace=T.SRGBColorSpace||hudTexture.colorSpace;
@@ -186,8 +250,8 @@ export function init(nova) {
   function setWeaponParent(parent,hand=false){
     if(!parent)return;
     if(pistol.parent!==parent)parent.add(pistol);
-    pistol.position.set(hand ? .035 : .015,hand ? -.035 : -.035,hand ? -.12 : -.09);
-    pistol.rotation.set(hand ? handGunPitch : 0,hand ? handGunYaw : 0,hand ? handGunRoll : 0);
+    pistol.position.set(hand ? .035 : .015,(hand ? -.035 : -.035) + recoilPitch*.03,(hand ? -.12 : -.09) + recoilKick);
+    pistol.rotation.set((hand ? handGunPitch : 0) - recoilPitch,hand ? handGunYaw : 0,hand ? handGunRoll : 0);
   }
   function playLaserSound(){
     try{
@@ -217,20 +281,39 @@ export function init(nova) {
       }
     }catch(_){}
   }
+  function isPlayerHierarchy(object){
+    let node=object;
+    while(node){
+      if(node===rig||node===camera||node===pistol||node===fallbackGun||node===importedGun||
+         node===leftGlove||node===rightGlove||node===leftHandAnchor||node===rightHandAnchor||
+         node===tpMarker||node===crosshairGroup||node===projRoot||node===vfxRoot||
+         node.userData?.isPlayer||node.userData?.fpsIgnore){
+        return true;
+      }
+      if(node.name&&(node.name.startsWith('NOVA_FPS_')||node.name==='NOVA_HELMET_HUD'))return true;
+      node=node.parent;
+    }
+    return false;
+  }
   function aimRay(){
     if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
       pistol.getWorldPosition(origin);
       pistol.getWorldQuaternion(controllerQ);
       direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
-      origin.addScaledVector(direction,.18);
+      origin.addScaledVector(direction,.22);
     }else if(renderer?.xr?.isPresenting&&session&&(rightGrip||rightController)){
       const src=rightGrip||rightController;
       src.getWorldPosition(origin);direction.set(0,0,-1).applyQuaternion(src.getWorldQuaternion(controllerQ)).normalize();
+      origin.addScaledVector(direction,.22);
     }else{
       camera.getWorldPosition(origin);camera.getWorldDirection(direction).normalize();
+      origin.addScaledVector(direction,.32);
     }
     ray.set(origin,direction);ray.camera=camera;   // sprites need the camera to raycast
-    try{return ray.intersectObjects(scene.children,true);}catch(e){return [];}
+    try{
+      const rawHits=ray.intersectObjects(scene.children,true);
+      return rawHits.filter(h=>!isPlayerHierarchy(h.object)&&h.distance>.35);
+    }catch(e){return [];}
   }
   function findUserData(object,key){
     let node=object,depth=0;
@@ -238,29 +321,112 @@ export function init(nova) {
     return null;
   }
   function isOccluder(object){return !!findUserData(object,'fpsOccluder');}
-  function showTracer(distance){
-    const t=tracers.find(x=>x.life<=0)||tracers[0];const d=Math.max(.5,Math.min(18,distance||14));
-    endPoint.copy(origin).addScaledVector(direction,d);midPoint.copy(origin).add(endPoint).multiplyScalar(.5);
-    t.mesh.position.copy(midPoint);t.mesh.scale.set(1,1,d);t.mesh.lookAt(endPoint);t.mesh.visible=true;t.life=.12;
+
+  const sparkDir=new T.Vector3(),tangentA=new T.Vector3(),tangentB=new T.Vector3();
+  const stepRay=new T.Raycaster();stepRay.params.Line.threshold=.06;
+  const travelVec=new T.Vector3(),hitNormal=new T.Vector3(),hitObjQ=new T.Quaternion();
+  function spawnImpactVfx(point,normal,isTarget=false){
+    // 1. High-energy impact flash sprite
+    const fl=impactFlarePool.find(x=>!x.active)||impactFlarePool[0];
+    fl.active=true;fl.life=.14;fl.maxLife=.14;fl.size=isTarget?.72:.52;
+    fl.sprite.position.copy(point).addScaledVector(normal,.03);
+    fl.sprite.scale.setScalar(fl.size);
+    fl.sprite.material.color.setHex(isTarget?0x75ffff:0x69f5ff);
+    fl.sprite.material.opacity=.96;
+    fl.sprite.visible=true;
+
+    // 2. Surface shockwave ring
+    const r=ringPool.find(x=>!x.active)||ringPool[0];
+    r.active=true;r.life=.18;r.maxLife=.18;
+    r.mesh.position.copy(point).addScaledVector(normal,.02);
+    r.mesh.lookAt(r.mesh.position.clone().add(normal));
+    r.mesh.scale.setScalar(.4);
+    r.mesh.material.opacity=.95;
+    r.mesh.visible=true;
+
+    // 3. Directional ricochet spark shower
+    tangentA.set(0,1,0);if(Math.abs(normal.y)>.92)tangentA.set(1,0,0);
+    tangentB.crossVectors(normal,tangentA).normalize();
+    tangentA.crossVectors(normal,tangentB).normalize();
+    const count=isTarget?14:10;
+    for(let i=0;i<count;i++){
+      const sp=sparkPool.find(x=>!x.active);if(!sp)break;
+      sp.active=true;sp.life=.22+Math.random()*.14;sp.maxLife=sp.life;
+      sp.pos.copy(point).addScaledVector(normal,.02);
+      const angle=Math.random()*Math.PI*2,rad=Math.random()*.85,speed=4.5+Math.random()*5.5;
+      sparkDir.copy(normal).multiplyScalar(.55)
+        .addScaledVector(tangentA,Math.cos(angle)*rad)
+        .addScaledVector(tangentB,Math.sin(angle)*rad)
+        .normalize();
+      sp.vel.copy(sparkDir).multiplyScalar(speed);
+      sp.mesh.position.copy(sp.pos);
+      sp.mesh.lookAt(sp.pos.clone().add(sp.vel));
+      sp.mesh.scale.set(1,1,1);
+      sp.mesh.visible=true;
+    }
   }
+
+  function triggerMuzzleFlash(){
+    muzzleTimer=.09;
+    muzzleFlash.visible=true;
+    muzzleFlash.scale.set(1.4,1.4,1.4);
+    muzzleRing.visible=true;
+    muzzleRing.scale.set(1,1,1);
+    recoilKick=.026;recoilPitch=.052;
+  }
+
+  const spawnPos=new T.Vector3(),spawnDir=new T.Vector3(),camWorldPos=new T.Vector3(),camRightVec=new T.Vector3(),camUpVec=new T.Vector3();
+  function launchProjectile(){
+    if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
+      pistol.getWorldPosition(spawnPos);
+      pistol.getWorldQuaternion(controllerQ);
+      spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+      spawnPos.addScaledVector(spawnDir,.22);
+    }else if(renderer?.xr?.isPresenting&&session&&(rightGrip||rightController)){
+      const src=rightGrip||rightController;
+      src.getWorldPosition(spawnPos);
+      src.getWorldQuaternion(controllerQ);
+      spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+      spawnPos.addScaledVector(spawnDir,.22);
+    }else{
+      camera.getWorldPosition(camWorldPos);
+      camera.getWorldQuaternion(controllerQ);
+      camRightVec.set(1,0,0).applyQuaternion(controllerQ);
+      camUpVec.set(0,1,0).applyQuaternion(controllerQ);
+      camera.getWorldDirection(spawnDir).normalize();
+      spawnPos.copy(camWorldPos)
+        .addScaledVector(camRightVec,.24)
+        .addScaledVector(camUpVec,-.18)
+        .addScaledVector(spawnDir,.42);
+    }
+
+    // Direct bolt toward crosshair if active
+    if(crosshairGroup.visible){
+      spawnDir.subVectors(crosshairGroup.position,spawnPos).normalize();
+    }
+
+    const p=projPool.find(x=>!x.active)||projPool[0];
+    p.active=true;
+    p.life=1.6;
+    p.dist=0;
+    p.pos.copy(spawnPos);
+    p.prevPos.copy(spawnPos);
+    p.spawnPos.copy(spawnPos);
+    p.dir.copy(spawnDir);
+    p.vel.copy(spawnDir).multiplyScalar(75);
+    p.mesh.position.copy(spawnPos);
+    p.mesh.quaternion.setFromUnitVectors(new T.Vector3(0,0,-1),spawnDir);
+    p.mesh.visible=true;
+  }
+
   function fire(){
     const now=performance.now();if(!active||!weaponOn||now-lastFire<160)return false;lastFire=now;
     playLaserSound();
-    const hits=aimRay();let targetHit=null,hitDistance=22;
     try{options.onShot?.();}catch(_){}
-    for(const hit of hits){
-      const target=findUserData(hit.object,'rangeTarget');
-      if(!target){if(isOccluder(hit.object)){hitDistance=hit.distance;break;}continue;}
-      targetHit=target;hitDistance=hit.distance;
-      playImpactSound();
-      const data=target.userData||{};
-      if(typeof data.onHit==='function')data.onHit(25,{origin:origin.clone(),point:hit.point.clone()});
-      else if(typeof data.health==='number'){data.health=Math.max(0,data.health-25);if(data.health===0)target.visible=false;}
-      else target.visible=false;
-      nova.emit?.('targetHit',{target,damage:25,point:hit.point});break;
-    }
-    showTracer(hitDistance);muzzleFlash.visible=true;muzzleTimer=.075;
-    nova.emit?.('fpsWeaponFired',{mode:options.mode||'fps',hit:!!targetHit});
+    aimRay(); // updates origin and direction cleanly
+    launchProjectile();
+    triggerMuzzleFlash();
+    nova.emit?.('fpsWeaponFired',{mode:options.mode||'fps'});
     return true;
   }
   function interact(){
@@ -332,9 +498,102 @@ export function init(nova) {
   function keyUp(e){down.delete(e.code);}
   function tick(dt){
     if(!active)return;const d=Math.min(.05,Math.max(0,Number(dt)||0));
-    lastDamage=Math.max(0,lastDamage-d);muzzleTimer=Math.max(0,muzzleTimer-d);if(!muzzleTimer)muzzleFlash.visible=false;
+    lastDamage=Math.max(0,lastDamage-d);
     if(!lastDamage)damageOverlay.style.opacity='0';
-    for(const t of tracers){if(t.life>0){t.life-=d;if(t.life<=0)t.mesh.visible=false;}}
+    if(muzzleTimer>0){
+      muzzleTimer=Math.max(0,muzzleTimer-d);
+      if(muzzleTimer<=0){muzzleFlash.visible=false;muzzleRing.visible=false;}
+      else{const k=muzzleTimer/.09;muzzleRing.scale.setScalar(1+(1-k)*1.8);}
+    }
+    if(recoilKick>0.0002){
+      recoilKick=Math.max(0,recoilKick-d*0.24);
+      recoilPitch=Math.max(0,recoilPitch-d*0.48);
+    }
+
+    // Update Plasma Projectiles (continuous CCD sweep & volumetric bolt motion)
+    for(const p of projPool){
+      if(!p.active)continue;
+      p.life-=d;
+      if(p.life<=0){p.active=false;p.mesh.visible=false;continue;}
+      p.prevPos.copy(p.pos);
+      p.pos.addScaledVector(p.vel,d);
+      p.mesh.position.copy(p.pos);
+      travelVec.subVectors(p.pos,p.prevPos);
+      const stepDist=travelVec.length();
+      p.dist+=stepDist;
+      if(p.dist>140){p.active=false;p.mesh.visible=false;continue;}
+
+      if(stepDist>.0001){
+        stepRay.set(p.prevPos,p.dir);
+        stepRay.far=stepDist;
+        let rawHits=[];
+        try{rawHits=stepRay.intersectObjects(scene.children,true);}catch(_){rawHits=[];}
+        for(const hit of rawHits){
+          if(isPlayerHierarchy(hit.object))continue;
+          if(p.dist+hit.distance<.38)continue;
+          if(hit.object.visible===false)continue;
+          if(hit.face&&hit.face.normal){
+            hit.object.getWorldQuaternion(hitObjQ);
+            hitNormal.copy(hit.face.normal).applyQuaternion(hitObjQ).normalize();
+          }else{
+            hitNormal.copy(p.dir).negate();
+          }
+
+          const target=findUserData(hit.object,'rangeTarget');
+          if(target){
+            p.active=false;p.mesh.visible=false;
+            playImpactSound();
+            const data=target.userData||{};
+            if(typeof data.onHit==='function')data.onHit(25,{origin:p.prevPos.clone(),point:hit.point.clone(),normal:hitNormal.clone()});
+            else if(typeof data.health==='number'){data.health=Math.max(0,data.health-25);if(data.health===0)target.visible=false;}
+            else target.visible=false;
+            nova.emit?.('targetHit',{target,damage:25,point:hit.point});
+            spawnImpactVfx(hit.point,hitNormal,true);
+            break;
+          }else if(isOccluder(hit.object)){
+            p.active=false;p.mesh.visible=false;
+            playImpactSound();
+            spawnImpactVfx(hit.point,hitNormal,false);
+            break;
+          }
+        }
+      }
+    }
+
+    // Update Sparks
+    for(const sp of sparkPool){
+      if(!sp.active)continue;
+      sp.life-=d;
+      if(sp.life<=0){sp.active=false;sp.mesh.visible=false;continue;}
+      sp.vel.y-=9.8*d;
+      sp.vel.multiplyScalar(Math.exp(-d*2.4));
+      sp.pos.addScaledVector(sp.vel,d);
+      sp.mesh.position.copy(sp.pos);
+      sp.mesh.lookAt(sp.pos.clone().add(sp.vel));
+      const k=sp.life/sp.maxLife;
+      sp.mesh.scale.set(k,k,Math.max(.2,sp.vel.length()*.18));
+    }
+
+    // Update Shockwave Rings
+    for(const r of ringPool){
+      if(!r.active)continue;
+      r.life-=d;
+      if(r.life<=0){r.active=false;r.mesh.visible=false;continue;}
+      const k=1-r.life/r.maxLife;
+      r.mesh.scale.setScalar(.35+k*2.2);
+      r.mesh.material.opacity=.95*(1-k);
+    }
+
+    // Update Impact Flares
+    for(const fl of impactFlarePool){
+      if(!fl.active)continue;
+      fl.life-=d;
+      if(fl.life<=0){fl.active=false;fl.sprite.visible=false;continue;}
+      const k=1-fl.life/fl.maxLife;
+      fl.sprite.scale.setScalar(fl.size*(1+k*.4));
+      fl.sprite.material.opacity=.95*(1-k*k);
+    }
+
     session=renderer?.xr?.getSession?.()||null;
     if(session){
       const sources=[...session.inputSources],rightSource=sources.find(s=>s.handedness==='right'),leftSource=sources.find(s=>s.handedness==='left');
@@ -458,7 +717,9 @@ export function init(nova) {
       else{leftFist=false;leftAnchor=null;}
       correctRoomScale();
     }else{
-      if(pistol.parent!==camera){camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,0,0);}
+      if(pistol.parent!==camera){camera.add(pistol);}
+      pistol.position.set(.28,-.24+recoilPitch*.04,-.62+recoilKick);
+      pistol.rotation.set(-recoilPitch,0,0);
       let x=(down.has('KeyD')?1:0)-(down.has('KeyA')?1:0),z=(down.has('KeyS')?1:0)-(down.has('KeyW')?1:0);
       const pads=navigator.getGamepads?.()||[],pad=[...pads].find(p=>p?.connected&&p.mapping==='standard')||[...pads].find(p=>p?.connected&&p.axes?.length>=2);
       let use=false,leave=false;
@@ -534,7 +795,12 @@ export function init(nova) {
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
     window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
     window.removeEventListener('pointerdown',pointerDown,true);window.removeEventListener('contextmenu',preventMenu,true);
-    for(const t of tracers){t.life=0;t.mesh.visible=false;}options={};session=null;rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;return true;
+    for(const p of projPool){p.active=false;p.mesh.visible=false;}
+    for(const sp of sparkPool){sp.active=false;sp.mesh.visible=false;}
+    for(const r of ringPool){r.active=false;r.mesh.visible=false;}
+    for(const fl of impactFlarePool){fl.active=false;fl.sprite.visible=false;}
+    muzzleFlash.visible=false;muzzleRing.visible=false;recoilKick=0;recoilPitch=0;
+    options={};session=null;rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;return true;
   }
 
   const off=nova.onTick?.(tick);
@@ -542,13 +808,15 @@ export function init(nova) {
   window.novaTest=window.novaTest||{};window.novaTest.fpsState=state;
   window.novaTest.setGunHandRotation=(yawDeg=90,pitchDeg=0,rollDeg=0)=>{handGunYaw=yawDeg*Math.PI/180;handGunPitch=pitchDeg*Math.PI/180;handGunRoll=rollDeg*Math.PI/180;if(pistol.parent===rightHandAnchor)pistol.rotation.set(handGunPitch,handGunYaw,handGunRoll);};
   return{ready:true,enable,disable,fire,interact,damage,state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
-    disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(tracerRoot);damageOverlay.remove();
+    disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(projRoot);scene.remove(vfxRoot);damageOverlay.remove();
     scene.remove(leftGlove);scene.remove(rightGlove);scene.remove(leftHandAnchor);scene.remove(rightHandAnchor);
     scene.remove(crosshairGroup);chRingGeo.dispose();chRingMat.dispose();chDotGeo.dispose();chDotMat.dispose();chTickGeo.dispose();chTickMat.dispose();
     if(tpMarker){scene.remove(tpMarker);tpRing.geometry?.dispose?.();tpRing.material?.dispose?.();tpBeam.geometry?.dispose?.();tpBeam.material?.dispose?.();tpDot.geometry?.dispose?.();tpDot.material?.dispose?.();}
     leftGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
     rightGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
-    tracerGeo.dispose();tracerMat.dispose();hud.geometry.dispose();hudMaterial.dispose();hudTexture.dispose();
+    boltCoreGeo.dispose();boltCoreMat.dispose();boltFinGeo1.dispose();boltFinGeo2.dispose();finMat.dispose();tipFlareMat.dispose();tailFlareMat.dispose();
+    sparkGeo.dispose();sparkMat.dispose();ringGeo.dispose();ringMat.dispose();impactFlareMat.dispose();muzzleRing.geometry?.dispose?.();
+    hud.geometry.dispose();hudMaterial.dispose();hudTexture.dispose();
     pistol.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
   }};
 }
