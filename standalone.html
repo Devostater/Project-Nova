@@ -10991,6 +10991,15 @@ const GAME_VERSION = 'Alpha 1.4';
         const worldThrust = localThrust.applyQuaternion(shipGroup.quaternion);
         shipBody.applyForce(new CANNON.Vec3(worldThrust.x, worldThrust.y, worldThrust.z), shipBody.position);
       }
+      if (typeof cockpitDashLight !== 'undefined' && cockpitDashLight) {
+        if (isAfterburnerActive) {
+          cockpitDashLight.color.setHex(0xff5500);
+          cockpitDashLight.intensity = 0.75 + Math.random() * 0.25;
+        } else {
+          cockpitDashLight.color.setHex(typeof lightMode !== 'undefined' && lightMode === 1 ? 0xff2233 : 0x00e5ff);
+          cockpitDashLight.intensity = typeof lightMode !== 'undefined' && lightMode === 2 ? 0.05 : 0.45;
+        }
+      }
 
       // Smooth Missile Lid Animation (follows hand drag when grabbed, springs to open/close when released)
       if (!isGrippingMissileLid) {
@@ -16888,11 +16897,40 @@ const GAME_VERSION = 'Alpha 1.4';
     NVX.glow = NVX.tl.load('fx/vfx_thruster_glow.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; });
     const NVX_PLUME_GEO = new THREE.PlaneGeometry(1, 1); NVX_PLUME_GEO.translate(0, -0.5, 0); NVX_PLUME_GEO.rotateX(-Math.PI / 2); NVX_PLUME_GEO.rotateY(Math.PI);   // top edge (nozzle) at the origin, flame runs back along +Z
     function novaPlume(len, wid, col) {
+      const isUltra = (typeof NOPT !== 'undefined' && NOPT.o && (NOPT.o.gfx === 'ultra' || NOPT.o.forceUltra));
       const mat = new THREE.MeshBasicMaterial({ map: NVX.plume, color: col || 0xffffff, transparent: true, ...NOVA_LIGHT_BLEND, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
       const g = new THREE.Group(); g.name = 'NOVA_PLUME';
-      for (let i = 0; i < 2; i++) { const m = new THREE.Mesh(NVX_PLUME_GEO, mat); m.rotation.z = i * Math.PI / 2; m.raycast = () => { }; g.add(m); }
+      const planeCount = isUltra ? 3 : 2;
+      for (let i = 0; i < planeCount; i++) {
+        const m = new THREE.Mesh(NVX_PLUME_GEO, mat);
+        m.rotation.z = i * (Math.PI / planeCount);
+        m.raycast = () => { };
+        g.add(m);
+      }
+      if (isUltra && NVX.plume) {
+        const coreMat = new THREE.MeshBasicMaterial({ map: NVX.plume, color: 0xffffff, transparent: true, ...NOVA_LIGHT_BLEND, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, opacity: 0.9 });
+        for (let i = 0; i < 2; i++) {
+          const cm = new THREE.Mesh(NVX_PLUME_GEO, coreMat);
+          cm.rotation.z = i * (Math.PI / 2) + Math.PI / 4;
+          cm.scale.set(0.55, 0.55, 0.75);
+          cm.raycast = () => { };
+          g.add(cm);
+        }
+        const plumeLight = new THREE.PointLight(col || 0xffa044, 2.2, Math.max(6, len * 1.5), 1.8);
+        plumeLight.position.set(0, 0, 0.35);
+        g.add(plumeLight);
+        g.userData.plumeLight = plumeLight;
+      }
       g.scale.set(wid, wid, len); g.userData.base = [wid, len];
-      g.children.forEach(m => m.onBeforeRender = () => { const f = 0.85 + Math.random() * 0.3; g.scale.set(g.userData.base[0] * (0.9 + Math.random() * 0.2), g.userData.base[0], g.userData.base[1] * f); });
+      g.children.forEach(m => {
+        if (m.isMesh) {
+          m.onBeforeRender = () => {
+            const f = 0.85 + Math.random() * 0.3;
+            g.scale.set(g.userData.base[0] * (0.92 + Math.random() * 0.16), g.userData.base[0] * (0.92 + Math.random() * 0.16), g.userData.base[1] * f);
+            if (g.userData.plumeLight) g.userData.plumeLight.intensity = (1.8 + Math.random() * 0.8) * Math.min(1, f);
+          };
+        }
+      });
       return g;
     }
     function novaEngineGlow(size, col) {
@@ -19301,6 +19339,22 @@ const GAME_VERSION = 'Alpha 1.4';
           } else if (prevShield <= 0) {
             novaVfxArc(fwd, 0xff5533, 2.4, 0.35);
           }
+          if (typeof cockpitDomeLight !== 'undefined' && cockpitDomeLight) {
+            const origColor = cockpitDomeLight.color.getHex();
+            const origInt = cockpitDomeLight.intensity;
+            cockpitDomeLight.color.setHex(prevShield > 0 ? 0x00f0ff : 0xff2233);
+            cockpitDomeLight.intensity = Math.min(3.0, origInt * 2.2);
+            setTimeout(() => {
+              try { cockpitDomeLight.color.setHex(origColor); cockpitDomeLight.intensity = origInt; } catch (e) {}
+            }, 220);
+          }
+          if (typeof canopyGlass !== 'undefined' && canopyGlass && canopyMat && prevShield > 0) {
+            canopyMat.opacity = 0.35;
+            canopyMat.color.setHex(0x00e5ff);
+            setTimeout(() => {
+              try { canopyMat.opacity = (typeof isCanopyPolarized !== 'undefined' && isCanopyPolarized) ? 0.32 : 0.12; canopyMat.color.setHex((typeof isCanopyPolarized !== 'undefined' && isCanopyPolarized) ? 0xffcc33 : 0x88ccff); } catch (e) {}
+            }, 280);
+          }
         } catch (e) {}
       };
       window.novaDamage = novaDamage;
@@ -19310,14 +19364,55 @@ const GAME_VERSION = 'Alpha 1.4';
     {
       const _origNovaBoom = novaBoom;
       novaBoom = function (pos, scale = 1.0) {
-        _origNovaBoom(pos);
+        _origNovaBoom(pos, scale);
         try {
           // Cheap path in a headset or on low/mid graphics: fewer, capped additive layers
           // (large overlapping additive billboards are expensive on Quest's mobile GPU).
           const cheap = novaVfxCheap();
           // 1) Initial blinding core flash
           novaVfxFlare(pos, 0xffeeaa, 28 * scale, 0.38);
-          if (!cheap) novaVfxFlare(pos, 0xff6611, 42 * scale, 0.65);
+          if (!cheap) {
+            novaVfxFlare(pos, 0xff6611, 42 * scale, 0.65);
+            const boomLight = new THREE.PointLight(0xff8833, 14 * scale, 50 * scale, 1.6);
+            boomLight.position.copy(pos);
+            scene.add(boomLight);
+            novaFx.push({
+              t: 0,
+              d: 0.6 * scale,
+              o: boomLight,
+              up: k => {
+                boomLight.intensity = 14 * scale * (1 - k);
+                if (k >= 1) scene.remove(boomLight);
+              }
+            });
+            if (NOVA_VFX.tex.flare) {
+              const ringG = new THREE.RingGeometry(0.5 * scale, 1.4 * scale, 32);
+              const ringM = new THREE.MeshBasicMaterial({
+                map: NOVA_VFX.tex.flare,
+                color: 0xffaa44,
+                transparent: true,
+                opacity: 0.85,
+                ...NOVA_LIGHT_BLEND,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+                toneMapped: false
+              });
+              const rMesh = new THREE.Mesh(ringG, ringM);
+              rMesh.position.copy(pos);
+              rMesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+              scene.add(rMesh);
+              novaFx.push({
+                t: 0,
+                d: 0.7 * scale,
+                o: rMesh,
+                up: k => {
+                  rMesh.scale.setScalar(1 + k * 16 * scale);
+                  ringM.opacity = 0.85 * (1 - k);
+                  if (k >= 1) { scene.remove(rMesh); ringG.dispose(); ringM.dispose(); }
+                }
+              });
+            }
+          }
 
           // 2) Expanding fireball billboards, each playing the 8x8 explosion atlas
           if (NOVA_VFX.tex.explosion) {
@@ -19768,6 +19863,9 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     window.nova = {
       THREE, scene, camera, cameraRig, renderer, shipGroup, shipBody, sound,
+      setRenderFunction: fn => { window.novaRenderFn = fn; },
+      options: (typeof NOPT !== 'undefined' ? NOPT.o : {}),
+      settings: (typeof NOPT !== 'undefined' ? NOPT.o : {}),
       toast: (...args) => showToast(...args),
       crew: line => { try { ncAnnounce(line); } catch (e) {} },
       setActive: active => { try { cockpit.visible = !active; setThrottle(0); } catch (e) {} },
@@ -19798,6 +19896,7 @@ const GAME_VERSION = 'Alpha 1.4';
             novaModuleInstances.set(name, instance ?? true);
             novaModuleInstances.set(key, instance ?? true);
             novaModuleInstances[key] = instance ?? true;
+            if (name === 'postfx.js') window.novaPostfx = instance;
             console.info('[NOVA module] ready:', name);
           } catch (error) { console.error('[NOVA module] failed:', name, error); }
         }
