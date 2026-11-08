@@ -8910,7 +8910,7 @@ const GAME_VERSION = 'Alpha 1.4';
       return cands;
     }
     function novaHoloSelect(c) {
-      if (!c) return;
+      if (!c || !novaContactLive(c.obj)) { novaClearTarget(); showToast('CONTACT LOST', 1400, '#88aacc'); return; }
       const wp = c.obj.getWorldPosition(new THREE.Vector3());
       const dist = wp.distanceTo(shipGroup.position);
       currentLockedTarget = { name: c.name, type: c.type, targetObj: c.obj, dist, isHostile: c.isHostile };
@@ -11119,23 +11119,21 @@ const GAME_VERSION = 'Alpha 1.4';
       holoRing1.rotation.z += 1.35 * delta;
 
       // ── Synchronize Active Locked Target, Hologram, and Missile Reticle ──
-      if (!currentLockedTarget || !currentLockedTarget.targetObj) {
-        currentLockedTarget = {
-          name: 'ORBITAL SPACE STATION',
-          type: 'station',
-          targetObj: stationGroup,
-          dist: stationGroup.position.distanceTo(shipGroup.position),
-          isHostile: false
-        };
-      } else if (currentLockedTarget.targetObj) {
-        currentLockedTarget.dist = currentLockedTarget.targetObj.position.distanceTo(shipGroup.position);
+      if (currentLockedTarget && !novaContactLive(currentLockedTarget.targetObj)) currentLockedTarget = null;
+      if (currentLockedTarget && currentLockedTarget.targetObj) {
+        currentLockedTarget.dist = currentLockedTarget.targetObj.getWorldPosition(new THREE.Vector3()).distanceTo(shipGroup.position);
       }
 
-      const isHostileLock = Boolean(currentLockedTarget.isHostile);
-      const isAsteroidLock = (currentLockedTarget.type === 'asteroid');
-      const isStationLock = (currentLockedTarget.type === 'station' || currentLockedTarget.targetObj === stationGroup);
+      const isHostileLock = Boolean(currentLockedTarget && currentLockedTarget.isHostile);
+      const isAsteroidLock = Boolean(currentLockedTarget && currentLockedTarget.type === 'asteroid');
+      const isStationLock = Boolean(currentLockedTarget && (currentLockedTarget.type === 'station' || currentLockedTarget.targetObj === stationGroup));
 
-      if (isStationLock) {
+      if (!currentLockedTarget) {
+        holoModelShip.visible = false;
+        holoModelAsteroid.visible = false;
+        holoModelStation.visible = false;
+        updateHoloTargetBadge('NO TARGET', 'RADAR CONTACT REQUIRED', '#557788');
+      } else if (isStationLock) {
         holoModelShip.visible = false;
         holoModelAsteroid.visible = false;
         holoModelStation.visible = true;
@@ -14697,11 +14695,20 @@ const GAME_VERSION = 'Alpha 1.4';
 
 
     // ── Radar map: always show the nearest rocks and the contacts that matter (it used to list only asteroids #0-15) ──
+    function novaContactLive(obj) {
+      if (!obj || !obj.isObject3D || obj === shipGroup || obj.userData?.destroyed || obj.userData?.dead) return false;
+      const unit = obj.userData?.nfUnit; if (unit && unit.alive === false) return false;
+      let p = obj, attached = false, depth = 0;
+      while (p && depth++ < 80) { if (p.visible === false) return false; if (p === scene) { attached = true; break; } p = p.parent; }
+      if (!attached) return false;
+      const wp = obj.getWorldPosition(new THREE.Vector3());
+      return Number.isFinite(wp.x) && Number.isFinite(wp.y) && Number.isFinite(wp.z);
+    }
     function nmContactList(range, gate) {
       const sp = shipGroup.position, tmp = new THREE.Vector3(), out = [];
       const dist = o => { o.getWorldPosition(tmp); return tmp.distanceTo(sp); };
-      const key = [], minor = [];
-      const add = (list, name, type, obj, host) => { if (obj && obj.visible !== false) list.push({ name, type, obj, isHostile: !!host }); };
+      const key = [], minor = [], seen = new Set();
+      const add = (list, name, type, obj, host) => { if (novaContactLive(obj) && !seen.has(obj)) { seen.add(obj); list.push({ name, type, obj, isHostile: !!host }); } };
       add(key, 'CYGNUS PRIME', 'planet', planetGroup);
       add(key, 'ORBITAL STATION NOVA-1', 'station', stationGroup);
       add(key, 'VALKYRIE-7', 'allied', valkyrieGroup);
@@ -14713,16 +14720,18 @@ const GAME_VERSION = 'Alpha 1.4';
       try { cargoFreighters.forEach((f, i) => add(minor, i === 0 ? 'STARLIFTER-7' : 'CONVOY-' + (i + 1), 'allied', f)); } catch (e) { }
       try { targetDrones.forEach((d, i) => add(minor, 'DRONE-' + (i + 1), 'hostile', d, true)); } catch (e) { }
       try { novaLife.ships.forEach(sh => add(minor, sh.kind === 'patrol' ? 'PATROL' : 'HAULER', 'allied', sh.g)); } catch (e) { }
-      try { novaLife.wrecks.forEach(w => add(minor, w.def.name, 'wreck', w.g)); } catch (e) { }
+      try { novaLife.wrecks.forEach(w => { if (!novaLife.salv[w.def.id]) add(minor, w.def.name, 'wreck', w.g); }); } catch (e) { }
       try { NM.fleet.forEach(f => add(key, f.name, 'allied', f.g)); } catch (e) { }
       try { nfContacts(add, minor, key); } catch (e) { }   // NOVA14 faction ships
-      const all = key.slice();
+      try { NF.msl.forEach(ms => { if (ms?.m && ms.tgt?.player) add(minor, 'INCOMING MISSILE', 'missile', ms.m, true); }); } catch (e) { }
+      const all = [];
+      key.forEach(c => { c.d = dist(c.obj); if (!gate || c.d <= range) all.push(c); });
       minor.forEach(c => { c.d = dist(c.obj); });
       minor.sort((a, b) => a.d - b.d);
       minor.forEach(c => { if (!gate || c.d <= range) all.push(c); });
       const cap = gate ? 20 : 60;
       const rocks = [];
-      asteroids.forEach(a => { if (a.visible) { a.getWorldPosition(tmp); rocks.push({ a, d: tmp.distanceTo(sp) }); } });
+      asteroids.forEach(a => { if (novaContactLive(a)) { a.getWorldPosition(tmp); rocks.push({ a, d: tmp.distanceTo(sp) }); } });
       rocks.sort((x, y) => x.d - y.d);
       for (let i = 0; i < rocks.length && all.length < cap; i++) {
         if (gate && rocks[i].d > range) break;
@@ -15507,7 +15516,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // ── NOVA13: 3D holo-radar over the centre dash screen; touch a contact to lock, touch the range tag to zoom ──
     const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {}, home: null, moved: false, names: true, labelAbove: false };   // owner: names on by default
     window.NH = NH;
-    const NH_COL = { hostile: 0xff3344, allied: 0x33ff88, station: 0x3fa9ff, planet: 0x66ddff, asteroid: 0x9aa6b8, wreck: 0xffaa33 };
+    const NH_COL = { hostile: 0xff3344, missile: 0xff1133, allied: 0x33ff88, station: 0x3fa9ff, planet: 0x66ddff, asteroid: 0x9aa6b8, wreck: 0xffaa33 };
     function nhMat(type) { const k = NH_COL[type] !== undefined ? type : 'asteroid'; return NH.mats[k] || (NH.mats[k] = new THREE.MeshBasicMaterial({ color: NH_COL[k], toneMapped: false })); }
     function nhLabel(range) {
       const x = NH.lctx; x.clearRect(0, 0, 256, 64);
@@ -15601,12 +15610,14 @@ const GAME_VERSION = 'Alpha 1.4';
         if (!c || !c.obj) { b.visible = false; st.visible = false; b.userData.c = null; return; }
         c.obj.getWorldPosition(tmp); tmp.sub(sp).applyQuaternion(iq).multiplyScalar(R / range);
         const L = tmp.length(); if (L > R * 0.96) tmp.multiplyScalar(R * 0.96 / L);
-        b.position.copy(tmp); b.visible = true; b.userData.c = c; b.material = nhMat(c.type);
+        const missileBlink = c.type === 'missile' && Math.floor(NH.t * 8) % 2 === 0;
+        b.position.copy(tmp); b.visible = !missileBlink; b.userData.c = c; b.material = nhMat(c.type);
         const tag = b.userData.nameTag; tag.visible = NH.names;
+        if (missileBlink) tag.visible = false;
         if (NH.names) { tag.position.set(0, NH.labelAbove ? 0.013 : -0.013, 0); if (b.userData.lastName !== c.name) { const tx = b.userData.nameCtx; tx.clearRect(0, 0, 256, 48); tx.fillStyle = 'rgba(2,18,32,0.82)'; tx.fillRect(0, 0, 256, 48); tx.strokeStyle = '#' + nhMat(c.type).color.getHexString(); tx.lineWidth = 2; tx.strokeRect(1, 1, 254, 46); tx.fillStyle = '#e6fbff'; tx.font = 'bold 24px monospace'; tx.textAlign = 'center'; tx.textBaseline = 'middle'; tx.fillText(c.name.slice(0, 20), 128, 24); b.userData.nameTex.needsUpdate = true; b.userData.lastName = c.name; } }
-        st.visible = Math.abs(tmp.y) > 0.002; st.position.set(tmp.x, tmp.y / 2, tmp.z); st.scale.y = Math.max(0.001, Math.abs(tmp.y));
+        st.visible = !missileBlink && Math.abs(tmp.y) > 0.002; st.position.set(tmp.x, tmp.y / 2, tmp.z); st.scale.y = Math.max(0.001, Math.abs(tmp.y));
         const sel = !!(currentLockedTarget && currentLockedTarget.targetObj === c.obj);
-        b.scale.setScalar(sel ? 1.6 : (c.type === 'asteroid' ? 0.7 : 1.0));
+        b.scale.setScalar(sel ? 1.6 : (c.type === 'missile' ? 1.3 : c.type === 'asteroid' ? 0.7 : 1.0));
         if (sel) selB = b;
         view.push({ x: tmp.x / R, z: tmp.z / R, col: '#' + nhMat(c.type).color.getHexString(), sel });
       });
@@ -15796,7 +15807,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // ═══ NOVA13: the two side panels rebuilt (tabbed screens on the console model + holo buttons on its button row) ═══
     //   left  = COMMS (nearby contacts, info, holo scan, hail / chat) | FLIGHT
     //   right = WEAPONS (missiles, lock, holo scan) | CARGO (manifest, resupply, sell ore)
-    const NP = { panels: [], ccol: { hostile: '#ff3344', allied: '#33ff88', station: '#3fa9ff', asteroid: '#9aa6b8', wreck: '#ffaa33', wingman: '#33ff88', freighter: '#33ff88', ship: '#33ff88' } };
+    const NP = { panels: [], ccol: { hostile: '#ff3344', missile: '#ff1133', allied: '#33ff88', station: '#3fa9ff', asteroid: '#9aa6b8', wreck: '#ffaa33', wingman: '#33ff88', freighter: '#33ff88', ship: '#33ff88' } };
     window.NP = NP;
     const NP_CH = 600, NP_OFF = 120, NP_DY = 0.012, NP_SW = 0.30, NP_SH = 0.30 * 600 / 1024, NP_PX = 0.30 / 1024,   // canvas matches the glass (0.325 x 0.207); old layout sits NP_OFF px below a big tab header
     NP_BX = [-0.151, -0.116, -0.082, -0.047, -0.015, 0.024, 0.060, 0.096, 0.144];
@@ -15809,7 +15820,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     function npFindAct(lab) { const e = cockpitInteractables.find(q => q.label === lab && !q.nk); return e ? e.action : null; }
     function npBuild(c, cfg) {
-      const P = { c, cfg, tab: 0, cv: document.createElement('canvas'), list: [], scroll: 0, listT: 0, drawT: 0, holo: new THREE.Group(), holoKey: undefined, hb: [], acts: {} };
+      const P = { c, cfg, tab: 0, cv: document.createElement('canvas'), list: [], scroll: 0, listT: 0, drawT: 0, holo: new THREE.Group(), holoKey: undefined, holoStamp: '', holoCheck: 0, hb: [], acts: {} };
       P.cv.width = 1024; P.cv.height = NP_CH; P.tex = new THREE.CanvasTexture(P.cv); P.tex.anisotropy = 4;
       // keep the old cell actions, then retire the old on-screen cells
       c.btns.forEach(b => { const e = cockpitInteractables.find(q => q.mesh === b); if (e) P.acts[e.label] = e.action; b.visible = false; const i = cockpitInteractables.indexOf(e); if (i >= 0) cockpitInteractables.splice(i, 1); });
@@ -15865,9 +15876,14 @@ const GAME_VERSION = 'Alpha 1.4';
       NP.panels.push(P); return P;
     }
     function npTab(P, i) { P.tab = (i + P.cfg.tabs.length) % P.cfg.tabs.length; P.scroll = 0; P.drawT = 0; try { sound.switchClick(); } catch (e) { } }
+    function npHoloStamp(obj) {
+      let meshes = 0, visible = 0, stamp = '';
+      if (obj) obj.traverse(o => { if (o.isMesh) { meshes++; if (o.visible) visible++; stamp += ':' + (o.geometry?.uuid || '').slice(-6); } });
+      return meshes + '/' + visible + stamp;
+    }
     function npHoloSet(P, obj, type) {
       const g = P.holo; while (g.children.length) g.remove(g.children[0]);
-      P.holoKey = obj || null; if (!obj) return;
+      P.holoKey = obj || null; P.holoStamp = npHoloStamp(obj); if (!obj) return;
       let cl; try { cl = obj.clone(true); } catch (e) { return; }
       const col = new THREE.Color(NP.ccol[type] || '#00e5ff');
       const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.66, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
@@ -15890,7 +15906,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     const npDist = d => d < 1000 ? Math.round(d) + ' m' : (d / 1000).toFixed(1) + ' km';
     function npEnt(lk) { return lk ? { name: lk.name, callsign: lk.name, isHostile: !!lk.isHostile, type: lk.type, obj: lk.targetObj } : null; }
-    function npCanTalk(lk) { return lk && lk.type !== 'asteroid' && lk.type !== 'wreck'; }
+    function npCanTalk(lk) { return lk && lk.type !== 'asteroid' && lk.type !== 'wreck' && lk.type !== 'missile'; }
     function npHail() {
       const commsPanel = NP.panels.find(p => p.cfg.id === 'L');
       if (commsPanel && commsPanel.cfg.tabs[commsPanel.tab] !== NP_COMMS) npTab(commsPanel, commsPanel.cfg.tabs.indexOf(NP_COMMS));
@@ -16319,8 +16335,10 @@ const GAME_VERSION = 'Alpha 1.4';
           (P.mkBuy || []).forEach(m => { m.visible = market; });
           if (P.emergencyHit) P.emergencyHit.visible = T === NP_WPN;
         }
-        const want = T.holo && currentLockedTarget ? currentLockedTarget.targetObj : null;
+        const want = T.holo && currentLockedTarget && novaContactLive(currentLockedTarget.targetObj) ? currentLockedTarget.targetObj : null;
+        P.holoCheck -= dt;
         if (want !== P.holoKey) npHoloSet(P, want, currentLockedTarget && currentLockedTarget.type);
+        else if (want && P.holoCheck <= 0) { P.holoCheck = 0.5; const stamp = npHoloStamp(want); if (stamp !== P.holoStamp) npHoloSet(P, want, currentLockedTarget && currentLockedTarget.type); }
         P.holo.visible = !!want; P.holo.rotation.y += dt * 0.6;
         P.hb.forEach(m => { const f = m.userData.flash || 0; if (f > 0) m.userData.flash = Math.max(0, f - dt); m.scale.setScalar(f > 0 ? 0.88 : 1); });
         if (P.c.t >= 1.8) { P.k += ((P.stow ? 1 : 0) - P.k) * Math.min(1, dt * 6); P.c.root.position.copy(P.c.dep).add(new THREE.Vector3(0.10 * P.c.side, -0.26, 0.08).multiplyScalar(P.k)); }
