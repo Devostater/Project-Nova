@@ -5050,7 +5050,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
     registerCockpitButton(bigRedBtn, 'FIRE MISSILE', () => {
       fireHomingMissile();
-    }, 0.085);
+    }, 0.045);
 
     // ── Spring-Hinged Top Safety Flip Cover Over Red Button ──
     // Hinged at rear of collar (z = -0.040, y = 0.032), flips up/back -110 deg (-1.92 rad) clear of button!
@@ -5090,13 +5090,14 @@ const GAME_VERSION = 'Alpha 1.4';
     missileLidPivot.add(gripTab);
 
     let novaLidLast = -9999;
-    registerCockpitButton(gripTab, 'MISSILE COVER', () => {
-      // Hand tracking: require a deliberate press/hold and ignore the moving tab crossing the fingertip.
+    const onMissileCoverPress = () => {
       const t = performance.now();
-      if (t - novaLidLast < 420 || Math.abs(missileLidPivot.rotation.x - targetLidAngle) > 0.25 && t - novaLidLast < 900) return;
+      if (t - novaLidLast < 380) return;
       novaLidLast = t;
       toggleMissileLid();
-    }, 0.04);
+    };
+    registerCockpitButton(gripTab, 'MISSILE COVER TAB', onMissileCoverPress, 0.04);
+    registerCockpitButton(lidCover, 'MISSILE SAFETY COVER', onMissileCoverPress, 0.045);
 
     // Lower Chin Panel: Sits below the red button (z = +0.065), angled towards pilot (+30 deg)
     const chinPanel = new THREE.Mesh(
@@ -5178,18 +5179,12 @@ const GAME_VERSION = 'Alpha 1.4';
 
     function toggleMissileLid(forceState) {
       const now = performance.now();
-      if (forceState === undefined) {
-        if (now - lastLidToggleTime < 400) return;
-        lastLidToggleTime = now;
-        if (!isMissileLidOpen && now > missileArmConfirmUntil) {
-          missileArmConfirmUntil = now + 1400;
-          sound.beep(850, 0.05);
-          showToast('MISSILE ARM • HOLD 0.4s OR PRESS ARM AGAIN', 1400, '#ffaa22');
-          return;
-        }
-        isMissileLidOpen = !isMissileLidOpen;
-      } else {
+      if (now - lastLidToggleTime < 350) return;
+      lastLidToggleTime = now;
+      if (forceState !== undefined) {
         isMissileLidOpen = !!forceState;
+      } else {
+        isMissileLidOpen = !isMissileLidOpen;
       }
       missileArmConfirmUntil = 0;
       isMissileArmed = isMissileLidOpen;
@@ -5200,6 +5195,12 @@ const GAME_VERSION = 'Alpha 1.4';
       armBtnMat.color.setHex(isMissileLidOpen ? 0xff0033 : 0x22aa44);
       armBtnMat.emissive.setHex(isMissileLidOpen ? 0xcc0022 : 0x116622);
       armBtnMat.emissiveIntensity = isMissileLidOpen ? 0.9 : 0.5;
+
+      const tcBtnMsl = document.getElementById('tc-btn-missile');
+      if (tcBtnMsl) {
+        tcBtnMsl.textContent = isMissileLidOpen ? '🚀 MSL (ARM)' : '🚀 MSL';
+        tcBtnMsl.style.background = isMissileLidOpen ? 'rgba(255, 50, 50, 0.35)' : '';
+      }
 
       if (!isMissileLidOpen) {
         lockLightMesh.material.color.setHex(0x1a2838);
@@ -5219,10 +5220,10 @@ const GAME_VERSION = 'Alpha 1.4';
       const now = performance.now();
       if (now - lastMissileLaunchTime < 380) return;
 
-      // FIRE never changes the arm state. Only the dedicated ARM / safety-cover control can arm.
+      // If missiles are SAFE, pressing FIRE safely opens the cover and arms ordnance!
       if (!isMissileLidOpen) {
-        sound.beep(300, 0.08);
-        showToast('MISSILES SAFE • USE THE DEDICATED ARM CONTROL', 1800, '#ffaa22');
+        toggleMissileLid(true);
+        showToast('⚠️ MISSILE ARMED — PRESS AGAIN TO LAUNCH', 2000, '#ffaa22');
         return;
       }
 
@@ -8032,6 +8033,10 @@ const GAME_VERSION = 'Alpha 1.4';
       activeKeys[e.code] = true;
       if (e.code === 'Space') {
         triggerFire();
+      } else if (e.code === 'KeyF') {
+        fireHomingMissile();
+      } else if (e.code === 'KeyX') {
+        cycleTarget();
       } else if (e.code === 'KeyR') {
         resetControls();
       } else if (e.code === 'KeyM') {
@@ -11790,39 +11795,7 @@ const GAME_VERSION = 'Alpha 1.4';
             }
           }
 
-          // ── Left Console: Missile Safety Case Open/Close Toggle ──
-          const armBtnWorldPos = new THREE.Vector3();
-          armMissileBtn.getWorldPosition(armBtnWorldPos);
-          const latchWorldPos = new THREE.Vector3();
-          gripTab.getWorldPosition(latchWorldPos);
-
-          const distArmBtn = Math.min(
-            tipWorld.distanceTo(armBtnWorldPos),
-            handCenter.distanceTo(armBtnWorldPos)
-          );
-          const distLatch = Math.min(
-            tipWorld.distanceTo(latchWorldPos),
-            handCenter.distanceTo(latchWorldPos)
-          );
-
-          if ((distArmBtn < 0.11 || distLatch < 0.11) && (now - lastFaceBtnTime > 380)) {
-            lastFaceBtnTime = now;
-            toggleMissileLid();
-          }
-
-          // ── Center Console: Dedicated Big Red Missile Launch Button (2x Larger Target) ──
-          const bigRedWorldPos = new THREE.Vector3();
-          bigRedBtn.getWorldPosition(bigRedWorldPos);
-          const distRedBtn = Math.min(
-            tipWorld.distanceTo(bigRedWorldPos),
-            handCenter.distanceTo(bigRedWorldPos)
-          );
-
-          if (distRedBtn < 0.075 && (now - lastMissileLaunchTime > 380)) {
-            fireHomingMissile();
-          }
-
-          // (legacy laser/dampener/autopilot/warp proximity removed: finger-touch buttons below handle them)
+          // (legacy missile/laser/dampener/autopilot/warp proximity removed: finger-touch buttons below handle them)
           if (false) {
           // Primary Laser Fire Button Touch on Left-Center Weapons Pedestal (Spaced 19cm from Missiles)
           const laserBtnWorldPos = new THREE.Vector3();
@@ -12136,20 +12109,7 @@ const GAME_VERSION = 'Alpha 1.4';
             }
           }
 
-          // Controller tap on Left Console case (Generous physical reach)
-          const armBtnWorld = new THREE.Vector3();
-          armMissileBtn.getWorldPosition(armBtnWorld);
-          if (cPos.distanceTo(armBtnWorld) < 0.15 && (now - lastFaceBtnTime > 320)) {
-            lastFaceBtnTime = now;
-            toggleMissileLid();
-          }
-
-          // Controller tap on Right-Center missile launch button (14cm reach radius & rapid fire)
-          const redBtnWorld = new THREE.Vector3();
-          bigRedBtn.getWorldPosition(redBtnWorld);
-          if (cPos.distanceTo(redBtnWorld) < 0.14 && (now - lastMissileLaunchTime > 250)) {
-            fireHomingMissile();
-          }
+          // (legacy missile controller proximity checks removed: cockpitInteractables controller poke handles them)
 
           // Controller tap on Left-Center laser fire button (14cm reach radius)
           const laserBtnWorld = new THREE.Vector3();
@@ -15405,7 +15365,7 @@ const GAME_VERSION = 'Alpha 1.4';
       // model-independent hit target centered on the visible FIRE button for VR pokes/rays.
       const fireHit = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 8), hitMat);
       fireHit.position.set(0, 0.281, -0.067).addScaledVector(n, 0.006); NK.wrap.add(fireHit);
-      registerCockpitButton(fireHit, 'FIRE MISSILE (CONSOLE)', () => fireHomingMissile(), 0.07);
+      registerCockpitButton(fireHit, 'FIRE MISSILE (CONSOLE)', () => fireHomingMissile(), 0.038);
       { const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true; }
       const fc = cap('FIRE', '#ff3344', 0.04, 0.01); fc.position.set(0, 0.281, -0.067).addScaledVector(down, 0.034).addScaledVector(n, 0.004); NK.wrap.add(fc);
     }
