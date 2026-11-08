@@ -3916,7 +3916,7 @@ const GAME_VERSION = 'Alpha 1.4';
       }
 
       // ── 6. COMBAT, WEAPONS & COUNTERMEASURES ──
-      if (t.includes('fire missile') || t.includes('launch missile') || t.includes('missile') || t.includes('torpedo') || t.includes('fox two')) {
+      if (t.includes('fire missile') || t.includes('fire missle') || t.includes('launch missile') || t.includes('launch missle') || t.includes('missile') || t.includes('missle') || t.includes('torpedo') || t.includes('fox two')) {
         try {
           if (typeof fireHomingMissile === 'function') fireHomingMissile();
           showToast('🗣️ VOICE: MISSILE LAUNCHED!', 2200, '#ff3344');
@@ -3982,7 +3982,7 @@ const GAME_VERSION = 'Alpha 1.4';
       }
 
       // ── 7. TARGETING & SENSORS ──
-      if (t.includes('next target') || t.includes('cycle target') || t.includes('switch target') || t.includes('target next')) {
+      if (t.includes('next target') || t.includes('cycle target') || t.includes('switch target') || t.includes('target next') || t.includes('new target')) {
         try {
           if (typeof cycleTarget === 'function') cycleTarget();
           showToast('🗣️ VOICE: NEXT TARGET LOCKED', 1800, '#ffcc00');
@@ -4105,8 +4105,26 @@ const GAME_VERSION = 'Alpha 1.4';
         return true;
       }
 
+      // Stealth Mode / Silent Running / Cloak
+      if (t.includes('stealth') || t.includes('sleath') || t.includes('silent running') || t.includes('cloak')) {
+        if (t.includes('off') || t.includes('exit') || t.includes('disable') || t.includes('deactivate')) {
+          if (typeof novaStealthSet === 'function') novaStealthSet(false, 'pilot command');
+          else if (typeof window.novaStealthToggle === 'function' && window.NF && NF.stealth) window.novaStealthToggle();
+          showToast('🗣️ VOICE: STEALTH MODE DEACTIVATED', 2200, '#9a7dff');
+          return true;
+        }
+        if (typeof NW !== 'undefined') { if (!NW.core || NW.core < 10) NW.core = 50; }
+        if (typeof novaStealthSet === 'function') {
+          novaStealthSet(true);
+        } else if (typeof window.novaStealthToggle === 'function') {
+          window.novaStealthToggle();
+        }
+        showToast('🗣️ VOICE: SILENT RUNNING / STEALTH ACTIVE', 2500, '#9a7dff');
+        return true;
+      }
+
       // ── 10. DOCKING, TRACTOR & BOARDING ──
-      if (t.includes('dock') || t.includes('request docking') || t.includes('land') || t.includes('approach station')) {
+      if (t.includes('dock') || t.includes('request docking') || t.includes('land') || t.includes('approach station') || t.includes('dock with station')) {
         try {
           if (typeof executeDocking === 'function') {
             executeDocking();
