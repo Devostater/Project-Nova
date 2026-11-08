@@ -1,6 +1,6 @@
 /** Cantina-only bartender and lightweight XR grab/throw props. No physics engine. */
 export function init(nova) {
-  const T = nova.THREE, xr = nova.renderer?.xr, rig = nova.cameraRig;
+  const T = nova.THREE, xr = nova.renderer?.xr, rig = nova.cameraRig, camera = nova.camera;
   const room = window.cantinaGroup;
   if (!T || !xr || !rig || !room) return { ready: false };
   const root = new T.Group(); root.name = 'NOVA_CANTINA_PROPS'; room.add(root);
@@ -11,6 +11,7 @@ export function init(nova) {
   const axis = new T.Vector3(1, 0.6, 0.3).normalize();
   const sources = new Map();
   let time = 0, wasActive = false, disposed = false, bartender = null, bartenderMixer = null, bartenderAction = null, bartenderAnimTime = 0, bartenderAnimIndex = -1;
+  let patron = null, patronModel = null, patronBody = null, patronHead = null, patronArms = null, patronGesture = 0, patronGestureWait = 5, patronTalkCooldown = 0, patronWasNear = false;
   let bartenderClips = [];
   const cupGeo = new T.CylinderGeometry(radius, radius * 0.75, height, 12, 1, true);
   const bottomGeo = new T.CylinderGeometry(radius * 0.75, radius * 0.75, 0.008, 12);
@@ -82,14 +83,36 @@ export function init(nova) {
     bartenderAction = next.reset().setLoop(T.LoopRepeat, Infinity).fadeIn(0.45); bartenderAction.play();
     bartenderAnimTime = Math.max(7, Math.min(15, bartenderClips[bartenderAnimIndex].duration * 2.5));
   }
+  function patronPivot(model, names, pivotAtTop) {
+    const parts = names.map(name => model.getObjectByName(name)).filter(Boolean); if (!parts.length) return null;
+    model.updateWorldMatrix(true, true); const bounds = new T.Box3(); parts.forEach(part => bounds.union(new T.Box3().setFromObject(part)));
+    bounds.applyMatrix4(model.matrixWorld.clone().invert());
+    const pivot = new T.Group(); pivot.name = 'CANTINA_PATRON_' + names[0].replace(/^Patron_/, '').toUpperCase() + '_PIVOT';
+    pivot.position.set((bounds.min.x + bounds.max.x) * 0.5, pivotAtTop ? bounds.max.y - 0.07 : bounds.min.y + 0.055, (bounds.min.z + bounds.max.z) * 0.5);
+    model.add(pivot); model.updateWorldMatrix(true, true); parts.forEach(part => pivot.attach(part)); return pivot;
+  }
+  function buildPatron(asset) {
+    if (!asset?.scene) return;
+    const model = asset.scene; model.updateMatrixWorld(true); const bounds = new T.Box3().setFromObject(model), center = bounds.getCenter(new T.Vector3());
+    const height = Math.max(0.01, bounds.max.y - bounds.min.y); model.position.add(new T.Vector3(-center.x, -bounds.min.y, -center.z));
+    patronBody = new T.Group(); patronBody.name = 'CANTINA_PATRON_BODY'; patronBody.add(model);
+    patron = new T.Group(); patron.name = 'CANTINA_PATRON'; patron.userData.role = 'ambient-patron'; patron.userData.height = height; patron.add(patronBody);
+    patronHead = patronPivot(model, ['Patron_Head', 'Patron_Hair'], false);
+    patronArms = patronPivot(model, ['Patron_ArmsSuit', 'Patron_FlightGloves', 'Patron_Gauntlets', 'Patron_WristCommsLED'], true);
+    patron.scale.setScalar(1.78 / height); patron.position.set(-4.35, 0, -2.8);
+    const towardBar = new T.Vector3(0, 0, -3.1).sub(patron.position); patron.rotation.y = Math.atan2(towardBar.x, towardBar.z);
+    patron.userData.baseYaw = patron.rotation.y; root.add(patron); patronModel = model;
+    model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  }
   layout();
   const loaded = import(new URL('../vendor/loaders/GLTFLoader.js', import.meta.url).href)
     .then(async ({ GLTFLoader }) => {
       const loader = new GLTFLoader(), alien = await loader.loadAsync(new URL('../models/alien_crew.glb', import.meta.url).href);
       const matrix = await loader.loadAsync(new URL('../models/matrix_character.glb', import.meta.url).href).catch(() => null);
-      return { alien, matrix };
+      const patronAsset = await loader.loadAsync(new URL('../models/cantina_16_cantina_patron.glb', import.meta.url).href).catch(error => { console.warn('[cantina_props] Patron load failed', error); return null; });
+      return { alien, matrix, patronAsset };
     })
-    .then(({ alien, matrix }) => {
+    .then(({ alien, matrix, patronAsset }) => {
       if (disposed) return;
       const model = alien.scene; model.updateMatrixWorld(true);
       box.setFromObject(model); const center = box.getCenter(new T.Vector3());
@@ -109,6 +132,7 @@ export function init(nova) {
         if (bartenderClips.length) { bartenderMixer = new T.AnimationMixer(model); playBartenderClip(0); }
         matrix.scene?.traverse(o => { o.geometry?.dispose?.(); const mats = Array.isArray(o.material) ? o.material : [o.material]; mats.forEach(m => m?.dispose?.()); });
       }
+      buildPatron(patronAsset);
     }).catch(error => console.warn('[cantina_props] Bartender load failed', error));
   function shatter(c) {
     c.state = 'broken'; c.age = 0; c.mesh.visible = false; c.shardAge = 0;
@@ -204,12 +228,29 @@ export function init(nova) {
     root.visible = active;
     if (!active) {
       if (wasActive) { cups.forEach(reset); sources.clear(); cups.forEach(c => { c.shards.visible = false; }); }
-      wasActive = false; return;
+      patronWasNear = false; wasActive = false; return;
     }
     wasActive = true;
     if (bartender) {
       bartender.position.set(0, Math.sin(time * 0.8) * 0.012, bar.minZ - 0.55); bartender.rotation.y = Math.sin(time * 0.35) * 0.1;
       if (bartenderMixer) { bartenderMixer.update(dt); bartenderAnimTime -= dt; if (bartenderAnimTime <= 0 && bartenderClips.length > 1) playBartenderClip(bartenderAnimIndex + 1); }
+    }
+    if (patron) {
+      patronGestureWait -= dt; patronTalkCooldown = Math.max(0, patronTalkCooldown - dt);
+      if (patronGestureWait <= 0) { patronGesture = 1.8; patronGestureWait = 7 + Math.random() * 8; }
+      patronGesture = Math.max(0, patronGesture - dt); const gesture = patronGesture > 0 ? Math.sin((1.8 - patronGesture) / 1.8 * Math.PI) : 0;
+      patronBody.position.y = Math.sin(time * 1.55) * 0.006; patronBody.rotation.z = Math.sin(time * 0.42) * 0.007;
+      if (patronHead) { patronHead.rotation.y = Math.sin(time * 0.31) * 0.16; patronHead.rotation.x = Math.sin(time * 0.47 + 1.2) * 0.025; }
+      if (patronArms) { patronArms.rotation.x = -gesture * 0.12 + Math.sin(time * 0.55) * 0.012; patronArms.rotation.z = Math.sin(time * 0.37) * 0.008; }
+      patron.rotation.y = patron.userData.baseYaw + Math.sin(time * 0.22) * 0.025;
+      if (camera) {
+        const localPlayer = room.worldToLocal(camera.getWorldPosition(new T.Vector3())); const near = localPlayer.distanceTo(patron.position) < 2.25;
+        if (near && !patronWasNear && patronTalkCooldown <= 0) {
+          const lines = ['Heat-core prices climbed again.', 'Freighters say the cold lanes are getting worse.', 'Nova Lead? Heard your name on the news feed.', 'Good lighting in here. Means somebody found another core.'];
+          nova.toast?.('CANTINA PATRON: “' + lines[Math.floor(Math.random() * lines.length)] + '”', 3200, '#9fc3d8'); patronTalkCooldown = 22;
+        }
+        patronWasNear = near;
+      }
     }
     rig.updateWorldMatrix(true, true); root.updateWorldMatrix(true, true);
     inverse.copy(root.getWorldQuaternion(new T.Quaternion())).invert(); rig.getWorldQuaternion(rigQ);
@@ -232,8 +273,9 @@ export function init(nova) {
     }
   }
   const off = nova.onTick(tick);
-  return { ready: true, root, cups, loaded, dispose() {
+  return { ready: true, root, cups, loaded, get patron() { return patron; }, dispose() {
     disposed = true; off?.(); root.removeFromParent(); sources.clear(); bartenderMixer?.stopAllAction();
+    patronModel?.traverse(o => { o.geometry?.dispose?.(); const mats = Array.isArray(o.material) ? o.material : [o.material]; mats.forEach(m => m?.dispose?.()); });
     cupGeo.dispose(); bottomGeo.dispose(); shardGeo.dispose();
     cups.forEach(c => { c.material.dispose(); c.shardMat.dispose(); c.shards.dispose(); });
   } };
