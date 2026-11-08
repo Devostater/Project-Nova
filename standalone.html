@@ -956,9 +956,52 @@ const GAME_VERSION = 'Alpha 1.4';
       setTimeout(() => { t.style.opacity = '0'; }, duration);
     }
 
-    // Sound Synthesizer
+    // Sound Synthesizer & High-Fidelity Audio Sample Engine
     class SoundEngine {
-      constructor() { this.ctx = null; }
+      constructor() {
+        this.ctx = null;
+        this.buffers = {};
+        this.audioEl = {};
+      }
+      playSample(url, vol = 0.5, pitch = 1.0) {
+        if (window.novaCinematicPlaying) return;
+        this.init();
+        if (this.buffers[url] && this.ctx) {
+          try {
+            const src = this.ctx.createBufferSource();
+            src.buffer = this.buffers[url];
+            src.playbackRate.setValueAtTime(pitch, this.ctx.currentTime);
+            const gain = this.ctx.createGain();
+            const masterVol = (window.NOPT && window.NOPT.o && window.NOPT.o.master !== undefined) ? window.NOPT.o.master : 1.0;
+            const sfxVol = (window.NOPT && window.NOPT.o && window.NOPT.o.sfx !== undefined) ? window.NOPT.o.sfx : 0.8;
+            gain.gain.setValueAtTime(vol * masterVol * sfxVol, this.ctx.currentTime);
+            src.connect(gain);
+            gain.connect(this.ctx.destination);
+            src.start(0);
+            return;
+          } catch (e) {}
+        }
+        try {
+          if (!this.audioEl[url]) {
+            this.audioEl[url] = [];
+            if (this.ctx) {
+              fetch(url).then(r => r.arrayBuffer()).then(ab => this.ctx.decodeAudioData(ab)).then(buf => {
+                this.buffers[url] = buf;
+              }).catch(() => {});
+            }
+          }
+          let a = this.audioEl[url].find(el => el.paused);
+          if (!a) {
+            a = new Audio(url);
+            this.audioEl[url].push(a);
+          }
+          const masterVol = (window.NOPT && window.NOPT.o && window.NOPT.o.master !== undefined) ? window.NOPT.o.master : 1.0;
+          const sfxVol = (window.NOPT && window.NOPT.o && window.NOPT.o.sfx !== undefined) ? window.NOPT.o.sfx : 0.8;
+          a.volume = Math.max(0, Math.min(1, vol * masterVol * sfxVol));
+          a.currentTime = 0;
+          a.play().catch(() => {});
+        } catch (e) {}
+      }
       init() {
         if (!this.ctx) {
           const AC = window.AudioContext || window.webkitAudioContext;
@@ -982,6 +1025,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch (e) {}
       }
       lockTone() {
+        this.playSample('./sfx/missile_lock.mp3', 0.6);
         if (!this.ctx || window.novaCinematicPlaying) return;
         try {
           const t0 = this.ctx.currentTime;
@@ -999,6 +1043,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch (e) {}
       }
       laser() {
+        this.playSample('./sfx/laser_fire.mp3', 0.65);
         if (!this.ctx) return;
         try {
           // Soft sci-fi twin plasma bolt sound (warm resonant pulse, pleasant for rapid fire)
@@ -1029,6 +1074,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch (e) {}
       }
       lightspeedEnter() {
+        this.playSample('./sfx/warp_enter.mp3', 0.8);
         if (!this.ctx) return;
         try {
           const t0 = this.ctx.currentTime;
@@ -1047,6 +1093,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch(e) {}
       }
       lightspeedExit() {
+        this.playSample('./sfx/warp_exit.mp3', 0.85);
         if (!this.ctx) return;
         try {
           const t0 = this.ctx.currentTime;
@@ -1114,6 +1161,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch(e) {}
       }
       dockingClamp() {
+        this.playSample('./sfx/docking_clamp.mp3', 0.75);
         if (!this.ctx) return;
         try {
           const t0 = this.ctx.currentTime;
@@ -1248,6 +1296,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch(e) {}
       }
       switchClick() {
+        this.playSample('./sfx/switch_click.mp3', 0.55);
         if (!this.ctx) return;
         try {
           const t0 = this.ctx.currentTime;
@@ -1265,6 +1314,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch(e) {}
       }
       shieldSurge() {
+        this.playSample('./sfx/shield_impact.mp3', 0.7);
         if (!this.ctx) return;
         try {
           const t0 = this.ctx.currentTime;
@@ -1317,6 +1367,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch(e) {}
       }
       afterburnerBoost() {
+        this.playSample('./sfx/afterburner_boost.mp3', 0.85);
         if (!this.ctx) return;
         try {
           const t0 = this.ctx.currentTime;
@@ -1369,6 +1420,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch(e) {}
       }
       missileLaunch() {
+        this.playSample('./sfx/missile_launch.mp3', 0.8);
         if (!this.ctx) return;
         try {
           const osc = this.ctx.createOscillator();
@@ -1422,6 +1474,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch(e) {}
       }
       bossExplosion() {
+        this.playSample('./sfx/explosion_distant.mp3', 0.95);
         if (!this.ctx) return;
         try {
           const t0 = this.ctx.currentTime;
@@ -1511,6 +1564,7 @@ const GAME_VERSION = 'Alpha 1.4';
         } catch(e) {}
       }
       explosion() {
+        this.playSample('./sfx/explosion_distant.mp3', 0.75);
         if (!this.ctx) return;
         try {
           const osc = this.ctx.createOscillator();
@@ -2912,8 +2966,8 @@ const GAME_VERSION = 'Alpha 1.4';
 
       // Audio & HUD feedback
       try {
+        if (sound && sound.playSample) sound.playSample('./sfx/canopy_tint.mp3', 0.7);
         if (sound && sound.switchClick) sound.switchClick();
-        else if (sound && sound.stationChirp) sound.stationChirp();
       } catch (e) { }
       showToast(
         isCanopySeeThrough ? '👓 CANOPY: CLEAR PANORAMIC VIEW (SEE-THROUGH ON)' : '🛡️ CANOPY: STANDARD TINT (SEE-THROUGH OFF)',
@@ -7525,7 +7579,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
     // 2x Larger Tactile Wrist Menu Buttons (Rendered across 0.23m holographic display)
     const debugWatchButtons = [
-      { id: 'recenter', label: '🎯 QUICK RECENTER & SEAT', x: 18, y: 190, w: 232, h: 58, color: '#00ff88', action: () => { recenterPilotView(); resetSeat(); } },
+      { id: 'recenter', label: '🎯 QUICK RECENTER & SEAT', x: 18, y: 190, w: 232, h: 58, color: '#00ff88', action: () => { try { sound.playSample('./sfx/seat_adjust.mp3', 0.7); } catch(e){} recenterPilotView(); resetSeat(); } },
       { id: 'reset-controls', label: '🕹️ RESET HOTAS (IDLE)', x: 262, y: 190, w: 232, h: 58, color: '#ffaa00', action: () => resetControls() },
       { id: 'invert-y', label: () => (isPitchInverted ? '✈️ FLIGHT Y: INVERTED' : '🎮 FLIGHT Y: NORMAL'), x: 18, y: 260, w: 232, h: 58, color: '#00e5ff', action: () => toggleInvertPitch() },
       { id: 'bgm-toggle', label: () => (isBgmPlaying ? '🎵 BGM: PLAYING' : '🔇 BGM: MUTED'), x: 262, y: 260, w: 232, h: 58, color: '#cc88ff', action: () => toggleBgm() },
@@ -19559,7 +19613,13 @@ const GAME_VERSION = 'Alpha 1.4';
     // ════════════════════════════════════════════════════════════════
     const NRM = { el: {}, auto: true, cur: null };
     const NRM_TRACKS = [
-      { name: 'VOYAGER', file: 'voyager', ctx: 'flight' }, { name: 'SPACE CARAVAN', file: 'space_caravan', ctx: 'cantina' }, { name: 'BATTLE IN THE MARKET', file: 'battle_market', ctx: 'combat' }];
+      { name: 'VOYAGER', file: 'voyager', ctx: 'flight' },
+      { name: 'SPACE CARAVAN', file: 'space_caravan', ctx: 'cantina' },
+      { name: 'BATTLE IN THE MARKET', file: 'battle_market', ctx: 'combat' },
+      { name: 'ORBITAL DRIFT', file: 'orbital_drift', station: 'synth' },
+      { name: "OBI'S MIX", file: 'obis_mix', obi: true },
+      { name: 'PIRATE CIRCUIT', file: 'pirate_circuit', station: 'pirate' }
+    ];
     NRM_TRACKS.forEach(t => BGM_TRACKS.push({ name: t.name, bpm: 'track', notes: [0], bass: [0], file: t.file, ctx: t.ctx }));
     NMUS.count = BGM_TRACKS.length;
     { const _pn = sound.playBgmNote.bind(sound); sound.playBgmNote = function () { try { if (BGM_TRACKS[bgmTrackIdx] && BGM_TRACKS[bgmTrackIdx].file) return; } catch (e) { } return _pn.apply(null, arguments); }; }
@@ -19607,10 +19667,10 @@ const GAME_VERSION = 'Alpha 1.4';
     ].forEach(t => BGM_TRACKS.push(t));
     NMUS.count = BGM_TRACKS.length;
     const NMS_STATIONS = [
-      { name: 'NOVA-1 FM', logo: 'nova', sub: 'soundtrack · AUTO follows the action', c: '#00e5ff', has: t => !!t.file },
-      { name: 'SYNTHWAVE 88', logo: 'synth', sub: 'retro synth classics', c: '#ff66cc', has: t => !t.file && !t.obi && !t.station },
+      { name: 'NOVA-1 FM', logo: 'nova', sub: 'soundtrack · AUTO follows the action', c: '#00e5ff', has: t => !!t.ctx },
+      { name: 'SYNTHWAVE 88', logo: 'synth', sub: 'retro synth classics', c: '#ff66cc', has: t => (!t.ctx && !t.obi && (t.station === 'synth' || (!t.file && !t.station))) },
       { name: 'DEEP SPACE RADIO', logo: 'deep', sub: 'slow ambient for long hauls', c: '#7fa8ff', has: t => t.station === 'deep' },
-      { name: 'PIRATE RADIO', logo: 'pirate', sub: 'fast and loud, off the black market', c: '#ff5544', has: t => t.station === 'pirate' },
+      { name: 'PIRATE RADIO', logo: 'pirate', sub: 'fast and loud, off the black market', c: '#ff5544', has: t => (t.station === 'pirate') },
       { name: "OBI'S MIX", logo: 'obi', sub: 'Obi dances to these', c: '#ffd24a', has: t => !!t.obi }
     ];
     const NMS = { st: 0, btns: [], built: false, img: {} };
@@ -20950,8 +21010,12 @@ const GAME_VERSION = 'Alpha 1.4';
           const fwd = new THREE.Vector3(0, 0, -1.3).applyQuaternion(shipGroup.quaternion).add(shipGroup.position);
           if (prevShield > 0 && window.novaShield <= 0) {
             novaVfxArc(fwd, 0x00e5ff, 3.0, 0.5);
+            try { sound.playSample('./sfx/shield_impact.mp3', 0.85); } catch(e){}
           } else if (prevShield <= 0) {
             novaVfxArc(fwd, 0xff5533, 2.4, 0.35);
+            try { sound.playSample('./sfx/hull_impact.mp3', 0.9); } catch(e){}
+          } else {
+            try { sound.playSample('./sfx/shield_impact.mp3', 0.7); } catch(e){}
           }
           if (typeof cockpitDomeLight !== 'undefined' && cockpitDomeLight) {
             const origColor = cockpitDomeLight.color.getHex();
