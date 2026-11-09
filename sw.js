@@ -179,6 +179,7 @@ const FILES = [
   "./modules/morality.js",
   "./modules/pirate_boarding.js",
   "./modules/postfx.js",
+  "./modules/roster.js",
   "./music/battle_market.mp3",
   "./music/obis_mix.mp3",
   "./music/orbital_drift.mp3",

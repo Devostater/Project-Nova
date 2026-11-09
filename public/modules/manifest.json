@@ -16,6 +16,7 @@
     "comfort_vignette.js",
     "ion_emp.js",
     "eva_core.js",
-    "achievements.js"
+    "achievements.js",
+    "roster.js"
   ]
 }

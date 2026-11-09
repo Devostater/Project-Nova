@@ -11,6 +11,19 @@ os.makedirs(OUT_DIR, exist_ok=True)
 # (match text in file name) -> (slug, longest side in metres, target triangles, max texture px)
 # Order matters: first match wins.
 RULES = [
+ # Faction source exports. Keep these before generic matches such as "carrier".
+ ('alien all around wrokercargo drone', 'alien_support',       26.0, 12000, 1024),
+ ('alien carrier drone',                'alien_attack_drone',   8.0, 15000, 1024),
+ ('alien carrier ship',                 'alien_carrier',      150.0, 18000, 1024),
+ ('alien fighterspaceship',             'alien_fighter',       16.0, 18000, 1024),
+ ('futuristic dragon ring',             'alien_mothership',   420.0, 25000, 1024),
+ ('spiked sci-fi orb',                  'alien_spore_turret',  30.0, 15000, 1024),
+ ('edf fighter',                        'edf_fighter',          14.0, 18000, 1024),
+ ('edf frigatecarrier',                 'edf_carrier',         200.0, 25000, 1024),
+ ('matrix fighter',                     'matrix_fighter',       16.0, 20000, 1024),
+ ('pirate frigate',                     'pirate_frigate',      110.0, 20000, 1024),
+ ('pirate stealth',                     'pirate_stealth',       18.0, 18000, 1024),
+ ('space pirate fighter',               'pirate_fighter',       15.0, 18000, 1024),
  ('starfighter 3d model player', 'player_ship',    5.0,  20000, 1024),
  ('space fighter',               'fighter_alt',    5.0,  15000, 1024),
  ('patrol',                      'patrol',        11.0,  12000, 1024),
