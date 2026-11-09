@@ -90,3 +90,9 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Pirate jail:** captured by pirates (low pirate rep or defeated) → held for ransom. Pay, work it off, or escape and loot your ship back.
 - Both are short FPS/dialogue levels built on `fps_core`/`interior` + the task 13 dialogue. The outcome changes rep and the story flags.
 - Lose cargo/credits as the penalty; never delete the player's ship or save.
+
+### 15. MATRIX companion arc + affection hearts
+- **Arc:** a multi-chapter MATRIX story (ship AI learning what feelings are, always honest that she's software). Follow `reference/matrix/CHARACTER_IDENTITY.md` + `PERSONALITY_AND_MEDIA.md`. Friend / close / romance paths stay **optional**, as the companion screen promises. Chapters unlock by affection plus story flags (task 13 dialogue).
+- **Affection loop:** extend the existing `novaAff`. Choices, gifts, missions together and talks raise or lower it. Saved via `save.js`. A separate track for NYX.
+- **Heart icons:** small floating hearts above MATRIX's hologram when affection rises (fade up and away, broken heart when it drops), plus a heart meter on the wrist menu/companion screen. A toggle in OPTIONS hides them for players who don't want them.
+- VR: hearts are world-space sprites with `raycast = () => {}` so they never block input.
