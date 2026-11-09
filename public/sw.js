@@ -1,6 +1,19 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.25-integration';
+const VERSION = 'nova-alpha-1.26-quest-preload';
 const FILES = [
+  "./Alien/Alien all around wrokercargo drone.glb",
+  "./Alien/Alien carrier ship.glb",
+  "./Alien/Alien fighterspaceship 3d model.glb",
+  "./Alien/alien carrier drone.glb",
+  "./Alien/futuristic dragon ring 3d model alien mothership.glb",
+  "./Alien/spiked sci-fi orb 3d model.glb",
+  "./EDF/EDF Fighter.glb",
+  "./EDF/Matrix Fighter.glb",
+  "./EDF/Matrix_charcter.glb",
+  "./EDF/futuristic spaceship 3d model EDF FRigatecarrier.glb",
+  "./Pirate/Pirate frigate 3d model.glb",
+  "./Pirate/Pirate stealth ship 3d model.glb",
+  "./Pirate/space pirate fighter3d model.glb",
   "./art/alien_planet.jpg",
   "./art/asteroid.jpg",
   "./art/cargo_icons.jpg",
