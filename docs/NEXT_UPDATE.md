@@ -110,3 +110,10 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Gadgets:** grapple hook, scanner (reveals loot/enemies/trade values), deployable turret, hacking tool, jetpack boost, holo-decoy, EMP grenade (reuse `ion_emp.js`).
 - Equip through the FPS phone/inventory (task 16). Unlock by story, purchase or upgrades (task 6). Each gadget is its own small module.
 - Balance: powers and gadgets use cooldowns/energy and never replace the gun.
+
+### 18. Graphics pass: make it SHINY  *(Grok owns graphics: postfx.js / fx_ultra.js)*
+- **Audit first:** screenshot each area (menu, cockpit, space dogfight, station, cantina, planet/safehouse, FPS range) on desktop ULTRA and on Quest. List what looks flat or broken before changing anything.
+- **Desktop ULTRA:** stronger bloom on lasers/engines/explosions (ultra preset is mild now: strength 0.38, threshold 0.82), env-map reflections on all ship hulls (`scene.environment` from sky.jpg), PBR materials on the new models, a 4K skybox.
+- **Quest (bloom can't run in VR):** fake glow with additive sprites/halos on engines, lasers, missiles and explosions, emissive materials, brighter VFX, baked lighting on interiors. Hold 72/90 fps.
+- **Everywhere:** consistent tone mapping/exposure, no z-fighting/flicker, LODs so detail stays crisp up close.
+- Done when: before/after screenshots of each area look clearly better, at the same or better FPS.
