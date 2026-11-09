@@ -175,9 +175,23 @@ export function init(nova) {
   locoGroup.traverse(o => { o.raycast = () => {}; });
   scene.add(locoGroup);
 
-  let locoOrbGrabbed = false, locoSocketPosInit = false;
+  let locoOrbGrabbed = false, locoSocketPosInit = false, initialGrabYaw = 0;
   const locoSocketPos = new T.Vector3(), tempVec = new T.Vector3(), tempPos = new T.Vector3();
   const camYawFwd = new T.Vector3(), camYawRight = new T.Vector3(), camFwdVec = new T.Vector3();
+
+  function getLeftHandYaw(){
+    if(leftIsHand && leftHandAnchor && leftAnchorState.ready){
+      const fwd = new T.Vector3(0,0,-1).applyQuaternion(leftHandAnchor.quaternion);
+      return Math.atan2(fwd.x, -fwd.z);
+    }
+    if(leftController||leftGrip){
+      const src = leftGrip||leftController;
+      src.getWorldQuaternion(controllerQ);
+      const fwd = new T.Vector3(0,0,-1).applyQuaternion(controllerQ);
+      return Math.atan2(fwd.x, -fwd.z);
+    }
+    return 0;
+  }
 
   const crosshairPos=new T.Vector3();let chLocked=false;
   let currentLockedTargetObj=null,currentLockedPoint=new T.Vector3(),targetLocked=false;
@@ -665,7 +679,10 @@ export function init(nova) {
   leftHandAnchor.raycast=()=>{};rightHandAnchor.raycast=()=>{};scene.add(leftHandAnchor,rightHandAnchor);
   const leftAnchorState={ready:false},rightAnchorState={ready:false},anchorPos=new T.Vector3(),anchorQ=new T.Quaternion();
   function trackHandAnchor(anchor,jointObject,state,dt){
-    jointObject.getWorldPosition(anchorPos);jointObject.getWorldQuaternion(anchorQ);const jump=!state.ready||anchor.position.distanceTo(anchorPos)>.22,a=1-Math.exp(-Math.max(.001,dt)*22);
+    jointObject.getWorldPosition(anchorPos);
+    if(anchorPos.lengthSq()<0.0001||(rig&&anchorPos.y<rig.position.y-0.10))return;
+    jointObject.getWorldQuaternion(anchorQ);
+    const jump=!state.ready||anchor.position.distanceTo(anchorPos)>.22,a=1-Math.exp(-Math.max(.001,dt)*22);
     if(jump){anchor.position.copy(anchorPos);anchor.quaternion.copy(anchorQ);state.ready=true;}else{anchor.position.lerp(anchorPos,a);anchor.quaternion.slerp(anchorQ,a);}
     anchor.updateMatrixWorld(true);
   }
@@ -719,7 +736,15 @@ export function init(nova) {
     }
     return null;
   }
-  function handPoint(hand,name,out){const j=joint(hand,name);if(!j)return false;j.getWorldPosition(out);return true;}
+  function handPoint(hand,name,out){
+    const j=joint(hand,name);
+    if(!j)return false;
+    j.getWorldPosition(out);
+    // Reject uninitialized or lost joints at origin or below floor level
+    if(out.lengthSq()<0.0001)return false;
+    if(rig&&out.y<(rig.position.y-0.10))return false;
+    return true;
+  }
   function resolveHand(handedness){
     for(let i=0;i<2;i++){
       const h=renderer?.xr?.getHand?.(i);
@@ -807,14 +832,11 @@ export function init(nova) {
   }
   function aimRay(){
     let foundAim=false;
-    if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid){
-      origin.copy(rightIndex);
-      if(rightWristValid&&rightIndex.distanceTo(rightWrist)>0.03){
-        direction.subVectors(rightIndex,rightWrist).normalize();
-      }else{
-        camera.getWorldDirection(direction).normalize();
-      }
-      origin.addScaledVector(direction,.05);
+    if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
+      pistol.getWorldPosition(origin);
+      pistol.getWorldQuaternion(controllerQ);
+      direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+      origin.addScaledVector(direction,.15);
       foundAim=true;
     }else if(renderer?.xr?.isPresenting&&session&&(rightController||rightGrip)){
       const src=rightController||rightGrip;
@@ -823,11 +845,14 @@ export function init(nova) {
       direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
       origin.addScaledVector(direction,.12);
       foundAim=true;
-    }else if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
-      pistol.getWorldPosition(origin);
-      pistol.getWorldQuaternion(controllerQ);
-      direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
-      origin.addScaledVector(direction,.22);
+    }else if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid){
+      origin.copy(rightIndex);
+      if(rightWristValid&&rightIndex.distanceTo(rightWrist)>0.03){
+        direction.subVectors(rightIndex,rightWrist).normalize();
+      }else{
+        camera.getWorldDirection(direction).normalize();
+      }
+      origin.addScaledVector(direction,.05);
       foundAim=true;
     }
     if(!foundAim){
@@ -933,10 +958,12 @@ export function init(nova) {
 
   const spawnPos=new T.Vector3(),spawnDir=new T.Vector3(),camWorldPos=new T.Vector3(),camRightVec=new T.Vector3(),camUpVec=new T.Vector3(),projRightVec=new T.Vector3();
   function launchProjectile(sideOffset=0,spreadX=0,spreadY=0,speedVal=48,damageVal=25,glowCol=0x00f0ff,coreCol=0xbaffff){
-    if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid){
-      spawnPos.copy(rightIndex).addScaledVector(direction,.06);
-      spawnDir.copy(direction);
-      projRightVec.set(1,0,0).applyQuaternion(camera.quaternion);
+    if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
+      pistol.getWorldPosition(spawnPos);
+      pistol.getWorldQuaternion(controllerQ);
+      spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+      projRightVec.set(1,0,0).applyQuaternion(controllerQ);
+      spawnPos.addScaledVector(spawnDir,.20);
       if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
     }else if(renderer?.xr?.isPresenting&&session&&(rightController||rightGrip)){
       const src=rightController||rightGrip;
@@ -946,12 +973,10 @@ export function init(nova) {
       projRightVec.set(1,0,0).applyQuaternion(controllerQ);
       spawnPos.addScaledVector(spawnDir,.14);
       if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
-    }else if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
-      pistol.getWorldPosition(spawnPos);
-      pistol.getWorldQuaternion(controllerQ);
-      spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
-      projRightVec.set(1,0,0).applyQuaternion(controllerQ);
-      spawnPos.addScaledVector(spawnDir,.22);
+    }else if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid){
+      spawnPos.copy(rightIndex).addScaledVector(direction,.06);
+      spawnDir.copy(direction);
+      projRightVec.set(1,0,0).applyQuaternion(camera.quaternion);
       if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
     }else if(isThirdPerson){
       pilotChar.rightArm.getWorldPosition(spawnPos);
@@ -1459,7 +1484,17 @@ export function init(nova) {
         .addScaledVector(camYawFwd,0.32);
 
       // Lock directly to player so it always rotates and stays anchored to the left chest
-      locoGroup.position.copy(targetSocketPos);
+      if(!locoSocketPosInit){
+        locoSocketPos.copy(targetSocketPos);
+        locoSocketPosInit=true;
+      }
+      if(!locoOrbGrabbed){
+        locoSocketPos.lerp(targetSocketPos,Math.min(1.0,d*5.0));
+      }else{
+        // Smoothly follow rig movement without jittering from head tilts
+        locoSocketPos.lerp(targetSocketPos,Math.min(1.0,d*12.0));
+      }
+      locoGroup.position.copy(locoSocketPos);
       locoGroup.matrix.makeBasis(camYawRight, up, camYawFwd.clone().negate());
       locoGroup.quaternion.setFromRotationMatrix(locoGroup.matrix);
 
@@ -1479,7 +1514,7 @@ export function init(nova) {
           const leftPinchDist=(leftThumbValid&&leftIndexValid)?leftThumb.distanceTo(leftIndex):999;
           const leftMidPinchDist=(leftThumbValid&&leftMiddleValid)?leftThumb.distanceTo(leftMiddle):999;
           const leftFist=leftWristValid&&leftIndexValid&&(leftIndex.distanceTo(leftWrist)<0.145);
-          leftSqueezing=leftPinchDist<0.075||leftMidPinchDist<0.075||leftFist;
+          leftSqueezing=leftPinchDist<0.080||leftMidPinchDist<0.080||leftFist;
         }
       }else if(leftController||leftGrip){
         const lCtrl=leftGrip||leftController;
@@ -1497,11 +1532,25 @@ export function init(nova) {
       if(!locoOrbGrabbed){
         if(leftHandPosValid&&isNearOrb&&leftSqueezing){
           locoOrbGrabbed=true;
+          initialGrabYaw=getLeftHandYaw();
           try{(nova.sound||window.sound)?.click?.();}catch(_){}
         }
       }else{
-        if(!leftHandPosValid||!leftSqueezing||grabDist>0.50){
+        if(!leftHandPosValid||!leftSqueezing||grabDist>0.52){
           locoOrbGrabbed=false;
+        }
+      }
+
+      // ── Twisting Orb for Yaw Rotation (VR Thruster / Joystick Twist Rudder) ──
+      if(locoOrbGrabbed&&leftHandPosValid){
+        const currentYaw=getLeftHandYaw();
+        let deltaYaw=currentYaw-initialGrabYaw;
+        while(deltaYaw>Math.PI)deltaYaw-=Math.PI*2;
+        while(deltaYaw<-Math.PI)deltaYaw+=Math.PI*2;
+        if(Math.abs(deltaYaw)>0.12){
+          const twistRate=(deltaYaw>0?deltaYaw-0.12:deltaYaw+0.12)*2.8;
+          rig.rotation.y-=twistRate*d;
+          yaw=rig.rotation.y;
         }
       }
 
@@ -1657,38 +1706,35 @@ export function init(nova) {
     // ── Update Chest Grenade (Grab from left chest, throw, 3s fuse, explosion) ──
     if(active){
       camera.getWorldPosition(camWorldPos);
-      camera.getWorldQuaternion(controllerQ);
-      camRightVec.set(1,0,0).applyQuaternion(controllerQ);
-      camUpVec.set(0,1,0).applyQuaternion(controllerQ);
       camera.getWorldDirection(spawnDir);
 
       if(grenadeState==='holstered'){
-        // Mounted on left chest: 30cm below head, 16cm to left, 13cm forward
+        // Mounted on left chest: 32cm below head, 16cm to left, 14cm forward
         grenadeChestPos.copy(camWorldPos)
-          .addScaledVector(camUpVec,-.30)
-          .addScaledVector(camRightVec,-.16)
-          .addScaledVector(spawnDir,.13);
+          .addScaledVector(up,-.32)
+          .addScaledVector(camYawRight,-.16)
+          .addScaledVector(camYawFwd,.14);
         grenadeGroup.position.copy(grenadeChestPos);
-        grenadeGroup.quaternion.copy(controllerQ);
+        grenadeGroup.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(camYawRight, up, camYawFwd.clone().negate()));
         grenadeGroup.visible=true;
         grenadeRingMat.color.setHex(0x00f0ff);
 
         // Check if VR hand or controller reaches near left chest to grab grenade
         if(session){
           let rightGrab=false,leftGrab=false;
-          if(rightGrip||rightController||(rightHandAnchor&&rightAnchorState.ready)){
-            const rhPos=(rightHandAnchor&&rightAnchorState.ready)?rightHandAnchor.position:(rightGrip||rightController).position;
-            if(rhPos&&rhPos.distanceTo(grenadeChestPos)<.24){
-              const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>.6)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
-              if(rSqueeze||(rightIsHand&&rightPinch)){rightGrab=true;}
-            }
+          const rPos=(rightHandAnchor&&rightAnchorState.ready)?rightHandAnchor.position:(rightGrip||rightController)?.position;
+          const rCheckDist=rPos?rPos.distanceTo(grenadeChestPos):(rightIndexValid?rightIndex.distanceTo(grenadeChestPos):999);
+          if(rCheckDist<0.30){
+            const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>0.5)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
+            const rHandGrip=rightIsHand&&(rightPinch||(rightIndexValid&&rightWristValid&&rightIndex.distanceTo(rightWrist)<0.145));
+            if(rSqueeze||rHandGrip){rightGrab=true;}
           }
-          if(leftGrip||leftController||(leftHandAnchor&&leftAnchorState.ready)){
-            const lhPos=(leftHandAnchor&&leftAnchorState.ready)?leftHandAnchor.position:(leftGrip||leftController).position;
-            if(lhPos&&lhPos.distanceTo(grenadeChestPos)<.24){
-              const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>.6)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
-              if(lSqueeze||(leftIsHand&&leftPinch)){leftGrab=true;}
-            }
+          const lPos=(leftHandAnchor&&leftAnchorState.ready)?leftHandAnchor.position:(leftGrip||leftController)?.position;
+          const lCheckDist=lPos?lPos.distanceTo(grenadeChestPos):(leftIndexValid?leftIndex.distanceTo(grenadeChestPos):999);
+          if(lCheckDist<0.30){
+            const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>0.5)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
+            const lHandGrip=leftIsHand&&(leftPinch||(leftIndexValid&&leftWristValid&&leftIndex.distanceTo(leftWrist)<0.145));
+            if(lSqueeze||lHandGrip){leftGrab=true;}
           }
           if(rightGrab){
             grenadeState='held_right';grenadeFuse=3.0;
@@ -1713,11 +1759,13 @@ export function init(nova) {
         else{
           let releasing=false;
           if(isR){
-            const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>.4)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
-            if(!rSqueeze&&(!rightIsHand||!rightPinch))releasing=true;
+            const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>0.35)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
+            const rHandGrip=rightIsHand&&(rightPinch||(rightIndexValid&&rightWristValid&&rightIndex.distanceTo(rightWrist)<0.145));
+            if(!rSqueeze&&!rHandGrip)releasing=true;
           }else{
-            const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>.4)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
-            if(!lSqueeze&&(!leftIsHand||!leftPinch))releasing=true;
+            const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>0.35)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
+            const lHandGrip=leftIsHand&&(leftPinch||(leftIndexValid&&leftWristValid&&leftIndex.distanceTo(leftWrist)<0.145));
+            if(!lSqueeze&&!lHandGrip)releasing=true;
           }
           if(releasing){
             camera.getWorldDirection(spawnDir);

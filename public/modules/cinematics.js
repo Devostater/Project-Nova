@@ -115,11 +115,11 @@ export function init(nova = {}) {
       try { playing.end(); } catch (_) {}
     }
 
-    const videoUrl = await resolveMedia(name, 'mp4');
-    const vttUrl = await resolveMedia(name, 'vtt');
+    // Immediately pause game simulation so background space movement stops
+    window.isGamePaused = true;
+    window.novaCinematicPlaying = true;
 
     const v = document.createElement('video');
-    v.src = videoUrl;
     v.crossOrigin = 'anonymous';
     v.playsInline = true;
     v.setAttribute('playsinline', '');
@@ -141,7 +141,6 @@ export function init(nova = {}) {
     tr.srclang = 'en';
     tr.label = 'English';
     tr.default = true;
-    tr.src = vttUrl;
     v.appendChild(tr);
 
     let done, cleanup = [];
@@ -151,7 +150,6 @@ export function init(nova = {}) {
     });
 
     // ── TOTAL SILENCE: Mute all game sounds, oscillators, engine rumble & BGM ──
-    window.novaCinematicPlaying = true;
     const audioCtx = window.sound?.ctx;
     let wasCtxRunning = false;
     if (audioCtx && audioCtx.state === 'running') {
@@ -187,6 +185,7 @@ export function init(nova = {}) {
     const end = () => {
       if (!playing) return;
       playing = null;
+      window.isGamePaused = false;
       window.novaCinematicPlaying = false;
       try { v.pause(); } catch (_) {}
       cleanup.forEach(f => { try { f(); } catch (_) {} });
@@ -210,19 +209,34 @@ export function init(nova = {}) {
     playing = { name, end, video: v };
     v.addEventListener('ended', end);
 
-    // If initial candidate video fails, try next candidate
     const candidateUrls = getCandidateUrls(name, 'mp4');
-    let candidateIdx = candidateUrls.indexOf(videoUrl);
+    let candidateIdx = 0;
     v.addEventListener('error', (e) => {
-      if (candidateIdx < candidateUrls.length - 1) {
+      // Guard against seeking errors restarting the video from the beginning
+      if (v.currentTime < 0.5 && v.readyState < 2 && candidateIdx < candidateUrls.length - 1) {
         candidateIdx++;
         v.src = candidateUrls[candidateIdx];
         v.play().catch(() => {});
-      } else {
+      } else if (v.currentTime < 0.5 && v.readyState < 2) {
         console.warn(`[cinematics] Video failed to load for "${name}":`, e);
         end();
       }
     });
+
+    // Start background media stream resolution
+    (async () => {
+      try {
+        const videoUrl = await resolveMedia(name, 'mp4');
+        const vttUrl = await resolveMedia(name, 'vtt');
+        if (!playing) return;
+        tr.src = vttUrl;
+        v.src = videoUrl;
+        candidateIdx = candidateUrls.indexOf(videoUrl);
+        v.play().catch(() => {});
+      } catch (e) {
+        console.warn('[cinematics] Failed to load media in background:', e);
+      }
+    })();
 
     const isPresentingVR = !!(renderer && renderer.xr && renderer.xr.isPresenting);
 
@@ -363,30 +377,40 @@ export function init(nova = {}) {
       }, 80);
       cleanup.push(() => clearInterval(capTick));
 
-      // ── 6. 3D Floating Interactive Exit Button for Hands & Controllers ──
+      // ── 6. 3D Floating Interactive Controls Bar for Hands & Controllers ──
       const exitBtnCanvas = document.createElement('canvas');
-      exitBtnCanvas.width = 512; exitBtnCanvas.height = 128;
+      exitBtnCanvas.width = 1024; exitBtnCanvas.height = 128;
       const exitCtx = exitBtnCanvas.getContext('2d');
       const exitTex = new T.CanvasTexture(exitBtnCanvas);
-      const drawExitBtn = (hovered = false) => {
-        exitCtx.clearRect(0, 0, 512, 128);
-        exitCtx.fillStyle = hovered ? 'rgba(255, 40, 70, 0.95)' : 'rgba(40, 12, 22, 0.88)';
-        exitCtx.beginPath();
-        exitCtx.roundRect(16, 16, 480, 96, 24);
-        exitCtx.fill();
-        exitCtx.strokeStyle = hovered ? '#ffffff' : '#ff4466';
-        exitCtx.lineWidth = 6;
-        exitCtx.stroke();
-        exitCtx.fillStyle = hovered ? '#ffffff' : '#ff8899';
-        exitCtx.font = 'bold 38px monospace';
-        exitCtx.textAlign = 'center';
-        exitCtx.fillText('✖ EXIT CINEMA (TOUCH)', 256, 76);
+      let hoveredBtn = null; // 'rewind', 'forward', 'exit'
+      const drawControlBar = (hover = null) => {
+        exitCtx.clearRect(0, 0, 1024, 128);
+        // 1. Rewind Button [-10s]
+        exitCtx.fillStyle = hover === 'rewind' ? 'rgba(0, 229, 255, 0.95)' : 'rgba(8, 24, 38, 0.88)';
+        exitCtx.beginPath(); exitCtx.roundRect(16, 16, 290, 96, 20); exitCtx.fill();
+        exitCtx.strokeStyle = hover === 'rewind' ? '#ffffff' : '#00e5ff'; exitCtx.lineWidth = 4; exitCtx.stroke();
+        exitCtx.fillStyle = hover === 'rewind' ? '#001a24' : '#00e5ff';
+        exitCtx.font = 'bold 32px monospace'; exitCtx.textAlign = 'center'; exitCtx.fillText('⏪ -10s', 161, 74);
+
+        // 2. Skip Forward Button [+10s]
+        exitCtx.fillStyle = hover === 'forward' ? 'rgba(0, 255, 170, 0.95)' : 'rgba(8, 38, 24, 0.88)';
+        exitCtx.beginPath(); exitCtx.roundRect(326, 16, 290, 96, 20); exitCtx.fill();
+        exitCtx.strokeStyle = hover === 'forward' ? '#ffffff' : '#00ffaa'; exitCtx.lineWidth = 4; exitCtx.stroke();
+        exitCtx.fillStyle = hover === 'forward' ? '#001a14' : '#00ffaa';
+        exitCtx.font = 'bold 32px monospace'; exitCtx.textAlign = 'center'; exitCtx.fillText('⏩ +10s', 471, 74);
+
+        // 3. Exit Cinema Button
+        exitCtx.fillStyle = hover === 'exit' ? 'rgba(255, 40, 70, 0.95)' : 'rgba(40, 12, 22, 0.88)';
+        exitCtx.beginPath(); exitCtx.roundRect(636, 16, 372, 96, 20); exitCtx.fill();
+        exitCtx.strokeStyle = hover === 'exit' ? '#ffffff' : '#ff4466'; exitCtx.lineWidth = 4; exitCtx.stroke();
+        exitCtx.fillStyle = hover === 'exit' ? '#ffffff' : '#ff8899';
+        exitCtx.font = 'bold 32px monospace'; exitCtx.textAlign = 'center'; exitCtx.fillText('✖ EXIT CINEMA', 822, 74);
         exitTex.needsUpdate = true;
       };
-      drawExitBtn(false);
+      drawControlBar(null);
 
       const exitBtnMat = new T.MeshBasicMaterial({ map: exitTex, transparent: true, side: T.DoubleSide });
-      const exitBtnMesh = new T.Mesh(new T.PlaneGeometry(0.85, 0.22), exitBtnMat);
+      const exitBtnMesh = new T.Mesh(new T.PlaneGeometry(1.20, 0.22), exitBtnMat);
       exitBtnMesh.position.set(0, -screenH * 0.62, -radius * 0.92);
       exitBtnMesh.renderOrder = 3;
       xrGroup.add(exitBtnMesh);
@@ -405,9 +429,8 @@ export function init(nova = {}) {
       }
       host.add(xrGroup);
 
-      // ── 8. Hand Tracking Interaction & Gesture Exit ──
-      let exitHovered = false;
-      let lastPinchTime = 0;
+      // ── 8. Hand Tracking Interaction & Gesture Controls ──
+      let lastSeekTouch = 0;
       const handCheckTick = setInterval(() => {
         if (!isPresentingVR) return;
         const exitWorldPos = new T.Vector3();
@@ -438,21 +461,37 @@ export function init(nova = {}) {
           }
         });
 
-        // Touch exit button with finger or controller
-        let touched = false;
+        // Touch control bar with finger or controller
+        let activeHover = null;
+        const now = performance.now();
         for (const pt of testPoints) {
-          if (pt.pos.distanceTo(exitWorldPos) < 0.16) {
-            touched = true;
-            break;
+          if (pt.pos.distanceTo(exitWorldPos) < 0.22) {
+            const local = exitBtnMesh.worldToLocal(pt.pos.clone());
+            if (Math.abs(local.y) < 0.12 && Math.abs(local.z) < 0.10) {
+              if (local.x < -0.20) activeHover = 'rewind';
+              else if (local.x > 0.16) activeHover = 'exit';
+              else activeHover = 'forward';
+
+              if (now - lastSeekTouch > 380) {
+                lastSeekTouch = now;
+                if (activeHover === 'rewind') {
+                  v.currentTime = Math.max(0, v.currentTime - 10);
+                  try { window.sound?.beep?.(650, 0.05); } catch (_) {}
+                } else if (activeHover === 'forward') {
+                  v.currentTime = Math.min((v.duration || 1000) - 1, v.currentTime + 10);
+                  try { window.sound?.beep?.(920, 0.05); } catch (_) {}
+                } else if (activeHover === 'exit') {
+                  end();
+                  return;
+                }
+              }
+              break;
+            }
           }
         }
-        if (touched !== exitHovered) {
-          exitHovered = touched;
-          drawExitBtn(exitHovered);
-        }
-        if (touched) {
-          end();
-          return;
+        if (activeHover !== hoveredBtn) {
+          hoveredBtn = activeHover;
+          drawControlBar(hoveredBtn);
         }
 
         // Hand brought to headset / face (< 0.18m from camera) -> intuitive hand exit

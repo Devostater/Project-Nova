@@ -944,6 +944,10 @@ git push -u origin main</pre>
     function novaIsObjectOnScreen(obj, minDot = 0.48) {
       if (!renderer.xr.isPresenting) return true;
       if (!obj) return false;
+      // Cockpit dashboard & console controls are always physically accessible from the pilot seat
+      if (obj.parent && (obj.parent === rightDashGroup || obj.parent === leftDashGroup || obj.parent === holoRadarGroup || obj.parent === cockpit || obj.parent.name === 'NOVA_COCKPIT')) {
+        minDot = 0.26;
+      }
       const pos = (obj.isVector3) ? obj : obj.getWorldPosition(_novaToBtn);
       camera.getWorldPosition(_novaCamPos);
       camera.getWorldDirection(_novaCamFwd);
@@ -4820,14 +4824,14 @@ const GAME_VERSION = 'Alpha 1.4';
       }
 
       // 3. Intel View Controls
-      // On-Screen [ 📡 HAIL / COMM ] Button (cx: 326 to 496, cy: 122 to 156)
-      if (cx >= 326 && cx <= 496 && cy >= 122 && cy <= 156) {
+      // On-Screen [ 📡 HAIL / COMM ] Button (cx: 326 to 496, cy: 114 to 162 - twice as tall for easy touch)
+      if (cx >= 326 && cx <= 496 && cy >= 114 && cy <= 162) {
         openCommsConversation(selEnt);
         return;
       }
 
-      // On-Screen [ ⚓ DOCK / CLOSE-IN ] Button (cx: 326 to 496, cy: 160 to 194)
-      if (cx >= 326 && cx <= 496 && cy >= 160 && cy <= 194) {
+      // On-Screen [ ⚓ DOCK / CLOSE-IN ] Button (cx: 326 to 496, cy: 164 to 212 - twice as tall for easy touch)
+      if (cx >= 326 && cx <= 496 && cy >= 164 && cy <= 212) {
         if (selEnt && selEnt.obj && window.ndkState === 'idle') {
           currentLockedTarget = { name: selEnt.name, type: selEnt.type, targetObj: selEnt.obj, dist: selEnt.dist, isHostile: selEnt.isHostile };
         }
@@ -5148,23 +5152,23 @@ const GAME_VERSION = 'Alpha 1.4';
         ctx.fillStyle = selEnt.stealth ? '#ff00aa' : '#00ff88';
         ctx.fillText(`SIG: ${selEnt.stealth ? 'STEALTH CLOAK' : 'TRANSPONDER ON'}`, diagX, 118);
 
-        // Prominent On-Screen [ 📡 HAIL / COMM ] Button
+        // Prominent On-Screen [ 📡 HAIL / COMM ] Button (Twice as tall for easy VR touch)
         ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
-        ctx.fillRect(diagX, 126, 150, 26);
-        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1.5; ctx.strokeRect(diagX, 126, 150, 26);
-        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-        ctx.fillText('📡 HAIL / COMM', diagX + 75, 143);
+        ctx.fillRect(diagX, 116, 150, 44);
+        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 2.0; ctx.strokeRect(diagX, 116, 150, 44);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('📡 HAIL / COMM', diagX + 75, 142);
 
-        // DOCK / CLOSE-IN pill (docks with whatever is selected)
+        // DOCK / CLOSE-IN pill (docks with whatever is selected - twice as tall)
         {
           const holdNow = (window.ndkState === 'hold' || window.ndkState === 'approach');
           const nope = !!selEnt.isHostile;
           const pc = nope ? '#ff3344' : (holdNow ? '#ffaa00' : '#00ffcc');
           ctx.fillStyle = nope ? 'rgba(255,51,68,0.18)' : 'rgba(0,255,204,0.22)';
-          ctx.fillRect(diagX, 160, 150, 24);
-          ctx.strokeStyle = pc; ctx.lineWidth = 1.5; ctx.strokeRect(diagX, 160, 150, 24);
-          ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-          ctx.fillText(nope ? '\u2715 HOSTILE: NO DOCK' : (holdNow ? '\u2693 RELEASE' : '\u2693 DOCK / CLOSE IN'), diagX + 75, 176);
+          ctx.fillRect(diagX, 166, 150, 44);
+          ctx.strokeStyle = pc; ctx.lineWidth = 2.0; ctx.strokeRect(diagX, 166, 150, 44);
+          ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+          ctx.fillText(nope ? '\u2715 HOSTILE: NO DOCK' : (holdNow ? '\u2693 RELEASE' : '\u2693 DOCK / CLOSE IN'), diagX + 75, 192);
         }
 
         // ── BOTTOM RIGHT: Dedicated Interactive Sci-Fi Chat Feed ──
@@ -5244,8 +5248,8 @@ const GAME_VERSION = 'Alpha 1.4';
       return tex;
     }
 
-    // 4 Large Contextual 3D Buttons: HAIL, DOCK, MUTE, SITREP
-    const commsBtnGeo = new THREE.BoxGeometry(0.064, 0.030, 0.020);
+    // 4 Large Contextual 3D Buttons: HAIL, DOCK, MUTE, SITREP (Twice as tall for easy VR poke detection)
+    const commsBtnGeo = new THREE.BoxGeometry(0.064, 0.060, 0.024);
 
     // 1. [ 📡 HAIL ]
     const commsHailTex = createCommsButtonTexture('📡', 'HAIL', '#00f0ff');
@@ -5257,7 +5261,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const entities = getSensorEntities();
       const ent = entities[Math.min(selectedEntityIdx, entities.length - 1)];
       openCommsConversation(ent);
-    }, 0.05);
+    }, 0.065);
 
     // 2. [ ⚓ DOCK ]
     const commsDockTex = createCommsButtonTexture('⚓', 'DOCK', '#00ff88');
@@ -5267,7 +5271,7 @@ const GAME_VERSION = 'Alpha 1.4';
     commsScreenPivot.add(commsDockBtn);
     registerCockpitButton(commsDockBtn, 'DOCK AT STATION', () => {
       executeDocking();
-    }, 0.05);
+    }, 0.065);
 
     // 3. [ 🔇 MUTE ]
     const commsMuteTex = createCommsButtonTexture('🔇', 'MUTE', '#ffaa00');
@@ -5277,7 +5281,7 @@ const GAME_VERSION = 'Alpha 1.4';
     commsScreenPivot.add(commsMuteBtn);
     registerCockpitButton(commsMuteBtn, 'MUTE RADIO', () => {
       toggleRadioVoice();
-    }, 0.05);
+    }, 0.065);
 
     // 4. [ 📊 SITREP ]
     const commsSitrepTex = createCommsButtonTexture('📊', 'SITREP', '#cc88ff');
@@ -5290,7 +5294,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const ent = entities[Math.min(selectedEntityIdx, entities.length - 1)];
       const msg = `SITREP: Bearing ${Math.round(Math.random()*360)}°, Range ${Math.round(ent.dist)}m. ${ent.stealth ? 'Stealth active.' : 'Transponder online.'}`;
       broadcastCommsTransmission('TACTICAL SENSOR', msg);
-    }, 0.05);
+    }, 0.065);
 
     // (Screen fold tab removed as requested; screen slides inward automatically)
 
@@ -6373,26 +6377,26 @@ const GAME_VERSION = 'Alpha 1.4';
         });
       }
 
-      // Prioritize forward-facing targets & hostiles in reticle view
-      candidates.sort((a, b) => {
-        // Threat priority: hostiles in forward arc come first
-        const aHostileFwd = a.isHostile && ((a.dot !== undefined ? a.dot : 0) > -0.2);
-        const bHostileFwd = b.isHostile && ((b.dot !== undefined ? b.dot : 0) > -0.2);
-        if (aHostileFwd !== bHostileFwd) return aHostileFwd ? -1 : 1;
-
-        // Reticle alignment: objects in front of crosshair (dot > 0.6)
-        const aInReticle = (a.dot !== undefined ? a.dot : 0) > 0.6;
-        const bInReticle = (b.dot !== undefined ? b.dot : 0) > 0.6;
-        if (aInReticle !== bInReticle) return aInReticle ? -1 : 1;
-
-        // If both in reticle, prioritize higher dot product (closer to reticle center)
-        if (aInReticle && bInReticle) {
-          return b.dot - a.dot;
+      // Tactical Threat Scoring: Hostiles in front > Near hostiles > Distant hostiles > Salvage > Stations > Asteroids
+      const getTargetThreatScore = (t) => {
+        const dot = (t.dot !== undefined) ? t.dot : -1.0;
+        const dist = t.dist || 9999;
+        let score = 0;
+        if (t.isHostile) {
+          if (dot > 0.25) score += 10000 + dot * 2500 - dist * 1.5; // Front hostile (highest priority)
+          else if (dist < 800) score += 6000 - dist * 2.0;          // Close hostile
+          else score += 3000 - dist;                                 // Other hostile
+        } else if (t.type === 'salvage' || String(t.name).includes('SALVAGE') || String(t.name).includes('DERELICT')) {
+          score += 1600 - dist * 0.5;
+        } else if (t.type === 'station' || String(t.name).includes('STATION')) {
+          score += 800 - dist * 0.2;
+        } else {
+          score += 200 - dist * 0.1;
         }
+        return score;
+      };
 
-        // Otherwise proximity
-        return a.dist - b.dist;
-      });
+      candidates.sort((a, b) => getTargetThreatScore(b) - getTargetThreatScore(a));
       return candidates;
     }
 
@@ -8604,14 +8608,39 @@ const GAME_VERSION = 'Alpha 1.4';
     debugWatchGroup.visible = false;
 
     // Multi-page Paged Tactile Wrist Menu (4 option buttons per page + NEXT/BACK navigation)
+    function novaRespawnInShip() {
+      try {
+        const fps = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('fps_core');
+        if (fps && fps.active) {
+          fps.disable();
+        }
+      } catch (e) {}
+      cameraRig.position.set(0, 0, 0);
+      cameraRig.rotation.set(0, 0, 0);
+      if (typeof recenterPilotView === 'function') recenterPilotView();
+      if (typeof resetSeat === 'function') resetSeat();
+      if (typeof resetControls === 'function') resetControls();
+      shipHull = 100;
+      shipShield = 100;
+      velocity.set(0, 0, 0);
+      rotVelocity.set(0, 0, 0);
+      try {
+        if (sound && sound.warpOut) sound.warpOut();
+        else if (sound && sound.seatAdjust) sound.seatAdjust();
+      } catch (e) {}
+      showToast('🚀 RESPAWNED IN SHIP COCKPIT', 2400, '#00ffcc');
+      drawDebugWatch();
+    }
+    window.novaRespawnInShip = novaRespawnInShip;
+
     let wristMenuPage = 0;
     const wristMenuPages = [
       // Page 1: Flight Controls & Recenter
       [
         { id: 'recenter', label: '🎯 RECENTER & SEAT', color: '#00ff88', action: () => { try { sound.playSample('./sfx/seat_adjust.mp3', 0.7); } catch(e){} recenterPilotView(); resetSeat(); } },
+        { id: 'respawn-ship', label: '🚀 RESPAWN IN SHIP', color: '#00ffcc', action: () => novaRespawnInShip() },
         { id: 'reset-controls', label: '🕹️ RESET HOTAS', color: '#ffaa00', action: () => resetControls() },
-        { id: 'invert-y', label: () => (isPitchInverted ? '✈️ FLIGHT Y: INV' : '🎮 FLIGHT Y: NORM'), color: '#00e5ff', action: () => toggleInvertPitch() },
-        { id: 'bgm-toggle', label: () => (isBgmPlaying ? '🎵 BGM: PLAYING' : '🔇 BGM: MUTED'), color: '#cc88ff', action: () => toggleBgm() }
+        { id: 'invert-y', label: () => (isPitchInverted ? '✈️ FLIGHT Y: INV' : '🎮 FLIGHT Y: NORM'), color: '#00e5ff', action: () => toggleInvertPitch() }
       ],
       // Page 2: Missions & Warping
       [
@@ -9090,8 +9119,14 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!mesh) return Infinity;
       if (!mesh.geometry) return point.distanceTo(mesh.getWorldPosition(new THREE.Vector3()));
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
-      const box = mesh.geometry.boundingBox;
+      let box = mesh.geometry.boundingBox;
       if (!box) return point.distanceTo(mesh.getWorldPosition(new THREE.Vector3()));
+      // If the button is a flat 2D plane (thin Z), give it 3D depth for easy finger poke detection
+      if (box.max.z - box.min.z < 0.024) {
+        box = box.clone();
+        box.min.z -= 0.022;
+        box.max.z += 0.022;
+      }
       mesh.updateWorldMatrix(true, false);
       const local = mesh.worldToLocal(point.clone());
       const nearest = box.clampPoint(local, new THREE.Vector3()).applyMatrix4(mesh.matrixWorld);
@@ -10441,15 +10476,19 @@ const GAME_VERSION = 'Alpha 1.4';
     });
 
     // Real radar zoom buttons on the right dash lower bezel (replace the drawn ones)
-    [[rBtnMeshZMinus, -0.06, 'ZOOM -'], [rBtnMeshZPlus, 0.06, 'ZOOM +']].forEach(([m, x, t]) => {
+    [[rBtnMeshZMinus, -0.06, 'ZOOM -', -1], [rBtnMeshZPlus, 0.06, 'ZOOM +', 1]].forEach(([m, x, t, dir]) => {
       if (m.parent) m.parent.remove(m);
       rightDashGroup.add(m);
       m.position.set(x, -0.162, 0.016);
-      m.scale.set(1.1, 1.3, 1.6);
+      m.scale.set(1.2, 1.4, 1.8);
+      const ent = cockpitInteractables.find(e => e.mesh === m);
+      if (ent) { ent.radius = 0.065; }
+      else { registerCockpitButton(m, 'RADAR ' + t, () => cycleRadarZoom(dir), 0.065); }
       const c = document.createElement('canvas'); c.width = 128; c.height = 40;
       const g = c.getContext('2d'); g.fillStyle = '#00ccff'; g.font = 'bold 24px monospace'; g.textAlign = 'center'; g.fillText(t, 64, 29);
-      const l = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.016), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
-      l.position.set(x, -0.185, 0.017);
+      const l = new THREE.Mesh(new THREE.PlaneGeometry(0.055, 0.018), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
+      l.position.set(x, -0.185, 0.018);
+      l.raycast = () => {}; // Transparent to raycasts so click lands on the button mesh
       rightDashGroup.add(l);
     });
     // Slide (deploy / retract) buttons for the side rail screens, on each arm console
@@ -12934,11 +12973,11 @@ const GAME_VERSION = 'Alpha 1.4';
       const now = performance.now();
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
-      if (window.novaCinematicPlaying) {
-        if (renderer.xr && renderer.xr.isPresenting) {
-          try { renderer.render(scene, camera); } catch (_) {}
+      if (window.novaCinematicPlaying || window.isGamePaused) {
+        if (window.novaCinematicPlaying) {
+          novaRender(delta);
+          return;
         }
-        return;
       }
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
       if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) {
@@ -13692,8 +13731,11 @@ const GAME_VERSION = 'Alpha 1.4';
 // ── Update Active Homing Missiles (Reliable Launch, Guidance & Asteroid Demolition) ──
       for (let i = activeMissiles.length - 1; i >= 0; i--) {
         const m = activeMissiles[i];
-        if (now - m.spawnTime > 9000) {
+        if (now - m.spawnTime > 5000) {
+          try { sound.explosion(); } catch(e) {}
+          try { if (typeof novaBoom === 'function') novaBoom(mPos); } catch(e) {}
           scene.remove(m.group);
+          m.group.traverse(o => { o.geometry?.dispose?.(); if (Array.isArray(o.material)) o.material.forEach(m => m?.dispose?.()); else o.material?.dispose?.(); });
           activeMissiles.splice(i, 1);
           continue;
         }
@@ -13719,10 +13761,11 @@ const GAME_VERSION = 'Alpha 1.4';
           }
         }
 
-        // Check collision against all visible asteroids (Heavy Demolition Mining)
+        // Check collision against all visible asteroids (Spatial AABB rejection for performance)
         for (let aIdx = 0; aIdx < asteroids.length; aIdx++) {
           const a = asteroids[aIdx];
           if (!a.visible) continue;
+          if (Math.abs(mPos.x - a.position.x) > 36 || Math.abs(mPos.y - a.position.y) > 36 || Math.abs(mPos.z - a.position.z) > 36) continue;
           const aRad = (a.userData && a.userData.radius) ? a.userData.radius : 12;
           const distAst = mPos.distanceTo(a.position);
           if (distAst < aRad + 2.5) {
@@ -14856,7 +14899,7 @@ const GAME_VERSION = 'Alpha 1.4';
       ctx.fillStyle = '#123344'; ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#aaffff'; ctx.font = 'bold 40px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, 32, 34);
       const button = new THREE.Mesh(new THREE.PlaneGeometry(0.045, 0.045), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
-      button.position.x = (i - 0.5) * 0.065; novaTurnUI.add(button); return button;
+      button.position.x = (i - 0.5) * 0.12; novaTurnUI.add(button); return button;
     });
     let novaTurnTouch = -1, novaTurnSince = 0, novaTurnDirection = 0, novaTurnLatched = false, novaTurnLast = -Infinity;
     let novaTurnPoseReady = false, novaTurnPinchTouch = -1, novaTurnPinchSince = 0, novaTurnPinchLatched = false;
@@ -14881,8 +14924,8 @@ const GAME_VERSION = 'Alpha 1.4';
         novaTurnTouch = -1; novaTurnSince = 0; novaTurnDirection = 0; novaTurnLatched = false; novaTurnPoseReady = false; novaTurnPinchTouch = -1; novaTurnPinchSince = 0; novaTurnPinchLatched = false; return;
       }
 
-      // Check whether left hand palm is facing UP
-      const palmNormal = new THREE.Vector3().crossVectors(knuckle.clone().sub(wrist), pinky.clone().sub(wrist)).normalize();
+      // Check whether left hand palm is facing UP towards eyes (flipped to match true anatomical left hand palm normal)
+      const palmNormal = new THREE.Vector3().crossVectors(pinky.clone().sub(wrist), knuckle.clone().sub(wrist)).normalize();
       const worldPalmNormal = palmNormal.clone().applyQuaternion(cameraRig.quaternion);
       const palmFacingUp = worldPalmNormal.y > 0.35;
 
@@ -14921,7 +14964,7 @@ const GAME_VERSION = 'Alpha 1.4';
       let touch = -1;
       if (otherTip && novaTurnUI.visible) {
         const local = novaTurnUI.worldToLocal(cameraRig.localToWorld(otherTip.clone()));
-        touch = novaTurnButtons.findIndex(b => Math.abs(local.x - b.position.x) < 0.032 && Math.abs(local.y) < 0.032 && Math.abs(local.z) < 0.030);
+        touch = novaTurnButtons.findIndex(b => Math.abs(local.x - b.position.x) < 0.048 && Math.abs(local.y) < 0.045 && Math.abs(local.z) < 0.040);
       }
       let tapSign = 0;
       if (touch >= 0 && deliberatePinch) {
@@ -14966,7 +15009,7 @@ const GAME_VERSION = 'Alpha 1.4';
             const kW = new THREE.Vector3(), pW = new THREE.Vector3();
             joints['index-finger-metacarpal'].getWorldPosition(kW);
             joints['pinky-finger-metacarpal'].getWorldPosition(pW);
-            const pNorm = new THREE.Vector3().crossVectors(kW.sub(leftWristWorld), pW.sub(leftWristWorld)).normalize();
+            const pNorm = new THREE.Vector3().crossVectors(pW.sub(leftWristWorld), kW.sub(leftWristWorld)).normalize();
             if (pNorm.y > 0.35) leftPalmFacingUp = true;
           }
         }
@@ -14995,7 +15038,7 @@ const GAME_VERSION = 'Alpha 1.4';
               if (kPose && pPose) {
                 const kv = new THREE.Vector3(kPose.transform.position.x, kPose.transform.position.y, kPose.transform.position.z).sub(leftWristWorld);
                 const pv = new THREE.Vector3(pPose.transform.position.x, pPose.transform.position.y, pPose.transform.position.z).sub(leftWristWorld);
-                const pNorm = new THREE.Vector3().crossVectors(kv, pv).normalize().applyQuaternion(cameraRig.quaternion);
+                const pNorm = new THREE.Vector3().crossVectors(pv, kv).normalize().applyQuaternion(cameraRig.quaternion);
                 if (pNorm.y > 0.35) leftPalmFacingUp = true;
               }
             }
@@ -17737,7 +17780,10 @@ const GAME_VERSION = 'Alpha 1.4';
     function nmDynamic(dt) {
       if (NM.off) return;
       try { activeMissiles.forEach(m => {
-        if (!m.group.userData.nmSkin) nmSkin(m.group, 'missile2', { scale: 4.2, pos: [0, -0.36, 0], keepBelow: 0.45 }).then(w => { if (!w) nmSkin(m.group, 'missile', { yaw: Math.PI, scale: 0.9, keepBelow: 0.45 }); });
+        if (!m.group.userData.nmSkin) {
+          m.group.userData.nmSkin = 'loading';
+          nmSkin(m.group, 'missile2', { scale: 4.2, pos: [0, -0.36, 0], keepBelow: 0.45 }).then(w => { if (!w) nmSkin(m.group, 'missile', { yaw: Math.PI, scale: 0.9, keepBelow: 0.45 }); });
+        }
         let f = m.group.userData.nkFlame;
         if (!f) {
           f = novaPlume(4.2, 0.55, 0xffa044);
@@ -20005,17 +20051,50 @@ const GAME_VERSION = 'Alpha 1.4';
     const npOptRows = () => [
       [(typeof passthroughActive !== 'undefined' && passthroughActive) ? 'SWITCH TO FULL VR' : 'SWITCH TO MIXED REALITY', '#ff66cc', () => togglePassthrough()],
       ['RECENTER VIEW (1 s countdown)', '#ffd24a', () => npRecenterDelayed()],
-      ['SAVE GAME', '#33ff99', () => nsvSave(1)], ['LOAD GAME', '#ffd24a', () => nsvLoad(1)],
-      ['MASTER VOLUME ' + Math.round(NOPT.o.master * 100) + '%', '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }],
+      ['SAVE / LOAD GAME', '#33ff99', (P, side) => { if (side === 'right') nsvLoad(1); else nsvSave(1); }, { split: true, leftText: 'SAVE GAME', leftCol: '#33ff99', leftFn: () => nsvSave(1), rightText: 'LOAD GAME', rightCol: '#ffd24a', rightFn: () => nsvLoad(1) }],
       ['JOYSTICK DEADZONE ' + Math.round((NOPT.o.deadzone ?? 0.12) * 100) + '%', '#33ff99', () => { const D = [0.05, 0.08, 0.12, 0.16, 0.20]; const i = D.findIndex(v => Math.abs(v - (NOPT.o.deadzone ?? 0.12)) < 0.01); NOPT.o.deadzone = D[(i + 1) % D.length]; noptSave(); showToast('JOYSTICK DEADZONE ' + Math.round(NOPT.o.deadzone * 100) + '%', 1800, '#33ff99'); }],
+      ['MASTER VOLUME ' + Math.round(NOPT.o.master * 100) + '%', '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }],
       ['FORCE ULTRA: ' + (NOPT.o.forceUltra ? 'ON' : 'OFF'), '#ff66ff', () => { NOPT.o.forceUltra = !NOPT.o.forceUltra; if (NOPT.o.forceUltra) NOPT.o.gfx = 'ultra'; noptSave(); noptApplyGfx(); showToast('FORCE ULTRA: ' + (NOPT.o.forceUltra ? 'ON' : 'OFF'), 1800, '#ff66ff'); }],
       ['GRAPHICS ' + String(NOPT.o.gfx).toUpperCase(), '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); showToast('GRAPHICS ' + NOPT.o.gfx.toUpperCase() + (renderer.xr.isPresenting ? ' (VR resolution changes next launch)' : ''), 2000, '#b266ff'); }],
       ['EXIT GAME', '#ff3344', () => npExitArm()]];
     const NP_OPT = { name: 'OPTIONS', c: '#9fc3d8', hint: 'touch a row · EXIT GAME needs a second touch · key bindings are in the main menu OPTIONS',
-      row: (P, i) => { const r = npOptRows()[i]; if (r) { try { sound.switchClick(); } catch (e) { } r[2](P); } },
+      row: (P, i, side) => {
+        const rows = npOptRows();
+        const r = rows[i];
+        if (r) {
+          try { sound.switchClick(); } catch (e) { }
+          if (r[3] && r[3].split) {
+            if (side === 'right') r[3].rightFn();
+            else r[3].leftFn();
+          } else {
+            r[2](P);
+          }
+          P.drawT = 0;
+        }
+      },
       pads: [],
       draw: (x, P) => {
-        npOptRows().forEach((r, i) => { const Y = 52 + i * 44; x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'; x.fillRect(8, Y, 520, 42); x.fillStyle = r[1]; x.fillRect(8, Y, 6, 42); npText(x, (i === 7 && NPX.arm > performance.now()) ? 'TOUCH AGAIN TO EXIT' : r[0], 26, Y + 29, 'bold 21px monospace', r[1], 490); });
+        npOptRows().forEach((r, i) => {
+          const Y = 52 + i * 44;
+          if (r[3] && r[3].split) {
+            const wHalf = 254;
+            x.fillStyle = 'rgba(255,255,255,0.035)';
+            x.fillRect(8, Y, wHalf, 42);
+            x.fillStyle = r[3].leftCol; x.fillRect(8, Y, 6, 42);
+            npText(x, r[3].leftText, 24, Y + 29, 'bold 20px monospace', r[3].leftCol, wHalf - 30);
+
+            const rX = 8 + wHalf + 12;
+            x.fillStyle = 'rgba(255,255,255,0.035)';
+            x.fillRect(rX, Y, wHalf, 42);
+            x.fillStyle = r[3].rightCol; x.fillRect(rX, Y, 6, 42);
+            npText(x, r[3].rightText, rX + 16, Y + 29, 'bold 20px monospace', r[3].rightCol, wHalf - 30);
+          } else {
+            x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)';
+            x.fillRect(8, Y, 520, 42);
+            x.fillStyle = r[1]; x.fillRect(8, Y, 6, 42);
+            npText(x, (i === 7 && NPX.arm > performance.now()) ? 'TOUCH AGAIN TO EXIT' : r[0], 26, Y + 29, 'bold 21px monospace', r[1], 490);
+          }
+        });
         npText(x, 'VIEW', 560, 86, 'bold 20px monospace', '#9fc3d8');
         try { npText(x, passthroughActive ? 'MIXED REALITY' : 'FULL VR SPACE', 560, 120, 'bold 28px monospace', '#ff88dd', 450); } catch (e) { }
         let sv = null; try { sv = JSON.parse(localStorage.getItem('novaSave1') || 'null'); } catch (e) { }
@@ -20051,6 +20130,7 @@ const GAME_VERSION = 'Alpha 1.4';
         [(passthroughActive ? 'VIEW  FULL VR' : 'VIEW  MIXED REALITY'), '#ff66cc', () => togglePassthrough(), 'Change between space and passthrough.'],
         ['RECENTER VIEW', '#ffd24a', () => npRecenterDelayed(), 'One-second seated-headset countdown.'],
         ['SAVE / LOAD GAME', '#33ff99', (P, side) => { if (side === 'right') nsvLoad(1); else nsvSave(1); }, 'Save and restore game state.', { split: true, leftText: 'SAVE GAME', leftCol: '#33ff99', leftFn: () => nsvSave(1), rightText: 'LOAD GAME', rightCol: '#ffd24a', rightFn: () => nsvLoad(1) }],
+        [`JOYSTICK DEADZONE  ${Math.round((NOPT.o.deadzone ?? 0.12) * 100)}%`, '#33ff99', () => { const D = [0.05, 0.08, 0.12, 0.16, 0.20]; const i = D.findIndex(v => Math.abs(v - (NOPT.o.deadzone ?? 0.12)) < 0.01); NOPT.o.deadzone = D[(i + 1) % D.length]; noptSave(); showToast('JOYSTICK DEADZONE ' + Math.round(NOPT.o.deadzone * 100) + '%', 1800, '#33ff99'); }, 'Touch to step stick deadband.'],
         [`MASTER VOLUME  ${Math.round(NOPT.o.master * 100)}%`, '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }, 'Touch to step the overall sound level.'],
         [`GRAPHICS  ${String(NOPT.o.gfx).toUpperCase()}`, '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); }, 'Quest performance / visual quality.'],
         ['DEBUG SHIPS', '#00ffcc', (P, side) => { if (side === 'right') window.novaUnlockShips(true); else window.novaUnlockShips(false); }, 'Unlock shop / own all ships for testing.', { split: true, leftText: 'UNLOCK SHOP', leftSub: 'Clear rank gates', leftCol: '#00ffcc', leftFn: () => window.novaUnlockShips(false), rightText: 'OWN ALL SHIPS', rightSub: 'Fly any craft', rightCol: '#ffd24a', rightFn: () => window.novaUnlockShips(true) }],
@@ -22577,8 +22657,26 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     try { NSV.cores = parseInt(localStorage.getItem('novaHeatCores') || '0', 10) || 0; } catch (e) { NSV.cores = 0; }
     function novaTractorPress() {
-      const t = currentLockedTarget, pod = t && NSV.pods.find(p => p.g === t.targetObj);
-      if (!pod) { showToast('TRACTOR: lock a SALVAGE contact first (COMMS list or radar)', 2200, '#9fb4c8'); return; }
+      let t = currentLockedTarget, pod = t && NSV.pods.find(p => p.g === t.targetObj);
+      if (!pod) {
+        // Auto-detect closest salvage pod within range if none is manually locked
+        let closest = null, closestDist = Infinity;
+        const sp = shipGroup.position;
+        for (let i = 0; i < NSV.pods.length; i++) {
+          const p = NSV.pods[i];
+          const dist = p.g.position.distanceTo(sp);
+          if (dist <= NSV.range && dist < closestDist) {
+            closestDist = dist;
+            closest = p;
+          }
+        }
+        if (closest) {
+          pod = closest;
+          currentLockedTarget = { name: 'SALVAGE CONTAINER', type: 'salvage', targetObj: closest.g, dist: closestDist, isHostile: false };
+          try { if (sound && sound.lockTone) sound.lockTone(); } catch (e) {}
+        }
+      }
+      if (!pod) { showToast('TRACTOR: NO SALVAGE IN RANGE (' + NSV.range + 'm)', 2200, '#9fb4c8'); return; }
       const d = pod.g.position.distanceTo(shipGroup.position);
       if (d > NSV.range) { showToast('TRACTOR: MOVE CLOSER (' + Math.round(d) + ' m / ' + NSV.range + ' m)', 2000, '#ffaa33'); return; }
       if (NSV.pulling) return;
@@ -22586,7 +22684,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!NSV.beam) { NSV.beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 1.4, 1, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0x66ffee, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); try { if (NOVA_VFX.tex.lightning) NSV.beam.material.map = NOVA_VFX.tex.lightning; } catch (e) { } }
       scene.add(NSV.beam);
       try { sound.beep(880, 0.12); } catch (e) { }
-      showToast('TRACTOR BEAM LOCKED', 1500, '#66ffee');
+      showToast('TRACTOR BEAM LOCKED (' + (pod.kind ? pod.kind.toUpperCase() : 'SALVAGE') + ')', 1800, '#66ffee');
     }
     window.novaTractorPress = novaTractorPress;
     window.novaHeatCores = () => NSV.cores || 0;
