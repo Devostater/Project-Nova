@@ -129,6 +129,7 @@ export function init(nova = {}) {
     fuseMat.emissive.setHex(0x004433);
     jLedMat.color.setHex(0x00ffcc);
     playSound('rcs_puff');
+    try { nova.emit?.('evaFuseReset'); } catch (_) {}
     if (typeof window.novaIonEmp?.repairExteriorFuse === 'function') {
       window.novaIonEmp.repairExteriorFuse();
     } else {
@@ -240,6 +241,7 @@ export function init(nova = {}) {
     if (S.active) return true;
     S.active = true;
     window.novaIsEvaActive = true;
+    try { nova.emit?.('evaEnter', { passthrough: opts.passthrough }); } catch (_) {}
 
     // Pop open canopy
     playSound('canopy_hiss');

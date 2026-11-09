@@ -6691,6 +6691,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
       spawnHomingMissile();
       showToast(`🚀 MISSILE DEPLOYED! (${missileAmmo}/6 remaining)`, 2200, '#ff2244');
+      try { novaEmit('missileFired', { remaining: missileAmmo }); } catch (_) {}
       drawRightDash();
     }
 
@@ -8641,6 +8642,37 @@ const GAME_VERSION = 'Alpha 1.4';
         { id: 'radar-dock', label: () => ((typeof NH !== 'undefined' && NH.activeDock === 'upper_right') ? '📍 RADAR: UPPER' : '📍 RADAR: CENTER'), color: '#00e5ff', action: () => { if (typeof novaRadarPositionToggle === 'function') novaRadarPositionToggle(); drawDebugWatch(); } },
         { id: 'cruise-control', label: () => ((typeof novaCruise !== 'undefined' && novaCruise.active) ? '⚡ CRUISE: ON' : '⚡ CRUISE: OFF'), color: '#66ffcc', action: () => { if (typeof novaCruiseToggle === 'function') novaCruiseToggle(); drawDebugWatch(); } },
         { id: 'exit-xr', label: '🚪 EXIT VR', color: '#ff3344', action: () => exitImmersiveMode() }
+      ],
+      // Page 4: Pilot Medals & Combat Streaks
+      [
+        { id: 'achieve-summary', label: () => {
+          const p = window.novaAchievements?.getProgress ? window.novaAchievements.getProgress() : null;
+          return p ? `🏆 MEDALS: ${p.unlocked}/${p.total} (${p.percent}%)` : '🏆 MEDALS';
+        }, color: '#ffd24a', action: () => {
+          const p = window.novaAchievements?.getProgress ? window.novaAchievements.getProgress() : null;
+          if (p) showToast(`🏆 AWARDS: ${p.unlocked} OF ${p.total} EARNED (${p.percent}%)`, 3000, '#ffd24a');
+          drawDebugWatch();
+        }},
+        { id: 'stats-combat', label: () => {
+          const s = window.novaAchievements?.stats;
+          return s ? `🎯 KILLS: ${s.kills} · FLIGHTS: ${window.novaPilot?.flights || 1}` : '🎯 COMBAT STATS';
+        }, color: '#ff5566', action: () => {
+          const s = window.novaAchievements?.stats;
+          if (s) showToast(`COMBAT: ${s.kills} KILLS · ${s.missiles} MISSILES FIRED · MAX SPD: ${s.maxSpeed} M/S`, 3500, '#ff5566');
+        }},
+        { id: 'stats-salvage', label: () => {
+          const s = window.novaAchievements?.stats;
+          return s ? `🧲 SALVAGE: ${s.salvage} · DOCKS: ${s.dockings}` : '🧲 SALVAGE STATS';
+        }, color: '#00ffaa', action: () => {
+          const s = window.novaAchievements?.stats;
+          if (s) showToast(`OPERATIONS: ${s.salvage} PODS TRACTORED · ${s.dockings} STATIONS DOCKED · ${s.warps} WARPS`, 3500, '#00ffaa');
+        }},
+        { id: 'play-fanfare', label: '🎺 VICTORY FANFARE', color: '#00ffcc', action: () => {
+          if (window.novaAchievements?.playFanfare) {
+            window.novaAchievements.playFanfare();
+            showToast('🎺 VICTORY FANFARE TESTED', 1800, '#00ffcc');
+          }
+        }}
       ]
     ];
     const debugWatchButtons = [];
@@ -9289,6 +9321,7 @@ const GAME_VERSION = 'Alpha 1.4';
         showToast('🌌 Immersive VR Space Active!', 2500, '#00f0ff');
       }
       window.isPassthroughActive = passthroughActive;
+      try { novaEmit('passthroughToggled', { active: passthroughActive }); } catch (_) {}
       if (typeof isInsideCantina !== 'undefined' && isInsideCantina && typeof novaCantinaRoomSync === 'function') {
         novaCantinaRoomSync();
       }
@@ -18916,6 +18949,8 @@ const GAME_VERSION = 'Alpha 1.4';
           hit('R SCROLL NEXT', 920, 52, 96, 344, () => { if (P.cfg.tabs[P.tab] === NP_SYSOPT) P.scroll = Math.min(Math.floor((NP_SYSOPT.rows().length - 1) / 3) * 3, P.scroll + 3); P.drawT = 0; })
         ];
         P.emergencyHit = hit('R EMERGENCY MISSILES', 8, 342, 1002, 70, () => { if (P.cfg.tabs[P.tab] === NP_WPN) npEmergencyMissileResupply(); });
+        P.achieveHits = [];
+        for (let i = 0; i < 4; i++) P.achieveHits.push(hit('R ACHIEVE PAD ' + (i + 1), 8 + i * 251, 488, 245, 96, () => { const pd = (NP_ACHIEVE.pads || [])[i]; if (pd) pd.fn(P); }));
       }
       if (cfg.id !== 'R') {
         P.hailHit = hit('L COMMS HAIL', 430, 210, 265, 60, () => { if (P.cfg.tabs[P.tab] === NP_COMMS) npHailToChat(P); });
@@ -20126,6 +20161,28 @@ const GAME_VERSION = 'Alpha 1.4';
         try { npText(x, 'MUSIC', 430, 252, 'bold 20px monospace', '#9fc3d8'); npText(x, (isBgmPlaying ? '\u25B6 ' : '\u275A\u275A ') + BGM_TRACKS[bgmTrackIdx].name, 430, 284, 'bold 24px monospace', '#ff88dd', 580); } catch (e) { }
         try { const d = ncD(); npText(x, 'CREW', 430, 326, 'bold 20px monospace', '#9fc3d8'); npText(x, d ? d.name : 'none aboard', 540, 326, 'bold 22px monospace', d ? d.col : '#5f7d95', 300); } catch (e) { }
       } };
+    const NP_ACHIEVE = {
+      name: 'MEDALS',
+      c: '#ffd24a',
+      scroll: 0,
+      hint: 'pilot medals & achievements · tap touchpads to scroll · unlocks award bonus credits and fanfare',
+      pads: [
+        { l: '◀ PREV', c: '#ffd24a', fn: () => { NP_ACHIEVE.scroll = Math.max(0, NP_ACHIEVE.scroll - 6); const P = NP.panels[1]; if (P) P.drawT = 0; } },
+        { l: 'NEXT ▶', c: '#ffd24a', fn: () => { NP_ACHIEVE.scroll = Math.min(10, NP_ACHIEVE.scroll + 6); const P = NP.panels[1]; if (P) P.drawT = 0; } },
+        { l: 'CLAIM FANFARE', c: '#00ffcc', fn: () => { if (window.novaAchievements?.playFanfare) window.novaAchievements.playFanfare(); } },
+        { l: 'STATISTICS', c: '#33ff99', fn: () => {
+          const s = window.novaAchievements?.stats;
+          if (s) showToast(`PILOT: ${s.kills} KILLS · ${s.salvage} SALVAGE · ${s.dockings} DOCKED · ${s.warps} WARPS`, 3500, '#33ff99');
+        } }
+      ],
+      draw: (x, P) => {
+        if (window.novaAchievements?.drawPanel) {
+          window.novaAchievements.drawPanel(x, 1024, NP_CH, NP_ACHIEVE.scroll);
+        } else {
+          npText(x, 'ACHIEVEMENTS SYSTEM STANDBY', 20, 100, 'bold 26px monospace', '#ffd24a');
+        }
+      }
+    };
     function npTick(dt) {
       if (!NP.panels.length) {
         if (!novaConsoles[0] || !novaConsoles[1]) return;
@@ -20133,9 +20190,9 @@ const GAME_VERSION = 'Alpha 1.4';
           holo: [{ g: '◉', l: 'COMMS', c: '#00e5ff', fn: P => { if (P.cfg.tabs[P.tab] === NP_COMMS) npOpenTargetChat(P); else npTab(P, P.cfg.tabs.indexOf(NP_COMMS)); } }, { g: '✉', l: 'CHAT', c: '#ff88cc', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CHAT)) },
             { g: '♥', l: 'CREW', c: '#ffd24a', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_CREW_TAB)) }, { g: '✈', l: 'FLIGHT', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_FLIGHT)) },
             { g: '◎', l: 'OBJECTIVE', c: '#ffcc00', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_OBJ)) }, { g: '➤', l: 'WARP', c: '#b266ff', fn: P => npTab(P, P.cfg.tabs.indexOf(NP_WARP)) }] });
-        const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SYSOPT, NP_MUSIC], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
+        const R = npBuild(novaConsoles[1], { id: 'R', tabs: [NP_WPN, NP_CARGO, NP_SYSOPT, NP_MUSIC, NP_ACHIEVE], status: () => String(bankCredits).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' CR',
           holo: [{ g: '\u2316', l: 'COMBAT', c: '#ff3355', fn: P => npTab(P, 0) }, { g: '\u25A6', l: 'CARGO', c: '#00ff99', fn: P => npTab(P, 1) }, { g: '\u2699', l: 'SYSTEM / OPTIONS', c: '#ffd24a', fn: P => npTab(P, 2) },
-            { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }, { g: '\u25C9', l: '3D RADAR', c: '#00e5ff', fn: () => novaRadarPositionToggle() }] });
+            { g: '\u266B', l: 'MUSIC', c: '#ff66cc', fn: P => npTab(P, 3) }, { g: '🏆', l: 'MEDALS', c: '#ffd24a', fn: P => npTab(P, 4) }, { g: '\u25C9', l: '3D RADAR', c: '#00e5ff', fn: () => novaRadarPositionToggle() }] });
         try { commsArmRoot.visible = false; invArmRoot.visible = false; } catch (e) { }       // the floating TACCOMS / CARGO screens are folded into these panels
         console.log('[NOVA13] side panels rebuilt: COMMS|FLIGHT and WEAPONS|CARGO');
         return;
@@ -20156,11 +20213,12 @@ const GAME_VERSION = 'Alpha 1.4';
         }
         if (P.cfg.id === 'R') {
           let market = false; try { market = T === NP_CARGO && !!nmkNear(); } catch (e) { }
-          (P.rowHits || []).forEach(m => { m.visible = T !== NP_SYSOPT && T !== NP_MUSIC && typeof T.row === 'function'; });
+          (P.rowHits || []).forEach(m => { m.visible = T !== NP_SYSOPT && T !== NP_MUSIC && T !== NP_ACHIEVE && typeof T.row === 'function'; });
           (P.sysHits || []).forEach(m => { m.visible = T === NP_SYSOPT; });
           (P.scrollHits || []).forEach(m => { m.visible = T === NP_SYSOPT; });
           (P.mkArrows || []).forEach(m => { m.visible = T === NP_CARGO; });
           (P.mkBuy || []).forEach(m => { m.visible = market; });
+          (P.achieveHits || []).forEach(m => { m.visible = T === NP_ACHIEVE; });
           if (P.emergencyHit) P.emergencyHit.visible = T === NP_WPN;
         }
         const want = T.holo && currentLockedTarget && novaContactLive(currentLockedTarget.targetObj) ? currentLockedTarget.targetObj : null;

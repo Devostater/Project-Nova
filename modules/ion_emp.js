@@ -254,6 +254,7 @@ export function init(nova = {}) {
 
     playSound('power_online');
     updateVisuals();
+    try { nova.emit?.('ionRebootComplete'); } catch (_) {}
 
     window.showToast?.('✨ COLD-BOOT COMPLETE: STARFIGHTER ONLINE & READY!', 3500, '#00ffcc');
   }

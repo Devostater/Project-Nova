@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.15-offline-ready';
+const VERSION = 'nova-alpha-1.17-achievements-offline';
 const FILES = [
   "./art/alien_planet.jpg",
   "./art/asteroid.jpg",
@@ -161,16 +161,19 @@ const FILES = [
   "./models/thruster.glb",
   "./models/vr_hands.glb",
   "./models/wreck.glb",
+  "./modules/achievements.js",
   "./modules/boarding.js",
   "./modules/boarding_levels.js",
   "./modules/cantina_props.js",
   "./modules/cinematics.js",
   "./modules/comfort_vignette.js",
   "./modules/demo.js",
+  "./modules/eva_core.js",
   "./modules/fps_ai.js",
   "./modules/fps_core.js",
   "./modules/fx_ultra.js",
   "./modules/interior.js",
+  "./modules/ion_emp.js",
   "./modules/manifest.json",
   "./modules/mission.js",
   "./modules/morality.js",
