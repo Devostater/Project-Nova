@@ -153,3 +153,11 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Discovery:** new systems unlock through story, exploration, bought charts, or scanning anomalies. First visit gives a discovery bonus and a news story.
 - **New places to add:** a nebula outpost, an asteroid mining colony, an alien ruin, a derelict battlefield, a pirate hideout, and a second planet you can land on (reuse the Cygnus landing + task 9 city kit).
 - Each place is JSON data (skybox, stations, faction, hazards, music) so adding one needs no code. Load one at a time for Quest memory.
+
+### 24. Player-owned station: live in it or manage it
+- **Get one:** buy, build or capture a station (story or late-game credits). Place it in a sector you control or contest (task 20).
+- **Live in it:** walkable interior (FPS, task 16 controls): personal quarters (upgraded safehouse), hangar for your ships (task 10), bar/cantina with your companions (task 15), trophy room, darts/jukebox.
+- **Manage it:** modules you build and upgrade: docking bays, trade market (task 4: sets your own prices and earns tax), refinery, shipyard (task 6 upgrades), defenses/turrets, hab rings for NPC residents, black market wing (task 21, risky).
+- **Running it:** hire staff (contacts/crew), pay upkeep, earn passive income, defend it from pirate raids or faction sieges (task 20 drama). Station status shows on the galaxy map (task 23) and in news (task 19).
+- **Two play styles:** hands-on (walk around, talk to staff, fix things) or a management screen on the phone/wrist (task 16) for quick decisions.
+- Saved via `save.js`. Modular kit pieces so it stays light on Quest.
