@@ -12607,7 +12607,11 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!(isInsideCantina || isInsideCarrier) || !renderer.xr.isPresenting) { novaTpMark.visible = false; novaTp.held = 0; novaTp.active = false; return; }
       let pinchHand = null;
       for (const h of [h1, h2]) {
-        const j = h && h.joints;
+        if (!h) continue;
+        // Restrict floor teleportation to the right hand only (left hand is reserved for virtual joystick/controls)
+        const isRight = h.userData?.handedness === 'right' || (!h.userData?.handedness && h === h2);
+        if (!isRight) continue;
+        const j = h.joints;
         if (!j || !j['thumb-tip'] || !j['index-finger-tip'] || !j['wrist'] || !j['wrist'].visible) continue;
         j['thumb-tip'].getWorldPosition(_tpA); j['index-finger-tip'].getWorldPosition(_tpB);
         if (_tpA.distanceTo(_tpB) < (novaTp.active ? 0.035 : 0.02)) { pinchHand = j; break; }
