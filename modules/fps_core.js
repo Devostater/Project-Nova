@@ -793,14 +793,20 @@ export function init(nova) {
     return false;
   }
   function aimRay(){
-    if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
+    if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid&&rightWristValid){
+      origin.copy(rightIndex);
+      direction.subVectors(rightIndex,rightWrist).normalize();
+      origin.addScaledVector(direction,.05);
+    }else if(renderer?.xr?.isPresenting&&session&&(rightController||rightGrip)){
+      const src=rightController||rightGrip;
+      src.getWorldPosition(origin);
+      src.getWorldQuaternion(controllerQ);
+      direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+      origin.addScaledVector(direction,.12);
+    }else if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
       pistol.getWorldPosition(origin);
       pistol.getWorldQuaternion(controllerQ);
       direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
-      origin.addScaledVector(direction,.22);
-    }else if(renderer?.xr?.isPresenting&&session&&(rightGrip||rightController)){
-      const src=rightGrip||rightController;
-      src.getWorldPosition(origin);direction.set(0,0,-1).applyQuaternion(src.getWorldQuaternion(controllerQ)).normalize();
       origin.addScaledVector(direction,.22);
     }else{
       camera.getWorldPosition(origin);camera.getWorldDirection(direction).normalize();
@@ -809,7 +815,7 @@ export function init(nova) {
     ray.set(origin,direction);ray.camera=camera;   // sprites need the camera to raycast
     try{
       const rawHits=ray.intersectObjects(scene.children,true);
-      return rawHits.filter(h=>!isPlayerHierarchy(h.object)&&h.distance>.35);
+      return rawHits.filter(h=>!isPlayerHierarchy(h.object)&&h.distance>.20);
     }catch(e){return [];}
   }
   function findUserData(object,key){
@@ -905,17 +911,22 @@ export function init(nova) {
 
   const spawnPos=new T.Vector3(),spawnDir=new T.Vector3(),camWorldPos=new T.Vector3(),camRightVec=new T.Vector3(),camUpVec=new T.Vector3(),projRightVec=new T.Vector3();
   function launchProjectile(sideOffset=0,spreadX=0,spreadY=0,speedVal=48,damageVal=25,glowCol=0x00f0ff,coreCol=0xbaffff){
-    if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
-      pistol.getWorldPosition(spawnPos);
-      pistol.getWorldQuaternion(controllerQ);
-      spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
-      projRightVec.set(1,0,0).applyQuaternion(controllerQ);
-      spawnPos.addScaledVector(spawnDir,.22);
+    if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid&&rightWristValid){
+      spawnPos.copy(rightIndex).addScaledVector(direction,.05);
+      spawnDir.copy(direction);
+      projRightVec.set(1,0,0).applyQuaternion(camera.quaternion);
       if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
-    }else if(renderer?.xr?.isPresenting&&session&&(rightGrip||rightController)){
-      const src=rightGrip||rightController;
+    }else if(renderer?.xr?.isPresenting&&session&&(rightController||rightGrip)){
+      const src=rightController||rightGrip;
       src.getWorldPosition(spawnPos);
       src.getWorldQuaternion(controllerQ);
+      spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+      projRightVec.set(1,0,0).applyQuaternion(controllerQ);
+      spawnPos.addScaledVector(spawnDir,.14);
+      if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
+    }else if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
+      pistol.getWorldPosition(spawnPos);
+      pistol.getWorldQuaternion(controllerQ);
       spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
       projRightVec.set(1,0,0).applyQuaternion(controllerQ);
       spawnPos.addScaledVector(spawnDir,.22);
@@ -938,8 +949,10 @@ export function init(nova) {
         .addScaledVector(spawnDir,.42);
     }
 
-    // Direct bolt toward crosshair if active
-    if(crosshairGroup.visible){
+    // Direct bolt toward crosshair / locked target point if active
+    if(targetLocked&&currentLockedPoint&&currentLockedPoint.lengthSq()>0.001){
+      spawnDir.subVectors(currentLockedPoint,spawnPos).normalize();
+    }else if(crosshairGroup.visible){
       spawnDir.subVectors(crosshairGroup.position,spawnPos).normalize();
     }
     // Apply shotgun / weapon dispersion
@@ -1415,28 +1428,6 @@ export function init(nova) {
         tpMarker.visible=false;tpValid=false;rightPinchAimTime=0;
       }
 
-      // ── Weapon Firing: Right Pinch (aiming forward/up) OR Left Pinch Debug Fire ──
-      // Right hand pinch fires weapon when aiming forward/up (not aiming down at floor)
-      if(rightPinch&&weaponOn&&!tpMarker.visible&&!rightAimingAtFloor){
-        if(!rightPinchHeld||(performance.now()-lastFire>=200))fire();
-      }
-
-      // Left hand pinch: FPS gun can still fire for debug on left hand pinch
-      if(leftPinch&&weaponOn&&!locoOrbGrabbed){
-        if(!leftPinchHeld||(performance.now()-lastFire>=200))fire();
-      }
-      // Quick tap without weapon interacts with props/buttons
-      if(!leftPinch&&leftPinchHeld&&!weaponOn&&!leftPinchUsed&&leftPinchTime<.32&&!locoOrbGrabbed){interact();}
-      leftPinchHeld=leftPinch;rightPinchHeld=rightPinch;
-
-      // Tactical Wrist Weapon Swap: Touch or tap left wrist with right hand index or controller
-      if(leftWristValid){
-        const rTip=(rightIsHand&&rightIndexValid)?rightIndex:((rightGrip||rightController)?(rightGrip||rightController).position:null);
-        if(rTip&&rTip.distanceTo(leftWrist)<0.14){
-          if(!wristTapHeld){cycleWeapon(1);wristTapHeld=true;}
-        }else{wristTapHeld=false;}
-      }
-
       // ── Floating 360° Locomotion Orb (Left-Hand Virtual Joystick) ──
       locoGroup.visible=true;
       camera.getWorldPosition(camWorldPos);
@@ -1445,12 +1436,12 @@ export function init(nova) {
       if(camYawFwd.lengthSq()<0.001)camYawFwd.set(0,0,-1);
       camYawRight.crossVectors(camYawFwd,up).normalize();
 
-      // Ergonomic hover target: 24cm below head, 25cm to left, 34cm forward
+      // Ergonomic hover target: 24cm below head, 22cm to left, 32cm forward
       const targetSocketPos=new T.Vector3()
         .copy(camWorldPos)
         .addScaledVector(up,-0.24)
-        .addScaledVector(camYawRight,-0.25)
-        .addScaledVector(camYawFwd,0.34);
+        .addScaledVector(camYawRight,-0.22)
+        .addScaledVector(camYawFwd,0.32);
 
       if(!locoSocketPosInit){
         locoSocketPos.copy(targetSocketPos);
@@ -1462,44 +1453,69 @@ export function init(nova) {
       locoGroup.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),camYawFwd);
       locoGroup.rotateX(Math.PI/6);
 
-      // Check Left Hand grabbing (VR Controller grip/trigger OR Hand Tracking pinch/curl)
-      let leftHandPos=null,leftSqueezing=false;
+      // Check Left Hand position & grabbing state
+      const lHandWorld=new T.Vector3();
+      let leftHandPosValid=false,leftSqueezing=false;
       if(leftIsHand){
         if(leftIndexValid||leftWristValid){
-          leftHandPos=leftIndexValid?leftIndex:leftWrist;
+          lHandWorld.copy(leftIndexValid?leftIndex:leftWrist);
+          leftHandPosValid=true;
           const hasLeftMid=handPoint(leftHand,'middle-finger-tip',leftMiddle);
-          const curled=leftWristValid&&((hasLeftMid&&leftMiddle.distanceTo(leftWrist)<.135)||(leftIndexValid&&leftIndex.distanceTo(leftWrist)<.135));
+          const curled=leftWristValid&&((hasLeftMid&&leftMiddle.distanceTo(leftWrist)<.14)||(leftIndexValid&&leftIndex.distanceTo(leftWrist)<.14));
           leftSqueezing=leftPinch||curled;
         }
       }else if(leftController||leftGrip){
         const lCtrl=leftGrip||leftController;
-        lCtrl.getWorldPosition(tempVec);
-        leftHandPos=tempVec;
+        lCtrl.getWorldPosition(lHandWorld);
+        leftHandPosValid=true;
         const gp=leftSource?.gamepad;
-        const gripPress=(gp?.buttons?.[1]?.value>0.35)||!!gp?.buttons?.[1]?.pressed;
-        const trigPress=(gp?.buttons?.[0]?.value>0.35)||!!gp?.buttons?.[0]?.pressed;
+        const gripPress=(gp?.buttons?.[1]?.value>0.25)||!!gp?.buttons?.[1]?.pressed;
+        const trigPress=(gp?.buttons?.[0]?.value>0.25)||!!gp?.buttons?.[0]?.pressed;
         leftSqueezing=gripPress||trigPress;
       }
 
       locoOrbGroup.getWorldPosition(tempPos);
-      const grabDist=leftHandPos?leftHandPos.distanceTo(tempPos):999;
+      const grabDist=leftHandPosValid?lHandWorld.distanceTo(tempPos):999;
+      const isNearOrb=grabDist<0.26;
       if(!locoOrbGrabbed){
-        if(leftHandPos&&grabDist<0.14&&leftSqueezing){
+        if(leftHandPosValid&&isNearOrb&&leftSqueezing){
           locoOrbGrabbed=true;
           try{(nova.sound||window.sound)?.click?.();}catch(_){}
         }
       }else{
-        if(!leftHandPos||!leftSqueezing||grabDist>0.38){
+        if(!leftHandPosValid||!leftSqueezing||grabDist>0.45){
           locoOrbGrabbed=false;
         }
       }
 
+      // ── Weapon Firing: Right Pinch (aiming forward/up) OR Left Pinch Debug Fire ──
+      // Right hand pinch fires weapon when aiming forward/up (not aiming down at floor)
+      if(rightPinch&&weaponOn&&!tpMarker.visible&&!rightAimingAtFloor){
+        if(!rightPinchHeld||(performance.now()-lastFire>=200))fire();
+      }
+
+      // Left hand pinch: FPS gun fires for debug ONLY when NOT grabbing or near the locomotion orb
+      if(leftPinch&&weaponOn&&!locoOrbGrabbed&&!isNearOrb){
+        if(!leftPinchHeld||(performance.now()-lastFire>=200))fire();
+      }
+      // Quick tap without weapon interacts with props/buttons
+      if(!leftPinch&&leftPinchHeld&&!weaponOn&&!leftPinchUsed&&leftPinchTime<.32&&!locoOrbGrabbed&&!isNearOrb){interact();}
+      leftPinchHeld=leftPinch;rightPinchHeld=rightPinch;
+
+      // Tactical Wrist Weapon Swap: Touch or tap left wrist with right hand index or controller
+      if(leftWristValid){
+        const rTip=(rightIsHand&&rightIndexValid)?rightIndex:((rightGrip||rightController)?(rightGrip||rightController).position:null);
+        if(rTip&&rTip.distanceTo(leftWrist)<0.14){
+          if(!wristTapHeld){cycleWeapon(1);wristTapHeld=true;}
+        }else{wristTapHeld=false;}
+      }
+
       let orbDeflected=false;
-      const MAX_THROW=0.08,DEADZONE=0.012;
+      const MAX_THROW=0.08,DEADZONE=0.010;
       const is3DEVA=!!(options.zeroG||options.isEVA||window.novaIsEvaActive||window.novaEva?.active);
 
-      if(locoOrbGrabbed&&leftHandPos){
-        const localPos=locoGroup.worldToLocal(leftHandPos.clone());
+      if(locoOrbGrabbed&&leftHandPosValid){
+        const localPos=locoGroup.worldToLocal(lHandWorld.clone());
         if(!is3DEVA){
           localPos.y=0; // In gravity interior/shooting range: restrict virtual joystick to 2D horizontal plane
         }
@@ -1519,23 +1535,28 @@ export function init(nova) {
           const speedCurve=normMag*normMag*0.45+normMag*0.55;
           const moveSpeed=(options.speed||3.2)*speedCurve;
 
-          locoOrbGroup.getWorldPosition(tempVec);
-          const worldDeflect=tempVec.sub(locoGroup.position);
+          // Directly map deflection to player movement along camYawRight (X) and camYawFwd (-Z)
+          const moveFwd=-localPos.z/MAX_THROW;
+          const moveStrafe=localPos.x/MAX_THROW;
+          const moveDir=new T.Vector3()
+            .addScaledVector(camYawRight,moveStrafe)
+            .addScaledVector(camYawFwd,moveFwd);
 
           if(!is3DEVA){
             // 2D horizontal movement along floor/room plane
-            const horiz=new T.Vector3(worldDeflect.x,0,worldDeflect.z);
-            if(horiz.lengthSq()>0.0001){
-              horiz.normalize().multiplyScalar(moveSpeed*d);
-              moveRigXZ(horiz.x,horiz.z);
+            if(moveDir.lengthSq()>0.0001){
+              moveDir.normalize().multiplyScalar(moveSpeed*d);
+              moveRigXZ(moveDir.x,moveDir.z);
             }
           }else{
             // 3D 360° full 6DOF EVA movement (forward/back, strafe, up/down vertical elevation)
-            if(worldDeflect.lengthSq()>0.0001){
-              const move3D=worldDeflect.clone().normalize().multiplyScalar(moveSpeed*d);
+            const moveUp=localPos.y/MAX_THROW;
+            moveDir.addScaledVector(up,moveUp);
+            if(moveDir.lengthSq()>0.0001){
+              const move3D=moveDir.clone().normalize().multiplyScalar(moveSpeed*d);
               rig.position.add(move3D);
               if(window.novaEva&&window.novaEva.active&&window.novaEva.vel){
-                window.novaEva.vel.addScaledVector(worldDeflect.clone().normalize(),moveSpeed*0.45*d);
+                window.novaEva.vel.addScaledVector(moveDir.clone().normalize(),moveSpeed*0.45*d);
               }
             }
           }

@@ -10749,7 +10749,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const P = 0.056, COLS = 4;
       zones.forEach(z => {
         const W = (z.cols || COLS) * P + 0.02, H = z.rows * P + 0.04;
-        const dep = z.side === 0 ? new THREE.Vector3(0, 0.96, -0.30) : new THREE.Vector3((z.side > 0 ? 0.43 : 0.28) * z.side, 0.70, -0.11);   // move the right console outboard to clear the flight stick
+        const dep = z.side === 0 ? new THREE.Vector3(0, 0.96, -0.30) : new THREE.Vector3((z.side > 0 ? 0.49 : 0.46) * z.side, 0.70, -0.11);   // L and R consoles spaced further outboard for spacious central flight clearance
         const root = new THREE.Group(); root.position.copy(dep); cockpit.add(root);
         const g = new THREE.Group(); g.rotation.set(z.side === 0 ? 0.95 : 0, z.side === 0 ? 0 : -z.side * Math.PI / 2, 0, 'YXZ'); root.add(g);
         const trimMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -14029,17 +14029,9 @@ const GAME_VERSION = 'Alpha 1.4';
               wristBeaconGroup.visible = true;
             }
 
-            let leftPalmUp = false;
-            const kJoint = joints['index-finger-metacarpal'], pJoint = joints['pinky-finger-metacarpal'];
-            if (kJoint && pJoint) {
-              const kW = new THREE.Vector3(), pW = new THREE.Vector3();
-              kJoint.getWorldPosition(kW); pJoint.getWorldPosition(pW);
-              const pNorm = new THREE.Vector3().crossVectors(kW.sub(wristWorld), pW.sub(wristWorld)).normalize();
-              if (pNorm.y > 0.35) leftPalmUp = true;
-            }
-
+            // Wrist menu is strictly button-toggled (wrist beacon button, controller button, or cockpit MENU)
             if (debugWatchGroup) {
-              debugWatchGroup.visible = isWristMenuOpen || leftPalmUp;
+              debugWatchGroup.visible = isWristMenuOpen;
               if (debugWatchGroup.visible) {
                 // Pop up cleanly floating above and in front of the left wrist
                 const headWorldPos = new THREE.Vector3();
@@ -15027,7 +15019,7 @@ const GAME_VERSION = 'Alpha 1.4';
         wristBeaconGroup.visible = true;
 
         if (debugWatchGroup) {
-          debugWatchGroup.visible = isWristMenuOpen || leftPalmFacingUp;
+          debugWatchGroup.visible = isWristMenuOpen;
           if (debugWatchGroup.visible) {
             const headWorldPos = new THREE.Vector3();
             camera.getWorldPosition(headWorldPos);
@@ -15040,12 +15032,6 @@ const GAME_VERSION = 'Alpha 1.4';
             const rotM = new THREE.Matrix4().makeBasis(xAxis, yAxis, toHead);
             debugWatchGroup.quaternion.setFromRotationMatrix(rotM);
           }
-        }
-        if (leftPalmFacingUp) {
-          const lrPos = cameraRig.worldToLocal(leftWristWorld.clone().add(new THREE.Vector3(0, 0.12, 0)));
-          novaTurnUI.position.copy(lrPos);
-          novaTurnUI.quaternion.copy(camera.quaternion);
-          novaTurnUI.visible = true;
         }
       }
 

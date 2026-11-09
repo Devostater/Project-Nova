@@ -41,8 +41,12 @@ export function init(api) {
       const pivot=new THREE.Group();pivot.position.set(x,1.4,z);root.add(pivot);
       const disc=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,.08,32),new THREE.MeshStandardMaterial({color:0xff3344,emissive:0xff2233,emissiveIntensity:1.2,metalness:.3,roughness:.4}));disc.rotation.x=Math.PI/2;disc.position.y=.55;pivot.add(disc);
       const ring=new THREE.Mesh(new THREE.TorusGeometry(.3,.04,8,32),new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false}));ring.position.set(0,.55,.05);pivot.add(ring);
-      const target={pivot,disc,down:0,x,z,sway:Math.random()*6};disc.userData.rangeTarget=true;
-      disc.userData.onHit=()=>{if(target.down>0)return;target.down=2;S.hits++;S.score+=100;S.sign?.userData.draw?.();};
+      const target={pivot,disc,down:0,x,z,sway:Math.random()*6};
+      const hitFn=()=>{if(target.down>0)return;target.down=2;S.hits++;S.score+=100;S.sign?.userData.draw?.();};
+      disc.userData.rangeTarget=true;disc.userData.onHit=hitFn;
+      ring.userData.rangeTarget=true;ring.userData.onHit=hitFn;
+      pivot.userData.rangeTarget=true;pivot.userData.onHit=hitFn;
+      post.userData.rangeTarget=true;post.userData.onHit=hitFn;
       S.targets.push(target);
     }
     return root;
