@@ -1,4 +1,4 @@
-import { GLTFLoader } from '../vendor/GLTFLoader.js';
+import { GLTFLoader } from '../vendor/loaders/GLTFLoader.js';
 
 // WebXR hand visuals for Project Nova. The source glove is used for controller
 // grip poses; tracked hands use a lightweight articulated glove driven directly
