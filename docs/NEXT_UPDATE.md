@@ -132,3 +132,10 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Space drama (live events):** fleet battles you can join or avoid, station sieges, faction betrayals, truces, a refugee convoy, alien incursions, a pirate lord uprising. Events chain into the branching story (task 13) and change rep (task 2).
 - **Player stake:** pick a side, broker a peace, or profit from the chaos. Your choices show in the news and the epilogue.
 - Data-driven (JSON events + simple simulation tick) so new drama needs no new code. Keep the simulation cheap so it never costs Quest frames.
+
+### 21. Black market + contacts
+- **Black market:** contraband goods (stolen cargo, weapons, alien tech, spice), illegal upgrades (task 6), fencing stolen cargo from pirate actions (task 3). Found at the pirate station (task 5), the pirate city (task 9d), and hidden stalls in normal cities.
+- **Risk:** carrying contraband raises your wanted level in EDF space. Scans at stations; get caught → fine/jail (task 14). Smuggling hold upgrades hide cargo.
+- **Contacts:** named fixers you meet and unlock (dialogue, task 13). Each contact has a specialty (smuggler, info broker, arms dealer, hacker, EDF informant), trust level, missions, and better prices as trust grows. Call them from the FPS phone (task 16).
+- **Contact list:** contacts can betray you, get arrested, or die in territory shifts (task 20). News reports it (task 19).
+- Prices follow territory + news: a pirate crackdown spikes contraband prices.
