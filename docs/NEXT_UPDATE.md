@@ -104,3 +104,9 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Rover:** board/exit with one press, auto-level on terrain, simple drive (stick/WASD/hand lever), a speed cap for comfort, a "return to rover" marker.
 - **FPS phone menu:** a handheld phone/datapad on foot (raise left wrist in VR, Tab on desktop) with Map, Messages (task 12 chat), Jobs, Inventory, Settings. Replaces the scattered test buttons.
 - Use the task 0 input layer so all of this works on every device.
+
+### 17. Magic (psionics) + gadgets
+- **Psionic powers** (sci-fi "magic"; ties into Alien lore, so check `reference/mind-space/GAME_BIBLE.md` first): telekinesis grab/throw, shield bubble, time-slow, mind-hack a turret or door. Hand gestures in VR (palm push, fist pull), a button on other devices. An energy bar that recharges.
+- **Gadgets:** grapple hook, scanner (reveals loot/enemies/trade values), deployable turret, hacking tool, jetpack boost, holo-decoy, EMP grenade (reuse `ion_emp.js`).
+- Equip through the FPS phone/inventory (task 16). Unlock by story, purchase or upgrades (task 6). Each gadget is its own small module.
+- Balance: powers and gadgets use cooldowns/energy and never replace the gun.
