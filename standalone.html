@@ -13046,7 +13046,7 @@ const GAME_VERSION = 'Alpha 1.4';
     let lastFrameTime = performance.now();
 
     let hasAutoRecenteredOnFirstFrame = false;
-    function novaOnFoot() { try { const f = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('fps_core'); return !!(f && f.active); } catch (e) { return false; } }
+    function novaOnFoot() { try { if (window.isInsideSafehouse && window.isInsideSafehouse()) return true; const f = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('fps_core'); return !!(f && f.active); } catch (e) { return false; } }
     window.novaOnFoot = novaOnFoot;
     function novaRender(delta = 0.016) {
       if (!renderer.xr?.isPresenting) {
@@ -13073,6 +13073,39 @@ const GAME_VERSION = 'Alpha 1.4';
       if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) {
         novaCruiseStop('INTERIOR');
         try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); }
+        // Safehouse walk locomotion (keyboard + VR thumbstick)
+        if (window.isInsideSafehouse && window.isInsideSafehouse() && !(window.novaInteriorMod && window.novaInteriorMod.active)) {
+          const shg = window.nova && window.nova._safehouseGroup;
+          const shPos = shg ? shg.position : (window.planetGroup ? window.planetGroup.position : new THREE.Vector3(0,0,0));
+          const walkSpeed = 2.4 * delta;
+          const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+          const rt = new THREE.Vector3(-fwd.z, 0, fwd.x);
+          let mx = 0, mz = 0;
+          if (!renderer.xr.isPresenting) {
+            if (activeKeys['KeyW'] || activeKeys['ArrowUp']) mz += 1;
+            if (activeKeys['KeyS'] || activeKeys['ArrowDown']) mz -= 1;
+            if (activeKeys['KeyA'] || activeKeys['ArrowLeft']) mx -= 1;
+            if (activeKeys['KeyD'] || activeKeys['ArrowRight']) mx += 1;
+          } else {
+            const sess = renderer.xr.getSession();
+            if (sess && sess.inputSources) {
+              for (const src of sess.inputSources) {
+                if (src.gamepad && src.gamepad.axes && src.gamepad.axes.length >= 4) {
+                  const ax = src.gamepad.axes[2], ay = src.gamepad.axes[3];
+                  if (Math.hypot(ax, ay) > 0.15) { mx += ax; mz -= ay; }
+                }
+              }
+            }
+          }
+          if (Math.abs(mx) + Math.abs(mz) > 0.01 && cameraRig) {
+            cameraRig.position.addScaledVector(fwd, mz * walkSpeed);
+            cameraRig.position.addScaledVector(rt, mx * walkSpeed);
+            // Clamp to safehouse room bounds (8m half-width from center)
+            cameraRig.position.x = THREE.MathUtils.clamp(cameraRig.position.x, shPos.x - 7.5, shPos.x + 7.5);
+            cameraRig.position.z = THREE.MathUtils.clamp(cameraRig.position.z, shPos.z - 7.5, shPos.z + 7.5);
+            cameraRig.position.y = shPos.y + 1.6;
+          }
+        }
         novaHandTurnFrame(frame, now);
         try { novaUpdateWatchOnFoot(delta, frame, now); } catch (e) { console.error('[watch on foot]', e); }
         cameraRig.updateWorldMatrix(true, true);
@@ -13420,12 +13453,21 @@ const GAME_VERSION = 'Alpha 1.4';
         shipGroup.quaternion.slerp(desiredQuat, 2.8 * delta);
 
         // Allow flight stick to nudge and fine-aim while autopilot is flying
-        if (isActivelySteering && isStickDeflected) {
-          const aimNudgePitch = pitchFactor * normPitch * 0.45 * delta;
-          const aimNudgeYaw = (normYaw + normRoll) * 0.45 * delta;
-          const nudgeEuler = new THREE.Euler(aimNudgePitch, aimNudgeYaw, 0, 'YXZ');
-          const nudgeQuat = new THREE.Quaternion().setFromEuler(nudgeEuler);
-          shipGroup.quaternion.multiply(nudgeQuat).normalize();
+        // NOTE: isActivelySteering/normPitch/etc are const-declared later in the frame,
+        //       so we inline-compute from raw stick values to avoid TDZ ReferenceError.
+        {
+          const _apSteering = (isGrippingStick || isGrippingStickHand || isThumbstickSteering || Boolean(window.isTestingGripStick));
+          const _apDZ = 0.055;
+          const _apNorm = (rad) => { const a = Math.abs(rad); return a <= _apDZ ? 0 : Math.sign(rad) * Math.min(1.0, (a - _apDZ) / (0.45 - _apDZ)); };
+          const _apPitch = _apNorm(stickPivot.rotation.x);
+          const _apRoll  = _apNorm(stickPivot.rotation.z);
+          const _apYaw   = throttleYawInput || 0;
+          if (_apSteering && (Math.abs(_apPitch) + Math.abs(_apRoll) + Math.abs(_apYaw)) > 1e-4) {
+            const pf = isPitchInverted ? -1.0 : 1.0;
+            const nudgeEuler = new THREE.Euler(pf * _apPitch * 0.45 * delta, (_apYaw + _apRoll) * 0.45 * delta, 0, 'YXZ');
+            const nudgeQuat = new THREE.Quaternion().setFromEuler(nudgeEuler);
+            shipGroup.quaternion.multiply(nudgeQuat).normalize();
+          }
         }
 
         if (shipBody) {
@@ -19073,7 +19115,8 @@ const GAME_VERSION = 'Alpha 1.4';
         registerCockpitButton(m, label, () => { fn(); P.drawT = 0; }, Math.max(0.035, Math.min(rw, rh) * NP_PX * 0.45)); const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
         return m;
       };
-      const TW = cfg.tabs.length > 4 ? 158 : 176; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 4 + i * (1016 / cfg.tabs.length), 4 - NP_OFF, 1016 / cfg.tabs.length, 160, () => npTab(P, i)));   // big header tiles
+      const TW = cfg.tabs.length > 4 ? 158 : 176;
+      // Top tab buttons removed on side panels per user request (bottom holographic style retained)
       P.rowHits = [];
       for (let i = 0; i < 8; i++) P.rowHits.push(hit(cfg.id + ' ROW ' + (i + 1), 8, 50 + i * 44, 408, 44, () => { const t = cfg.tabs[P.tab]; if (t !== NP_SYSOPT && t.row) t.row(P, i); }));
       if (cfg.id === 'R') {
@@ -19218,20 +19261,10 @@ const GAME_VERSION = 'Alpha 1.4';
       x.fillStyle = 'rgba(0,229,255,0.35)'; x.fillRect(0, 414, 1024, 2);
       npText(x, T.hint || '', 14, 446, '22px monospace', '#6f9ab3', 996);
       x.restore();
-      // header: one big tile per tab (easy to hit in VR) + status
-      x.fillStyle = '#030a14'; x.fillRect(0, 0, 1024, NP_OFF + 48);
-      const n = cfg.tabs.length, W = 1016 / n;
-      cfg.tabs.forEach((t, i) => {
-        const X = 4 + i * W, on = i === P.tab;
-        x.fillStyle = on ? t.c : 'rgba(255,255,255,0.05)'; x.fillRect(X + 4, 6, W - 8, 112);
-        x.strokeStyle = t.c; x.lineWidth = on ? 6 : 3; x.strokeRect(X + 4, 6, W - 8, 112);
-        x.textAlign = 'center';
-        npText(x, NP_TAB_ICON[t.name] || '\u25A0', X + W / 2, 68, 'bold 50px sans-serif', on ? '#021019' : t.c, W - 16);
-        npText(x, t.name, X + W / 2, 108, 'bold ' + (n > 4 ? 21 : 26) + 'px monospace', on ? '#021019' : t.c, W - 16);
-        x.textAlign = 'left';
-      });
-      x.textAlign = 'left'; npText(x, T.name, 14, 150, 'bold 26px monospace', T.c || '#00e5ff', 560);
-      x.textAlign = 'right'; npText(x, cfg.status(P), 1012, 150, 'bold 24px monospace', '#9fd6ee', 440); x.textAlign = 'left';
+      // Top tab buttons on side panel removed to save space; bottom holo buttons handle tab switching
+      x.fillStyle = '#030a14'; x.fillRect(0, 0, 1024, 48);
+      x.textAlign = 'left'; npText(x, T.name, 14, 34, 'bold 28px monospace', T.c || '#00e5ff', 560);
+      x.textAlign = 'right'; npText(x, cfg.status(P), 1012, 34, 'bold 24px monospace', '#9fd6ee', 440); x.textAlign = 'left';
       P.tex.needsUpdate = true;
     }
     // ── COMMS tab: everything close by, nearest first; touching one locks it (same lock as the holo-radar and weapons) ──

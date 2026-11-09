@@ -260,6 +260,22 @@ export function init(nova) {
     if (window.cantinaGroup) window.cantinaGroup.visible = false;
     if (window.carrierInteriorGroup) window.carrierInteriorGroup.visible = false;
 
+    // Stop all flight state
+    if (typeof window.novaCruiseStop === 'function') window.novaCruiseStop('SAFEHOUSE');
+    if (window.shipBody) {
+      window.shipBody.velocity.set(0, 0, 0);
+      window.shipBody.angularVelocity.set(0, 0, 0);
+    }
+    try { if (window.isDockingInProgress) window.isDockingInProgress = false; } catch (_) {}
+    try { if (window.isAutopilotActive) window.toggleAutopilot?.(false); } catch (_) {}
+
+    // Hide ship exterior and space objects during safehouse
+    if (window.shipGroup) window.shipGroup.visible = false;
+    if (window.starfieldGroup) window.starfieldGroup.visible = false;
+    if (window.asteroidGroup) window.asteroidGroup.visible = false;
+    if (window.stationGroup) window.stationGroup.visible = false;
+    if (window.planetGroup) window.planetGroup.visible = false;
+
     // Position player rig inside safehouse lounge
     if (cameraRig) {
       if (cameraRig.parent) cameraRig.parent.remove(cameraRig);
@@ -275,6 +291,13 @@ export function init(nova) {
     isInsideSafehouse = false;
     safehouseGroup.visible = false;
     if (window.cockpit) window.cockpit.visible = true;
+
+    // Restore space objects
+    if (window.shipGroup) window.shipGroup.visible = true;
+    if (window.starfieldGroup) window.starfieldGroup.visible = true;
+    if (window.asteroidGroup) window.asteroidGroup.visible = true;
+    if (window.stationGroup) window.stationGroup.visible = true;
+    if (window.planetGroup) window.planetGroup.visible = true;
 
     // Reset ship to planetary orbit just outside atmosphere
     if (window.shipGroup && window.planetGroup) {
@@ -298,6 +321,9 @@ export function init(nova) {
     window.enterSafehouse = enterSafehouse;
     window.exitSafehouse = exitSafehouse;
     window.isInsideSafehouse = () => isInsideSafehouse;
+    // Expose safehouse group for walk locomotion bounds
+    if (!window.nova) window.nova = {};
+    window.nova._safehouseGroup = safehouseGroup;
     window.novaStockDesk = {
       state,
       buyOre,
