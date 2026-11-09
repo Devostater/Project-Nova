@@ -3,8 +3,8 @@
 Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. Don't read anything in `docs/archive/` unless asked.
 
 ## Now
-- **Temporary lead:** **Grok (xAI)** — Claude and ChatGPT at weekly limits. Grok leads until they return.
-- **Active branch:** `grok/graphics-overhaul` — aggressive max-graphics pass (ULTRA-first).
+- **Lead:** **Claude** is back as lead/integrator (2026-11-09). `grok/graphics-overhaul` is fully merged into `main`.
+- **Repo cleanup (2026-11-09):** the generated models in `3d model gen updates/` are now named and sorted in `Pirate/boarding/` (props, crew, droid, weapons; `shaded_variants/`, `source/`, `concepts/`). The FPS pistol is in `models_src/fps_pistol/`. Logo drafts and loose images are in `art_src/`. Duplicate zips are deleted. None of these are wired into the game yet.
 - **Force Ultra:** Restored + patched in `standalone.html` (commit `2f4d43d`). OPTIONS has **FORCE ULTRA: ON/OFF**; defaults on.
 - **Live game:** https://devostater.github.io/Project-Nova/standalone.html (main until this branch merges).
 - **Token rule (all AIs):** Prefer **modules** (`public/modules/*.js` + root `modules/`) over editing `standalone.html`. The HTML file is ~1.2 MB — expensive for every AI. Small module PRs only unless a one-line hook in standalone is unavoidable.
