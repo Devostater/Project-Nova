@@ -158,6 +158,39 @@ export function init(nova) {
   safehouseGroup.visible = false;
   if (scene) scene.add(safehouseGroup);
 
+  // ── Cygnus Prime atmospheric skybox (ported from the Google AI Studio build) ──
+  // Procedural dusk sky dome + twin moons + horizon mountains; no image files.
+  const skyboxGroup = new T.Group();
+  skyboxGroup.name = 'CYGNUS_PLANETARY_SKYBOX';
+  skyboxGroup.position.copy(safehouseGroup.position);
+  skyboxGroup.visible = false;
+  if (scene) scene.add(skyboxGroup);
+  {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+    const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, 512);
+    g.addColorStop(0, '#040810'); g.addColorStop(0.35, '#0b1626'); g.addColorStop(0.65, '#1e1c2a');
+    g.addColorStop(0.85, '#442220'); g.addColorStop(1.0, '#663820');
+    x.fillStyle = g; x.fillRect(0, 0, 512, 512);
+    x.fillStyle = '#ffeedd'; x.beginPath(); x.arc(380, 140, 32, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#0b1626'; x.beginPath(); x.arc(395, 140, 30, 0, Math.PI * 2); x.fill(); // crescent
+    x.fillStyle = 'rgba(255, 200, 120, 0.85)'; x.beginPath(); x.arc(140, 220, 12, 0, Math.PI * 2); x.fill();
+    const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace;
+    const dome = new T.Mesh(new T.SphereGeometry(1200, 32, 16),
+      new T.MeshBasicMaterial({ map: tex, side: T.BackSide, depthWrite: false, fog: false }));
+    dome.position.y = -80; dome.raycast = () => {};
+    skyboxGroup.add(dome);
+    const mtnMat = new T.MeshStandardMaterial({ color: 0x181210, roughness: 0.95, metalness: 0.1 });
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647; // same mountains every time
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2, d = 800 + (i % 3) * 120;
+      const w = 140 + rnd() * 80, h = 120 + rnd() * 110;
+      const m = new T.Mesh(new T.ConeGeometry(w, h, 5), mtnMat);
+      m.position.set(Math.cos(a) * d, h * 0.45 - 20, Math.sin(a) * d); m.raycast = () => {};
+      skyboxGroup.add(m);
+    }
+  }
+
   // Floor
   const floorGeo = new T.BoxGeometry(16, 0.2, 16);
   const floorMat = new T.MeshStandardMaterial({ color: 0x182430, roughness: 0.65, metalness: 0.5 });
@@ -256,6 +289,8 @@ export function init(nova) {
   function enterSafehouse() {
     isInsideSafehouse = true;
     safehouseGroup.visible = true;
+    skyboxGroup.visible = true;
+    window._novaSpaceBg = scene.background; scene.background = new T.Color(0x040810);
     if (window.cockpit) window.cockpit.visible = false;
     if (window.cantinaGroup) window.cantinaGroup.visible = false;
     if (window.carrierInteriorGroup) window.carrierInteriorGroup.visible = false;
@@ -290,6 +325,8 @@ export function init(nova) {
     if (!isInsideSafehouse) return;
     isInsideSafehouse = false;
     safehouseGroup.visible = false;
+    skyboxGroup.visible = false;
+    if (window._novaSpaceBg !== undefined) { scene.background = window._novaSpaceBg; window._novaSpaceBg = undefined; }
     if (window.cockpit) window.cockpit.visible = true;
 
     // Restore space objects
