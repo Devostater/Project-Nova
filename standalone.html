@@ -13308,6 +13308,16 @@ const GAME_VERSION = 'Alpha 1.4';
         const desiredDir = toDest.clone().normalize();
         const desiredQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), desiredDir);
         shipGroup.quaternion.slerp(desiredQuat, 2.8 * delta);
+
+        // Allow flight stick to nudge and fine-aim while autopilot is flying
+        if (isActivelySteering && isStickDeflected) {
+          const aimNudgePitch = pitchFactor * normPitch * 0.45 * delta;
+          const aimNudgeYaw = (normYaw + normRoll) * 0.45 * delta;
+          const nudgeEuler = new THREE.Euler(aimNudgePitch, aimNudgeYaw, 0, 'YXZ');
+          const nudgeQuat = new THREE.Quaternion().setFromEuler(nudgeEuler);
+          shipGroup.quaternion.multiply(nudgeQuat).normalize();
+        }
+
         if (shipBody) {
           shipBody.quaternion.copy(shipGroup.quaternion);
           shipBody.angularVelocity.set(0, 0, 0);
@@ -16799,8 +16809,10 @@ const GAME_VERSION = 'Alpha 1.4';
         novaPlaceBracket(novaLockBr, lt, 1.25 + 0.06 * Math.sin(performance.now() * 0.008));
       } else novaLockBr.visible = false;
 
-      // Target Lead Pursuit Pip for Dogfighting
-      if (vis && NOVA_TGT && lt && lt.isHostile && lt.targetObj && lt.targetObj.visible !== false) {
+      // Target Lead Pursuit Pip for Dogfighting (Always for Hostiles; also for moving locked targets during Red Alert)
+      const isRedAlert = (typeof lightMode !== 'undefined' && lightMode === 1);
+      const shouldLeadTarget = vis && NOVA_TGT && lt && (lt.isHostile || isRedAlert) && lt.targetObj && lt.targetObj.visible !== false;
+      if (shouldLeadTarget) {
         const tPos = lt.targetObj.getWorldPosition(new THREE.Vector3());
         const sPos = shipGroup.getWorldPosition(new THREE.Vector3());
         const dist = tPos.distanceTo(sPos);
@@ -16817,9 +16829,13 @@ const GAME_VERSION = 'Alpha 1.4';
           lt.targetObj.userData._lastPos = tPos.clone();
           lt.targetObj.userData._lastTime = performance.now();
 
+          // Relative velocity calculation for accurate deflection aiming
+          const sVel = (typeof shipBody !== 'undefined' && shipBody && shipBody.velocity) ? new THREE.Vector3(shipBody.velocity.x, shipBody.velocity.y, shipBody.velocity.z) : new THREE.Vector3();
+          const relVel = tVel.clone().sub(sVel);
+
           // Laser speed ~260 m/s
           const timeToHit = dist / 260;
-          const leadWorldPos = tPos.clone().addScaledVector(tVel, timeToHit);
+          const leadWorldPos = tPos.clone().addScaledVector(relVel.lengthSq() > 1 ? relVel : tVel, timeToHit);
 
           novaLeadPip.position.copy(leadWorldPos);
           novaLeadPip.quaternion.copy(camera.getWorldQuaternion(new THREE.Quaternion()));

@@ -1392,8 +1392,8 @@ export function init(nova) {
       trigger=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[0]?.value||0)>.45)||((rightSource?.gamepad?.buttons?.[1]?.value||0)>.75));
       use=!rightIsHand&&(!!rightSource?.gamepad?.buttons?.[4]?.pressed||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
       leave=!rightIsHand&&!!rightSource?.gamepad?.buttons?.[5]?.pressed;
-      // VR Controller Weapon Swap: Left controller X (btn 4), Y (btn 5), or Right stick click (btn 3)
-      const xrSwap=!leftIsHand&&(!!leftSource?.gamepad?.buttons?.[4]?.pressed||!!leftSource?.gamepad?.buttons?.[5]?.pressed||(!rightIsHand&&!!rightSource?.gamepad?.buttons?.[3]?.pressed));
+      // VR Controller Weapon Swap: Left controller X (btn 4) or Y (btn 5) only (Right hand controller does NOT switch weapons)
+      const xrSwap=!leftIsHand&&(!!leftSource?.gamepad?.buttons?.[4]?.pressed||!!leftSource?.gamepad?.buttons?.[5]?.pressed);
       if(xrSwap&&!xrSwapHeld){cycleWeapon(leftSource?.gamepad?.buttons?.[5]?.pressed?-1:1);}
       xrSwapHeld=xrSwap;
       if(turn){if(!snapHeld){rig.rotation.y-=Math.sign(turn)*Math.PI/6;snapHeld=true;}}else snapHeld=false;
@@ -1641,14 +1641,6 @@ export function init(nova) {
         interact();
       }
       leftPinchHeld = leftPinch; rightPinchHeld = rightPinch;
-
-      // Tactical Wrist Weapon Swap: Touch or tap left wrist with right hand index or controller
-      if (leftWristValid) {
-        const rTip = (rightIsHand && rightIndexValid) ? rightIndex : ((rightGrip || rightController) ? (rightGrip || rightController).position : null);
-        if (rTip && rTip.distanceTo(leftWrist) < 0.14) {
-          if (!wristTapHeld) { cycleWeapon(1); wristTapHeld = true; }
-        } else { wristTapHeld = false; }
-      }
 
       let orbDeflected = false;
       // Larger outer zone (18cm throw vs previous 8cm) and lowered sensitivity curve
