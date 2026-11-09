@@ -7376,6 +7376,19 @@ const GAME_VERSION = 'Alpha 1.4';
     }
 
     function exitCantina() {
+      // Check station grounding / impound
+      if (typeof window.novaCheckImpound === 'function') {
+        const imp = window.novaCheckImpound();
+        if (imp && imp.grounded) {
+          if (typeof window.novaPayImpoundFine === 'function' && window.novaPayImpoundFine()) {
+            // Fine paid, cleared for departure
+          } else {
+            showToast(`🛑 LAUNCH DENIED: SHIP GROUNDED (WANTED ${imp.notoriety}★) · IMPOUND FINE ${imp.fine} CR`, 4000, '#ff3344');
+            try { sound?.beep?.(220, 0.25, 'sawtooth'); } catch (_) {}
+            return;
+          }
+        }
+      }
       isInsideCantina = false;
       isDockingInProgress = false;
       cantinaGroup.visible = false;
@@ -12995,6 +13008,7 @@ const GAME_VERSION = 'Alpha 1.4';
       if (starfieldGroup && shipGroup) {
         starfieldGroup.position.copy(shipGroup.position);
       }
+      try { if (window.novaPiracyMod?.frame) window.novaPiracyMod.frame(delta); } catch (e) { }
 
       // Cantina Walk Locomotion & Jukebox Vinyl Animation
       if (typeof isInsideCantina !== 'undefined' && (isInsideCantina || isInsideCarrier)) {
@@ -21693,7 +21707,18 @@ const GAME_VERSION = 'Alpha 1.4';
         try {
           for (let i = activePlayerLasers.length - 1; i >= 0; i--) {
             const l = activePlayerLasers[i], p1 = l.mesh.position, p0 = NFV().copy(p1).addScaledVector(l.dir, -(l.speed || 240) * Math.max(dt, 0.016));
-            for (const u of NF.units) { if (u.alive && u.fac !== 'edf' && u.fac !== 'civ' && nfSegD(p0, p1, u.g.position) < u.r) { nfHit(u, 10, true); scene.remove(l.mesh); activePlayerLasers.splice(i, 1); try { sound.miningLaserHit(); } catch (e) { } break; } }
+            for (const u of NF.units) {
+              if (u.alive && nfSegD(p0, p1, u.g.position) < u.r) {
+                if (u.fac === 'civ' || u.fac === 'edf') {
+                  if (typeof window.novaRecordPiracy === 'function') window.novaRecordPiracy(u.name || 'CIVILIAN CONVOY');
+                }
+                nfHit(u, 10, true);
+                scene.remove(l.mesh);
+                activePlayerLasers.splice(i, 1);
+                try { sound.miningLaserHit(); } catch (e) { }
+                break;
+              }
+            }
           }
         } catch (e) { }
         try {
@@ -22714,6 +22739,14 @@ const GAME_VERSION = 'Alpha 1.4';
     const NFX = { fx: null, ids: new Map(), seq: 1, last: performance.now() };
     import('./modules/fx_ultra.js').then(m => { NFX.fx = novaInitLightEffects(m.init, { THREE, scene, renderer }); console.log('[fx_ultra] ready, tier', NFX.fx && NFX.fx.tier); })
       .catch(e => console.warn('[fx_ultra] not loaded', e && e.message));
+    import('./modules/piracy_law.js').then(m => {
+      window.novaPiracyMod = m.init({ THREE, scene, shipGroup, shipBody, toast: showToast, sound });
+      console.log('[piracy_law] active');
+    }).catch(e => console.warn('[piracy_law] not loaded', e && e.message));
+    import('./modules/safehouse.js').then(m => {
+      window.novaSafehouseMod = m.init({ THREE, scene, toast: showToast, sound });
+      console.log('[safehouse] ready');
+    }).catch(e => console.warn('[safehouse] not loaded', e && e.message));
     function nfxFrame() {
       const fx = NFX.fx; if (!fx || !fx.ready) return;
       const now = performance.now(), dt = Math.min(0.05, (now - NFX.last) / 1000); NFX.last = now; if (dt <= 0) return;
