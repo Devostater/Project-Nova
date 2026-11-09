@@ -22598,6 +22598,8 @@ const GAME_VERSION = 'Alpha 1.4';
       else { BGM_TRACKS.push({ name: t.name, bpm: 'track', notes: [0], bass: [0], file: t.file, ctx: t.ctx, station: t.station, obi: t.obi }); }
     });
     NMUS.count = BGM_TRACKS.length;
+    // start on the first real soundtrack file (VOYAGER), not synth track 0, so auto-ambience + MP3s actually play
+    { const firstFile = BGM_TRACKS.findIndex(x => x.file); if (firstFile >= 0 && !(BGM_TRACKS[bgmTrackIdx] && BGM_TRACKS[bgmTrackIdx].file)) { bgmTrackIdx = firstFile; try { updateBgmDisplay(); } catch (e) { } } }
     { const _pn = sound.playBgmNote.bind(sound); sound.playBgmNote = function () { try { if (BGM_TRACKS[bgmTrackIdx] && BGM_TRACKS[bgmTrackIdx].file) return; } catch (e) { } return _pn.apply(null, arguments); }; }
     function nrmEl(file) {
       if (!NRM.el[file]) {
