@@ -5,6 +5,13 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 
 ## Order (each task builds on the one before)
 
+### 0. Universal input: every device ready  *(do this first: every task below uses it)*
+- One input layer (`modules/input.js`) that turns every device into the same actions (pitch/yaw/roll, throttle, fire, missile, boost, interact, menu, walk, turn).
+- Devices: keyboard+mouse, Xbox/PS/generic gamepads (Gamepad API), HOTAS/joysticks, Quest controllers, Quest hand tracking, touch/tablet, phone.
+- Detect the device automatically and show its button prompts. Rebinding goes in OPTIONS and is saved.
+- Retire duplicate handlers: one pinch or one button press = one action (this already started with the FPS hand fix).
+- Done when: the same flight, FPS and menus work on each device with no overlapping inputs.
+
 ### 1. Flight controls: AAA polish + comfort  *(ChatGPT: it owns flight)*
 - Smooth input curves and deadzones, consistent speeds, no snapping.
 - Comfort setting in OPTIONS: **Comfort / Standard / Full** (vignette when turning fast via `comfort_vignette.js`, snap vs. smooth turn, horizon lock).
