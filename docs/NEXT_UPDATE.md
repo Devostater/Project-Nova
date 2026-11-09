@@ -117,3 +117,11 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Quest (bloom can't run in VR):** fake glow with additive sprites/halos on engines, lasers, missiles and explosions, emissive materials, brighter VFX, baked lighting on interiors. Hold 72/90 fps.
 - **Everywhere:** consistent tone mapping/exposure, no z-fighting/flicker, LODs so detail stays crisp up close.
 - Done when: before/after screenshots of each area look clearly better, at the same or better FPS.
+
+### 19. NOVA NEWS: huge update + news that reacts to the game
+- **Relevant news:** stories generated from what actually happens: your bounties, pirate raids on trade routes, faction wars, market crashes/booms (task 4), jail breaks (task 14), story choices (task 13). One event bus: game events → news queue.
+- **News that matters:** headlines change prices, spawn jobs, and warn of pirate activity in sectors (task 11). A "TRADE TIP" or "WANTED: you" story is actionable.
+- **Content:** anchors Jax Rawlins + Talia Vance keep their roles. Daily cycle (breaking / market report / sector watch / sign-off). Scripted templates + ElevenLabs lines for big beats, TTS or subtitles for dynamic ones.
+- **Where:** news panel, cantina screens, cockpit ticker, FPS phone (task 16), comms interrupts for breaking news.
+- **Offline:** cached stories + template generation without network. Add new audio to `sw.js`.
+- Builds on the existing news panel (video/article tabs, ticker) and `modules/novanet.js`. Don't start a second news system.
