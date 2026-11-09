@@ -94,7 +94,8 @@ export function init(nova) {
 
   function updateTracked(side) {
     const h = hands[side];
-    if (!h.tracked) { h.mesh.visible = false; h.mesh.count = 0; return; }
+    // FPS mode draws its own armored hands/gun: don't overlay a second pair
+    if (!h.tracked || (window.novaFpsActive && window.novaFpsActive())) { h.mesh.visible = false; h.mesh.count = 0; return; }
     hideStockJointSpheres(h.tracked);
     let count = 0;
     for (const [from, to] of SEGMENTS) {
