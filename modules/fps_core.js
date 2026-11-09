@@ -11,12 +11,45 @@ export function init(nova) {
   const lightBlend={transparent:true,depthWrite:false,blending:T.CustomBlending,blendEquation:T.AddEquation,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendEquationAlpha:T.AddEquation,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor};
 
   const pistol=new T.Group();pistol.name='NOVA_FPS_PISTOL';
-  const fallbackGun=new T.Group();fallbackGun.name='NOVA_FPS_PISTOL_FALLBACK';pistol.add(fallbackGun);
+  const weaponMeshHolder=new T.Group();weaponMeshHolder.name='NOVA_FPS_WEAPON_HOLDER';pistol.add(weaponMeshHolder);
+
+  // 1. ARC-PISTOL
+  const pistolGroup=new T.Group();pistolGroup.name='NOVA_WEAPON_PISTOL';weaponMeshHolder.add(pistolGroup);
+  const fallbackGun=new T.Group();fallbackGun.name='NOVA_FPS_PISTOL_FALLBACK';pistolGroup.add(fallbackGun);
   const gunMat=new T.MeshStandardMaterial({color:0x152535,metalness:.82,roughness:.28});
   const glowMat=new T.MeshStandardMaterial({color:0x27dcff,emissive:0x087795,emissiveIntensity:1.4,metalness:.3});
   fallbackGun.add(new T.Mesh(new T.BoxGeometry(.075,.09,.26),gunMat));
   const grip=new T.Mesh(new T.BoxGeometry(.06,.15,.075),gunMat);grip.position.set(0,-.1,.065);fallbackGun.add(grip);
   const muzzle=new T.Mesh(new T.CylinderGeometry(.025,.025,.09,12),glowMat);muzzle.rotation.x=Math.PI/2;muzzle.position.z=-.16;fallbackGun.add(muzzle);
+
+  // 2. VULKAN SCATTER-BLASTER (Heavy shotgun with dual barrels and orange radiator shroud)
+  const scatterGroup=new T.Group();scatterGroup.name='NOVA_WEAPON_SCATTER';scatterGroup.visible=false;weaponMeshHolder.add(scatterGroup);
+  const scatterMat=new T.MeshStandardMaterial({color:0x1b2028,metalness:.88,roughness:.32});
+  const scatterGlowMat=new T.MeshStandardMaterial({color:0xff7722,emissive:0xbb3300,emissiveIntensity:1.8,metalness:.2});
+  const scatterBody=new T.Mesh(new T.BoxGeometry(.095,.11,.34),scatterMat);scatterBody.position.set(0,0,-.04);scatterGroup.add(scatterBody);
+  const scatterGrip=new T.Mesh(new T.BoxGeometry(.06,.16,.08),scatterMat);scatterGrip.position.set(0,-.11,.07);scatterGrip.rotation.x=-.15;scatterGroup.add(scatterGrip);
+  [-.025,.025].forEach(bx=>{
+    const bMesh=new T.Mesh(new T.CylinderGeometry(.019,.022,.24,12),scatterMat);bMesh.rotation.x=Math.PI/2;bMesh.position.set(bx,.012,-.25);scatterGroup.add(bMesh);
+    const bChoke=new T.Mesh(new T.TorusGeometry(.022,.005,8,16),scatterGlowMat);bChoke.rotation.x=Math.PI/2;bChoke.position.set(bx,.012,-.34);scatterGroup.add(bChoke);
+  });
+  for(let ri=0;ri<4;ri++){
+    const vent=new T.Mesh(new T.BoxGeometry(.08,.012,.02),scatterGlowMat);vent.position.set(0,.062,-.12+ri*.045);scatterGroup.add(vent);
+  }
+
+  // 3. LONG-LANCE PLASMA RIFLE (Precision scoped energy lance with blue acceleration coils)
+  const rifleGroup=new T.Group();rifleGroup.name='NOVA_WEAPON_RIFLE';rifleGroup.visible=false;weaponMeshHolder.add(rifleGroup);
+  const rifleMat=new T.MeshStandardMaterial({color:0x121b26,metalness:.92,roughness:.22});
+  const rifleGlowMat=new T.MeshStandardMaterial({color:0x0088ff,emissive:0x0055ff,emissiveIntensity:2.0,metalness:.1});
+  const rifleBody=new T.Mesh(new T.BoxGeometry(.07,.095,.46),rifleMat);rifleBody.position.set(0,0,-.06);rifleGroup.add(rifleBody);
+  const rifleStock=new T.Mesh(new T.BoxGeometry(.055,.12,.18),rifleMat);rifleStock.position.set(0,-.03,.22);rifleGroup.add(rifleStock);
+  const rifleGrip=new T.Mesh(new T.BoxGeometry(.05,.15,.065),rifleMat);rifleGrip.position.set(0,-.11,.05);rifleGrip.rotation.x=-.22;rifleGroup.add(rifleGrip);
+  const rifleBarrel=new T.Mesh(new T.CylinderGeometry(.014,.018,.42,12),rifleMat);rifleBarrel.rotation.x=Math.PI/2;rifleBarrel.position.set(0,.015,-.44);rifleGroup.add(rifleBarrel);
+  for(let ci=0;ci<4;ci++){
+    const coil=new T.Mesh(new T.TorusGeometry(.024,.004,8,16),rifleGlowMat);coil.rotation.x=Math.PI/2;coil.position.set(0,.015,-.30-ci*.065);rifleGroup.add(coil);
+  }
+  const scopeMount=new T.Mesh(new T.BoxGeometry(.03,.04,.14),rifleMat);scopeMount.position.set(0,.07,-.06);rifleGroup.add(scopeMount);
+  const scopeGlass=new T.Mesh(new T.RingGeometry(.012,.022,16),new T.MeshBasicMaterial({color:0x00e5ff,side:T.DoubleSide,transparent:true,opacity:.85}));scopeGlass.position.set(0,.075,-.14);rifleGroup.add(scopeGlass);
+
   const muzzleFlash=new T.Mesh(new T.SphereGeometry(.045,8,6),new T.MeshBasicMaterial({color:0xbffcff,toneMapped:false,opacity:.95,...lightBlend}));
   muzzleFlash.position.set(0,.025,-.21);muzzleFlash.visible=false;pistol.add(muzzleFlash);
   pistol.visible=false;pistol.raycast=()=>{};pistol.traverse(o=>{o.raycast=()=>{};});scene.add(pistol);
@@ -94,7 +127,7 @@ export function init(nova) {
         },undefined,e=>console.warn('[NOVA FPS] Arc-Pistol emissive texture failed to load.',e));
         emissive.flipY=false;if('colorSpace' in emissive)emissive.colorSpace=T.SRGBColorSpace;
         model.raycast=()=>{};model.traverse(o=>{o.raycast=()=>{};if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
-        importedGun=model;pistol.add(model);fallbackGun.visible=false;
+        importedGun=model;pistolGroup.add(model);fallbackGun.visible=false;
       },undefined,e=>console.warn('[NOVA FPS] Full-quality pistol failed to load; using fallback.',e));
     }catch(e){console.warn('[NOVA FPS] GLTFLoader unavailable; using fallback pistol.',e);}
   })();
@@ -109,8 +142,8 @@ export function init(nova) {
   const sparkTex=loadTex('spark','../fx/vfx_spark.png');
   const ringTex=loadTex('shockwave','../fx/vfx_shockwave.png');
 
-  // Dedicated Plasma Projectile Pool (24 active bolts)
-  const MAX_PROJECTILES=24;
+  // Dedicated Plasma Projectile Pool (48 active bolts for multi-weapon arsenal)
+  const MAX_PROJECTILES=48;
   const projPool=[];
   const projRoot=new T.Group();projRoot.name='NOVA_FPS_PROJECTILES';projRoot.raycast=()=>{};scene.add(projRoot);
 
@@ -126,14 +159,14 @@ export function init(nova) {
 
   for(let i=0;i<MAX_PROJECTILES;i++){
     const group=new T.Group();group.name='NOVA_FPS_BOLT_'+i;
-    const core=new T.Mesh(boltCoreGeo,boltCoreMat);core.raycast=()=>{};group.add(core);
-    const f1=new T.Mesh(boltFinGeo1,finMat);f1.raycast=()=>{};group.add(f1);
-    const f2=new T.Mesh(boltFinGeo2,finMat);f2.raycast=()=>{};group.add(f2);
-    const tip=new T.Sprite(tipFlareMat);tip.scale.set(.36,.36,.36);tip.position.set(0,0,-.34);tip.raycast=()=>{};group.add(tip);
-    const tail=new T.Sprite(tailFlareMat);tail.scale.set(.24,.24,.24);tail.position.set(0,0,.30);tail.raycast=()=>{};group.add(tail);
+    const core=new T.Mesh(boltCoreGeo,boltCoreMat.clone());core.raycast=()=>{};group.add(core);
+    const f1=new T.Mesh(boltFinGeo1,finMat.clone());f1.raycast=()=>{};group.add(f1);
+    const f2=new T.Mesh(boltFinGeo2,finMat.clone());f2.raycast=()=>{};group.add(f2);
+    const tip=new T.Sprite(tipFlareMat.clone());tip.scale.set(.36,.36,.36);tip.position.set(0,0,-.34);tip.raycast=()=>{};group.add(tip);
+    const tail=new T.Sprite(tailFlareMat.clone());tail.scale.set(.24,.24,.24);tail.position.set(0,0,.30);tail.raycast=()=>{};group.add(tail);
     group.visible=false;group.raycast=()=>{};group.traverse(o=>{o.raycast=()=>{};});
     projRoot.add(group);
-    projPool.push({mesh:group,pos:new T.Vector3(),prevPos:new T.Vector3(),vel:new T.Vector3(),dir:new T.Vector3(),spawnPos:new T.Vector3(),life:0,active:false,dist:0,speed:75});
+    projPool.push({mesh:group,core,f1,f2,tip,tail,pos:new T.Vector3(),prevPos:new T.Vector3(),vel:new T.Vector3(),dir:new T.Vector3(),spawnPos:new T.Vector3(),life:0,active:false,dist:0,speed:75,damage:25});
   }
 
   // Dedicated Impact VFX Pools (Sparks, Expanding Rings, Flares)
@@ -377,9 +410,12 @@ export function init(nova) {
     const rHandGlove = new T.Mesh(new T.BoxGeometry(0.065, 0.08, 0.07), gloveLeatherMat);
     rHandGlove.position.set(0, -0.16, 0.02);
     rForearm.add(rHandGlove);
-    const charBlaster = new T.Mesh(new T.BoxGeometry(0.045, 0.08, 0.22), armorMat);
-    charBlaster.position.set(0, -0.04, -0.11);
-    rHandGlove.add(charBlaster);
+
+    // 3P Arc-Pistol
+    const charBlaster = new T.Group(); charBlaster.name = 'CHAR_WEAPON_PISTOL';
+    const charBlasterBody = new T.Mesh(new T.BoxGeometry(0.045, 0.08, 0.22), armorMat);
+    charBlasterBody.position.set(0, -0.04, -0.11);
+    charBlaster.add(charBlasterBody);
     const charBlasterBarrel = new T.Mesh(new T.CylinderGeometry(0.012, 0.012, 0.12, 8), darkMat);
     charBlasterBarrel.rotation.x = Math.PI / 2;
     charBlasterBarrel.position.set(0, 0.02, -0.14);
@@ -387,6 +423,37 @@ export function init(nova) {
     const charBlasterGlow = new T.Mesh(new T.BoxGeometry(0.015, 0.015, 0.12), cyanGlow);
     charBlasterGlow.position.set(0, 0.038, -0.02);
     charBlaster.add(charBlasterGlow);
+    rHandGlove.add(charBlaster);
+
+    // 3P Vulkan Scatter-Blaster
+    const charScatter = new T.Group(); charScatter.name = 'CHAR_WEAPON_SCATTER'; charScatter.visible = false;
+    const charScatterBody = new T.Mesh(new T.BoxGeometry(0.06, 0.09, 0.26), armorMat);
+    charScatterBody.position.set(0, -0.04, -0.12);
+    charScatter.add(charScatterBody);
+    [-0.016, 0.016].forEach(bx => {
+      const bMesh = new T.Mesh(new T.CylinderGeometry(0.012, 0.014, 0.16, 8), darkMat);
+      bMesh.rotation.x = Math.PI / 2;
+      bMesh.position.set(bx, 0.012, -0.21);
+      charScatter.add(bMesh);
+    });
+    const charScatterGlow = new T.Mesh(new T.BoxGeometry(0.035, 0.016, 0.12), new T.MeshBasicMaterial({ color: 0xff7722, toneMapped: false }));
+    charScatterGlow.position.set(0, 0.025, -0.10);
+    charScatter.add(charScatterGlow);
+    rHandGlove.add(charScatter);
+
+    // 3P Plasma Lance Rifle
+    const charRifle = new T.Group(); charRifle.name = 'CHAR_WEAPON_RIFLE'; charRifle.visible = false;
+    const charRifleBody = new T.Mesh(new T.BoxGeometry(0.045, 0.08, 0.38), armorMat);
+    charRifleBody.position.set(0, -0.03, -0.16);
+    charRifle.add(charRifleBody);
+    const charRifleBarrel = new T.Mesh(new T.CylinderGeometry(0.010, 0.012, 0.30, 8), darkMat);
+    charRifleBarrel.rotation.x = Math.PI / 2;
+    charRifleBarrel.position.set(0, 0.015, -0.32);
+    charRifle.add(charRifleBarrel);
+    const charRifleGlow = new T.Mesh(new T.BoxGeometry(0.018, 0.018, 0.20), new T.MeshBasicMaterial({ color: 0x0088ff, toneMapped: false }));
+    charRifleGlow.position.set(0, 0.028, -0.22);
+    charRifle.add(charRifleGlow);
+    rHandGlove.add(charRifle);
 
     g.add(rightArmGroup);
 
@@ -400,12 +467,98 @@ export function init(nova) {
       leftLeg: leftLegGroup,
       rightLeg: rightLegGroup,
       leftArm: leftArmGroup,
-      rightArm: rightArmGroup
+      rightArm: rightArmGroup,
+      charBlaster,
+      charScatter,
+      charRifle
     };
   }
   const pilotChar = createPilotCharacter();
   pilotChar.group.visible = false;
   rig.add(pilotChar.group);
+
+  // ── Multi-Weapon Tactical Arsenal Definition ──
+  const WEAPONS = [
+    { id: 'pistol', name: 'ARC-PISTOL', type: 'sidearm', cooldown: 160, damage: 25, speed: 48, pellets: 1, spread: 0, recoilKick: 0.045, recoilPitch: 0.06, color: 0x00f0ff, coreColor: 0xbaffff, muzzleColor: 0xbffcff, soundFreq: 880 },
+    { id: 'scatter', name: 'VULKAN SCATTER', type: 'shotgun', cooldown: 440, damage: 16, speed: 44, pellets: 6, spread: 0.075, recoilKick: 0.12, recoilPitch: 0.18, color: 0xff7722, coreColor: 0xffe088, muzzleColor: 0xffaa44, soundFreq: 380 },
+    { id: 'rifle', name: 'PLASMA LANCE', type: 'rifle', cooldown: 320, damage: 60, speed: 85, pellets: 1, spread: 0, recoilKick: 0.07, recoilPitch: 0.10, color: 0x3388ff, coreColor: 0xddeeff, muzzleColor: 0x77ccff, soundFreq: 1100 }
+  ];
+  let activeWeaponIdx = 0;
+  let activeWeapon = WEAPONS[0];
+  let wpnBtn = null;
+
+  function updateWeaponVisuals() {
+    const isP = activeWeapon.id === 'pistol';
+    const isS = activeWeapon.id === 'scatter';
+    const isR = activeWeapon.id === 'rifle';
+    pistolGroup.visible = isP;
+    scatterGroup.visible = isS;
+    rifleGroup.visible = isR;
+    if (pilotChar.charBlaster) pilotChar.charBlaster.visible = isP;
+    if (pilotChar.charScatter) pilotChar.charScatter.visible = isS;
+    if (pilotChar.charRifle) pilotChar.charRifle.visible = isR;
+    if (isP) {
+      muzzleFlash.position.set(0, .025, -.21);
+      muzzleRing.position.set(0, .025, -.24);
+    } else if (isS) {
+      muzzleFlash.position.set(0, .014, -.36);
+      muzzleRing.position.set(0, .014, -.38);
+    } else if (isR) {
+      muzzleFlash.position.set(0, .015, -.65);
+      muzzleRing.position.set(0, .015, -.67);
+    }
+    if (wpnBtn) {
+      wpnBtn.textContent = isP ? 'ARC' : (isS ? 'SCTR' : 'RNGE');
+      const c = '#' + (activeWeapon.color.toString(16).padStart(6, '0'));
+      wpnBtn.style.color = c;
+      wpnBtn.style.borderColor = c;
+      wpnBtn.style.boxShadow = `0 0 18px ${c}55`;
+    }
+  }
+
+  function playWeaponSwitchSound(){
+    try{
+      const ctx=nova.sound?.ctx||window.sound?.ctx;
+      if(ctx){
+        if(ctx.state==='suspended')ctx.resume?.();
+        const t=ctx.currentTime, osc=ctx.createOscillator(), g=ctx.createGain();
+        osc.type='sine';
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.06);
+        g.gain.setValueAtTime(0.12, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.07);
+      }
+    }catch(_){}
+  }
+
+  function setWeapon(idOrIdx) {
+    let targetIdx = -1;
+    if (typeof idOrIdx === 'number') {
+      targetIdx = (idOrIdx % WEAPONS.length + WEAPONS.length) % WEAPONS.length;
+    } else if (typeof idOrIdx === 'string') {
+      const q = idOrIdx.toLowerCase();
+      targetIdx = WEAPONS.findIndex(w => w.id === q || w.name.toLowerCase().includes(q) || w.type.includes(q));
+    }
+    if (targetIdx < 0) return false;
+    activeWeaponIdx = targetIdx;
+    activeWeapon = WEAPONS[activeWeaponIdx];
+    updateWeaponVisuals();
+    playWeaponSwitchSound();
+    drawHud();
+    const hexColor = '#' + activeWeapon.color.toString(16).padStart(6, '0');
+    nova.toast?.(`🔫 ARMED: ${activeWeapon.name} [${activeWeapon.type.toUpperCase()}]`, 1800, hexColor);
+    return true;
+  }
+
+  function cycleWeapon(dir = 1) {
+    const next = (activeWeaponIdx + dir % WEAPONS.length + WEAPONS.length) % WEAPONS.length;
+    setWeapon(next);
+  }
+
+  window.novaSetFpsWeapon = setWeapon;
+  window.novaCycleFpsWeapon = cycleWeapon;
 
   let isThirdPerson = false, walkCycleTimer = 0;
   function toggleThirdPerson(force){
@@ -459,10 +612,10 @@ export function init(nova) {
     c.font='bold 25px monospace';c.textAlign='left';c.fillStyle='#7ffcff';c.fillText('HELMET · '+String(options.mode||'FPS').toUpperCase(),70,438);
     c.fillStyle=health>35?'#65ffad':'#ff596d';c.fillText('HULL '+Math.round(health)+'%',350,438);
     c.fillStyle='#58dfff';c.fillText('SHIELD '+Math.round(shield)+'%',500,438);
-    c.fillStyle=weaponOn?'#ffcf58':'#8295a0';c.fillText(weaponOn?'ARMED':'HANDS',670,438);
+    c.fillStyle=weaponOn?('#'+activeWeapon.color.toString(16).padStart(6,'0')):'#8295a0';c.fillText(weaponOn?activeWeapon.name:'HANDS',650,438);
     c.font='bold 21px monospace';c.fillStyle=grenadeState==='holstered'?'#33e5ff':'#ff9933';
-    c.fillText(grenadeState==='holstered'?'GRENADE:READY':(grenadeState==='cooldown'?'GRENADE:RELOAD':'GRENADE:'+Math.max(0,grenadeFuse).toFixed(1)+'s'),780,438);
-    c.font='18px monospace';c.fillStyle='#a9d8e8';c.fillText(renderer?.xr?.isPresenting?'PINCH/STICK: TELEPORT · FIST: MOVE · GRENADE: LEFT CHEST · R-PINCH: FIRE':'WASD / STICKS MOVE · G GRENADE · CLICK / RT FIRE · E / A USE · ESC EXIT',70,464);
+    c.fillText(grenadeState==='holstered'?'GRENADE:READY':(grenadeState==='cooldown'?'GRENADE:RELOAD':'GRENADE:'+Math.max(0,grenadeFuse).toFixed(1)+'s'),810,438);
+    c.font='18px monospace';c.fillStyle='#a9d8e8';c.fillText(renderer?.xr?.isPresenting?'PINCH/STICK: TELEPORT · FIST: MOVE · GRENADE: LEFT CHEST · R-PINCH: FIRE':'WASD MOVE · CLICK FIRE · Q WEAPON · G GRENADE · E USE · C/V CAM · ESC EXIT',70,464);
     hudTexture.needsUpdate=true;
   }
 
@@ -509,18 +662,29 @@ export function init(nova) {
     pistol.position.set(hand ? .018 : .015,(hand ? -.018 : -.035) + recoilPitch*.03,(hand ? -.075 : -.09) + recoilKick);
     pistol.rotation.set((hand ? handGunPitch : 0) - recoilPitch,hand ? handGunYaw : 0,hand ? handGunRoll : 0);
   }
-  function playLaserSound(){
+  function playLaserSound(wpn=activeWeapon){
     try{
-      if(nova.sound?.laser){nova.sound.laser();return;}
-      if(window.sound?.laser){window.sound.laser();return;}
       const ctx=nova.sound?.ctx||window.sound?.ctx;
       if(ctx){
         if(ctx.state==='suspended')ctx.resume?.();
-        const t=ctx.currentTime,osc=ctx.createOscillator(),g=ctx.createGain();
-        osc.type='triangle';osc.frequency.setValueAtTime(560,t);osc.frequency.exponentialRampToValueAtTime(140,t+.08);
-        g.gain.setValueAtTime(.18,t);g.gain.exponentialRampToValueAtTime(.001,t+.085);
-        osc.connect(g);g.connect(ctx.destination);osc.start(t);osc.stop(t+.085);
-      }
+        const t=ctx.currentTime;
+        if(wpn?.id==='scatter'){
+          const osc=ctx.createOscillator(),g=ctx.createGain();
+          osc.type='sawtooth';osc.frequency.setValueAtTime(340,t);osc.frequency.exponentialRampToValueAtTime(75,t+.13);
+          g.gain.setValueAtTime(.26,t);g.gain.exponentialRampToValueAtTime(.001,t+.14);
+          osc.connect(g);g.connect(ctx.destination);osc.start(t);osc.stop(t+.14);
+        }else if(wpn?.id==='rifle'){
+          const osc=ctx.createOscillator(),g=ctx.createGain();
+          osc.type='triangle';osc.frequency.setValueAtTime(1350,t);osc.frequency.exponentialRampToValueAtTime(310,t+.11);
+          g.gain.setValueAtTime(.22,t);g.gain.exponentialRampToValueAtTime(.001,t+.115);
+          osc.connect(g);g.connect(ctx.destination);osc.start(t);osc.stop(t+.115);
+        }else{
+          const osc=ctx.createOscillator(),g=ctx.createGain();
+          osc.type='triangle';osc.frequency.setValueAtTime(560,t);osc.frequency.exponentialRampToValueAtTime(140,t+.08);
+          g.gain.setValueAtTime(.18,t);g.gain.exponentialRampToValueAtTime(.001,t+.085);
+          osc.connect(g);g.connect(ctx.destination);osc.start(t);osc.stop(t+.085);
+        }
+      }else if(nova.sound?.laser)nova.sound.laser();
     }catch(_){}
   }
   function playImpactSound(){
@@ -650,17 +814,20 @@ export function init(nova) {
     }
   }
 
-  function triggerMuzzleFlash(){
+  function triggerMuzzleFlash(wpn=activeWeapon){
     muzzleTimer=.09;
     muzzleFlash.visible=true;
-    muzzleFlash.scale.set(1.4,1.4,1.4);
+    const isS=wpn?.id==='scatter', isR=wpn?.id==='rifle';
+    const sScale=isS?2.2:(isR?1.6:1.4);
+    muzzleFlash.scale.set(sScale,sScale,sScale);
+    muzzleFlash.material.color.setHex(wpn?.muzzleColor||0xbffcff);
     muzzleRing.visible=true;
-    muzzleRing.scale.set(1,1,1);
-    recoilKick=.026;recoilPitch=.052;
+    muzzleRing.scale.set(isS?1.8:(isR?1.3:1),isS?1.8:(isR?1.3:1),1);
+    muzzleRing.material.color.setHex(wpn?.color||0x00f0ff);
   }
 
   const spawnPos=new T.Vector3(),spawnDir=new T.Vector3(),camWorldPos=new T.Vector3(),camRightVec=new T.Vector3(),camUpVec=new T.Vector3(),projRightVec=new T.Vector3();
-  function launchProjectile(sideOffset=0){
+  function launchProjectile(sideOffset=0,spreadX=0,spreadY=0,speedVal=48,damageVal=25,glowCol=0x00f0ff,coreCol=0xbaffff){
     if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
       pistol.getWorldPosition(spawnPos);
       pistol.getWorldQuaternion(controllerQ);
@@ -698,34 +865,65 @@ export function init(nova) {
     if(crosshairGroup.visible){
       spawnDir.subVectors(crosshairGroup.position,spawnPos).normalize();
     }
+    // Apply shotgun / weapon dispersion
+    if(spreadX||spreadY){
+      camRightVec.set(1,0,0).applyQuaternion(camera.quaternion);
+      camUpVec.set(0,1,0).applyQuaternion(camera.quaternion);
+      spawnDir.addScaledVector(camRightVec,spreadX).addScaledVector(camUpVec,spreadY).normalize();
+    }
 
     const p=projPool.find(x=>!x.active)||projPool[0];
     p.active=true;
     p.life=1.6;
     p.dist=0;
+    p.damage=damageVal;
     p.pos.copy(spawnPos);
     p.prevPos.copy(spawnPos);
     p.spawnPos.copy(spawnPos);
     p.dir.copy(spawnDir);
-    p.vel.copy(spawnDir).multiplyScalar(window.novaPewPewOverdrive ? 68 : 48);
+    p.vel.copy(spawnDir).multiplyScalar(speedVal);
     p.lockedTarget=targetLocked?currentLockedTargetObj:null;
     p.lockedPos=targetLocked?crosshairGroup.position.clone():null;
     p.mesh.position.copy(spawnPos);
     p.mesh.quaternion.setFromUnitVectors(new T.Vector3(0,0,-1),spawnDir);
+    if(p.core&&p.core.material)p.core.material.color.setHex(coreCol);
+    if(p.f1&&p.f1.material)p.f1.material.color.setHex(glowCol);
+    if(p.f2&&p.f2.material)p.f2.material.color.setHex(glowCol);
+    if(p.tip&&p.tip.material)p.tip.material.color.setHex(coreCol);
+    if(p.tail&&p.tail.material)p.tail.material.color.setHex(glowCol);
     p.mesh.visible=true;
   }
 
   function fire(){
     const overdrive=!!window.novaPewPewOverdrive;
-    const cooldown=overdrive?70:160;
+    const isScatter=activeWeapon.id==='scatter';
+    const isRifle=activeWeapon.id==='rifle';
+    let cooldown=activeWeapon.cooldown;
+    if(overdrive&&activeWeapon.id==='pistol')cooldown=70;
+    else if(overdrive)cooldown=Math.round(cooldown*0.55);
+
     const now=performance.now();if(!active||!weaponOn||now-lastFire<cooldown)return false;lastFire=now;
-    playLaserSound();
+    playLaserSound(activeWeapon);
     try{options.onShot?.();}catch(_){}
     aimRay(); // updates origin and direction cleanly
-    launchProjectile(overdrive ? 0.045 : 0);
-    if(overdrive)launchProjectile(-0.045);
-    triggerMuzzleFlash();
-    nova.emit?.('fpsWeaponFired',{mode:options.mode||'fps'});
+
+    if(isScatter){
+      recoilKick=0.12;recoilPitch=0.18;
+      for(let i=0;i<6;i++){
+        const a=(i/6)*Math.PI*2+(Math.random()-0.5)*0.5;
+        const rad=0.035+Math.random()*0.038;
+        launchProjectile(0,Math.cos(a)*rad,Math.sin(a)*rad,44,16,0xff7722,0xffe088);
+      }
+    }else if(isRifle){
+      recoilKick=0.07;recoilPitch=0.10;
+      launchProjectile(0,0,0,85,60,0x3388ff,0xddeeff);
+    }else{
+      recoilKick=overdrive?0.035:0.045;recoilPitch=overdrive?0.04:0.06;
+      launchProjectile(overdrive ? 0.045 : 0,0,0,overdrive ? 68 : 48,25,0x00f0ff,0xbaffff);
+      if(overdrive)launchProjectile(-0.045,0,0,68,25,0x00f0ff,0xbaffff);
+    }
+    triggerMuzzleFlash(activeWeapon);
+    nova.emit?.('fpsWeaponFired',{mode:options.mode||'fps',weapon:activeWeapon.id});
     return true;
   }
   function interact(){
@@ -856,6 +1054,16 @@ export function init(nova) {
     else if(e.code==='KeyE'||e.code==='Enter'){e.preventDefault();interact();}
     else if(e.code==='KeyG'){e.preventDefault();throwGrenadeForward();}
     else if(e.code==='KeyC'||e.code==='KeyV'){e.preventDefault();toggleThirdPerson();}
+    else if(e.code==='KeyQ'){e.preventDefault();cycleWeapon(1);}
+    else if(e.code==='Digit1'){e.preventDefault();setWeapon('pistol');}
+    else if(e.code==='Digit2'){e.preventDefault();setWeapon('scatter');}
+    else if(e.code==='Digit3'){e.preventDefault();setWeapon('rifle');}
+  }
+  function onWheel(e){
+    if(!active||!weaponOn)return;
+    e.preventDefault();
+    if(e.deltaY>0)cycleWeapon(1);
+    else if(e.deltaY<0)cycleWeapon(-1);
   }
   function keyUp(e){down.delete(e.code);}
   function onXRSelect(e){
@@ -901,8 +1109,8 @@ export function init(nova) {
           p.active=false;p.mesh.visible=false;
           playImpactSound();
           hitNormal.copy(p.dir).negate();
-          const hitTarget=applyDamageToTarget(p.lockedTarget,25,{origin:p.prevPos.clone(),point:p.lockedPos.clone(),normal:hitNormal.clone()});
-          nova.emit?.('targetHit',{target:hitTarget||p.lockedTarget,damage:25,point:p.lockedPos});
+          const hitTarget=applyDamageToTarget(p.lockedTarget,p.damage||25,{origin:p.prevPos.clone(),point:p.lockedPos.clone(),normal:hitNormal.clone()});
+          nova.emit?.('targetHit',{target:hitTarget||p.lockedTarget,damage:p.damage||25,point:p.lockedPos});
           spawnImpactVfx(p.lockedPos,hitNormal,true);
           continue;
         }
@@ -924,11 +1132,11 @@ export function init(nova) {
             hitNormal.copy(p.dir).negate();
           }
 
-          const target=applyDamageToTarget(hit.object,25,{origin:p.prevPos.clone(),point:hit.point.clone(),normal:hitNormal.clone()});
+          const target=applyDamageToTarget(hit.object,p.damage||25,{origin:p.prevPos.clone(),point:hit.point.clone(),normal:hitNormal.clone()});
           if(target){
             p.active=false;p.mesh.visible=false;
             playImpactSound();
-            nova.emit?.('targetHit',{target,damage:25,point:hit.point});
+            nova.emit?.('targetHit',{target,damage:p.damage||25,point:hit.point});
             spawnImpactVfx(hit.point,hitNormal,true);
             break;
           }else if(isOccluder(hit.object)){
@@ -1340,9 +1548,10 @@ export function init(nova) {
     rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;
     leftPinchHeld=rightPinchHeld=leftPinchUsed=bothPinchExit=false;leftPinchTime=bothPinchTime=0;
     if(renderer?.xr?.isPresenting&&(rightGrip||rightController))setWeaponParent(rightGrip||rightController,false);else{camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,0,0);}
-    window.addEventListener('keydown',keyDown,true);window.addEventListener('keyup',keyUp,true);window.addEventListener('mousemove',mouseMove);document.addEventListener('pointerlockchange',pointerLockChange);
+    window.addEventListener('keydown',keyDown,true);window.addEventListener('keyup',keyUp,true);window.addEventListener('mousemove',mouseMove);window.addEventListener('wheel',onWheel,{passive:false});document.addEventListener('pointerlockchange',pointerLockChange);
     window.addEventListener('pointerdown',pointerDown,true);window.addEventListener('contextmenu',preventMenu,true);showButtons(true);
-    drawHud();nova.toast?.('FPS ACTIVE · RT / RIGHT PINCH FIRE · A / LEFT HOLD USE · B / BOTH HOLD EXIT',3200,'#00e5ff');return true;
+    updateWeaponVisuals();
+    drawHud();nova.toast?.('FPS ACTIVE · RT / RIGHT PINCH FIRE · Q / WHEEL WEAPON · A / LEFT HOLD USE',3200,'#00e5ff');return true;
   }
   // on-screen FIRE / USE / EXIT buttons (mouse, touch and tablet; hidden in VR)
   let btnBar=null;
@@ -1354,7 +1563,12 @@ export function init(nova) {
         b.style.cssText=`width:${size}px;height:${size}px;border-radius:50%;border:3px solid ${col};background:rgba(4,18,28,.72);color:${col};font:inherit;cursor:pointer;box-shadow:0 0 18px ${col}55`;
         let rep=null;const start=e=>{e.preventDefault();e.stopPropagation();fn();if(label==='FIRE'){clearInterval(rep);rep=setInterval(fn,180);}};const stop=()=>{clearInterval(rep);rep=null;};
         b.addEventListener('pointerdown',start);b.addEventListener('pointerup',stop);b.addEventListener('pointerleave',stop);b.addEventListener('pointercancel',stop);btnBar.appendChild(b);return b;};
-      mk('EXIT','#ff6b7d',64,()=>requestExit('button'));mk('CAM','#00f0ff',68,()=>toggleThirdPerson());mk('USE','#ffd166',78,()=>interact());mk('GRENADE','#ff9933',78,()=>throwGrenadeForward());mk('FIRE','#00e5ff',118,()=>fire());
+      mk('EXIT','#ff6b7d',64,()=>requestExit('button'));
+      mk('CAM','#00f0ff',68,()=>toggleThirdPerson());
+      wpnBtn=mk(activeWeapon.id==='pistol'?'ARC':(activeWeapon.id==='scatter'?'SCTR':'RNGE'),'#'+activeWeapon.color.toString(16).padStart(6,'0'),74,()=>cycleWeapon(1));
+      mk('USE','#ffd166',78,()=>interact());
+      mk('GRENADE','#ff9933',78,()=>throwGrenadeForward());
+      mk('FIRE','#00e5ff',118,()=>fire());
       document.body.appendChild(btnBar);
     }
     if(btnBar)btnBar.style.display=on&&!renderer?.xr?.isPresenting?'flex':'none';
@@ -1366,7 +1580,7 @@ export function init(nova) {
     leftGlove.visible=false;rightGlove.visible=false;crosshairGroup.visible=false;grenadeGroup.visible=false;grenadeState='holstered';
     if(tpMarker)tpMarker.visible=false;tpValid=false;
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
-    window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
+    window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);window.removeEventListener('wheel',onWheel);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
     window.removeEventListener('pointerdown',pointerDown,true);window.removeEventListener('contextmenu',preventMenu,true);
     for(const p of projPool){p.active=false;p.mesh.visible=false;}
     for(const sp of sparkPool){sp.active=false;sp.mesh.visible=false;}
@@ -1378,10 +1592,10 @@ export function init(nova) {
   }
 
   const off=nova.onTick?.(tick);
-  const state=()=>({active,mode:options.mode||null,weaponOn,health,shield,input:session?{left:leftIsHand?'hand':leftController?'controller':'none',right:rightIsHand?'hand':rightController?'controller':'none'}:{left:'desktop',right:'desktop'},colliders:(options.colliders||[]).length,position:rig.position.toArray()});
+  const state=()=>({active,mode:options.mode||null,weaponOn,weapon:activeWeapon.id,health,shield,input:session?{left:leftIsHand?'hand':leftController?'controller':'none',right:rightIsHand?'hand':rightController?'controller':'none'}:{left:'desktop',right:'desktop'},colliders:(options.colliders||[]).length,position:rig.position.toArray()});
   window.novaTest=window.novaTest||{};window.novaTest.fpsState=state;
   window.novaTest.setGunHandRotation=(yawDeg=90,pitchDeg=0,rollDeg=0)=>{handGunYaw=yawDeg*Math.PI/180;handGunPitch=pitchDeg*Math.PI/180;handGunRoll=rollDeg*Math.PI/180;if(pistol.parent===rightHandAnchor)pistol.rotation.set(handGunPitch,handGunYaw,handGunRoll);};
-  return{ready:true,enable,disable,fire,interact,damage,throwGrenade:throwGrenadeForward,state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
+  return{ready:true,enable,disable,fire,interact,damage,throwGrenade:throwGrenadeForward,setWeapon,cycleWeapon,get activeWeapon(){return activeWeapon;},state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
     disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(projRoot);scene.remove(vfxRoot);damageOverlay.remove();
     scene.remove(leftGlove);scene.remove(rightGlove);scene.remove(leftHandAnchor);scene.remove(rightHandAnchor);
     scene.remove(grenadeGroup);grenadeBodyGeo.dispose();grenadeBodyMat.dispose();grenadeCapGeo.dispose();grenadeRingGeo.dispose();grenadeRingMat.dispose();grenadePinGeo.dispose();grenadePinMat.dispose();

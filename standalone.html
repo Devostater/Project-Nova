@@ -780,6 +780,9 @@
       <button class="voice-pill" data-cmd="repair ship" style="background:rgba(0,255,170,0.12);border:1px solid #00ffaa;border-radius:4px;color:#99ffd6;font-size:11px;padding:3px 8px;cursor:pointer;">🛡️ Repair Ship</button>
       <button class="voice-pill" data-cmd="warp drive" style="background:rgba(0,240,255,0.12);border:1px solid #00f0ff;border-radius:4px;color:#cfe8ff;font-size:11px;padding:3px 8px;cursor:pointer;">⚡ Warp Drive</button>
       <button class="voice-pill" data-cmd="super secret" style="background:rgba(255,0,85,0.22);border:1px solid #ff0055;border-radius:4px;color:#ff99bb;font-size:11px;padding:3px 8px;cursor:pointer;font-weight:bold;">⚡ MORE PEW PEW</button>
+      <button class="voice-pill" data-cmd="switch weapon" style="background:rgba(0,240,255,0.22);border:1px solid #00f0ff;border-radius:4px;color:#00ffff;font-size:11px;padding:3px 8px;cursor:pointer;font-weight:bold;">🔫 WEAPON</button>
+      <button class="voice-pill" data-cmd="scatter blaster" style="background:rgba(255,120,30,0.22);border:1px solid #ff7722;border-radius:4px;color:#ffaa66;font-size:11px;padding:3px 8px;cursor:pointer;">💥 SCATTER</button>
+      <button class="voice-pill" data-cmd="plasma rifle" style="background:rgba(50,140,255,0.22);border:1px solid #3388ff;border-radius:4px;color:#99ccff;font-size:11px;padding:3px 8px;cursor:pointer;">🎯 RIFLE</button>
       <button class="voice-pill" data-cmd="toggle camera" style="background:rgba(0,240,255,0.15);border:1px solid #00f0ff;border-radius:4px;color:#cfe8ff;font-size:11px;padding:3px 8px;cursor:pointer;">🎥 3P / 1P CAM</button>
     </div>
     <div style="font-size:10px;color:#668899;text-align:right;">Console: <code>say("command")</code> · Close: [Esc]</div>
@@ -4027,6 +4030,30 @@ const GAME_VERSION = 'Alpha 1.4';
         togglePewPewOverdrive();
         return true;
       }
+      if (t.includes('switch weapon') || t.includes('next weapon') || t.includes('cycle weapon')) {
+        if (typeof window.novaCycleFpsWeapon === 'function') {
+          window.novaCycleFpsWeapon();
+          return true;
+        }
+      }
+      if (t.includes('scatter blaster') || t.includes('scatter') || t.includes('shotgun') || t.includes('vulkan scatter')) {
+        if (typeof window.novaSetFpsWeapon === 'function') {
+          window.novaSetFpsWeapon('scatter');
+          return true;
+        }
+      }
+      if (t.includes('plasma rifle') || t.includes('plasma lance') || t.includes('rifle') || t.includes('lance') || t.includes('sniper')) {
+        if (typeof window.novaSetFpsWeapon === 'function') {
+          window.novaSetFpsWeapon('rifle');
+          return true;
+        }
+      }
+      if (t.includes('arc pistol') || t.includes('laser pistol') || t.includes('pistol') || t.includes('sidearm')) {
+        if (typeof window.novaSetFpsWeapon === 'function') {
+          window.novaSetFpsWeapon('pistol');
+          return true;
+        }
+      }
       if (t.includes('toggle camera') || t.includes('switch camera') || t.includes('third person') || t.includes('first person') || t.includes('change view')) {
         if (typeof novaOnFoot === 'function' && novaOnFoot() && typeof window.novaToggleFPSCamera === 'function') {
           window.novaToggleFPSCamera();
@@ -6326,7 +6353,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
     registerCockpitButton(bigRedBtn, 'FIRE MISSILE', () => {
       fireHomingMissile();
-    }, 0.045);
+    }, 0.075);
 
     // ── Spring-Hinged Top Safety Flip Cover Over Red Button ──
     // Hinged at rear of collar (z = -0.040, y = 0.032), flips up/back -110 deg (-1.92 rad) clear of button!
@@ -6372,8 +6399,8 @@ const GAME_VERSION = 'Alpha 1.4';
       novaLidLast = t;
       toggleMissileLid();
     };
-    registerCockpitButton(gripTab, 'MISSILE COVER TAB', onMissileCoverPress, 0.04);
-    registerCockpitButton(lidCover, 'MISSILE SAFETY COVER', onMissileCoverPress, 0.045);
+    registerCockpitButton(gripTab, 'MISSILE COVER TAB', onMissileCoverPress, 0.065);
+    registerCockpitButton(lidCover, 'MISSILE SAFETY COVER', onMissileCoverPress, 0.075);
 
     // Lower Chin Panel: Sits below the red button (z = +0.065), angled towards pilot (+30 deg)
     const chinPanel = new THREE.Mesh(
@@ -6455,7 +6482,7 @@ const GAME_VERSION = 'Alpha 1.4';
 
     function toggleMissileLid(forceState) {
       const now = performance.now();
-      if (now - lastLidToggleTime < 350) return;
+      if (forceState === undefined && now - lastLidToggleTime < 350) return;
       lastLidToggleTime = now;
       if (forceState !== undefined) {
         isMissileLidOpen = !!forceState;
@@ -12741,14 +12768,14 @@ const GAME_VERSION = 'Alpha 1.4';
         const manual = !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive && !novaOnFoot();
         if (!manual) advancedAngularRate.set(0, 0, 0);
         else {
-          advancedAngularRate.x = THREE.MathUtils.clamp(advancedAngularRate.x + pitchFactor * normPitch * 3.2 * delta, -pitchSpeed, pitchSpeed);
-          advancedAngularRate.y = THREE.MathUtils.clamp(advancedAngularRate.y + normYaw * 2.8 * delta, -yawSpeed, yawSpeed);
-          advancedAngularRate.z = THREE.MathUtils.clamp(advancedAngularRate.z + normRoll * 3.6 * delta, -rollSpeed, rollSpeed);
-          if (isRotationDampenerOn && !isStickDeflected) {
-            const decay = Math.exp(-4.0 * delta);
-            advancedAngularRate.x *= decay;
-            advancedAngularRate.y *= decay;
-            advancedAngularRate.z *= decay;
+          advancedAngularRate.x = THREE.MathUtils.clamp(advancedAngularRate.x + pitchFactor * normPitch * 3.6 * delta, -pitchSpeed, pitchSpeed);
+          advancedAngularRate.y = THREE.MathUtils.clamp(advancedAngularRate.y + normYaw * 4.2 * delta, -yawSpeed, yawSpeed);
+          advancedAngularRate.z = THREE.MathUtils.clamp(advancedAngularRate.z + normRoll * 4.0 * delta, -rollSpeed, rollSpeed);
+          if (isRotationDampenerOn) {
+            const decay = Math.exp(-4.5 * delta);
+            if (normPitch === 0) advancedAngularRate.x *= decay;
+            if (normYaw === 0) advancedAngularRate.y *= decay;
+            if (normRoll === 0) advancedAngularRate.z *= decay;
           }
         }
         pitchRate = advancedAngularRate.x; yawRate = advancedAngularRate.y; rollRate = advancedAngularRate.z;
@@ -16168,6 +16195,24 @@ const GAME_VERSION = 'Alpha 1.4';
       br.position.copy(wp); br.quaternion.copy(camera.getWorldQuaternion(new THREE.Quaternion()));
       const s = Math.min(Math.max(novaTargetRadius(c) * 2.4, d * 0.03), d * 0.16) * (scale || 1); br.scale.set(s, s, s); br.visible = true;   // capped at ~9 deg
     }
+    const novaLeadPip = (function() {
+      const g = new THREE.Group(); g.name = 'NOVA_LEAD_PURSUIT_PIP';
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.92, side: THREE.DoubleSide, depthTest: false, depthWrite: false, ...NOVA_LIGHT_BLEND });
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.065, 16), ringMat); ring.renderOrder = 10002; g.add(ring);
+      const dot = new THREE.Mesh(new THREE.CircleGeometry(0.012, 10), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false, ...NOVA_LIGHT_BLEND }));
+      dot.renderOrder = 10002; g.add(dot);
+      [-0.09, 0.09].forEach(x => {
+        const tick = new THREE.Mesh(new THREE.PlaneGeometry(0.028, 0.006), ringMat);
+        tick.position.set(x, 0, 0); tick.renderOrder = 10002; g.add(tick);
+      });
+      [-0.09, 0.09].forEach(y => {
+        const tick = new THREE.Mesh(new THREE.PlaneGeometry(0.006, 0.028), ringMat);
+        tick.position.set(0, y, 0); tick.renderOrder = 10002; g.add(tick);
+      });
+      g.visible = false;
+      scene.add(g);
+      return g;
+    })();
     function novaPointFrame(frame) {
       try { novaLifeTick(); } catch (e) { if (!window._nlErr) { window._nlErr = 1; console.error('Life error:', e); } }
       const vis = cockpit.visible && !isInsideCantina && novaMenuHidden();
@@ -16178,6 +16223,40 @@ const GAME_VERSION = 'Alpha 1.4';
         novaLockBr.material.color.setHex(lt.isHostile ? 0xff3344 : 0x00ff88);
         novaPlaceBracket(novaLockBr, lt, 1.25 + 0.06 * Math.sin(performance.now() * 0.008));
       } else novaLockBr.visible = false;
+
+      // Target Lead Pursuit Pip for Dogfighting
+      if (vis && NOVA_TGT && lt && lt.isHostile && lt.targetObj && lt.targetObj.visible !== false) {
+        const tPos = lt.targetObj.getWorldPosition(new THREE.Vector3());
+        const sPos = shipGroup.getWorldPosition(new THREE.Vector3());
+        const dist = tPos.distanceTo(sPos);
+        if (dist > 15 && dist < 3200) {
+          const tVel = new THREE.Vector3();
+          if (lt.targetObj.userData && lt.targetObj.userData.body && lt.targetObj.userData.body.velocity) {
+            const bv = lt.targetObj.userData.body.velocity;
+            tVel.set(bv.x, bv.y, bv.z);
+          } else if (lt.targetObj.userData && lt.targetObj.userData._lastPos) {
+            const dt = Math.max(0.001, (performance.now() - (lt.targetObj.userData._lastTime || (performance.now() - 16))) / 1000);
+            tVel.copy(tPos).sub(lt.targetObj.userData._lastPos).divideScalar(dt);
+            if (tVel.lengthSq() > 300000) tVel.set(0, 0, 0); // clamp spikes
+          }
+          lt.targetObj.userData._lastPos = tPos.clone();
+          lt.targetObj.userData._lastTime = performance.now();
+
+          // Laser speed ~260 m/s
+          const timeToHit = dist / 260;
+          const leadWorldPos = tPos.clone().addScaledVector(tVel, timeToHit);
+
+          novaLeadPip.position.copy(leadWorldPos);
+          novaLeadPip.quaternion.copy(camera.getWorldQuaternion(new THREE.Quaternion()));
+          const pipScale = Math.max(0.4, Math.min(dist * 0.032, 6.5));
+          novaLeadPip.scale.setScalar(pipScale);
+          novaLeadPip.visible = true;
+        } else {
+          novaLeadPip.visible = false;
+        }
+      } else {
+        novaLeadPip.visible = false;
+      }
       let hover = null;
       novaHandLaser.forEach(l => { l.visible = false; });
       if (false && vis && frame && renderer.xr.isPresenting) {   // hand pointers / pinch lasers removed: touch only
@@ -17519,15 +17598,15 @@ const GAME_VERSION = 'Alpha 1.4';
         NKS.btns.push({ ring, label, base: 0.75 });
       };
       mk('NEXT TARGET (CONSOLE)', new THREE.Vector3(-0.055, 0.318, -0.078), 0.014, () => cycleTarget(), 'NEXT TGT', '#ff4455');
-      mk('MISSILE ARM', new THREE.Vector3(0.052, 0.318, -0.078), 0.014, () => toggleMissileLid(), 'ARM', '#ffaa22');
+      mk('MISSILE ARM', new THREE.Vector3(0.052, 0.318, -0.078), 0.024, () => toggleMissileLid(), 'ARM', '#ffaa22');
       mk('TGT BOX (CONSOLE)', new THREE.Vector3(-0.016, 0.331, -0.097), 0.0095, () => novaToggleTgtBox(), null, '#66ffee');
       mk('FLARES (CONSOLE)', new THREE.Vector3(0.015, 0.331, -0.097), 0.0095, act('FLARES'), null, '#ff8833');
       [['BOX', -0.016, '#66ffee'], ['FLARE', 0.015, '#ff8833']].forEach(([t, sx, col]) => { const c = cap(t, col, 0.03, 0.0075); c.position.set(sx, 0.331, -0.097).addScaledVector(down, -0.0165).addScaledVector(n, 0.004); NK.wrap.add(c); });
       // The replacement 3D missile dome can have an offset mesh origin. Keep a generous,
       // model-independent hit target centered on the visible FIRE button for VR pokes/rays.
-      const fireHit = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 8), hitMat);
+      const fireHit = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 8), hitMat);
       fireHit.position.set(0, 0.281, -0.067).addScaledVector(n, 0.006); NK.wrap.add(fireHit);
-      registerCockpitButton(fireHit, 'FIRE MISSILE (CONSOLE)', () => fireHomingMissile(), 0.038);
+      registerCockpitButton(fireHit, 'FIRE MISSILE (CONSOLE)', () => fireHomingMissile(), 0.065);
       { const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true; }
       const fc = cap('FIRE', '#ff3344', 0.04, 0.01); fc.position.set(0, 0.281, -0.067).addScaledVector(down, 0.034).addScaledVector(n, 0.004); NK.wrap.add(fc);
     }
@@ -18028,7 +18107,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
       const hit = (label, rx, ry2, rw, rh, fn) => {
         const m = new THREE.Mesh(new THREE.PlaneGeometry(rw * NP_PX, rh * NP_PX), hitMat); m.position.copy(P.at(rx + rw / 2, ry2 + rh / 2)); c.g.add(m);
-        registerCockpitButton(m, label, () => { fn(); P.drawT = 0; }, 0.012); const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
+        registerCockpitButton(m, label, () => { fn(); P.drawT = 0; }, Math.max(0.035, Math.min(rw, rh) * NP_PX * 0.45)); const e = cockpitInteractables[cockpitInteractables.length - 1]; e.noWiggle = true; e.nk = true;
         return m;
       };
       const TW = cfg.tabs.length > 4 ? 158 : 176; cfg.tabs.forEach((t, i) => hit(cfg.id + ' TAB ' + t.name, 4 + i * (1016 / cfg.tabs.length), 4 - NP_OFF, 1016 / cfg.tabs.length, 160, () => npTab(P, i)));   // big header tiles
