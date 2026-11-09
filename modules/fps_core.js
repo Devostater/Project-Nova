@@ -98,6 +98,24 @@ export function init(nova) {
     crosshairGroup.add(tick);
   }
   crosshairGroup.visible=false;crosshairGroup.raycast=()=>{};crosshairGroup.traverse(o=>{o.raycast=()=>{};});scene.add(crosshairGroup);
+
+  // VR Collimated Laser Sight Beam (from gun barrel to target point)
+  const laserBeamGeo = new T.BufferGeometry();
+  laserBeamGeo.setAttribute('position', new T.BufferAttribute(new Float32Array(6), 3));
+  const laserBeamMat = new T.LineBasicMaterial({
+    color: 0x00f0ff,
+    transparent: true,
+    opacity: 0.85,
+    blending: T.AdditiveBlending,
+    depthWrite: false
+  });
+  const laserBeamLine = new T.Line(laserBeamGeo, laserBeamMat);
+  laserBeamLine.name = 'NOVA_FPS_LASER_SIGHT';
+  laserBeamLine.renderOrder = 9999;
+  laserBeamLine.visible = false;
+  laserBeamLine.raycast = () => {};
+  scene.add(laserBeamLine);
+
   const crosshairPos=new T.Vector3();let chLocked=false;
   let currentLockedTargetObj=null,currentLockedPoint=new T.Vector3(),targetLocked=false;
 
@@ -908,20 +926,25 @@ export function init(nova) {
     try{options.onShot?.();}catch(_){}
     aimRay(); // updates origin and direction cleanly
 
+    const up = (typeof window !== 'undefined' && window.novaFpsUpgrades) ? window.novaFpsUpgrades : {};
     if(isScatter){
       recoilKick=0.12;recoilPitch=0.18;
-      for(let i=0;i<6;i++){
-        const a=(i/6)*Math.PI*2+(Math.random()-0.5)*0.5;
-        const rad=0.035+Math.random()*0.038;
+      const count = up.scatter_choke ? 8 : 6;
+      const spreadMult = up.scatter_choke ? 0.65 : 1.0;
+      for(let i=0;i<count;i++){
+        const a=(i/count)*Math.PI*2+(Math.random()-0.5)*0.5;
+        const rad=(0.035+Math.random()*0.038)*spreadMult;
         launchProjectile(0,Math.cos(a)*rad,Math.sin(a)*rad,44,16,0xff7722,0xffe088);
       }
     }else if(isRifle){
       recoilKick=0.07;recoilPitch=0.10;
-      launchProjectile(0,0,0,85,60,0x3388ff,0xddeeff);
+      const dmg = up.lance_focus ? 90 : 60;
+      launchProjectile(0,0,0,85,dmg,0x3388ff,0xddeeff);
     }else{
       recoilKick=overdrive?0.035:0.045;recoilPitch=overdrive?0.04:0.06;
-      launchProjectile(overdrive ? 0.045 : 0,0,0,overdrive ? 68 : 48,25,0x00f0ff,0xbaffff);
-      if(overdrive)launchProjectile(-0.045,0,0,68,25,0x00f0ff,0xbaffff);
+      const dmg = up.arc_cap ? 35 : 25;
+      launchProjectile(overdrive ? 0.045 : 0,0,0,overdrive ? 68 : 48,dmg,0x00f0ff,0xbaffff);
+      if(overdrive)launchProjectile(-0.045,0,0,68,dmg,0x00f0ff,0xbaffff);
     }
     triggerMuzzleFlash(activeWeapon);
     nova.emit?.('fpsWeaponFired',{mode:options.mode||'fps',weapon:activeWeapon.id});
@@ -1371,9 +1394,7 @@ export function init(nova) {
         pilotChar.rightLeg.rotation.x = T.MathUtils.lerp(pilotChar.rightLeg.rotation.x, 0, d * 8);
       }
       correctRoomScale();
-      pilotChar.group.position.set(camera.position.x, 0, camera.position.z);
-      pilotChar.group.rotation.y = camera.rotation.y;
-      pilotChar.head.visible = false;
+      pilotChar.group.visible = false; // In VR: remove/hide FPS body so it doesn't obstruct player view or hands
       fpArm.visible = false;
     }else{
       if(pistol.parent!==camera){camera.add(pistol);}
@@ -1391,8 +1412,9 @@ export function init(nova) {
       rig.rotation.set(0,yaw,0);camera.rotation.set(pitch,0,0,"YXZ");walk(x,z,d);
       if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('gamepad');padUseHeld=use;padExitHeld=leave;
 
+      pilotChar.group.visible = true;
       pilotChar.group.position.set(0, -1.65, 0);
-      pilotChar.group.rotation.set(0, 0, 0);
+      pilotChar.group.rotation.set(0, Math.PI, 0); // For PC: Rotate 180 degrees so character faces downrange along -Z
       pilotChar.head.visible = isThirdPerson;
 
       const isWalking = (Math.abs(x) + Math.abs(z)) > 0.01;
@@ -1521,11 +1543,11 @@ export function init(nova) {
       }
     }
 
-    // Update dynamic 3D crosshair at the point where the gun will hit
+    // Update dynamic 3D crosshair and VR laser sight at the point where the gun will hit
     if(active&&weaponOn){
       const hits=aimRay();
       const isMR=window.isPassthroughActive||(renderer?.xr?.isPresenting&&window.xrSessionType==='immersive-ar');
-      let hitDist=isMR?3.5:6.0;targetLocked=false;currentLockedTargetObj=null;
+      let hitDist=isMR?14.0:45.0;targetLocked=false;currentLockedTargetObj=null;
       for(const hit of hits){
         const isEnemyTarget=findUserData(hit.object,'rangeTarget')||findUserData(hit.object,'enemy')||findUserData(hit.object,'fpsEnemy')||findUserData(hit.object,'nfUnit')||findUserData(hit.object,'onHit')||findUserData(hit.object,'takeDamage')||findUserData(hit.object,'health')||findUserData(hit.object,'hp');
         if(isEnemyTarget){
@@ -1538,7 +1560,8 @@ export function init(nova) {
       crosshairPos.copy(origin).addScaledVector(direction,hitDist);
       crosshairGroup.position.copy(crosshairPos);
       crosshairGroup.quaternion.copy(camera.quaternion);
-      const chScale=Math.max(.35,Math.min(1.8,hitDist*.14));
+      // High-visibility dynamic scaling so reticle is always crisp in VR
+      const chScale=Math.max(0.65, hitDist * 0.055);
       crosshairGroup.scale.setScalar(chScale);
       crosshairGroup.traverse(o=>{if(o.material){o.material.depthTest=false;o.material.depthWrite=false;}o.renderOrder=10001;});
       if(targetLocked!==chLocked){
@@ -1546,8 +1569,16 @@ export function init(nova) {
         const col=targetLocked?0xff2844:0x00e5ff;
         chRingMat.color.setHex(col);
         chTickMat.color.setHex(col);
+        laserBeamMat.color.setHex(col);
       }
       crosshairGroup.visible=true;
+
+      // Update VR Laser Sight Line
+      laserBeamLine.visible = true;
+      const posAttr = laserBeamGeo.attributes.position;
+      posAttr.setXYZ(0, origin.x, origin.y, origin.z);
+      posAttr.setXYZ(1, crosshairPos.x, crosshairPos.y, crosshairPos.z);
+      posAttr.needsUpdate = true;
 
       // Auto-fire bullet at weapon fire rate when crosshair is locked onto an enemy
       if(targetLocked&&weaponOn&&!leftFist&&!tpMarker.visible&&!bothPinchExit&&grenadeState!=='held_right'){
@@ -1555,15 +1586,20 @@ export function init(nova) {
       }
     }else{
       crosshairGroup.visible=false;
+      laserBeamLine.visible=false;
     }
     hudTimer-=d;if(hudTimer<=0){hudTimer=.1;drawHud();}
   }
 
   function enable(next={}){
     if(active){options={...options,...next};drawHud();return true;}
-    options=next||{};active=true;exiting=false;weaponOn=true;health=100;shield=100;maxShield=100;lastDamage=0;timeSinceDamage=0;grenadeState='holstered';grenadeFuse=3.0;grenadeCooldown=0;
+    const isVR = !!(renderer?.xr?.isPresenting);
+    maxShield = (typeof window !== 'undefined' && window.novaFpsUpgrades?.tactical_shield) ? 150 : 100;
+    options=next||{};active=true;exiting=false;weaponOn=true;health=100;shield=maxShield;lastDamage=0;timeSinceDamage=0;grenadeState='holstered';grenadeFuse=3.0;grenadeCooldown=0;
     yaw=rig.rotation.y;pitch=camera.rotation.x;hud.visible=true;pistol.visible=true;
-    pilotChar.group.visible=true;pilotChar.head.visible=isThirdPerson;
+    pilotChar.group.visible = !isVR;
+    pilotChar.group.rotation.set(0, Math.PI, 0);
+    pilotChar.head.visible = isThirdPerson;
     if(isThirdPerson)camera.position.set(0.42,0.24,2.15);
     rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;
     leftPinchHeld=rightPinchHeld=leftPinchUsed=bothPinchExit=false;leftPinchTime=bothPinchTime=0;
@@ -1597,7 +1633,7 @@ export function init(nova) {
   function disable(){
     if(!active)return false;active=false;down.clear();pistol.visible=false;hud.visible=false;damageOverlay.style.opacity='0';
     pilotChar.group.visible=false;isThirdPerson=false;camera.position.set(0,0,0);
-    leftGlove.visible=false;rightGlove.visible=false;crosshairGroup.visible=false;grenadeGroup.visible=false;grenadeState='holstered';
+    leftGlove.visible=false;rightGlove.visible=false;crosshairGroup.visible=false;laserBeamLine.visible=false;grenadeGroup.visible=false;grenadeState='holstered';
     if(tpMarker)tpMarker.visible=false;tpValid=false;
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
     window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);window.removeEventListener('wheel',onWheel);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;

@@ -801,8 +801,6 @@
       <!-- Clean, focused Main Menu -->
       <div id="menu-main">
         <button class="modal-btn btn-2d" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
-        <button class="modal-btn" id="btn-intro" style="border-color: #ffd24d; color: #ffe680; background: rgba(255, 210, 77, 0.15);" onclick="window.novaWatchVideo('intro'); event.stopPropagation();">&#9654; PLAY INTRO</button>
-        <button class="modal-btn" id="btn-epilogue" style="border-color: #ff9933; color: #ffcc66; background: rgba(255, 153, 51, 0.15);" onclick="window.novaWatchVideo('epilogue'); event.stopPropagation();">&#9654; PLAY EPILOGUE</button>
         <button class="modal-btn" id="btn-range" style="border-color: #ff3377; color: #ff88aa; background: rgba(255, 51, 119, 0.15);" onclick="if(window.novaStartRange) window.novaStartRange(event); event.stopPropagation();">&#127919; FIRING RANGE</button>
         <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS &amp; MODES</button>
         <button class="modal-btn" id="btn-exit" style="border-color:#885566;color:#cc8899;background:rgba(120,30,50,0.15);" onclick="window.novaExit(); event.stopPropagation();">&#10006; EXIT</button>
@@ -3040,6 +3038,7 @@ const GAME_VERSION = 'Alpha 1.4';
       { name: "OBI'S MIX", bpm: 'track', file: 'obis_mix', obi: true, notes: [0], bass: [0] },
       { name: 'PIRATE CIRCUIT', bpm: 'track', file: 'pirate_circuit', station: 'pirate', notes: [0], bass: [0] },
       { name: 'SYNTHWAVE HIGHWAY', bpm: 120, notes: [220, 246.9, 261.6, 293.7, 329.6, 293.7, 261.6, 220], bass: [55, 55, 65.4, 73.4] },
+      { name: 'COLD HORIZON SIGNAL', bpm: 'track', file: 'cold_horizon_signal', ctx: 'flight', notes: [0], bass: [0] },
       { name: 'DEEP SPACE CHILL', bpm: 80, notes: [174.6, 196.0, 220.0, 261.6, 293.7, 261.6, 220.0, 196.0], bass: [43.6, 43.6, 49.0, 55.0] },
       { name: 'COMBAT CYBERPUNK', bpm: 135, notes: [146.8, 164.8, 174.6, 220.0, 246.9, 220.0, 174.6, 146.8], bass: [36.7, 36.7, 43.6, 49.0] }
     ];
@@ -12216,6 +12215,285 @@ const GAME_VERSION = 'Alpha 1.4';
         }
       }, 0.16, 0.07);
     }
+
+    // ── Cantina Shooting Range Doorway, Cornelius Armory Chief Droid, FPS Upgrades Terminal, and AZ-7 Service Droid ──
+    // 1. Shooting Range Archway & Portal Doorway
+    const novaRangePortal = new THREE.Group();
+    novaRangePortal.position.set(-4.2, 0, 0.4);
+    novaRangePortal.rotation.y = Math.PI * 0.42;
+    cantinaGroup.add(novaRangePortal);
+    {
+      const archMat = new THREE.MeshStandardMaterial({ color: 0x161e28, metalness: 0.8, roughness: 0.3 });
+      const jambLeft = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.5, 0.35), archMat);
+      jambLeft.position.set(-0.85, 1.25, 0);
+      novaRangePortal.add(jambLeft);
+      const jambRight = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.5, 0.35), archMat);
+      jambRight.position.set(0.85, 1.25, 0);
+      novaRangePortal.add(jambRight);
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.32, 0.38), archMat);
+      lintel.position.set(0, 2.51, 0);
+      novaRangePortal.add(lintel);
+
+      // Warning neon strip and portal field
+      const neonBorder = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.04, 0.36), new THREE.MeshBasicMaterial({ color: 0x00f0ff }));
+      neonBorder.position.set(0, 2.33, 0);
+      novaRangePortal.add(neonBorder);
+
+      const fieldGeo = new THREE.PlaneGeometry(1.5, 2.3);
+      const fieldMat = new THREE.MeshBasicMaterial({ color: 0x0088cc, transparent: true, opacity: 0.28, side: THREE.DoubleSide });
+      const portalField = new THREE.Mesh(fieldGeo, fieldMat);
+      portalField.position.set(0, 1.15, 0);
+      novaRangePortal.add(portalField);
+
+      // Doorway Canvas Sign
+      const signC = document.createElement('canvas'); signC.width = 512; signC.height = 128;
+      const sCtx = signC.getContext('2d');
+      sCtx.fillStyle = '#071520'; sCtx.fillRect(0, 0, 512, 128);
+      sCtx.strokeStyle = '#00f0ff'; sCtx.lineWidth = 4; sCtx.strokeRect(4, 4, 504, 120);
+      sCtx.fillStyle = '#ffaa00'; sCtx.font = 'bold 32px monospace'; sCtx.textAlign = 'center';
+      sCtx.fillText('🎯 LIVE-FIRE RANGE', 256, 50);
+      sCtx.fillStyle = '#00f0ff'; sCtx.font = 'bold 22px monospace';
+      sCtx.fillText('ARMORY & TARGET ARENA', 256, 86);
+      sCtx.fillStyle = '#88ccee'; sCtx.font = '16px monospace';
+      sCtx.fillText('[TOUCH TO ENTER SHOOTING RANGE]', 256, 112);
+      const signTex = new THREE.CanvasTexture(signC);
+      const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.35), new THREE.MeshBasicMaterial({ map: signTex, side: THREE.DoubleSide }));
+      signMesh.position.set(0, 2.8, 0.05);
+      novaRangePortal.add(signMesh);
+
+      // Interactive Action Pad & Clickable Archway
+      registerCockpitButton(portalField, 'SHOOTING RANGE PORTAL', () => {
+        showToast('🎯 ENTERING LIVE-FIRE SHOOTING RANGE...', 2200, '#00f0ff');
+        if (typeof window.novaRange === 'function') window.novaRange();
+      }, 0.55);
+      novaPad(novaRangePortal, 'ENTER RANGE', '#00f0ff', new THREE.Vector3(0, 1.05, 0.15), new THREE.Euler(-0.35, 0, 0), () => {
+        showToast('🎯 ENTERING LIVE-FIRE SHOOTING RANGE...', 2200, '#00f0ff');
+        if (typeof window.novaRange === 'function') window.novaRange();
+      }, 0.34, 0.12);
+    }
+
+    // 2. Cornelius — Armory Chief & Quartermaster Droid
+    const corneliusGroup = new THREE.Group();
+    corneliusGroup.position.set(-3.3, 0, 1.35);
+    corneliusGroup.rotation.y = Math.PI * 0.32;
+    cantinaGroup.add(corneliusGroup);
+    {
+      const droidMat = new THREE.MeshStandardMaterial({ color: 0x1f2630, metalness: 0.85, roughness: 0.25 });
+      const armorMat = new THREE.MeshStandardMaterial({ color: 0xb45309, metalness: 0.7, roughness: 0.35 });
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+
+      // Heavy industrial pedestal / tread chassis
+      const baseMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.35, 12), droidMat);
+      baseMesh.position.y = 0.175;
+      corneliusGroup.add(baseMesh);
+
+      // Torso & armor plate
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.58, 0.34), droidMat);
+      torso.position.y = 0.65;
+      corneliusGroup.add(torso);
+      const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.36, 0.08), armorMat);
+      chestPlate.position.set(0, 0.72, 0.16);
+      corneliusGroup.add(chestPlate);
+
+      // Armored Head with dual sensor optics
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.24, 0.26), droidMat);
+      head.position.y = 1.08;
+      corneliusGroup.add(head);
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.04), eyeMat);
+      visor.position.set(0, 1.08, 0.14);
+      corneliusGroup.add(visor);
+      const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.22, 6), new THREE.MeshBasicMaterial({ color: 0xffaa00 }));
+      antenna.position.set(0.1, 1.28, -0.06);
+      corneliusGroup.add(antenna);
+
+      // Hydraulic weapon-smith arms
+      [-1, 1].forEach(s => {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.45, 0.10), droidMat);
+        arm.position.set(0.26 * s, 0.64, 0.08);
+        arm.rotation.x = -0.45;
+        corneliusGroup.add(arm);
+      });
+
+      // Name Badge
+      const badge = novaLabelSprite('CORNELIUS · ARMORY CHIEF', '#ffaa00', 0.52);
+      badge.position.y = 1.38;
+      corneliusGroup.add(badge);
+
+      // Dialogue / Audio line function
+      const corneliusQuotes = [
+        "Welcome to the Nova Armory, pilot. Range is open down the corridor—keep your muzzle down until you're past the blast line.",
+        "Deep Cold raiders don't wait for your shields to reboot. Test your zeroing at the range before taking contracts.",
+        "Arc capacitors charged, Vulkan tight choke calibrated. Spend your credits at the terminal to upgrade your FPS kit.",
+        "Precision wins fights in zero-G corridors. Calibrate your scatter spread on the targets downrange."
+      ];
+      let corneliusIdx = 0;
+      function speakCornelius() {
+        const line = corneliusQuotes[corneliusIdx++ % corneliusQuotes.length];
+        showToast(`CORNELIUS: "${line}"`, 4500, '#ffaa00');
+        novaChatLog('CORNELIUS', line, '#ffaa00');
+        novaSubsPush('CORNELIUS', line, '#ffaa00');
+        try {
+          if (!window.novaCorneliusAudio) {
+            window.novaCorneliusAudio = new Audio('./Audio/ElevenLabs_2026-11-07T14_39_04_Cornelius_pvc_s0_v3.mp3');
+          }
+          window.novaCorneliusAudio.currentTime = 0;
+          window.novaCorneliusAudio.volume = 0.85;
+          window.novaCorneliusAudio.play().catch(e => console.warn('[Cornelius Audio]', e));
+        } catch (e) { }
+      }
+
+      registerCockpitButton(torso, 'CORNELIUS DROID', () => speakCornelius(), 0.35);
+      novaPad(corneliusGroup, 'TALK CORNELIUS', '#ffaa00', new THREE.Vector3(0, 0.88, 0.35), new THREE.Euler(-0.4, 0, 0), () => speakCornelius(), 0.22, 0.08);
+    }
+
+    // 3. FPS Upgrades Interactive Kiosk Terminal
+    window.novaFpsUpgrades = window.novaFpsUpgrades || {
+      arcCapacitor: false,
+      vulkanChoke: false,
+      lanceFocus: false,
+      suitShield: false
+    };
+    const novaFpsTerminal = new THREE.Group();
+    novaFpsTerminal.position.set(-2.8, 0, 0.35);
+    novaFpsTerminal.rotation.y = Math.PI * 0.46;
+    cantinaGroup.add(novaFpsTerminal);
+    {
+      const kioskBase = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 0.92, 12), new THREE.MeshStandardMaterial({ color: 0x141c24, metalness: 0.8, roughness: 0.3 }));
+      kioskBase.position.y = 0.46;
+      novaFpsTerminal.add(kioskBase);
+
+      const kioskScreenMesh = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.58, 0.04), new THREE.MeshStandardMaterial({ color: 0x09141f, metalness: 0.7 }));
+      kioskScreenMesh.position.set(0, 1.05, 0);
+      kioskScreenMesh.rotation.x = -0.32;
+      novaFpsTerminal.add(kioskScreenMesh);
+
+      const scrC = document.createElement('canvas'); scrC.width = 512; scrC.height = 384;
+      const sCtx = scrC.getContext('2d');
+      const scrTex = new THREE.CanvasTexture(scrC);
+      const scrFace = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 0.54), new THREE.MeshBasicMaterial({ map: scrTex }));
+      scrFace.position.set(0, 1.05, 0.025);
+      scrFace.rotation.x = -0.32;
+      novaFpsTerminal.add(scrFace);
+
+      const fpsItems = [
+        { k: 'arcCapacitor', name: 'ARC CAPACITOR', cost: 400, desc: '+35% Pistol damage & ionizing arc' },
+        { k: 'vulkanChoke', name: 'VULKAN CHOKE', cost: 500, desc: 'Tight choke (8 pellets), +30% range' },
+        { k: 'lanceFocus', name: 'LANCE FOCUS', cost: 650, desc: '+50% sustained beam DPS & focus' },
+        { k: 'suitShield', name: 'SUIT SHIELD+', cost: 450, desc: '+50 Max Shield (150 HP total)' }
+      ];
+
+      function drawFpsTerminal() {
+        sCtx.fillStyle = '#06111a'; sCtx.fillRect(0, 0, 512, 384);
+        sCtx.strokeStyle = '#00f0ff'; sCtx.lineWidth = 3; sCtx.strokeRect(3, 3, 506, 378);
+        sCtx.fillStyle = '#00f0ff'; sCtx.font = 'bold 24px monospace'; sCtx.textAlign = 'left';
+        sCtx.fillText('FPS WEAPONS & ARMORY DEPOT', 18, 34);
+        sCtx.textAlign = 'right';
+        sCtx.fillStyle = '#ffd24a'; sCtx.font = 'bold 20px monospace';
+        sCtx.fillText(`${bankCredits} CR`, 494, 34);
+        sCtx.textAlign = 'left';
+
+        fpsItems.forEach((it, i) => {
+          const y = 56 + i * 78;
+          const bought = !!window.novaFpsUpgrades[it.k];
+          sCtx.fillStyle = bought ? 'rgba(0,255,200,0.12)' : 'rgba(255,255,255,0.04)';
+          sCtx.fillRect(12, y, 488, 70);
+          sCtx.strokeStyle = bought ? '#00ffcc' : '#2d4b68';
+          sCtx.strokeRect(12, y, 488, 70);
+
+          sCtx.fillStyle = bought ? '#00ffcc' : '#ffffff';
+          sCtx.font = 'bold 20px monospace';
+          sCtx.fillText(it.name, 22, y + 26);
+
+          sCtx.fillStyle = '#8db1cf';
+          sCtx.font = '16px monospace';
+          sCtx.fillText(it.desc, 22, y + 54);
+
+          sCtx.textAlign = 'right';
+          sCtx.fillStyle = bought ? '#00ffcc' : (bankCredits >= it.cost ? '#ffd24a' : '#ff5566');
+          sCtx.font = 'bold 18px monospace';
+          sCtx.fillText(bought ? 'INSTALLED' : `${it.cost} CR`, 486, y + 42);
+          sCtx.textAlign = 'left';
+        });
+        scrTex.needsUpdate = true;
+      }
+      drawFpsTerminal();
+
+      // Touch pads for each upgrade on the terminal
+      fpsItems.forEach((it, i) => {
+        const py = 1.20 - i * 0.10;
+        novaPad(novaFpsTerminal, it.name.slice(0, 10), '#00f0ff', new THREE.Vector3(0.42, py, 0.05), new THREE.Euler(-0.32, 0, 0), () => {
+          if (window.novaFpsUpgrades[it.k]) {
+            showToast(`${it.name} IS ALREADY INSTALLED & ACTIVE`, 2000, '#00ffcc');
+            return;
+          }
+          if (bankCredits < it.cost) {
+            showToast(`INSUFFICIENT CREDITS (NEEDS ${it.cost} CR)`, 2200, '#ff4455');
+            sound.beep(280, 0.12);
+            return;
+          }
+          bankCredits -= it.cost;
+          window.novaFpsUpgrades[it.k] = true;
+          sound.stationChirp();
+          showToast(`⚡ UPGRADE PURCHASED: ${it.name}`, 3000, '#00ffcc');
+          novaChatLog('ARMORY', `Upgraded ${it.name}. Military calibration active.`, '#00ffcc');
+          drawFpsTerminal();
+        }, 0.18, 0.06);
+      });
+      const termTitle = novaLabelSprite('FPS UPGRADES KIOSK', '#00f0ff', 0.42);
+      termTitle.position.y = 1.48;
+      novaFpsTerminal.add(termTitle);
+    }
+
+    // 4. AZ-7 Service Droid ("Sparky") near observation deck
+    const az7Group = new THREE.Group();
+    az7Group.position.set(2.8, 0, 3.8);
+    az7Group.rotation.y = -Math.PI * 0.75;
+    cantinaGroup.add(az7Group);
+    {
+      const azMat = new THREE.MeshStandardMaterial({ color: 0xefefef, roughness: 0.35, metalness: 0.6 });
+      const azOrange = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4, metalness: 0.4 });
+      const azLens = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+      const sphereGeo = new THREE.SphereGeometry(0.24, 16, 14);
+      const azBody = new THREE.Mesh(sphereGeo, azMat);
+      azBody.position.y = 1.15;
+      az7Group.add(azBody);
+
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.245, 0.245, 0.08, 16), azOrange);
+      band.position.y = 1.15;
+      az7Group.add(band);
+
+      const eye = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 12), azLens);
+      eye.rotation.x = Math.PI / 2;
+      eye.position.set(0, 1.15, 0.23);
+      az7Group.add(eye);
+
+      const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.18, 6), new THREE.MeshBasicMaterial({ color: 0x00f0ff }));
+      ant.position.set(0.08, 1.42, 0);
+      az7Group.add(ant);
+
+      const azSign = novaLabelSprite('AZ-7 · SERVICE DROID', '#00f0ff', 0.46);
+      azSign.position.y = 1.55;
+      az7Group.add(azSign);
+
+      const azQuotes = [
+        "*Whirrrr-click!* Window defroster coil efficiency: 98.4%. Sector zero temperature is dropping rapidly, pilot.",
+        "*Chirp-beep!* Starfighter thruster cowl inspection complete. Atmospheric seals holding at nominal pressure.",
+        "*BZZT* Warning: automated scavengers detected beyond the scrap belt. Keep blasters armed and calibrated.",
+        "*Happy beep* The stars look exceptionally bright through the polar glass today. Safe flying, Commander!"
+      ];
+      let azIdx = 0;
+      function speakAz7() {
+        const line = azQuotes[azIdx++ % azQuotes.length];
+        sound.stationChirp();
+        showToast(`AZ-7: "${line}"`, 4000, '#00f0ff');
+        novaChatLog('AZ-7', line, '#00f0ff');
+        novaSubsPush('AZ-7', line, '#00f0ff');
+      }
+
+      registerCockpitButton(azBody, 'AZ-7 SERVICE DROID', () => speakAz7(), 0.32);
+      novaPad(az7Group, 'TALK AZ-7', '#00f0ff', new THREE.Vector3(0, 0.85, 0.26), new THREE.Euler(-0.4, 0, 0), () => speakAz7(), 0.18, 0.07);
+    }
     let novaTalkIdx = 0;
     const NOVA_TALK = ['How are you doing?', 'Any advice for a new pilot?', 'Tell me about yourself.', "What's the news around the station?", 'What do you think is the right thing to do out here?', 'Thanks for everything.'];
     function novaTalkTo(name) {
@@ -19390,7 +19668,7 @@ const GAME_VERSION = 'Alpha 1.4';
     const NP_OBJ = { name: 'OBJECTIVE', c: '#ffcc00', hint: 'ROUTE warps you to the objective when the route is known \u00b7 the compass diamond points to it',
       row: () => { try { nsObjectivePick(); } catch (e) { } },
       pads: [{ l: 'ROUTE', c: '#ffcc00', fn: () => { try { nsObjectivePick(); } catch (e) { } } }, { l: 'BRIEFING', c: '#b266ff', fn: () => { const ch = CAMPAIGN[campaignChapter]; if (ch) nkIntroStart(true, { k: ch.title, t: ch.objective, b: [ch.hint, '"' + ch.intro + '"', '\u2014 ' + ch.speaker], last: true }); } },
-        { l: 'LOG', c: '#ffd24a', fn: P => { const a = (P && P.acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); } }, { l: 'STORY', c: '#00e5ff', fn: () => nkIntroStart(true) }],
+        { l: 'WATCH INTRO', c: '#00e5ff', fn: () => { try { if (window.novaWatchVideo) window.novaWatchVideo('intro'); } catch (e) { } } }, { l: 'STORY', c: '#ffd24a', fn: () => nkIntroStart(true) }],
       draw: (x, P) => {
         const ch = CAMPAIGN[campaignChapter];
         if (!ch) { npText(x, 'ALL CHAPTERS COMPLETE', 20, 100, 'bold 30px monospace', '#ffcc00'); npText(x, 'The sector is yours. Contracts are on the cantina board.', 20, 140, '22px monospace', '#9fc3d8', 980); return; }
@@ -19403,6 +19681,14 @@ const GAME_VERSION = 'Alpha 1.4';
         npText(x, 'HOW: ' + ch.hint, 20, 272, '21px monospace', '#7fb6d0', 990);
         npText(x, (ch.speaker || 'COMMS') + ': "' + ch.intro + '"', 20, 306, '19px monospace', '#bfe8ff', 990);
         try { const so = nsActiveCh(); if (so && so.site) npText(x, 'ROUTE: ' + (NSITE.unlock[so.site] ? 'known \u00b7 press ROUTE' : 'not found yet'), 20, 338, 'bold 20px monospace', NSITE.unlock[so.site] ? '#33ff99' : '#ff8866'); } catch (e) { }
+        x.fillStyle = 'rgba(0, 229, 255, 0.15)';
+        x.fillRect(20, 356, 380, 46);
+        x.strokeStyle = '#00e5ff';
+        x.lineWidth = 2;
+        x.strokeRect(20, 356, 380, 46);
+        x.textAlign = 'center';
+        npText(x, '🎬 WATCH INTRO CINEMATIC', 210, 386, 'bold 18px monospace', '#00e5ff');
+        x.textAlign = 'left';
       } };
     // ── WEAPONS + CARGO (right) ──
     const npFire = () => { const e = cockpitInteractables.find(q => q.label === 'FIRE MISSILE' && q.mesh !== bigRedBtn); if (e) e.action(); };
@@ -21788,7 +22074,8 @@ const GAME_VERSION = 'Alpha 1.4';
       { name: 'BATTLE IN THE MARKET', file: 'battle_market', ctx: 'combat' },
       { name: 'ORBITAL DRIFT', file: 'orbital_drift', station: 'synth' },
       { name: "OBI'S MIX", file: 'obis_mix', obi: true },
-      { name: 'PIRATE CIRCUIT', file: 'pirate_circuit', station: 'pirate' }
+      { name: 'PIRATE CIRCUIT', file: 'pirate_circuit', station: 'pirate' },
+      { name: 'COLD HORIZON SIGNAL', file: 'cold_horizon_signal', ctx: 'flight' }
     ];
     NRM_TRACKS.forEach(t => {
       const ex = BGM_TRACKS.find(x => x.file === t.file);
