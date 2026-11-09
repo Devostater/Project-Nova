@@ -96,3 +96,11 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Affection loop:** extend the existing `novaAff`. Choices, gifts, missions together and talks raise or lower it. Saved via `save.js`. A separate track for NYX.
 - **Heart icons:** small floating hearts above MATRIX's hologram when affection rises (fade up and away, broken heart when it drops), plus a heart meter on the wrist menu/companion screen. A toggle in OPTIONS hides them for players who don't want them.
 - VR: hearts are world-space sprites with `raycast = () => {}` so they never block input.
+
+### 16. Planetside UX: menu, interactions, safehouse darts, rover, FPS phone menu  *(keep it EASY)*
+- **One planetside menu:** a single simple menu on foot (wrist in VR, a button on flat screens) with Map, Rover, Safehouse, Market, Jobs, Return to ship. Big buttons, max 6 per page.
+- **Interactions:** one rule everywhere. Look/point at a thing → glowing outline + label → one press/pinch to use it (`[E]` / trigger / pinch). No hidden combos.
+- **Safehouse darts:** finish the magnetic darts minigame (from the AI Studio build): throw with pinch-release or trigger, live scoreboard, small credit/affection rewards.
+- **Rover:** board/exit with one press, auto-level on terrain, simple drive (stick/WASD/hand lever), a speed cap for comfort, a "return to rover" marker.
+- **FPS phone menu:** a handheld phone/datapad on foot (raise left wrist in VR, Tab on desktop) with Map, Messages (task 12 chat), Jobs, Inventory, Settings. Replaces the scattered test buttons.
+- Use the task 0 input layer so all of this works on every device.
