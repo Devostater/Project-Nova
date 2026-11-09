@@ -59,3 +59,14 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **9c. Activities:** job board (cargo, bounties, pirate contracts that tie into rep), talking NPCs, a home/apartment that upgrades the safehouse.
 - **9d. More cities:** reuse the kit on other planets (pirate city = black market).
 - Budget: the city must hold Quest framerate. Use LODs, cull what's out of view, and cap the NPC count.
+
+### 10. Rentable station space  *(after tasks 4 + 6)*
+- Rent a hangar bay, storage, quarters or a shop stall at stations: a daily credit cost, saved via `save.js`.
+- Storage holds cargo between trade runs. A hangar stores extra ships. Quarters work as a respawn and safehouse point. A stall sells goods passively.
+- Prices depend on the station and on rep (cheaper with friendly factions; the pirate station takes illegal cargo).
+
+### 11. More sectors  *(after the warp/nav check)*
+- Split the universe into sectors (the core sector exists now). Jump between them with the existing warp system plus a sector map.
+- Each sector has its own skybox, faction control, stations, hazards and trade prices.
+- Load one sector at a time to stay inside Quest memory. Sector data goes in JSON so new sectors don't need code.
+- Start with 3: **Core (EDF)**, **Pirate Reach**, **Alien Frontier**.
