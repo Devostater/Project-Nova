@@ -78,3 +78,15 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Offline fallback:** scripted lines when there's no connection (Quest offline play must still work).
 - Key safety: the AI API key never ships in the client. Calls go through a small server proxy.
 - Later (DLC): player-to-player chat with multiplayer.
+
+### 13. Dialogue system + branching story
+- One dialogue engine: data-driven trees (JSON) with choices, conditions (rep, credits, story flags, morality) and effects (rep change, items, missions, unlocking scenes).
+- Works the same for scripted NPCs, NYX/MATRIX (with the AI chat from task 12 layered on top) and comms hails.
+- Branching campaign: key choices set story flags that change missions, factions' attitudes and the epilogue (extend the existing `morality`, `CAMPAIGN` and cinematics epilogue variants).
+- VR-friendly choice UI (point/pinch/trigger, or voice) plus subtitles. Saved via `save.js`.
+
+### 14. Jail: pirate jail + Nova jail
+- **Nova (EDF) jail:** caught with high wanted level / contraband → fined or jailed. Serve time (skip with credits), bribe a guard, or break out (an FPS escape mission).
+- **Pirate jail:** captured by pirates (low pirate rep or defeated) → held for ransom. Pay, work it off, or escape and loot your ship back.
+- Both are short FPS/dialogue levels built on `fps_core`/`interior` + the task 13 dialogue. The outcome changes rep and the story flags.
+- Lose cargo/credits as the penalty; never delete the player's ship or save.
