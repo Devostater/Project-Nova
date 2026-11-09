@@ -18,6 +18,7 @@
     "eva_core.js",
     "achievements.js",
     "roster.js",
-    "save.js"
+    "save.js",
+    "vr_hands.js"
   ]
 }

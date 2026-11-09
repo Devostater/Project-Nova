@@ -181,6 +181,7 @@ const FILES = [
   "./modules/postfx.js",
   "./modules/roster.js",
   "./modules/save.js",
+  "./modules/vr_hands.js",
   "./music/battle_market.mp3",
   "./music/obis_mix.mp3",
   "./music/orbital_drift.mp3",
