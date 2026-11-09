@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.23-fps-hands-loco-fix';
+const VERSION = 'nova-alpha-1.24-planet-docking-safehouse';
 const FILES = [
   "./art/alien_planet.jpg",
   "./art/asteroid.jpg",

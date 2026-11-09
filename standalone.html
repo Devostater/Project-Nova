@@ -3518,6 +3518,15 @@ const GAME_VERSION = 'Alpha 1.4';
         role: 'PRIMARY STARBASE'
       },
       {
+        id: 'planet_cygnus',
+        type: 'planet',
+        name: 'CYGNUS PRIME SPACEPORT',
+        callsign: 'PLANETARY CONTROL',
+        pilot: 'Flight Director Sol',
+        freq: '119.70 MHz',
+        role: 'PLANETARY SURFACE & SAFEHOUSE'
+      },
+      {
         id: 'mining_outpost',
         type: 'station',
         name: 'OUTPOST EPSILON-4',
@@ -3714,17 +3723,20 @@ const GAME_VERSION = 'Alpha 1.4';
         }, 380);
       } else if (type === 'dock') {
         isDockingApproved = true;
-        const dist = Math.round(stationGroup.position.distanceTo(shipGroup.position));
-        if (dist <= DOCKING_MAX_RANGE) {
+        const isPlanet = (st.type === 'planet' || String(st.name || '').includes('CYGNUS') || (typeof planetGroup !== 'undefined' && planetGroup && shipGroup.position.distanceTo(planetGroup.position) < 1800 * NOVA_WORLD_SCALE));
+        const targetPos = (isPlanet && typeof planetGroup !== 'undefined' && planetGroup) ? planetGroup.position : stationGroup.position;
+        const maxRange = isPlanet ? (800 * NOVA_WORLD_SCALE) : DOCKING_MAX_RANGE;
+        const dist = Math.round(targetPos.distanceTo(shipGroup.position));
+        if (dist <= maxRange) {
           lastOutgoingMsg = `PILOT: "${st.name}, in docking corridor. Engaging docking clamps."`;
-          lastIncomingMsg = `${st.callsign}: "Docking clamp locked! Welcome to Station Nova-1. Pressurizing airlock..."`;
+          lastIncomingMsg = isPlanet ? `${st.callsign}: "Landing corridor locked! Welcome to Cygnus Prime Spaceport. Atmosphere equalizing..."` : `${st.callsign}: "Docking clamp locked! Welcome to Station Nova-1. Pressurizing airlock..."`;
           drawCommsPanel();
           executeDocking();
         } else {
           lastOutgoingMsg = `PILOT: "${st.name}, requesting docking approach clearance."`;
-          lastIncomingMsg = `${st.callsign}: "Clearance granted! You are ${dist}m out (Max docking range: ${DOCKING_MAX_RANGE}m). Fly closer or engage Autopilot."`;
+          lastIncomingMsg = `${st.callsign}: "Clearance granted! You are ${dist}m out (Max approach range: ${Math.round(maxRange)}m). Fly closer or engage Autopilot."`;
           drawCommsPanel();
-          showToast(`⚓ DOCKING CLEARANCE: APPROACH WITHIN ${DOCKING_MAX_RANGE}M OR ENGAGE AUTOPILOT`, 3500, '#ffaa00');
+          showToast(`⚓ DOCKING CLEARANCE: APPROACH WITHIN ${Math.round(maxRange)}M OR ENGAGE AUTOPILOT`, 3500, '#ffaa00');
         }
       } else if (type === 'resupply') {
         lastOutgoingMsg = `PILOT: "${st.name}, requesting ordnance restock and logistics resupply."`;
@@ -4335,7 +4347,7 @@ const GAME_VERSION = 'Alpha 1.4';
       }
 
       // ── 10. DOCKING, TRACTOR & BOARDING ──
-      if (t.includes('dock') || t.includes('request docking') || t.includes('land') || t.includes('approach station') || t.includes('dock with station')) {
+      if (t.includes('dock') || t.includes('request docking') || t.includes('land') || t.includes('approach station') || t.includes('dock with station') || t.includes('land on planet') || t.includes('dock with planet') || t.includes('land cygnus') || t.includes('dock cygnus')) {
         try {
           if (typeof executeDocking === 'function') {
             executeDocking();
@@ -7420,13 +7432,25 @@ const GAME_VERSION = 'Alpha 1.4';
     }
 
     function executeDocking(fromTractorLanding = false) {
-      const dist = stationGroup.position.distanceTo(shipGroup.position);
-      if (!fromTractorLanding && dist > DOCKING_MAX_RANGE) {
+      const isPlanetTarget = (
+        currentLockedTarget?.obj === planetGroup ||
+        currentLockedTarget?.targetObj === planetGroup ||
+        currentLockedTarget?.type === 'planet' ||
+        String(currentLockedTarget?.name || '').includes('CYGNUS') ||
+        (typeof commsStations !== 'undefined' && commsStations[selectedStationIdx]?.id === 'planet_cygnus') ||
+        (typeof planetGroup !== 'undefined' && planetGroup && shipGroup.position.distanceTo(planetGroup.position) < 950 * NOVA_WORLD_SCALE)
+      );
+
+      const targetPos = (isPlanetTarget && typeof planetGroup !== 'undefined' && planetGroup) ? planetGroup.position : stationGroup.position;
+      const effectiveMaxRange = isPlanetTarget ? (850 * NOVA_WORLD_SCALE) : DOCKING_MAX_RANGE;
+      const dist = targetPos.distanceTo(shipGroup.position);
+
+      if (!fromTractorLanding && dist > effectiveMaxRange) {
         if (sound && sound.beep) sound.beep(350, 0.1);
         if (typeof novaAutoDockPress === 'function') {
           novaAutoDockPress();
         } else {
-          showToast(`⚠️ OUT OF DOCKING RANGE (${Math.round(dist)}m / ${DOCKING_MAX_RANGE}m) — Flying closer via Autopilot...`, 3000, '#ffaa00');
+          showToast(`⚠️ OUT OF DOCKING RANGE (${Math.round(dist)}m / ${Math.round(effectiveMaxRange)}m) — Flying closer via Autopilot...`, 3000, '#ffaa00');
           toggleAutopilot(true);
         }
         return;
@@ -7438,7 +7462,7 @@ const GAME_VERSION = 'Alpha 1.4';
       novaAutoDockPending = false;
       if (novaDock.state !== 'idle') novaDockClear();
 
-      // Bring ship to rest at docking port
+      // Bring ship to rest at docking port / planetary spaceport
       setThrottle(0.0);
       if (shipBody) {
         shipBody.velocity.set(0, 0, 0);
@@ -7447,12 +7471,21 @@ const GAME_VERSION = 'Alpha 1.4';
         if (shipBody.torque) shipBody.torque.set(0, 0, 0);
       }
       if (sound && sound.dockingClamp) sound.dockingClamp();
-      showToast('⚓ DOCKING COMPLETE • ENGINES SAFE • AIRLOCK CYCLING', 3500, '#00ffcc');
+
+      if (isPlanetTarget) {
+        showToast('🌍 PLANETARY TOUCHDOWN • CYGNUS SPACEPORT • PRESSURIZING SAFEHOUSE', 4000, '#00ffaa');
+      } else {
+        showToast('⚓ DOCKING COMPLETE • ENGINES SAFE • AIRLOCK CYCLING', 3500, '#00ffcc');
+      }
 
       setTimeout(() => {
         const dockTargetName = String(currentLockedTarget?.name || '').toLowerCase();
         if (dockTargetName.includes('lantern')) window.nova?.emit?.('dockedAtLantern', { target: currentLockedTarget });
-        enterCantina();
+        if (isPlanetTarget && typeof window.enterSafehouse === 'function') {
+          window.enterSafehouse();
+        } else {
+          enterCantina();
+        }
       }, 1200);
     }
 
@@ -10780,7 +10813,7 @@ const GAME_VERSION = 'Alpha 1.4';
         if (boarding?.dock?.(selected.targetObj)) return;
       }
       const dockable = selected && selected.targetObj && selected.targetObj.visible !== false && !selected.isHostile &&
-        (['station', 'ship', 'allied', 'carrier', 'freighter'].includes(selected.type) || selected.targetObj.userData?.dockable);
+        (['station', 'ship', 'allied', 'carrier', 'freighter', 'planet'].includes(selected.type) || selected.targetObj === planetGroup || selected.targetObj.userData?.dockable);
       if (!dockable) { showToast('DOCK: select a station or friendly ship first (COMMS / radar)', 2600, '#ffaa55'); return; }   // owner: never dock somewhere you didn't pick
       const destination = selected.targetObj;
       if (NDK.state !== 'idle') {
@@ -11246,7 +11279,10 @@ const GAME_VERSION = 'Alpha 1.4';
         me: 'I am ADA-9, fleet logistics intelligence. Probability of your survival improves when you listen to me.' },
       { key: /starlifter|freighter|convoy|cargo|hauler/i, name: 'Capt. Bo Harlan', call: 'STARLIFTER-7', color: '#88ff88', pitch: 0.9,
         bio: 'a nervous but friendly freighter captain hauling cargo who is grateful for any escort',
-        me: "Bo Harlan, Starlifter-7. Just a trucker with a very big, very slow ship." }
+        me: "Bo Harlan, Starlifter-7. Just a trucker with a very big, very slow ship." },
+      { key: /cygnus|spaceport|sol|planet|planetary/i, name: 'Flight Director Sol', call: 'CYGNUS SPACEPORT', color: '#00ffaa', pitch: 1.05,
+        bio: 'planetary flight director at Cygnus Prime spaceport, coordinating ground landing corridors and safehouse suites',
+        me: "Flight Director Sol, Cygnus Spaceport Control. Surface winds calm, safehouse bay open." }
     ];
     const novaChatHistory = {};
     let novaQuickIdx = 0;
@@ -13268,6 +13304,25 @@ const GAME_VERSION = 'Alpha 1.4';
       }
       // Step zero-G physics simulation
       world.step(1 / 60, delta, 3);
+
+      // Atmospheric Entry Trigger for Cygnus Prime
+      if (!isInsideCantina && !isInsideCarrier && !isDockingInProgress && !novaOnFoot() && typeof planetGroup !== 'undefined' && planetGroup) {
+        const distPlanet = shipGroup.position.distanceTo(planetGroup.position);
+        // Cygnus Prime radius is 220 world units; atmospheric entry zone is ~350m
+        if (distPlanet < 360 * NOVA_WORLD_SCALE) {
+          if (!window._novaAtmosphericEntryTriggered) {
+            window._novaAtmosphericEntryTriggered = true;
+            try { sound.engineRev(); } catch (_) {}
+            try { if (sound.alarmBeep) sound.alarmBeep(); } catch (_) {}
+            showToast('🔥 ATMOSPHERIC ENTRY DETECTED • COMMENCING DESCENT TO CYGNUS SPACEPORT', 4500, '#ffaa00');
+            if (typeof novaCruiseStop === 'function') novaCruiseStop('ATMOSPHERE ENTRY');
+            setTimeout(() => {
+              executeDocking(true);
+              setTimeout(() => { window._novaAtmosphericEntryTriggered = false; }, 8000);
+            }, 1400);
+          }
+        }
+      }
 
       // Tumble Asteroids
       asteroids.forEach(a => {
@@ -17765,6 +17820,14 @@ const GAME_VERSION = 'Alpha 1.4';
           ndkSet('hold'); NDK.notch0 = currentThrottleNotch;
           const line = NDK_LINES[NDK.type] || 'Docked alongside. Press DOCK to release.';
           try { showToast('DOCKED WITH ' + NDK.name + '. Push the throttle or press DOCK to release.', 4200, '#00ffcc'); novaChatLog(NDK.name, line, '#66ffee'); sound.lockTone(); } catch (e) { }
+          if (NDK.obj === planetGroup || NDK.type === 'planet' || String(NDK.name || '').includes('CYGNUS')) {
+            setTimeout(() => {
+              if (NDK.state === 'hold') {
+                ndkRelease(false);
+                executeDocking(true);
+              }
+            }, 800);
+          }
         }
       } else {
         shipGroup.position.copy(dest);
@@ -22798,7 +22861,7 @@ const GAME_VERSION = 'Alpha 1.4';
       console.log('[piracy_law] active');
     }).catch(e => console.warn('[piracy_law] not loaded', e && e.message));
     import('./modules/safehouse.js').then(m => {
-      window.novaSafehouseMod = m.init({ THREE, scene, toast: showToast, sound });
+      window.novaSafehouseMod = m.init({ THREE, scene, toast: showToast, sound, shipGroup, shipBody, cameraRig, camera, renderer });
       console.log('[safehouse] ready');
     }).catch(e => console.warn('[safehouse] not loaded', e && e.message));
     function nfxFrame() {
