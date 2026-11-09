@@ -2834,7 +2834,9 @@ const GAME_VERSION = 'Alpha 1.4';
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = isToast ? 'rgba(3, 14, 26, 0.94)' : 'rgba(2, 8, 16, 0.75)';
       ctx.fillRect(4, 4, w - 8, h - 8);
-      ctx.strokeStyle = color || '#00e5ff';
+      const isBlackout = !!window.isBlackoutActive;
+      const borderColor = isToast ? (color || '#00e5ff') : (isBlackout ? '#ff3344' : '#00e5ff');
+      ctx.strokeStyle = borderColor;
       ctx.lineWidth = isToast ? 3.5 : 1.5;
       ctx.strokeRect(4, 4, w - 8, h - 8);
       const cl = 24;
@@ -2846,13 +2848,13 @@ const GAME_VERSION = 'Alpha 1.4';
       ctx.moveTo(4, h - 4 - cl); ctx.lineTo(4, h - 4); ctx.lineTo(4 + cl, h - 4);
       ctx.moveTo(w - 4 - cl, h - 4); ctx.lineTo(w - 4, h - 4); ctx.lineTo(w - 4, h - 4 - cl);
       ctx.stroke();
-      ctx.fillStyle = isToast ? color : '#33bbff';
+      ctx.fillStyle = isToast ? color : (isBlackout ? '#ff3344' : '#33bbff');
       ctx.fillRect(16, 22, 6, h - 44);
       ctx.font = 'bold 32px monospace';
-      ctx.fillStyle = isToast ? (color || '#00ffcc') : '#66aacc';
+      ctx.fillStyle = isToast ? (color || '#00ffcc') : (isBlackout ? '#ff5566' : '#66aacc');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const displayText = msg || '● ALL SYSTEMS NOMINAL · SENSORS ACTIVE';
+      const displayText = msg || (isBlackout ? '⚡ CRITICAL ELECTRICAL OVERLOAD · REBOOT COCKPIT BREAKER ⚡' : '● ALL SYSTEMS NOMINAL · SENSORS ACTIVE');
       ctx.fillText(displayText, w / 2, h / 2, w - 80);
       vrDashTickerTex.needsUpdate = true;
     }
@@ -2864,7 +2866,7 @@ const GAME_VERSION = 'Alpha 1.4';
       clearTimeout(vrDashToastTimer);
       vrDashToastTimer = setTimeout(() => {
         vrDashToastActive = false;
-        drawVrDashTicker('● ALL SYSTEMS NOMINAL · SENSORS ACTIVE', '#00e5ff', false);
+        drawVrDashTicker('', null, false);
       }, duration);
     }
     window.novaTriggerVrToast = novaTriggerVrToast;
@@ -4387,7 +4389,45 @@ const GAME_VERSION = 'Alpha 1.4';
         return true;
       }
       if (t.includes('passthrough') || t.includes('mixed reality') || t.includes('mr mode') || t.includes('toggle mr')) {
+        if (window.novaEva && window.novaEva.active) {
+          window.novaEva.togglePassthrough();
+          return true;
+        }
         if (typeof togglePassthrough === 'function') { togglePassthrough(); return true; }
+      }
+      if (t.includes('spacewalk') || t.includes('enter eva') || t.includes('exit ship') || t.includes('start eva') || t.includes('eva mode') || (t.includes('eva') && !t.includes('evaluate'))) {
+        if (window.novaEva) {
+          if (window.novaEva.active) window.novaEva.exit();
+          else window.novaEva.enter();
+          return true;
+        }
+      }
+      if (t.includes('board ship') || t.includes('enter cockpit') || t.includes('return to cockpit') || t.includes('end eva') || t.includes('exit eva')) {
+        if (window.novaEva && window.novaEva.active) {
+          window.novaEva.exit();
+          return true;
+        }
+      }
+      if (t.includes('reel tether') || t.includes('retract tether') || t.includes('tether reel')) {
+        if (window.novaEva && window.novaEva.active) {
+          window.novaEva.reelTether();
+          showToast('🗣️ VOICE: REELING UMBILICAL TETHER', 2000, '#00f0ff');
+          return true;
+        }
+      }
+      if (t.includes('trigger emp') || t.includes('emp test') || t.includes('ion shockwave')) {
+        if (window.novaIonEmp) {
+          window.novaIonEmp.triggerEMP({ severity: 1.0 });
+          showToast('🗣️ VOICE: EMP CASCADE INITIATED!', 2500, '#ff3344');
+          return true;
+        }
+      }
+      if (t.includes('reboot ship') || t.includes('restart ship') || t.includes('cold restart') || t.includes('restore power')) {
+        if (window.novaIonEmp) {
+          window.novaIonEmp.restorePower();
+          showToast('🗣️ VOICE: SHIP SYSTEMS REBOOTING', 2500, '#00ffcc');
+          return true;
+        }
       }
       if (t.includes('wrist menu') || t.includes('smartwatch') || t.includes('watch menu')) {
         if (typeof toggleWristMenu === 'function') { toggleWristMenu(); return true; }
@@ -6011,6 +6051,7 @@ const GAME_VERSION = 'Alpha 1.4';
     const blipMatPirate = new THREE.MeshBasicMaterial({ color: 0xff0033 });
     const blipMatAllied = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
     const blipMatAsteroid = new THREE.MeshBasicMaterial({ color: 0x8899aa });
+    const blipMatSalvage = new THREE.MeshBasicMaterial({ color: 0xffd24a });
 
     // Pre-create 12 interactive touchable 3D blips
     for (let bi = 0; bi < 12; bi++) {
@@ -6077,6 +6118,9 @@ const GAME_VERSION = 'Alpha 1.4';
             } else if (cand.isHostile) {
               blip.geometry = blipGeoPirate;
               blip.material = blipMatPirate;
+            } else if (cand.type === 'salvage') {
+              blip.geometry = blipGeoAsteroid;
+              blip.material = blipMatSalvage;
             } else if (cand.type === 'asteroid') {
               blip.geometry = blipGeoAsteroid;
               blip.material = blipMatAsteroid;
@@ -6299,6 +6343,27 @@ const GAME_VERSION = 'Alpha 1.4';
           status: "TITANIUM ORE [" + Math.round(item.a.userData.radius || 10) + "M]"
         });
       });
+
+      // 6. Floating Salvage Pods & Cargo Crates
+      if (typeof NSV !== 'undefined' && NSV.pods && NSV.pods.length > 0) {
+        NSV.pods.forEach((pod, pIdx) => {
+          if (!pod || !pod.g || !pod.g.visible) return;
+          const toPod = pod.g.position.clone().sub(shipPos);
+          const dist = toPod.length();
+          const dir = toPod.clone().normalize();
+          const dot = shipFwd.dot(dir);
+          const label = pod.kind === 'core' ? 'HEAT CORE' : pod.kind === 'credits' ? 'CREDIT CASSETTE' : 'CARGO CRATE';
+          candidates.push({
+            name: `SALVAGE POD: ${label} #${pIdx + 1}`,
+            type: 'salvage',
+            targetObj: pod.g,
+            dist,
+            dot,
+            isHostile: false,
+            status: `SALVAGE [${label.toUpperCase()}] · ${Math.round(dist)}M`
+          });
+        });
+      }
 
       // Prioritize forward-facing targets & hostiles in reticle view
       candidates.sort((a, b) => {
@@ -10791,6 +10856,30 @@ const GAME_VERSION = 'Alpha 1.4';
       if (window.novaHull <= 0) novaShipDisabled();
     }
     window.novaDamage = novaDamage;
+
+    function novaIonDamage(amount = 35) {
+      if (novaDisabled || isInsideCantina) return;
+      novaLastHit = performance.now();
+      if (window.novaShield > 0) {
+        window.novaShield = Math.max(0, window.novaShield - amount * 2.2);
+        shieldFlashTimer = 0.9;
+        try { sound.beep(330, 0.12); } catch (e) {}
+        if (window.novaShield === 0) {
+          showToast('⚡ ION COLLAPSE: DEFLECTOR SHIELDS STRIPPED!', 2500, '#00f0ff');
+          if (window.novaIonEmp) {
+            window.novaIonEmp.triggerEMP({ severity: 'light' });
+          }
+        } else {
+          showToast(`⚡ ION DISCHARGE ON SHIELDS: ${Math.round(window.novaShield)}%`, 1800, '#00f0ff');
+        }
+      } else {
+        if (window.novaIonEmp) {
+          window.novaIonEmp.triggerEMP({ severity: 'critical' });
+        }
+        novaDamage(amount * 0.4);
+      }
+    }
+    window.novaIonDamage = novaIonDamage;
     function novaShipDisabled() {
       novaDisabled = true;
       const cp = window.novaMissionCheckpoint;
@@ -12873,7 +12962,9 @@ const GAME_VERSION = 'Alpha 1.4';
       } else {
         // ADVANCED inputs command rotational thrusters (angular acceleration), not assisted target rates.
         // Releasing the controls preserves rotation unless dampeners are active; counter-input arrests it.
-        const manual = !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive && !novaOnFoot();
+        const isBlackout = !!window.isBlackoutActive;
+        const isEvaActive = !!(window.novaEva && window.novaEva.active);
+        const manual = !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive && !novaOnFoot() && !isBlackout && !isEvaActive;
         if (!manual) advancedAngularRate.set(0, 0, 0);
         else {
           advancedAngularRate.x = THREE.MathUtils.clamp(advancedAngularRate.x + pitchFactor * normPitch * 3.6 * delta, -pitchSpeed, pitchSpeed);
@@ -12888,10 +12979,15 @@ const GAME_VERSION = 'Alpha 1.4';
         }
         pitchRate = advancedAngularRate.x; yawRate = advancedAngularRate.y; rollRate = advancedAngularRate.z;
       }
-      if (arcadeFlight && !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive) {
+      const isBlackout = !!window.isBlackoutActive;
+      const isEvaActive = !!(window.novaEva && window.novaEva.active);
+      if (arcadeFlight && !isAutopilotActive && novaDock.state === 'idle' && NDK.state === 'idle' && !isLightspeedActive && !isBlackout && !isEvaActive) {
         _flightRight.set(1, 0, 0).applyQuaternion(shipGroup.quaternion);
         _flightUp.set(0, 1, 0).applyQuaternion(shipGroup.quaternion);
         rollRate = -THREE.MathUtils.clamp(Math.atan2(_flightRight.y, _flightUp.y), -1, 1) * 2.5;
+      }
+      if (isBlackout || isEvaActive) {
+        pitchRate = 0; yawRate = 0; rollRate = 0;
       }
       if (!isRotationDampenerOn && shipBody) { shipBody.angularDamping = 0; shipBody.linearDamping = 0; }
       const hasFlightRate = Math.abs(pitchRate) + Math.abs(yawRate) + Math.abs(rollRate) > 1e-5;
@@ -12989,7 +13085,7 @@ const GAME_VERSION = 'Alpha 1.4';
       } else {
         // Smoothly contract the warped image effect back to cruise
         warpTransitionAlpha = Math.max(warpTransitionAlpha - 2.2 * delta, 0.0);
-        if (!isInsideCarrier && Math.abs(throttlePct) > 0.01) {
+        if (!isInsideCarrier && Math.abs(throttlePct) > 0.01 && !window.isBlackoutActive && !(window.novaEva && window.novaEva.active)) {
           // Negative along local Z is forward; positive along local Z is reverse!
           const thrustForce = -throttlePct * 300000 * novaShipDef().thrust * (1 + 0.1 * (novaUp.propulsion || 0));
           const localThrust = new THREE.Vector3(0, 0, thrustForce);
@@ -18495,7 +18591,7 @@ const GAME_VERSION = 'Alpha 1.4';
         npHoloFrame(x, lk ? (NP.ccol[currentLockedTarget.type] || '#00e5ff') : '#2a4a63');   // chat lives on the CHAT tab now
       } };
     const NP_FLIGHT = { name: 'FLIGHT', c: '#b266ff', hint: 'touch the large controls · instruments show attitude, throttle and airspeed',
-      pads: [{ l: 'DAMPERS', c: '#e8e8e8', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } }, { l: 'ASSIST', c: '#00e5ff', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } }, { l: 'AUTOPILOT', c: '#33ff99', fn: () => { try { novaTargetAutopilotPress(); } catch (e) { } } }, { l: 'CANOPY', c: '#00e5ff', fn: P => { try { if (typeof novaToggleCanopy === 'function') novaToggleCanopy(); else if (typeof window.novaToggleCanopy === 'function') window.novaToggleCanopy(); } catch (e) { } if (P) P.drawT = 0; } }],
+      pads: [{ l: 'DAMPERS', c: '#e8e8e8', fn: () => { try { toggleRotationDampeners(); } catch (e) { } } }, { l: 'ASSIST', c: '#00e5ff', fn: () => { const a = npFindAct('FLIGHT ASSIST'); if (a) a(); } }, { l: 'AUTOPILOT', c: '#33ff99', fn: () => { try { novaTargetAutopilotPress(); } catch (e) { } } }, { l: (window.novaEva && window.novaEva.active ? 'BOARD SHIP' : 'EVA SPACEWALK'), c: '#00f0ff', fn: P => { try { if (window.novaEva) { if (window.novaEva.active) window.novaEva.exit(); else window.novaEva.enter(); } else if (typeof novaToggleCanopy === 'function') novaToggleCanopy(); } catch (e) { } if (P) P.drawT = 0; } }],
       draw: (x, P) => {
         const v = shipBody.velocity.length(), tp = throttlePct > 1 ? throttlePct : throttlePct * 100;
         npText(x, 'VELOCITY', 20, 86, 'bold 20px monospace', '#9fc3d8'); npText(x, Math.round(v) + ' m/s', 20, 128, 'bold 42px monospace', '#e9fbff');
@@ -18522,11 +18618,12 @@ const GAME_VERSION = 'Alpha 1.4';
         dial(680, 'THROTTLE', tp, 100, '#00e5ff', Math.round(tp) + '%');
         const speedMax = (novaCruise.active ? 900 : isAfterburnerActive ? 360 : 180) * (1 + 0.1 * (novaUp.propulsion || 0));
         dial(880, 'AIRSPEED', v, speedMax, novaCruise.active ? '#66ffcc' : '#b266ff', Math.round(v) + ' m/s');
+        const isEvaActive = !!(window.novaEva && window.novaEva.active);
         const controls = [
           ['DAMPERS', isRotationDampenerOn ? 'ENGAGED' : 'OFF', '#e8e8e8', isRotationDampenerOn],
           ['ASSIST', isFlightAssistOn ? 'ON' : 'OFF', '#00e5ff', isFlightAssistOn],
           ['AUTOPILOT', isAutopilotActive ? 'ON' : 'OFF', '#33ff99', isAutopilotActive],
-          ['CANOPY', (window.isCanopySeeThrough ? 'SEE-THROUGH' : 'STANDARD'), '#00e5ff', !!window.isCanopySeeThrough]
+          ['EVA SPACEWALK', (isEvaActive ? 'SPACEWALK' : 'ENTER EVA'), '#00f0ff', isEvaActive]
         ];
         controls.forEach((b, i) => {
           const X = i % 2 ? 724 : 430, Y = i < 2 ? 180 : 296;

@@ -601,20 +601,19 @@ export function init(nova = {}) {
       scrubContainer.appendChild(scrubFill);
 
       let isScrubbing = false;
-      const doSeek = (e) => {
+      let pendingSeek = null;
+      let wasPlayingBeforeScrub = false;
+      const doSeek = (e, commit = false) => {
         const rect = scrubContainer.getBoundingClientRect();
         if (rect.width <= 0) return;
         const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
         const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
         if (Number.isFinite(v.duration) && v.duration > 0) {
-          const targetTime = frac * v.duration;
+          const targetTime = Math.max(0, Math.min(v.duration, frac * v.duration));
           scrubFill.style.width = (frac * 100) + '%';
           timeDisplay.textContent = `${fmtTime(targetTime)} / ${fmtTime(v.duration)}`;
-          v._intendedSeek = targetTime;
-          try {
-            if (typeof v.fastSeek === 'function') v.fastSeek(targetTime);
-            else v.currentTime = targetTime;
-          } catch (_) {
+          pendingSeek = targetTime;
+          if (commit) {
             try { v.currentTime = targetTime; } catch (_) {}
           }
         }
@@ -623,20 +622,27 @@ export function init(nova = {}) {
       scrubContainer.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         isScrubbing = true;
+        wasPlayingBeforeScrub = !v.paused;
+        if (wasPlayingBeforeScrub) v.pause();
         try { scrubContainer.setPointerCapture(e.pointerId); } catch (_) {}
-        doSeek(e);
+        doSeek(e, false);
       });
       scrubContainer.addEventListener('pointermove', (e) => {
         if (!isScrubbing) return;
         e.stopPropagation();
-        doSeek(e);
+        doSeek(e, false);
       });
       const endScrub = (e) => {
         if (!isScrubbing) return;
         isScrubbing = false;
         try { scrubContainer.releasePointerCapture(e.pointerId); } catch (_) {}
-        if (v._intendedSeek !== undefined && Math.abs(v.currentTime - v._intendedSeek) > 1.5) {
-          try { v.currentTime = v._intendedSeek; } catch (_) {}
+        doSeek(e, true);
+        if (pendingSeek !== null && Number.isFinite(pendingSeek)) {
+          try { v.currentTime = pendingSeek; } catch (_) {}
+          pendingSeek = null;
+        }
+        if (wasPlayingBeforeScrub) {
+          v.play().catch(() => {});
         }
       };
       scrubContainer.addEventListener('pointerup', endScrub);
@@ -777,11 +783,15 @@ export function init(nova = {}) {
           volBtn.innerHTML = v.muted ? '&#128263;' : '&#128266;';
         } else if (e.code === 'ArrowRight') {
           e.preventDefault();
-          v.currentTime = Math.min(v.duration || 9999, v.currentTime + 5);
+          if (Number.isFinite(v.duration) && v.duration > 0) {
+            const curr = Number.isFinite(v.currentTime) ? v.currentTime : 0;
+            v.currentTime = Math.min(v.duration, curr + 5);
+          }
           showControls();
         } else if (e.code === 'ArrowLeft') {
           e.preventDefault();
-          v.currentTime = Math.max(0, v.currentTime - 5);
+          const curr = Number.isFinite(v.currentTime) ? v.currentTime : 0;
+          v.currentTime = Math.max(0, curr - 5);
           showControls();
         }
       };

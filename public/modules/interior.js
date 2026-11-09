@@ -77,14 +77,14 @@ export function init(api) {
     fps?.disable?.();
     api.setActive?.(false);
     (S.prevParent||shipGroup).add(cameraRig);
-    if(S.prevRigPos && S.prevRigPos.y > 0.35){
+    if (S.prevRigPos) {
       cameraRig.position.copy(S.prevRigPos);
-      cameraRig.quaternion.copy(S.prevRigQ||new THREE.Quaternion());
-    }else{
-      cameraRig.position.set(0, 0.66, -0.02);
+      if (S.prevRigQ) cameraRig.quaternion.copy(S.prevRigQ);
+    } else {
+      cameraRig.position.set(0, 0, 0);
       cameraRig.quaternion.identity();
     }
-    camera.rotation.set(0,0,0);
+    camera.rotation.set(0, 0, 0);
     try {
       if (typeof window !== 'undefined') {
         window._novaRangeNext = false;
@@ -93,7 +93,9 @@ export function init(api) {
           u.searchParams.delete('arena');
           history.replaceState({}, '', u.toString());
         }
-        window.recenterPilotView?.(true);
+        if (typeof window.recenterPilotView === 'function') {
+          window.recenterPilotView(true);
+        }
       }
     } catch(_) {}
     const root=S.root;S.root=null;if(root){scene.remove(root);root.traverse(o=>{o.geometry?.dispose?.();if(o.material){o.material.map?.dispose?.();o.material.dispose?.();}});}
