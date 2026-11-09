@@ -14030,9 +14030,10 @@ const GAME_VERSION = 'Alpha 1.4';
       handGroupLeft.position.set(0, 0, 0); handGroupRight.position.set(0, 0, 0);
       function novaUpdateTrackedHands(delta, onFoot = false) {
         cameraRig.updateWorldMatrix(true, true);
+        handGroupLeft.position.set(0, 0, 0); handGroupRight.position.set(0, 0, 0);
+        handGroupLeft.rotation.set(0, 0, 0); handGroupRight.rotation.set(0, 0, 0);
         if (!onFoot) {
           throttleYawInput = 0;
-          handGroupLeft.position.set(0, 0, 0); handGroupRight.position.set(0, 0, 0);
         }
         // Update VR / MR Controllers and Hands (Bare hand tracking focused)
         const session = renderer.xr.getSession();
@@ -14103,6 +14104,14 @@ const GAME_VERSION = 'Alpha 1.4';
               isPinching = tipWorld.distanceTo(thumbWorld) < 0.055;
             }
             if (!isLeftHand) window._novaRightPinching = isPinching;
+            // Expose filtered world positions for FPS mode tracking parity
+            if (isLeftHand) {
+              window._novaTrackedLeftWrist = wristWorld.clone();
+              window._novaTrackedLeftTip = tipWorld.clone();
+            } else {
+              window._novaTrackedRightWrist = wristWorld.clone();
+              window._novaTrackedRightTip = tipWorld.clone();
+            }
 
             // Render ghost joints & skeleton
             let jIdx = 0;
@@ -14430,6 +14439,8 @@ const GAME_VERSION = 'Alpha 1.4';
           // Hide untracked optical hand meshes
           if (!isLeftHandTracked) {
             novaTrackedHandFilter.left.ready = false;
+            window._novaTrackedLeftWrist = null;
+            window._novaTrackedLeftTip = null;
             handMeshes1.forEach(m => m.visible = false);
             boneMeshes1.forEach(b => b.visible = false);
             isGrippingThrottleHand = false;
@@ -14446,6 +14457,8 @@ const GAME_VERSION = 'Alpha 1.4';
           }
           if (!isRightHandTracked) {
             novaTrackedHandFilter.right.ready = false;
+            window._novaTrackedRightWrist = null;
+            window._novaTrackedRightTip = null;
             handMeshes2.forEach(m => m.visible = false);
             boneMeshes2.forEach(b => b.visible = false);
             isGrippingStickHand = false;

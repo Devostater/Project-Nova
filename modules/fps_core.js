@@ -744,6 +744,24 @@ export function init(nova) {
     return null;
   }
   function handPoint(hand,name,out){
+    // Fallback directly to global tracked hand positions if three.js joint object is unavailable
+    const isR = hand?.userData?.handedness === 'right';
+    if(isR && name === 'wrist' && window._novaTrackedRightWrist){
+      out.copy(window._novaTrackedRightWrist);
+      return true;
+    }
+    if(isR && name === 'index-finger-tip' && window._novaTrackedRightTip){
+      out.copy(window._novaTrackedRightTip);
+      return true;
+    }
+    if(!isR && name === 'wrist' && window._novaTrackedLeftWrist){
+      out.copy(window._novaTrackedLeftWrist);
+      return true;
+    }
+    if(!isR && name === 'index-finger-tip' && window._novaTrackedLeftTip){
+      out.copy(window._novaTrackedLeftTip);
+      return true;
+    }
     const j=joint(hand,name);
     if(!j)return false;
     j.getWorldPosition(out);
@@ -836,7 +854,8 @@ export function init(nova) {
   }
   function aimRay(){
     let foundAim=false;
-    if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
+    // Prefer right hand / controller tracking for weapon aim ray
+    if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent&&pistol.parent!==scene&&(rightAnchorState.ready||rightGrip||rightController)){
       pistol.getWorldPosition(origin);
       pistol.getWorldQuaternion(controllerQ);
       direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
@@ -1500,11 +1519,11 @@ export function init(nova) {
       if(camYawFwd.lengthSq()<0.001)camYawFwd.set(0,0,-1);
       camYawRight.crossVectors(camYawFwd,up).normalize();
 
-      // Ergonomic hover target: 24cm below head, 22cm to RIGHT, 32cm forward
+      // Ergonomic hover target: 24cm below head, 22cm to LEFT, 32cm forward
       const targetSocketPos=new T.Vector3()
         .copy(camWorldPos)
         .addScaledVector(up,-0.24)
-        .addScaledVector(camYawRight,0.22)
+        .addScaledVector(camYawRight,-0.22)
         .addScaledVector(camYawFwd,0.32);
 
       // Lock directly to player so it always rotates and stays anchored to the left chest
