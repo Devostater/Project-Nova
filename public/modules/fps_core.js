@@ -599,6 +599,7 @@ export function init(nova) {
   let timeSinceDamage=0,ctrlTpHeld=false;
   let rightController=null,leftController=null,rightGrip=null,leftGrip=null,rightHand=null,leftHand=null,rightIsHand=false,leftIsHand=false,leftFist=false,leftAnchor=null;
   let leftPinchHeld=false,rightPinchHeld=false,leftPinchTime=0,leftPinchUsed=false,bothPinchTime=0,bothPinchExit=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false,pointerWasLocked=false;
+  let xrSwapHeld=false,padSwapHeld=false,wristTapHeld=false,lMidPinchHeld=false;
   let tpValid=false;
   let options={};
 
@@ -1238,6 +1239,10 @@ export function init(nova) {
       trigger=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[0]?.value||0)>.45)||((rightSource?.gamepad?.buttons?.[1]?.value||0)>.75));
       use=!rightIsHand&&(!!rightSource?.gamepad?.buttons?.[4]?.pressed||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
       leave=!rightIsHand&&!!rightSource?.gamepad?.buttons?.[5]?.pressed;
+      // VR Controller Weapon Swap: Left controller X (btn 4), Y (btn 5), or Right stick click (btn 3)
+      const xrSwap=!leftIsHand&&(!!leftSource?.gamepad?.buttons?.[4]?.pressed||!!leftSource?.gamepad?.buttons?.[5]?.pressed||(!rightIsHand&&!!rightSource?.gamepad?.buttons?.[3]?.pressed));
+      if(xrSwap&&!xrSwapHeld){cycleWeapon(leftSource?.gamepad?.buttons?.[5]?.pressed?-1:1);}
+      xrSwapHeld=xrSwap;
       if(turn){if(!snapHeld){rig.rotation.y-=Math.sign(turn)*Math.PI/6;snapHeld=true;}}else snapHeld=false;
       const isMR=window.isPassthroughActive||(renderer?.xr?.isPresenting&&window.xrSessionType==='immersive-ar');
       const ctrlTp=!leftIsHand&&((la[1]<-.60)||!!leftSource?.gamepad?.buttons?.[3]?.pressed);
@@ -1246,8 +1251,12 @@ export function init(nova) {
       padUseHeld=use;padExitHeld=leave;
       const leftThumbValid=leftIsHand&&handPoint(leftHand,'thumb-tip',leftThumb);
       const leftIndexValid=leftIsHand&&handPoint(leftHand,'index-finger-tip',leftIndex);
+      const leftMiddleValid=leftIsHand&&handPoint(leftHand,'middle-finger-tip',leftMiddle);
       const leftWristValid=leftIsHand&&handPoint(leftHand,'wrist',leftWrist);
       const leftPinch=leftIsHand&&leftThumbValid&&leftIndexValid&&leftThumb.distanceTo(leftIndex)<.055;
+      const leftMidPinch=leftIsHand&&leftThumbValid&&leftMiddleValid&&leftThumb.distanceTo(leftMiddle)<.052;
+      if(leftMidPinch&&!lMidPinchHeld){cycleWeapon(1);}
+      lMidPinchHeld=leftMidPinch;
 
       const rightThumbValid=rightIsHand&&handPoint(rightHand,'thumb-tip',rightThumb);
       const rightIndexValid=rightIsHand&&handPoint(rightHand,'index-finger-tip',rightIndex);
@@ -1327,6 +1336,14 @@ export function init(nova) {
       }
       leftPinchHeld=leftPinch;rightPinchHeld=rightPinch;
 
+      // Tactical Wrist Weapon Swap: Touch or tap left wrist with right hand index or controller
+      if(leftWristValid){
+        const rTip=(rightIsHand&&rightIndexValid)?rightIndex:((rightGrip||rightController)?(rightGrip||rightController).position:null);
+        if(rTip&&rTip.distanceTo(leftWrist)<0.14){
+          if(!wristTapHeld){cycleWeapon(1);wristTapHeld=true;}
+        }else{wristTapHeld=false;}
+      }
+
       // Reliable Fist Locomotion (curl left hand fingers and move fist relative to anchor to walk)
       const hasLeftWrist=handPoint(leftHand,'wrist',leftWrist);
       const hasLeftMid=handPoint(leftHand,'middle-finger-tip',leftMiddle);
@@ -1367,6 +1384,9 @@ export function init(nova) {
         x=Math.abs(pad.axes?.[0]||0)>.17?(pad.axes[0]||0):x;z=Math.abs(pad.axes?.[1]||0)>.17?(pad.axes[1]||0):z;
         yaw-=dead(pad.axes?.[2]||0)*d*2.2;pitch=T.MathUtils.clamp(pitch-dead(pad.axes?.[3]||0)*d*1.8,-1.25,1.25);
         if((pad.buttons?.[7]?.value||0)>.45)fire();use=!!pad.buttons?.[0]?.pressed;leave=!!pad.buttons?.[1]?.pressed;
+        const padSwap=!!pad.buttons?.[2]?.pressed||!!pad.buttons?.[4]?.pressed||!!pad.buttons?.[5]?.pressed;
+        if(padSwap&&!padSwapHeld){cycleWeapon(1);}
+        padSwapHeld=padSwap;
       }
       rig.rotation.set(0,yaw,0);camera.rotation.set(pitch,0,0,"YXZ");walk(x,z,d);
       if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('gamepad');padUseHeld=use;padExitHeld=leave;

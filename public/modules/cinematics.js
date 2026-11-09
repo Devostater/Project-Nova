@@ -317,16 +317,18 @@ export function init(nova = {}) {
       };
       if ('requestVideoFrameCallback' in v) {
         v.requestVideoFrameCallback(updateVideoFrame);
+        cleanup.push(() => { cineLoopActive = false; });
+      } else {
+        const videoInterval = setInterval(() => {
+          if (v.readyState >= 2) {
+            tex.needsUpdate = true;
+          }
+        }, 33);
+        cleanup.push(() => {
+          cineLoopActive = false;
+          clearInterval(videoInterval);
+        });
       }
-      const videoInterval = setInterval(() => {
-        if (v.readyState >= 2) {
-          tex.needsUpdate = true;
-        }
-      }, 33);
-      cleanup.push(() => {
-        cineLoopActive = false;
-        clearInterval(videoInterval);
-      });
 
       // ── 5. Subtitles Canvas Plane ──
       const cv = document.createElement('canvas');
@@ -598,12 +600,47 @@ export function init(nova = {}) {
       scrubFill.style.cssText = 'position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #00f0ff; border-radius: 4px; box-shadow: 0 0 10px #00f0ff;';
       scrubContainer.appendChild(scrubFill);
 
-      scrubContainer.onclick = (e) => {
-        e.stopPropagation();
+      let isScrubbing = false;
+      const doSeek = (e) => {
         const rect = scrubContainer.getBoundingClientRect();
-        const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        if (v.duration) v.currentTime = frac * v.duration;
+        if (rect.width <= 0) return;
+        const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        if (Number.isFinite(v.duration) && v.duration > 0) {
+          const targetTime = frac * v.duration;
+          scrubFill.style.width = (frac * 100) + '%';
+          timeDisplay.textContent = `${fmtTime(targetTime)} / ${fmtTime(v.duration)}`;
+          v._intendedSeek = targetTime;
+          try {
+            if (typeof v.fastSeek === 'function') v.fastSeek(targetTime);
+            else v.currentTime = targetTime;
+          } catch (_) {
+            try { v.currentTime = targetTime; } catch (_) {}
+          }
+        }
       };
+
+      scrubContainer.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        isScrubbing = true;
+        try { scrubContainer.setPointerCapture(e.pointerId); } catch (_) {}
+        doSeek(e);
+      });
+      scrubContainer.addEventListener('pointermove', (e) => {
+        if (!isScrubbing) return;
+        e.stopPropagation();
+        doSeek(e);
+      });
+      const endScrub = (e) => {
+        if (!isScrubbing) return;
+        isScrubbing = false;
+        try { scrubContainer.releasePointerCapture(e.pointerId); } catch (_) {}
+        if (v._intendedSeek !== undefined && Math.abs(v.currentTime - v._intendedSeek) > 1.5) {
+          try { v.currentTime = v._intendedSeek; } catch (_) {}
+        }
+      };
+      scrubContainer.addEventListener('pointerup', endScrub);
+      scrubContainer.addEventListener('pointercancel', endScrub);
 
       // Controls row
       const ctrlRow = document.createElement('div');
@@ -649,6 +686,27 @@ export function init(nova = {}) {
         volBtn.innerHTML = v.muted ? '&#128263;' : '&#128266;';
       };
 
+      // Quality / Low-power Performance Mode
+      let isEcoMode = false;
+      const qBtn = document.createElement('button');
+      qBtn.style.cssText = 'background:rgba(0,229,255,0.12);border:1px solid #00f0ff;color:#00f0ff;font-size:11px;font-weight:bold;cursor:pointer;padding:3px 8px;border-radius:4px;outline:none;';
+      qBtn.innerHTML = '⚡ HQ';
+      qBtn.title = 'Switch Video Quality / Low Power Mode';
+      qBtn.onclick = (e) => {
+        e.stopPropagation();
+        isEcoMode = !isEcoMode;
+        qBtn.innerHTML = isEcoMode ? '🌱 ECO' : '⚡ HQ';
+        qBtn.style.color = isEcoMode ? '#33ff99' : '#00f0ff';
+        qBtn.style.borderColor = isEcoMode ? '#33ff99' : '#00f0ff';
+        if (isEcoMode) {
+          v.style.imageRendering = 'pixelated';
+          try { window.showToast?.('🌱 VIDEO ECO MODE: REDUCED GPU LOAD', 2000, '#33ff99'); } catch (_) {}
+        } else {
+          v.style.imageRendering = 'auto';
+          try { window.showToast?.('⚡ VIDEO HQ MODE: MAXIMUM RESOLUTION', 2000, '#00f0ff'); } catch (_) {}
+        }
+      };
+
       const fsBtn = document.createElement('button');
       fsBtn.style.cssText = 'background:none;border:none;color:#9fc3d8;font-size:18px;cursor:pointer;padding:0;outline:none;';
       fsBtn.innerHTML = '&#9974;';
@@ -662,13 +720,14 @@ export function init(nova = {}) {
         }
       };
 
-      rightCtrls.append(volBtn, fsBtn);
+      rightCtrls.append(qBtn, volBtn, fsBtn);
       ctrlRow.append(leftCtrls, rightCtrls);
       controls.append(scrubContainer, ctrlRow);
 
       // Time progress updater
       v.ontimeupdate = () => {
-        if (v.duration) {
+        if (isScrubbing) return;
+        if (Number.isFinite(v.duration) && v.duration > 0) {
           const frac = (v.currentTime / v.duration) * 100;
           scrubFill.style.width = frac + '%';
           timeDisplay.textContent = `${fmtTime(v.currentTime)} / ${fmtTime(v.duration)}`;

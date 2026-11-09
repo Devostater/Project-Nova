@@ -1064,14 +1064,21 @@ const GAME_VERSION = 'Alpha 1.4';
     const PILOT_EYE_Y = 0.66; // Cockpit eye height relative to cockpit floor (high command vantage)
     const PILOT_SEAT_Z = -0.02; // Ergonomic forward seating (closer to dash, stick, throttle, and canopy)
 
-    // Toast notification helper
+    // Toast notification helper (desktop overlay + 3D center cockpit dash ticker screen for VR)
     function showToast(msg, duration = 2500, color = '#00ff88') {
       const t = document.getElementById('status-toast');
-      if (!t) return;
-      t.innerText = msg;
-      t.style.borderColor = color;
-      t.style.opacity = '1';
-      setTimeout(() => { t.style.opacity = '0'; }, duration);
+      if (t) {
+        t.innerText = msg;
+        t.style.borderColor = color;
+        t.style.opacity = '1';
+        clearTimeout(t._hideTimer);
+        t._hideTimer = setTimeout(() => { t.style.opacity = '0'; }, duration);
+      }
+      try {
+        if (typeof novaTriggerVrToast === 'function') {
+          novaTriggerVrToast(msg, duration, color);
+        }
+      } catch (_) {}
     }
 
     // Sound Synthesizer & High-Fidelity Audio Sample Engine
@@ -2798,6 +2805,70 @@ const GAME_VERSION = 'Alpha 1.4';
     );
     dashBench.position.set(0, 0.10, -0.52);
     cockpit.add(dashBench);
+
+    // ── Center Cockpit Dash VR Toast Ticker Screen (Owner: prints desktop messages in VR) ──
+    const vrDashTickerCanvas = document.createElement('canvas');
+    vrDashTickerCanvas.width = 1024;
+    vrDashTickerCanvas.height = 128;
+    const vrDashTickerCtx = vrDashTickerCanvas.getContext('2d');
+    const vrDashTickerTex = new THREE.CanvasTexture(vrDashTickerCanvas);
+    vrDashTickerTex.anisotropy = 4;
+
+    const vrDashTickerMat = new THREE.MeshBasicMaterial({
+      map: vrDashTickerTex,
+      transparent: true,
+      opacity: 0.95,
+      toneMapped: false,
+      side: THREE.DoubleSide
+    });
+    const vrDashTickerScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.058), vrDashTickerMat);
+    vrDashTickerScreen.position.set(0, 0.22, -0.46);
+    vrDashTickerScreen.rotation.set(-0.40, 0, 0);
+    cockpit.add(vrDashTickerScreen);
+
+    let vrDashToastTimer = null;
+    let vrDashToastActive = false;
+
+    function drawVrDashTicker(msg, color, isToast = true) {
+      const ctx = vrDashTickerCtx, w = 1024, h = 128;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = isToast ? 'rgba(3, 14, 26, 0.94)' : 'rgba(2, 8, 16, 0.75)';
+      ctx.fillRect(4, 4, w - 8, h - 8);
+      ctx.strokeStyle = color || '#00e5ff';
+      ctx.lineWidth = isToast ? 3.5 : 1.5;
+      ctx.strokeRect(4, 4, w - 8, h - 8);
+      const cl = 24;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(4, 4 + cl); ctx.lineTo(4, 4); ctx.lineTo(4 + cl, 4);
+      ctx.moveTo(w - 4 - cl, 4); ctx.lineTo(w - 4, 4); ctx.lineTo(w - 4, 4 + cl);
+      ctx.moveTo(4, h - 4 - cl); ctx.lineTo(4, h - 4); ctx.lineTo(4 + cl, h - 4);
+      ctx.moveTo(w - 4 - cl, h - 4); ctx.lineTo(w - 4, h - 4); ctx.lineTo(w - 4, h - 4 - cl);
+      ctx.stroke();
+      ctx.fillStyle = isToast ? color : '#33bbff';
+      ctx.fillRect(16, 22, 6, h - 44);
+      ctx.font = 'bold 32px monospace';
+      ctx.fillStyle = isToast ? (color || '#00ffcc') : '#66aacc';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const displayText = msg || '● ALL SYSTEMS NOMINAL · SENSORS ACTIVE';
+      ctx.fillText(displayText, w / 2, h / 2, w - 80);
+      vrDashTickerTex.needsUpdate = true;
+    }
+    drawVrDashTicker('● ALL SYSTEMS NOMINAL · SENSORS ACTIVE', '#00e5ff', false);
+
+    function novaTriggerVrToast(msg, duration = 2500, color = '#00ff88') {
+      vrDashToastActive = true;
+      drawVrDashTicker(msg, color, true);
+      clearTimeout(vrDashToastTimer);
+      vrDashToastTimer = setTimeout(() => {
+        vrDashToastActive = false;
+        drawVrDashTicker('● ALL SYSTEMS NOMINAL · SENSORS ACTIVE', '#00e5ff', false);
+      }, duration);
+    }
+    window.novaTriggerVrToast = novaTriggerVrToast;
+    window.vrDashTickerScreen = vrDashTickerScreen;
 
     // ── Left Arm Console Bay (House of Comms & Tactical Systems) ──
     const leftArmBay = new THREE.Group();
@@ -8932,10 +9003,21 @@ const GAME_VERSION = 'Alpha 1.4';
     const testButtons = [];
 
     // ── Pilot Seat Height & Headset Recenter Calibration ──
-    function recenterPilotView() {
-      if (typeof window.novaOnFoot === 'function' && window.novaOnFoot()) return;
-      if (window.novaInteriorMod && window.novaInteriorMod.active) return;
-      if (window._novaRangeNext || (typeof wantRange !== 'undefined' && wantRange) || (new URLSearchParams(location.search).get('arena') === 'range')) return;
+    function recenterPilotView(force = false) {
+      if (!force) {
+        if (typeof window.novaOnFoot === 'function' && window.novaOnFoot()) return;
+        if (window.novaInteriorMod && window.novaInteriorMod.active) return;
+        if (window._novaRangeNext || (typeof wantRange !== 'undefined' && wantRange) || (new URLSearchParams(location.search).get('arena') === 'range')) return;
+      } else {
+        window._novaRangeNext = false;
+        try {
+          if (typeof history !== 'undefined' && history.replaceState && location.search.includes('arena=')) {
+            const u = new URL(location.href);
+            u.searchParams.delete('arena');
+            history.replaceState({}, '', u.toString());
+          }
+        } catch (_) {}
+      }
       // Align the headset to cockpit-local -Z, regardless of the ship's world yaw.
       // Three.js positive Y rotation points -Z toward -X, so atan2(x, -z)
       // is the correction itself (negating it doubles the heading error).
@@ -12382,7 +12464,9 @@ const GAME_VERSION = 'Alpha 1.4';
       const delta = Math.min((now - lastFrameTime) * 0.001, 0.05);
       lastFrameTime = now;
       if (window.novaCinematicPlaying) {
-        try { renderer.render(scene, camera); } catch (_) {}
+        if (renderer.xr && renderer.xr.isPresenting) {
+          try { renderer.render(scene, camera); } catch (_) {}
+        }
         return;
       }
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
@@ -12581,6 +12665,30 @@ const GAME_VERSION = 'Alpha 1.4';
               activePlayerLasers.splice(i, 1);
               break;
             }
+          }
+        }
+
+        // Check impact on Floating Cargo Crates & Salvage Pods (Shoot or Tractor loop)
+        if (typeof NSV !== 'undefined' && NSV.pods && NSV.pods.length > 0) {
+          let hitSalvage = null;
+          for (let pIdx = 0; pIdx < NSV.pods.length; pIdx++) {
+            const pod = NSV.pods[pIdx];
+            if (pod && pod.g && l.mesh.position.distanceTo(pod.g.position) < 4.2) {
+              hitSalvage = pod;
+              break;
+            }
+          }
+          if (hitSalvage) {
+            scene.remove(l.mesh);
+            activePlayerLasers.splice(i, 1);
+            try {
+              if (typeof novaBoom === 'function') novaBoom(hitSalvage.g.position.clone(), 0.55);
+              if (typeof sound !== 'undefined') sound.oreCollect();
+            } catch (_) {}
+            nsvStow(hitSalvage);
+            nsvRemove(hitSalvage);
+            showToast('💥 CARGO CRATE SHATTERED BY LASER & HARVESTED!', 2200, '#ffd24a');
+            continue;
           }
         }
       }
@@ -17534,6 +17642,11 @@ const GAME_VERSION = 'Alpha 1.4';
       NKS.tgt = nkCanvas(512, 360); nkScreen(NKS.tgt.t, 0.151, 0.404, -0.1495, 0.104, 0.073);
       nkConsoleButtons();
       nkPedestal();
+      if (typeof vrDashTickerScreen !== 'undefined' && vrDashTickerScreen) {
+        vrDashTickerScreen.position.set(0, 0.340, -0.128).addScaledVector(NKS.n, 0.005);
+        vrDashTickerScreen.rotation.x = NKS.tilt;
+        vrDashTickerScreen.scale.set(0.68, 0.68, 0.68);
+      }
       console.log('[NOVA13] dash screens live: status / radar / targeting');
     }
     function nkDrawTarget() {
@@ -17790,9 +17903,9 @@ const GAME_VERSION = 'Alpha 1.4';
         });
       }; }
     // ── NOVA13: 3D holo-radar over the centre dash screen; touch a contact to lock, touch the range tag to zoom ──
-    const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {}, home: null, moved: false, names: true, labelAbove: false };   // owner: names on by default
+    const NH = { g: null, R: 0.085, pool: [], list: [], listT: 0, view: [], ring: null, sweep: null, lctx: null, ltex: null, lastR: -1, t: 0, mats: {}, home: null, moved: false, names: true, labelAbove: false, grabbed: false, grabHand: null, initHandPos: null, initHandQuat: null, initRadarPos: null, initRadarQuat: null };   // owner: names on by default; grabbable in VR
     window.NH = NH;
-    const NH_COL = { hostile: 0xff3344, missile: 0xff1133, allied: 0x33ff88, station: 0x3fa9ff, planet: 0x66ddff, asteroid: 0x9aa6b8, wreck: 0xffaa33 };
+    const NH_COL = { hostile: 0xff3344, missile: 0xff1133, allied: 0x33ff88, station: 0x3fa9ff, planet: 0x66ddff, asteroid: 0x9aa6b8, wreck: 0xffaa33, salvage: 0xdd88ff };
     function nhMat(type) { const k = NH_COL[type] !== undefined ? type : 'asteroid'; return NH.mats[k] || (NH.mats[k] = new THREE.MeshBasicMaterial({ color: NH_COL[k], toneMapped: false })); }
     function nhLabel(range) {
       const x = NH.lctx; x.clearRect(0, 0, 256, 64);
@@ -17876,6 +17989,80 @@ const GAME_VERSION = 'Alpha 1.4';
     function nhTick(dt) {
       if (!NH.g) return;
       NH.g.visible = (NH.on !== false) && cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen; if (!NH.g.visible) return;
+
+      // ── Interactive 3D Holo-Radar Grab & Rotate with Smooth Return ──
+      try {
+        const ses = (typeof renderer !== 'undefined' && renderer.xr) ? renderer.xr.getSession?.() : null;
+        const sources = ses ? Array.from(ses.inputSources || []) : [];
+        let leftHandGrip = null, rightHandGrip = null;
+        let leftSqueeze = false, rightSqueeze = false;
+
+        ['left', 'right'].forEach(side => {
+          const h = (typeof novaHands !== 'undefined') ? novaHands[side] : null;
+          const src = sources.find(s => s.handedness === side);
+          const gp = src?.gamepad;
+          const squeeze = (gp?.buttons?.[1]?.value > 0.45 || !!gp?.buttons?.[1]?.pressed);
+          const gripPos = h?.grip?.getWorldPosition(new THREE.Vector3()) || null;
+          const gripQuat = h?.grip?.getWorldQuaternion(new THREE.Quaternion()) || null;
+          if (side === 'left') { leftHandGrip = { pos: gripPos, quat: gripQuat }; leftSqueeze = squeeze; }
+          else { rightHandGrip = { pos: gripPos, quat: gripQuat }; rightSqueeze = squeeze; }
+        });
+
+        const radarWorldPos = NH.g.getWorldPosition(new THREE.Vector3());
+        const grabRadius = 0.20;
+
+        if (!NH.grabbed) {
+          if (leftSqueeze && leftHandGrip.pos && leftHandGrip.pos.distanceTo(radarWorldPos) < grabRadius) {
+            NH.grabbed = true;
+            NH.grabHand = 'left';
+            NH.initHandPos = leftHandGrip.pos.clone();
+            NH.initHandQuat = leftHandGrip.quat ? leftHandGrip.quat.clone() : new THREE.Quaternion();
+            NH.initRadarPos = NH.g.position.clone();
+            NH.initRadarQuat = NH.g.quaternion.clone();
+            try { sound.beep(880, 0.05); } catch (_) {}
+            showToast('✋ 3D RADAR GRABBED · ROTATE WITH WRIST · TOUCH TARGETS', 1800, '#00e5ff');
+          } else if (rightSqueeze && rightHandGrip.pos && rightHandGrip.pos.distanceTo(radarWorldPos) < grabRadius) {
+            NH.grabbed = true;
+            NH.grabHand = 'right';
+            NH.initHandPos = rightHandGrip.pos.clone();
+            NH.initHandQuat = rightHandGrip.quat ? rightHandGrip.quat.clone() : new THREE.Quaternion();
+            NH.initRadarPos = NH.g.position.clone();
+            NH.initRadarQuat = NH.g.quaternion.clone();
+            try { sound.beep(880, 0.05); } catch (_) {}
+            showToast('✋ 3D RADAR GRABBED · ROTATE WITH WRIST · TOUCH TARGETS', 1800, '#00e5ff');
+          }
+        } else {
+          const isLeft = NH.grabHand === 'left';
+          const curGrip = isLeft ? leftHandGrip : rightHandGrip;
+          const curSqueeze = isLeft ? leftSqueeze : rightSqueeze;
+
+          if (!curSqueeze || !curGrip.pos) {
+            NH.grabbed = false;
+            NH.grabHand = null;
+            try { sound.beep(720, 0.04); } catch (_) {}
+          } else {
+            const deltaWorld = curGrip.pos.clone().sub(NH.initHandPos);
+            const invCockpitQuat = cockpit.getWorldQuaternion(new THREE.Quaternion()).invert();
+            const deltaLocal = deltaWorld.applyQuaternion(invCockpitQuat);
+            NH.g.position.copy(NH.initRadarPos).add(deltaLocal);
+
+            if (curGrip.quat && NH.initHandQuat) {
+              const rotDiff = curGrip.quat.clone().multiply(NH.initHandQuat.clone().invert());
+              const localRotDiff = invCockpitQuat.clone().multiply(rotDiff).multiply(cockpit.getWorldQuaternion(new THREE.Quaternion()));
+              NH.g.quaternion.copy(localRotDiff).multiply(NH.initRadarQuat);
+            }
+          }
+        }
+
+        if (!NH.grabbed && NH.home) {
+          const distToDock = NH.g.position.distanceTo(NH.home.position);
+          if (distToDock > 0.001) {
+            NH.g.position.lerp(NH.home.position, Math.min(1, dt * 6.5));
+            NH.g.quaternion.slerp(NH.home.quaternion, Math.min(1, dt * 6.5));
+          }
+        }
+      } catch (e) {}
+
       NH.t += dt; NH.listT -= dt;
       const range = (typeof radarZoomLevels !== 'undefined') ? radarZoomLevels[radarZoomIdx] : 600;
       if (NH.listT <= 0) { NH.listT = 0.3; try { NH.list = nmContactList(range, true).slice(0, NH.pool.length); } catch (e) { NH.list = []; } }
@@ -18100,7 +18287,7 @@ const GAME_VERSION = 'Alpha 1.4';
       P.cv.width = 1024; P.cv.height = NP_CH; P.tex = new THREE.CanvasTexture(P.cv); P.tex.anisotropy = 4;
       // keep the old cell actions, then retire the old on-screen cells
       c.btns.forEach(b => { const e = cockpitInteractables.find(q => q.mesh === b); if (e) P.acts[e.label] = e.action; b.visible = false; const i = cockpitInteractables.indexOf(e); if (i >= 0) cockpitInteractables.splice(i, 1); });
-      c.root.scale.setScalar(cfg.id === 'R' ? 1.22 : 0.86);   // owner: right panel larger again   // owner: right panel larger (left stays 0.86)
+      c.root.scale.setScalar(1.24);   // Owner: generous screens for both L & R consoles in VR; large touchable buttons, folds away on command
       const ry = c.rowY;
       const scr = new THREE.Mesh(new THREE.PlaneGeometry(NP_SW, NP_SH), new THREE.MeshBasicMaterial({ map: P.tex, toneMapped: false })); scr.position.set(0, ry + NP_DY, 0.004); scr.renderOrder = 2; c.g.add(scr); P.scr = scr;
       P.at = (px, py, z) => new THREE.Vector3((px / 1024 - 0.5) * NP_SW, ry + NP_DY + (0.5 - (py + NP_OFF) / NP_CH) * NP_SH, z === undefined ? 0.006 : z);
@@ -19535,19 +19722,19 @@ const GAME_VERSION = 'Alpha 1.4';
         else if (T === NP_CREW_TAB) { const r = Math.floor((G.y0 - 52) / 44); if (r >= 0 && r < 8) NP_CREW_TAB.row(P, r); }
         else if (T === NP_NEWS) {
           NNEWS.lastIdleStep = performance.now();
-          if (G.y0 >= 338) {
-            // Tapping bottom pads row on NEWS tab
+          if (G.y0 >= 328) {
+            // Tapping bottom pads row on NEWS tab (generous touch hitbox for VR)
             const padIdx = Math.max(0, Math.min(3, Math.floor((G.x0 - 8) / 251)));
             const pd = (NP_NEWS.pads || [])[padIdx];
             if (pd && pd.fn) pd.fn(P);
           } else if (G.x0 < 376) {
-            if (G.y0 >= 56 && G.y0 <= 88) {
+            if (G.y0 >= 50 && G.y0 <= 92) {
               if (G.x0 <= 116) nnewsSetFilter('all');
               else if (G.x0 <= 236) nnewsSetFilter('videos');
               else nnewsSetFilter('articles');
-            } else if (G.y0 >= 90 && G.y0 <= 116) {
+            } else if (G.y0 > 92 && G.y0 <= 116) {
               nnewsStep(-1);
-            } else if (G.y0 >= 312 && G.y0 <= 338) {
+            } else if (G.y0 >= 310 && G.y0 < 328) {
               nnewsStep(1);
             } else if (G.y0 >= 118 && G.y0 <= 310) {
               const r = Math.floor((G.y0 - 118) / 38);
@@ -21680,6 +21867,23 @@ const GAME_VERSION = 'Alpha 1.4';
       }
       try { showToast('SALVAGE DETECTED · lock it on COMMS / radar, then TRACTOR', 2600, '#9fb4c8'); } catch (e) { }
     }
+
+    // Seed initial drifting salvage crates in sector space for immediate exploration & tractor loop
+    setTimeout(() => {
+      try {
+        if (NSV.pods.length < 3) {
+          const spawnPoints = [
+            new THREE.Vector3(75, 12, -220),
+            new THREE.Vector3(-110, -14, -290),
+            new THREE.Vector3(145, 25, -170)
+          ];
+          spawnPoints.forEach(pt => {
+            const worldPt = shipGroup.position.clone().add(pt);
+            novaSalvageDrop(worldPt, { slug: 'pirate_frigate', st: { boss: false } });
+          });
+        }
+      } catch (e) {}
+    }, 2500);
     function nsvRemove(pod) { scene.remove(pod.g); const i = NSV.pods.indexOf(pod); if (i >= 0) NSV.pods.splice(i, 1); if (currentLockedTarget && currentLockedTarget.targetObj === pod.g) currentLockedTarget = null; }
     function nsvStow(pod) {
       const k = pod.kind; let msg = '';
@@ -21733,15 +21937,15 @@ const GAME_VERSION = 'Alpha 1.4';
         const list = _ga.apply(this, arguments);
         try { const sp = shipGroup.position, fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion);
           NSV.pods.forEach(p => { const v = p.g.position.clone().sub(sp), d = v.length();
-            list.push({ name: p.kind === 'core' ? 'SALVAGE: HEAT CORE' : 'SALVAGE POD', type: 'salvage', targetObj: p.g, dist: d, dot: fwd.dot(v.normalize()), isHostile: false,
-              status: d <= NSV.range ? 'SALVAGE · TRACTOR READY' : 'SALVAGE · MOVE CLOSER' }); }); } catch (e) { }
+            list.push({ name: p.kind === 'core' ? 'SALVAGE: HEAT CORE' : (p.kind === 'ore' ? 'CARGO CRATE: TITANIUM' : 'SALVAGE CONTAINER'), type: 'salvage', targetObj: p.g, dist: d, dot: fwd.dot(v.normalize()), isHostile: false,
+              status: d <= NSV.range ? 'SALVAGE · TRACTOR (G) / SHOOT' : 'SALVAGE · MOVE CLOSER' }); }); } catch (e) { }
         return list; }; }
     { const _nc = nmContactList; nmContactList = function (range, gate) {
         const list = _nc.apply(this, arguments);
-        try { const sp = shipGroup.position; NSV.pods.forEach(p => { const d = p.g.position.distanceTo(sp); if (!range || d <= range * 1.5) list.push({ name: p.kind === 'core' ? 'SALVAGE: HEAT CORE' : 'SALVAGE POD', type: 'salvage', obj: p.g, isHostile: false, d }); }); } catch (e) { }
+        try { const sp = shipGroup.position; NSV.pods.forEach(p => { const d = p.g.position.distanceTo(sp); if (!range || d <= range * 1.5) list.push({ name: p.kind === 'core' ? 'SALVAGE: HEAT CORE' : (p.kind === 'ore' ? 'CARGO CRATE: TITANIUM' : 'SALVAGE CONTAINER'), type: 'salvage', obj: p.g, isHostile: false, d }); }); } catch (e) { }
         return list; }; }
-    try { NH_COL.salvage = 0x8a96a3; } catch (e) { }
-    try { NP.ccol.salvage = '#8a96a3'; } catch (e) { }
+    try { NH_COL.salvage = 0xdd88ff; } catch (e) { }
+    try { NP.ccol.salvage = '#dd88ff'; } catch (e) { }
     Object.defineProperty(NP_COMMS, 'pads', { configurable: true, get() {
       const t = currentLockedTarget; const pod = t && NSV.pods.find(p => p.g === t.targetObj);
       return pod ? [{ l: '⇩ TRACTOR', c: '#66ffee', fn: () => novaTractorPress() }] : []; }, set(v) { } });
