@@ -139,3 +139,10 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Contacts:** named fixers you meet and unlock (dialogue, task 13). Each contact has a specialty (smuggler, info broker, arms dealer, hacker, EDF informant), trust level, missions, and better prices as trust grows. Call them from the FPS phone (task 16).
 - **Contact list:** contacts can betray you, get arrested, or die in territory shifts (task 20). News reports it (task 19).
 - Prices follow territory + news: a pirate crackdown spikes contraband prices.
+
+### 22. Faction leaders + assassination contracts (fictional politics)
+- **Leaders:** each faction has named leaders (EDF admiral, colony governor, pirate lord, alien matriarch) with portraits, agendas and bodyguards. They appear in news (task 19) and dialogue (task 13).
+- **Contracts:** high-tier jobs from contacts (task 21): assassinate, protect, or expose a leader. Delivered as missions: escort-ship ambush in space, FPS infiltration (station/city), a sniper option.
+- **Choice + consequence:** take the job, warn the target, or double-cross the client. The outcome shifts territory (task 20), rep (task 2), heavy wanted level/jail (task 14), and big news. A new leader takes over with different policies.
+- **Story tie-in:** one key assassination plot in the main branching campaign (who ordered it is a mystery the player uncovers).
+- Keep it clearly fictional sci-fi factions.
