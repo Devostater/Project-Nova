@@ -1,6 +1,6 @@
 # Project Nova status
 
-Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. Don't read anything in `docs/archive/` unless asked.
+Read this file, [docs/DECISIONS.md](docs/DECISIONS.md) (locked owner decisions) and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. Don't read anything in `docs/archive/` unless asked.
 
 ## Now
 - **Lead:** **Claude** is back as lead/integrator (2026-11-09). `grok/graphics-overhaul` is fully merged into `main`.
