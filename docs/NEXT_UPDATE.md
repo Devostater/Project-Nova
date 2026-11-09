@@ -125,3 +125,10 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Where:** news panel, cantina screens, cockpit ticker, FPS phone (task 16), comms interrupts for breaking news.
 - **Offline:** cached stories + template generation without network. Add new audio to `sw.js`.
 - Builds on the existing news panel (video/article tabs, ticker) and `modules/novanet.js`. Don't start a second news system.
+
+### 20. Territories + space drama
+- **Territory control:** each sector/zone (task 11) is owned by a faction (EDF, Pirates, Aliens, Independents) with a control %. It's shown on the sector map with colored borders.
+- **It shifts:** faction battles, convoy raids, the player's missions and trade (tasks 3–4) push control. Losing a zone changes its patrols, prices, station access (task 5), music and the news (task 19).
+- **Space drama (live events):** fleet battles you can join or avoid, station sieges, faction betrayals, truces, a refugee convoy, alien incursions, a pirate lord uprising. Events chain into the branching story (task 13) and change rep (task 2).
+- **Player stake:** pick a side, broker a peace, or profit from the chaos. Your choices show in the news and the epilogue.
+- Data-driven (JSON events + simple simulation tick) so new drama needs no new code. Keep the simulation cheap so it never costs Quest frames.
