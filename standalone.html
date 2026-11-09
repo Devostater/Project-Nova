@@ -12986,6 +12986,7 @@ const GAME_VERSION = 'Alpha 1.4';
         novaHandTurnFrame(frame, now);
         try { novaUpdateWatchOnFoot(delta, frame, now); } catch (e) { console.error('[watch on foot]', e); }
         cameraRig.updateWorldMatrix(true, true);
+        try { novaUpdateTrackedHands(delta, true); } catch (e) { console.error('[tracked hands on foot]', e); }
         novaRender(delta);
         return;
       }   // on foot: flight is fully off
@@ -13962,474 +13963,433 @@ const GAME_VERSION = 'Alpha 1.4';
       cameraRig.updateWorldMatrix(true, true);
       throttleYawInput = 0;
       handGroupLeft.position.set(0, 0, 0); handGroupRight.position.set(0, 0, 0);
-      // Update VR / MR Controllers and Hands (Bare hand tracking focused)
-      const session = renderer.xr.getSession();
-      if (session) {
-        const activeHandSources = Array.from(session.inputSources || []).filter(src => src.hand);
-        const claimedHandSources = new Set();
-        // Optical Bare Hand Tracking (Primary control mode)
-        [h1, h2].forEach((hand, hIdx) => {
-          const joints = hand.joints;
-          if (!joints) return;
+      function novaUpdateTrackedHands(delta, onFoot = false) {
+        cameraRig.updateWorldMatrix(true, true);
+        if (!onFoot) {
+          throttleYawInput = 0;
+          handGroupLeft.position.set(0, 0, 0); handGroupRight.position.set(0, 0, 0);
+        }
+        // Update VR / MR Controllers and Hands (Bare hand tracking focused)
+        const session = renderer.xr.getSession();
+        if (session) {
+          const activeHandSources = Array.from(session.inputSources || []).filter(src => src.hand);
+          const claimedHandSources = new Set();
+          // Optical Bare Hand Tracking (Primary control mode)
+          [h1, h2].forEach((hand, hIdx) => {
+            const joints = hand.joints;
+            if (!joints) return;
 
-          // Bind this Three.js hand to its currently active XRInputSource. Joint objects can
-          // linger after switching back to controllers, so a global "some hand" check is unsafe.
-          let exactSrc = activeHandSources.find(src => src === hand.userData.inputSource && !claimedHandSources.has(src));
-          if (!exactSrc && hand.userData.handedness) exactSrc = activeHandSources.find(src => src.handedness === hand.userData.handedness && !claimedHandSources.has(src));
-          if (!exactSrc) exactSrc = activeHandSources.find(src => !claimedHandSources.has(src));
-          if (!exactSrc) { hand.userData.inputSource = null; hand.userData.handedness = null; return; }
-          claimedHandSources.add(exactSrc);
-          hand.userData.inputSource = exactSrc;
-          hand.userData.handedness = exactSrc.handedness;
+            // Bind this Three.js hand to its currently active XRInputSource. Joint objects can
+            // linger after switching back to controllers, so a global "some hand" check is unsafe.
+            let exactSrc = activeHandSources.find(src => src === hand.userData.inputSource && !claimedHandSources.has(src));
+            if (!exactSrc && hand.userData.handedness) exactSrc = activeHandSources.find(src => src.handedness === hand.userData.handedness && !claimedHandSources.has(src));
+            if (!exactSrc) exactSrc = activeHandSources.find(src => !claimedHandSources.has(src));
+            if (!exactSrc) { hand.userData.inputSource = null; hand.userData.handedness = null; return; }
+            claimedHandSources.add(exactSrc);
+            hand.userData.inputSource = exactSrc;
+            hand.userData.handedness = exactSrc.handedness;
 
-          const wrist = joints['wrist'];
-          const tip = joints['index-finger-tip'];
-          const thumbTip = joints['thumb-tip'];
-          const indexKnuckle = joints['index-finger-metacarpal'] || joints['index-finger-phalanx-proximal'];
-          const pinkyKnuckle = joints['pinky-finger-metacarpal'] || joints['pinky-finger-phalanx-proximal'];
-          const middleKnuckle = joints['middle-finger-metacarpal'] || joints['middle-finger-phalanx-proximal'];
-          if (!wrist || !wrist.position || !tip || !tip.position) return;
+            const wrist = joints['wrist'];
+            const tip = joints['index-finger-tip'];
+            const thumbTip = joints['thumb-tip'];
+            const indexKnuckle = joints['index-finger-metacarpal'] || joints['index-finger-phalanx-proximal'];
+            const pinkyKnuckle = joints['pinky-finger-metacarpal'] || joints['pinky-finger-phalanx-proximal'];
+            const middleKnuckle = joints['middle-finger-metacarpal'] || joints['middle-finger-phalanx-proximal'];
+            if (!wrist || !wrist.position || !tip || !tip.position) return;
 
-          let wristWorld = new THREE.Vector3();
-          wrist.getWorldPosition(wristWorld);
-          let tipWorld = new THREE.Vector3();
-          tip.getWorldPosition(tipWorld);
+            let wristWorld = new THREE.Vector3();
+            wrist.getWorldPosition(wristWorld);
+            let tipWorld = new THREE.Vector3();
+            tip.getWorldPosition(tipWorld);
 
-          // Deterministic Per-Hand Resolution:
-          // Match this specific hand instance with its own inputSource or userData
-          let isLeftHand = false;
-          const sourceHandedness = exactSrc.handedness;
+            // Deterministic Per-Hand Resolution:
+            // Match this specific hand instance with its own inputSource or userData
+            let isLeftHand = false;
+            const sourceHandedness = exactSrc.handedness;
 
-          if (sourceHandedness === 'left') {
-            isLeftHand = true;
-          } else if (sourceHandedness === 'right') {
-            isLeftHand = false;
-          } else {
-            // Coordinate zone fallback: left side of pilot (-X) vs right side (+X)
-            const rigLocalWrist = cameraRig.worldToLocal(wristWorld.clone());
-            isLeftHand = rigLocalWrist.x < 0;
-          }
-
-          const meshes = isLeftHand ? handMeshes1 : handMeshes2;
-          const bones = isLeftHand ? boneMeshes1 : boneMeshes2;
-          const filter = novaTrackedHandFilter[isLeftHand ? 'left' : 'right'];
-          const thumbRaw = new THREE.Vector3();
-          if (thumbTip && thumbTip.position) thumbTip.getWorldPosition(thumbRaw);
-          const trackingJump = !filter.ready || filter.wrist.distanceTo(wristWorld) > 0.20 || filter.tip.distanceTo(tipWorld) > 0.20;
-          const handAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * 20);
-          if (trackingJump) { filter.wrist.copy(wristWorld); filter.tip.copy(tipWorld); if (thumbTip && thumbTip.position) filter.thumb.copy(thumbRaw); filter.ready = true; }
-          else { filter.wrist.lerp(wristWorld, handAlpha); filter.tip.lerp(tipWorld, handAlpha); if (thumbTip && thumbTip.position) filter.thumb.lerp(thumbRaw, handAlpha); }
-          wristWorld = filter.wrist.clone(); tipWorld = filter.tip.clone();
-
-          if (isLeftHand) isLeftHandTracked = true;
-          else isRightHandTracked = true;
-
-          // Pinch detection
-          let isPinching = false;
-          if (thumbTip && thumbTip.position) {
-            const thumbWorld = filter.thumb;
-            isPinching = tipWorld.distanceTo(thumbWorld) < 0.055;
-          }
-          if (!isLeftHand) window._novaRightPinching = isPinching;
-
-          // Render ghost joints & skeleton
-          let jIdx = 0;
-          for (const jName in joints) {
-            if (jIdx >= meshes.length) break;
-            const j = joints[jName];
-            const m = meshes[jIdx];
-            if (j && j.visible !== false) {
-              const wasVisible = m.visible; m.visible = true;
-              const jp = new THREE.Vector3();
-              j.getWorldPosition(jp);
-              cameraRig.worldToLocal(jp);
-              if (!wasVisible || m.position.distanceTo(jp) > 0.18) m.position.copy(jp); else m.position.lerp(jp, handAlpha);
+            if (sourceHandedness === 'left') {
+              isLeftHand = true;
+            } else if (sourceHandedness === 'right') {
+              isLeftHand = false;
             } else {
-              m.visible = false;
-            }
-            jIdx++;
-          }
-
-          for (let bIdx = 0; bIdx < BONE_CONNECTIONS.length; bIdx++) {
-            const [iA, iB] = BONE_CONNECTIONS[bIdx];
-            const mA = meshes[iA];
-            const mB = meshes[iB];
-            const boneMesh = bones[bIdx];
-            if (mA && mB && mA.visible && mB.visible) {
-              alignBoneSegment(boneMesh, mA.position, mB.position);
-            } else if (boneMesh) {
-              boneMesh.visible = false;
-            }
-          }
-
-          // ── Smartwatch on Left Hand (Pops up when palm is facing UP or via Wrist Beacon Button) ──
-          let isHandBusyWithControls = false;
-          if (isLeftHand) {
-            // Anchor tactile beacon puck to the left wrist joint
-            if (wristBeaconGroup) {
-              const beaconTarget = cameraRig.worldToLocal(wristWorld.clone());
-              if (!wristBeaconGroup.visible || wristBeaconGroup.position.distanceTo(beaconTarget) > 0.18) wristBeaconGroup.position.copy(beaconTarget); else wristBeaconGroup.position.lerp(beaconTarget, handAlpha);
-              wristBeaconGroup.visible = true;
+              // Coordinate zone fallback: left side of pilot (-X) vs right side (+X)
+              const rigLocalWrist = cameraRig.worldToLocal(wristWorld.clone());
+              isLeftHand = rigLocalWrist.x < 0;
             }
 
-            // Wrist menu is strictly button-toggled (wrist beacon button, controller button, or cockpit MENU)
-            if (debugWatchGroup) {
-              debugWatchGroup.visible = isWristMenuOpen;
-              if (debugWatchGroup.visible) {
-                // Pop up cleanly floating above and in front of the left wrist
-                const headWorldPos = new THREE.Vector3();
-                camera.getWorldPosition(headWorldPos);
-                const toHead = headWorldPos.clone().sub(wristWorld).normalize();
-                const watchWorldPos = wristWorld.clone().add(toHead.clone().multiplyScalar(0.20)).add(new THREE.Vector3(0, 0.05, 0));
-                debugWatchGroup.position.copy(cameraRig.worldToLocal(watchWorldPos));
-                debugWatchGroup.quaternion.copy(camera.quaternion);
-              }
+            const meshes = isLeftHand ? handMeshes1 : handMeshes2;
+            const bones = isLeftHand ? boneMeshes1 : boneMeshes2;
+            const filter = novaTrackedHandFilter[isLeftHand ? 'left' : 'right'];
+            const thumbRaw = new THREE.Vector3();
+            if (thumbTip && thumbTip.position) thumbTip.getWorldPosition(thumbRaw);
+            const trackingJump = !filter.ready || filter.wrist.distanceTo(wristWorld) > 0.20 || filter.tip.distanceTo(tipWorld) > 0.20;
+            const handAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * 20);
+            if (trackingJump) { filter.wrist.copy(wristWorld); filter.tip.copy(tipWorld); if (thumbTip && thumbTip.position) filter.thumb.copy(thumbRaw); filter.ready = true; }
+            else { filter.wrist.lerp(wristWorld, handAlpha); filter.tip.lerp(tipWorld, handAlpha); if (thumbTip && thumbTip.position) filter.thumb.lerp(thumbRaw, handAlpha); }
+            wristWorld = filter.wrist.clone(); tipWorld = filter.tip.clone();
+
+            if (isLeftHand) isLeftHandTracked = true;
+            else isRightHandTracked = true;
+
+            // Pinch detection
+            let isPinching = false;
+            if (thumbTip && thumbTip.position) {
+              const thumbWorld = filter.thumb;
+              isPinching = tipWorld.distanceTo(thumbWorld) < 0.055;
             }
-          }
+            if (!isLeftHand) window._novaRightPinching = isPinching;
 
-          // Right Hand index fingertip touches Smartwatch (matching shorter screen)
-          if (!isLeftHand && debugWatchScreen && debugWatchGroup.visible) {
-            const localTip = debugWatchScreen.worldToLocal(tipWorld.clone());
-            if (localTip.z > -0.040 && localTip.z < 0.100 && Math.abs(localTip.x) <= WATCH_W * 0.55 && Math.abs(localTip.y) <= WATCH_H * 0.55) {
-              isHandBusyWithControls = true;
-              const u = THREE.MathUtils.clamp(localTip.x / WATCH_W + 0.5, 0.0, 1.0);
-              const v = THREE.MathUtils.clamp(localTip.y / WATCH_H + 0.5, 0.0, 1.0);
-              handleWatchTouch(u, v);
-            }
-          }
-
-          // Comms Tactical Screen Fingertip Touch (Both Hands Supported! Gated to screen view)
-          if (commsScreen && isCommsArmDeployed && novaIsObjectOnScreen(commsScreen, 0.45)) {
-            const localTip = commsScreen.worldToLocal(tipWorld.clone());
-            // Comms plane is 0.28m x 0.19m
-            if (localTip.z > -0.030 && localTip.z < 0.075 && Math.abs(localTip.x) <= 0.140 && Math.abs(localTip.y) <= 0.095) {
-              isHandBusyWithControls = true;
-              const u = THREE.MathUtils.clamp(localTip.x / 0.280 + 0.5, 0.0, 1.0);
-              const v = THREE.MathUtils.clamp(localTip.y / 0.190 + 0.5, 0.0, 1.0);
-              handleCommsTouch(u, v);
-            }
-          }
-
-          // Ship Inventory Screen Fingertip Touch (Both Hands Supported! Gated to screen view)
-          if (invScreen && isInvArmDeployed && novaIsObjectOnScreen(invScreen, 0.45)) {
-            const localTip = invScreen.worldToLocal(tipWorld.clone());
-            // Generous touch volume: depth -6cm to +12cm, full face and lower bezel
-            if (localTip.z > -0.060 && localTip.z < 0.120 && Math.abs(localTip.x) <= 0.160 && localTip.y >= -0.130 && localTip.y <= 0.120) {
-              const u = THREE.MathUtils.clamp(localTip.x / 0.280 + 0.5, 0.0, 1.0);
-              const v = THREE.MathUtils.clamp(localTip.y / 0.190 + 0.5, 0.0, 1.0);
-              handleInvTouch(u, v);
-            }
-          }
-
-          // Ship Inventory Toggle Button Touch (on rightArmBay)
-          const invBtnWorldPos = new THREE.Vector3();
-          invBtn.getWorldPosition(invBtnWorldPos);
-          if (tipWorld.distanceTo(invBtnWorldPos) < 0.065 && novaIsObjectOnScreen(invBtn, 0.48)) {
-            if (now - lastFaceBtnTime > 380) {
-              lastFaceBtnTime = now;
-              toggleInventory();
-            }
-          }
-
-          // Right hand touches physical wrist toggle button on left wrist
-          if (!isLeftHand && wristToggleBtn) {
-            const wristBtnWorld = new THREE.Vector3();
-            wristToggleBtn.getWorldPosition(wristBtnWorld);
-            const busy = isGrippingStickHand || isGrippingThrottleHand || isGrippingStick || isGrippingThrottle;
-            novaBeaconPress('hand-beacon', !busy && wristBeaconGroup.visible && tipWorld.distanceTo(wristBtnWorld) < 0.045, isPinching, now);
-          }
-
-          // ── Posture & Ambidextrous Control Tracking (Alpha 0.1 Proven Architecture) ──
-          let curledFingerCount = 0;
-          const middleTip = joints['middle-finger-tip'];
-          const ringTip = joints['ring-finger-tip'];
-          const pinkyTip = joints['pinky-finger-tip'];
-          if (middleTip && middleTip.position) {
-            const mPos = new THREE.Vector3(); middleTip.getWorldPosition(mPos);
-            if (mPos.distanceTo(wristWorld) < 0.120) curledFingerCount++;
-          }
-          if (ringTip && ringTip.position) {
-            const rPos = new THREE.Vector3(); ringTip.getWorldPosition(rPos);
-            if (rPos.distanceTo(wristWorld) < 0.120) curledFingerCount++;
-          }
-          if (pinkyTip && pinkyTip.position) {
-            const pPos = new THREE.Vector3(); pinkyTip.getWorldPosition(pPos);
-            if (pPos.distanceTo(wristWorld) < 0.120) curledFingerCount++;
-          }
-          if (tipWorld.distanceTo(wristWorld) < 0.125) curledFingerCount++;
-
-          // Hand Center & Proximity
-          const stickWorldPos = new THREE.Vector3();
-          stickGripPoint.getWorldPosition(stickWorldPos);
-          const stickBaseWorldPos = new THREE.Vector3();
-          stickGroup.getWorldPosition(stickBaseWorldPos);
-          const throttleWorldPos = new THREE.Vector3();
-          throttleGripPoint.getWorldPosition(throttleWorldPos);
-
-          const handCenter = wristWorld.clone().lerp(tipWorld, 0.5);
-          const distStick = Math.min(
-            tipWorld.distanceTo(stickWorldPos),
-            handCenter.distanceTo(stickWorldPos),
-            wristWorld.distanceTo(stickWorldPos)
-          );
-          const distThrottle = Math.min(
-            tipWorld.distanceTo(throttleWorldPos),
-            handCenter.distanceTo(throttleWorldPos),
-            wristWorld.distanceTo(throttleWorldPos)
-          );
-
-          // Natural Grip Detection: Pinch or at least 2 curled fingers around control
-          // Open hand (relaxed or extended fingers) immediately clears isGripActive
-          const isFingersCurled = (curledFingerCount >= 2);
-          const isGripActive = isPinching || isFingersCurled;
-
-          const localStickHand = stickGroup.worldToLocal(handCenter.clone());
-          const localThrottleHand = throttleGroup.worldToLocal(handCenter.clone());
-
-          // Visual Hover Feedback
-          if (distStick < 0.22) {
-            haloMatStick.color.setHex((isGrippingStickHand || isGrippingStick) ? 0x00f0ff : (isGripActive ? 0x00ff88 : 0x00aacc));
-            haloMatStick.opacity = (isGrippingStickHand || isGrippingStick) ? 0.95 : 0.65;
-          } else {
-            haloMatStick.opacity = 0.25;
-          }
-          if (distThrottle < 0.22) {
-            haloMatThrottle.color.setHex((isGrippingThrottleHand || isGrippingThrottle) ? 0x00f0ff : (isGripActive ? 0x00ff88 : 0x00aacc));
-            haloMatThrottle.opacity = (isGrippingThrottleHand || isGrippingThrottle) ? 0.95 : 0.60;
-          } else {
-            haloMatThrottle.opacity = 0.20;
-          }
-
-          // ── Flight Stick Control (RIGHT HAND ONLY - Tightened 9cm Grab Radius) ──
-          if (!isLeftHand) {
-            // Engage grip: MUST actively grip (isGripActive) close to stick (< 9cm, prevents accidental far grabbing)
-            const canEngageStick = distStick < 0.13 && isGripActive;
-            if (!isGrippingStickHand && canEngageStick) {
-              isGrippingStickHand = true;
-              stickGrabAnchorZ = localStickHand.z;
-              stickGrabAnchorX = localStickHand.x;
-              sound.beep(620, 0.05);
-            }
-
-            // Pilot's thumb contacting fire button OR pinching index while gripping stick (simplified instant firing)
-            if (thumbFireBtn) {
-              let shouldFire = false;
-              if (thumbTip && thumbTip.position) {
-                const thumbPos = new THREE.Vector3();
-                thumbTip.getWorldPosition(thumbPos);
-                const btnWorld = new THREE.Vector3();
-                thumbFireBtn.getWorldPosition(btnWorld);
-                const contactRadius = isGrippingStickHand ? 0.082 : 0.048;
-                if (thumbPos.distanceTo(btnWorld) < contactRadius) shouldFire = true;
-              }
-              if (isGrippingStickHand && isPinching) shouldFire = true;
-              if (shouldFire && (now - lastFireTime > 130)) {
-                pressThumbFireButton();
-              }
-            }
-
-            if (isGrippingStickHand) {
-              // GRIP ENDS cleanly when hand genuinely uncurls (!isGripActive) or moves beyond 22cm
-              if (!isGripActive || distStick > 0.22 || isHandBusyWithControls) {
-                isGrippingStickHand = false;
+            // Render ghost joints & skeleton
+            let jIdx = 0;
+            for (const jName in joints) {
+              if (jIdx >= meshes.length) break;
+              const j = joints[jName];
+              const m = meshes[jIdx];
+              if (j && j.visible !== false) {
+                const wasVisible = m.visible; m.visible = true;
+                const jp = new THREE.Vector3();
+                j.getWorldPosition(jp);
+                cameraRig.worldToLocal(jp);
+                if (!wasVisible || m.position.distanceTo(jp) > 0.18) m.position.copy(jp); else m.position.lerp(jp, handAlpha);
               } else {
-                // Deflection relative to initial hand grab anchor with generous 2.2cm deadzone
-                const dz = localStickHand.z - (typeof stickGrabAnchorZ === 'number' ? stickGrabAnchorZ : 0.020);
-                const dx = localStickHand.x - (typeof stickGrabAnchorX === 'number' ? stickGrabAnchorX : 0.0);
+                m.visible = false;
+              }
+              jIdx++;
+            }
 
-                const DEADZONE = 0.012;
-                let targetPitch = 0.0;
-                let targetRoll = 0.0;
-
-                // Deflection along Z (Forward / Backward Pitch)
-                if (Math.abs(dz) > DEADZONE) {
-                  const signZ = Math.sign(dz);
-                  const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.055, 1.0);
-                  targetPitch = signZ * magZ * 0.45;
-                }
-
-                // Deflection along X (Left / Right Roll & Turn)
-                if (Math.abs(dx) > DEADZONE) {
-                  const signX = Math.sign(dx);
-                  const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.055, 1.0);
-                  targetRoll = -signX * magX * 0.45;
-                }
-
-                stickPivot.rotation.x = THREE.MathUtils.lerp(stickPivot.rotation.x, targetPitch, 0.75);
-                stickPivot.rotation.z = THREE.MathUtils.lerp(stickPivot.rotation.z, targetRoll, 0.75);
-                stickPitchDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.x);
-                stickRollDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.z);
-                drawDebugWatch();
+            for (let bIdx = 0; bIdx < BONE_CONNECTIONS.length; bIdx++) {
+              const [iA, iB] = BONE_CONNECTIONS[bIdx];
+              const mA = meshes[iA];
+              const mB = meshes[iB];
+              const boneMesh = bones[bIdx];
+              if (mA && mB && mA.visible && mB.visible) {
+                alignBoneSegment(boneMesh, mA.position, mB.position);
+              } else if (boneMesh) {
+                boneMesh.visible = false;
               }
             }
-          }
 
-          // ── Throttle Control (LEFT HAND ONLY - Smooth Rail Follow & Clean Release) ──
-          if (isLeftHand) {
-            const canEngageThrottle = (distThrottle < 0.22 && isGripActive);
-            if (!isGrippingThrottleHand && canEngageThrottle && !isHandBusyWithControls) {
-              isGrippingThrottleHand = true;
-              throttleHandAnchor.x = localThrottleHand.x;
-              throttleHandAnchor.z = localThrottleHand.z;
-              throttleHandAnchor.slide = throttleSlideZ;
-              sound.beep(520, 0.05);
-            }
+            // In on-foot/FPS mode, skip cockpit flight stick / throttle interaction
+            if (onFoot) return;
 
-            // Thumb on the red boost button while gripping the throttle fires the afterburner
-            if (isGrippingThrottleHand && thumbTip && thumbTip.position && throttleBoosterBtn) {
-              const tp = new THREE.Vector3(), bp = new THREE.Vector3();
-              thumbTip.getWorldPosition(tp); throttleBoosterBtn.getWorldPosition(bp);
-              if (tp.distanceTo(bp) < 0.05 && now - (window._novaBoostT || 0) > 900) { window._novaBoostT = now; try { triggerAfterburner(); sound.switchClick(); } catch (e) {} }
-            }
-            if (isGrippingThrottleHand) {
-              // Keep a forgiving grab radius while the pilot works the lever.
-              if (!isGripActive || distThrottle > 0.30 || isHandBusyWithControls) {
-                isGrippingThrottleHand = false;
-                // Notch Lock on Release: Firmly snap throttle to achieved notch, preventing backward drag!
-                throttlePct = currentThrottleNotch / 4;
-                throttleSlideZ = THROTTLE_MIN_Z - throttlePct * THROTTLE_RANGE;
-                throttleArm.position.z = throttleSlideZ;
-                sound.detentTick();
-                drawDebugWatch();
-              } else {
-                // Direct 1-to-1 follow along the throttle rail
-                // Sticky Max Detent: when pushed forward into notch 4 territory (z <= THROTTLE_MAX_Z + 0.018), firmly lock to 100%
-                throttleYawInput = novaThrottleYaw(localThrottleHand.x, throttleHandAnchor);
-                let targetZ = THREE.MathUtils.clamp(throttleHandAnchor.slide + localThrottleHand.z - throttleHandAnchor.z, THROTTLE_MAX_Z, THROTTLE_MIN_Z);
-                if (targetZ <= THROTTLE_MAX_Z + 0.018) {
-                  targetZ = THROTTLE_MAX_Z;
+            // ── Smartwatch on Left Hand (Pops up when palm is facing UP or via Wrist Beacon Button) ──
+            let isHandBusyWithControls = false;
+            if (isLeftHand) {
+              // Anchor tactile beacon puck to the left wrist joint
+              if (wristBeaconGroup) {
+                const beaconTarget = cameraRig.worldToLocal(wristWorld.clone());
+                if (!wristBeaconGroup.visible || wristBeaconGroup.position.distanceTo(beaconTarget) > 0.18) wristBeaconGroup.position.copy(beaconTarget); else wristBeaconGroup.position.lerp(beaconTarget, handAlpha);
+                wristBeaconGroup.visible = true;
+              }
+
+              // Wrist menu is strictly button-toggled (wrist beacon button, controller button, or cockpit MENU)
+              if (debugWatchGroup) {
+                debugWatchGroup.visible = isWristMenuOpen;
+                if (debugWatchGroup.visible) {
+                  // Pop up cleanly floating above and in front of the left wrist
+                  const headWorldPos = new THREE.Vector3();
+                  camera.getWorldPosition(headWorldPos);
+                  const toHead = headWorldPos.clone().sub(wristWorld).normalize();
+                  const watchWorldPos = wristWorld.clone().add(toHead.clone().multiplyScalar(0.20)).add(new THREE.Vector3(0, 0.05, 0));
+                  debugWatchGroup.position.copy(cameraRig.worldToLocal(watchWorldPos));
+                  debugWatchGroup.quaternion.copy(camera.quaternion);
                 }
-                throttleSlideZ = THREE.MathUtils.lerp(throttleSlideZ, targetZ, 0.75);
-                throttleArm.position.z = throttleSlideZ;
+              }
+            }
 
-                // Update throttle percentage and notch
-                const newPct = THREE.MathUtils.clamp((THROTTLE_MIN_Z - throttleSlideZ) / THROTTLE_RANGE, 0.0, 1.0);
-                throttlePct = newPct;
-                const newNotch = Math.round(throttlePct * 4);
-                if (newNotch !== currentThrottleNotch) {
-                  currentThrottleNotch = newNotch;
-                  sound.detentTick();
-                  updateThrottleNotchLights();
-                  drawHUD();
+            // Right Hand index fingertip touches Smartwatch (matching shorter screen)
+            if (!isLeftHand && debugWatchScreen && debugWatchGroup.visible) {
+              const localTip = debugWatchScreen.worldToLocal(tipWorld.clone());
+              if (localTip.z > -0.040 && localTip.z < 0.100 && Math.abs(localTip.x) <= WATCH_W * 0.55 && Math.abs(localTip.y) <= WATCH_H * 0.55) {
+                isHandBusyWithControls = true;
+                const u = THREE.MathUtils.clamp(localTip.x / WATCH_W + 0.5, 0.0, 1.0);
+                const v = THREE.MathUtils.clamp(localTip.y / WATCH_H + 0.5, 0.0, 1.0);
+                handleWatchTouch(u, v);
+              }
+            }
+
+            // Comms Tactical Screen Fingertip Touch (Both Hands Supported! Gated to screen view)
+            if (commsScreen && isCommsArmDeployed && novaIsObjectOnScreen(commsScreen, 0.45)) {
+              const localTip = commsScreen.worldToLocal(tipWorld.clone());
+              // Comms plane is 0.28m x 0.19m
+              if (localTip.z > -0.030 && localTip.z < 0.075 && Math.abs(localTip.x) <= 0.140 && Math.abs(localTip.y) <= 0.095) {
+                isHandBusyWithControls = true;
+                const u = THREE.MathUtils.clamp(localTip.x / 0.280 + 0.5, 0.0, 1.0);
+                const v = THREE.MathUtils.clamp(localTip.y / 0.190 + 0.5, 0.0, 1.0);
+                handleCommsTouch(u, v);
+              }
+            }
+
+            // Ship Inventory Screen Fingertip Touch (Both Hands Supported! Gated to screen view)
+            if (invScreen && isInvArmDeployed && novaIsObjectOnScreen(invScreen, 0.45)) {
+              const localTip = invScreen.worldToLocal(tipWorld.clone());
+              // Generous touch volume: depth -6cm to +12cm, full face and lower bezel
+              if (localTip.z > -0.060 && localTip.z < 0.120 && Math.abs(localTip.x) <= 0.160 && localTip.y >= -0.130 && localTip.y <= 0.120) {
+                const u = THREE.MathUtils.clamp(localTip.x / 0.280 + 0.5, 0.0, 1.0);
+                const v = THREE.MathUtils.clamp(localTip.y / 0.190 + 0.5, 0.0, 1.0);
+                handleInvTouch(u, v);
+              }
+            }
+
+            // Ship Inventory Toggle Button Touch (on rightArmBay)
+            const invBtnWorldPos = new THREE.Vector3();
+            invBtn.getWorldPosition(invBtnWorldPos);
+            if (tipWorld.distanceTo(invBtnWorldPos) < 0.065 && novaIsObjectOnScreen(invBtn, 0.48)) {
+              if (now - lastFaceBtnTime > 380) {
+                lastFaceBtnTime = now;
+                toggleInventory();
+              }
+            }
+
+            // Right hand touches physical wrist toggle button on left wrist
+            if (!isLeftHand && wristToggleBtn) {
+              const wristBtnWorld = new THREE.Vector3();
+              wristToggleBtn.getWorldPosition(wristBtnWorld);
+              const busy = isGrippingStickHand || isGrippingThrottleHand || isGrippingStick || isGrippingThrottle;
+              novaBeaconPress('hand-beacon', !busy && wristBeaconGroup.visible && tipWorld.distanceTo(wristBtnWorld) < 0.045, isPinching, now);
+            }
+
+            // ── Posture & Ambidextrous Control Tracking (Alpha 0.1 Proven Architecture) ──
+            let curledFingerCount = 0;
+            const middleTip = joints['middle-finger-tip'];
+            const ringTip = joints['ring-finger-tip'];
+            const pinkyTip = joints['pinky-finger-tip'];
+            if (middleTip && middleTip.position) {
+              const mPos = new THREE.Vector3(); middleTip.getWorldPosition(mPos);
+              if (mPos.distanceTo(wristWorld) < 0.120) curledFingerCount++;
+            }
+            if (ringTip && ringTip.position) {
+              const rPos = new THREE.Vector3(); ringTip.getWorldPosition(rPos);
+              if (rPos.distanceTo(wristWorld) < 0.120) curledFingerCount++;
+            }
+            if (pinkyTip && pinkyTip.position) {
+              const pPos = new THREE.Vector3(); pinkyTip.getWorldPosition(pPos);
+              if (pPos.distanceTo(wristWorld) < 0.120) curledFingerCount++;
+            }
+            if (tipWorld.distanceTo(wristWorld) < 0.125) curledFingerCount++;
+
+            // Hand Center & Proximity
+            const stickWorldPos = new THREE.Vector3();
+            stickGripPoint.getWorldPosition(stickWorldPos);
+            const stickBaseWorldPos = new THREE.Vector3();
+            stickGroup.getWorldPosition(stickBaseWorldPos);
+            const throttleWorldPos = new THREE.Vector3();
+            throttleGripPoint.getWorldPosition(throttleWorldPos);
+
+            const handCenter = wristWorld.clone().lerp(tipWorld, 0.5);
+            const distStick = Math.min(
+              tipWorld.distanceTo(stickWorldPos),
+              handCenter.distanceTo(stickWorldPos),
+              wristWorld.distanceTo(stickWorldPos)
+            );
+            const distThrottle = Math.min(
+              tipWorld.distanceTo(throttleWorldPos),
+              handCenter.distanceTo(throttleWorldPos),
+              wristWorld.distanceTo(throttleWorldPos)
+            );
+
+            // Natural Grip Detection: Pinch or at least 2 curled fingers around control
+            // Open hand (relaxed or extended fingers) immediately clears isGripActive
+            const isFingersCurled = (curledFingerCount >= 2);
+            const isGripActive = isPinching || isFingersCurled;
+
+            const localStickHand = stickGroup.worldToLocal(handCenter.clone());
+            const localThrottleHand = throttleGroup.worldToLocal(handCenter.clone());
+
+            // Visual Hover Feedback
+            if (distStick < 0.22) {
+              haloMatStick.color.setHex((isGrippingStickHand || isGrippingStick) ? 0x00f0ff : (isGripActive ? 0x00ff88 : 0x00aacc));
+              haloMatStick.opacity = (isGrippingStickHand || isGrippingStick) ? 0.95 : 0.65;
+            } else {
+              haloMatStick.opacity = 0.25;
+            }
+            if (distThrottle < 0.22) {
+              haloMatThrottle.color.setHex((isGrippingThrottleHand || isGrippingThrottle) ? 0x00f0ff : (isGripActive ? 0x00ff88 : 0x00aacc));
+              haloMatThrottle.opacity = (isGrippingThrottleHand || isGrippingThrottle) ? 0.95 : 0.60;
+            } else {
+              haloMatThrottle.opacity = 0.20;
+            }
+
+            // ── Flight Stick Control (RIGHT HAND ONLY - Tightened 9cm Grab Radius) ──
+            if (!isLeftHand) {
+              // Engage grip: MUST actively grip (isGripActive) close to stick (< 9cm, prevents accidental far grabbing)
+              const canEngageStick = distStick < 0.13 && isGripActive;
+              if (!isGrippingStickHand && canEngageStick) {
+                isGrippingStickHand = true;
+                stickGrabAnchorZ = localStickHand.z;
+                stickGrabAnchorX = localStickHand.x;
+                sound.beep(620, 0.05);
+              }
+
+              // Pilot's thumb contacting fire button OR pinching index while gripping stick (simplified instant firing)
+              if (thumbFireBtn) {
+                let shouldFire = false;
+                if (thumbTip && thumbTip.position) {
+                  const thumbPos = new THREE.Vector3();
+                  thumbTip.getWorldPosition(thumbPos);
+                  const btnWorld = new THREE.Vector3();
+                  thumbFireBtn.getWorldPosition(btnWorld);
+                  const contactRadius = isGrippingStickHand ? 0.082 : 0.048;
+                  if (thumbPos.distanceTo(btnWorld) < contactRadius) shouldFire = true;
+                }
+                if (isGrippingStickHand && isPinching) shouldFire = true;
+                if (shouldFire && (now - lastFireTime > 130)) {
+                  pressThumbFireButton();
+                }
+              }
+
+              if (isGrippingStickHand) {
+                // GRIP ENDS cleanly when hand genuinely uncurls (!isGripActive) or moves beyond 22cm
+                if (!isGripActive || distStick > 0.22 || isHandBusyWithControls) {
+                  isGrippingStickHand = false;
+                } else {
+                  // Deflection relative to initial hand grab anchor with generous 2.2cm deadzone
+                  const dz = localStickHand.z - (typeof stickGrabAnchorZ === 'number' ? stickGrabAnchorZ : 0.020);
+                  const dx = localStickHand.x - (typeof stickGrabAnchorX === 'number' ? stickGrabAnchorX : 0.0);
+
+                  const DEADZONE = 0.012;
+                  let targetPitch = 0.0;
+                  let targetRoll = 0.0;
+
+                  // Deflection along Z (Forward / Backward Pitch)
+                  if (Math.abs(dz) > DEADZONE) {
+                    const signZ = Math.sign(dz);
+                    const magZ = Math.min((Math.abs(dz) - DEADZONE) / 0.055, 1.0);
+                    targetPitch = signZ * magZ * 0.45;
+                  }
+
+                  // Deflection along X (Left / Right Roll & Turn)
+                  if (Math.abs(dx) > DEADZONE) {
+                    const signX = Math.sign(dx);
+                    const magX = Math.min((Math.abs(dx) - DEADZONE) / 0.055, 1.0);
+                    targetRoll = -signX * magX * 0.45;
+                  }
+
+                  stickPivot.rotation.x = THREE.MathUtils.lerp(stickPivot.rotation.x, targetPitch, 0.75);
+                  stickPivot.rotation.z = THREE.MathUtils.lerp(stickPivot.rotation.z, targetRoll, 0.75);
+                  stickPitchDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.x);
+                  stickRollDeg = THREE.MathUtils.radToDeg(stickPivot.rotation.z);
                   drawDebugWatch();
                 }
               }
             }
-          }
 
-          // (legacy missile/laser/dampener/autopilot/warp proximity removed: finger-touch buttons below handle them)
-          if (false) {
-          // Primary Laser Fire Button Touch on Left-Center Weapons Pedestal (Spaced 19cm from Missiles)
-          const laserBtnWorldPos = new THREE.Vector3();
-          laserFireBtnMesh.getWorldPosition(laserBtnWorldPos);
-          if (tipWorld.distanceTo(laserBtnWorldPos) < 0.075) {
-            if (now - lastFireTime > 180) {
-              triggerFire();
+            // ── Throttle Control (LEFT HAND ONLY - Smooth Rail Follow & Clean Release) ──
+            if (isLeftHand) {
+              const canEngageThrottle = (distThrottle < 0.22 && isGripActive);
+              if (!isGrippingThrottleHand && canEngageThrottle && !isHandBusyWithControls) {
+                isGrippingThrottleHand = true;
+                throttleHandAnchor.x = localThrottleHand.x;
+                throttleHandAnchor.z = localThrottleHand.z;
+                throttleHandAnchor.slide = throttleSlideZ;
+                sound.beep(520, 0.05);
+              }
+
+              // Thumb on the red boost button while gripping the throttle fires the afterburner
+              if (isGrippingThrottleHand && thumbTip && thumbTip.position && throttleBoosterBtn) {
+                const tp = new THREE.Vector3(), bp = new THREE.Vector3();
+                thumbTip.getWorldPosition(tp); throttleBoosterBtn.getWorldPosition(bp);
+                if (tp.distanceTo(bp) < 0.05 && now - (window._novaBoostT || 0) > 900) { window._novaBoostT = now; try { triggerAfterburner(); sound.switchClick(); } catch (e) {} }
+              }
+              if (isGrippingThrottleHand) {
+                // Keep a forgiving grab radius while the pilot works the lever.
+                if (!isGripActive || distThrottle > 0.30 || isHandBusyWithControls) {
+                  isGrippingThrottleHand = false;
+                  // Notch Lock on Release: Firmly snap throttle to achieved notch, preventing backward drag!
+                  throttlePct = currentThrottleNotch / 4;
+                  throttleSlideZ = THROTTLE_MIN_Z - throttlePct * THROTTLE_RANGE;
+                  throttleArm.position.z = throttleSlideZ;
+                  sound.detentTick();
+                  drawDebugWatch();
+                } else {
+                  // Direct 1-to-1 follow along the throttle rail
+                  // Sticky Max Detent: when pushed forward into notch 4 territory (z <= THROTTLE_MAX_Z + 0.018), firmly lock to 100%
+                  throttleYawInput = novaThrottleYaw(localThrottleHand.x, throttleHandAnchor);
+                  let targetZ = THREE.MathUtils.clamp(throttleHandAnchor.slide + localThrottleHand.z - throttleHandAnchor.z, THROTTLE_MAX_Z, THROTTLE_MIN_Z);
+                  if (targetZ <= THROTTLE_MAX_Z + 0.018) {
+                    targetZ = THROTTLE_MAX_Z;
+                  }
+                  throttleSlideZ = THREE.MathUtils.lerp(throttleSlideZ, targetZ, 0.75);
+                  throttleArm.position.z = throttleSlideZ;
+
+                  // Update throttle percentage and notch
+                  const newPct = THREE.MathUtils.clamp((THROTTLE_MIN_Z - throttleSlideZ) / THROTTLE_RANGE, 0.0, 1.0);
+                  throttlePct = newPct;
+                  const newNotch = Math.round(throttlePct * 4);
+                  if (newNotch !== currentThrottleNotch) {
+                    currentThrottleNotch = newNotch;
+                    sound.detentTick();
+                    updateThrottleNotchLights();
+                    drawHUD();
+                    drawDebugWatch();
+                  }
+                }
+              }
+            }
+
+            // Interactive Cockpit Buttons Array Outside Front Dash (Closest Button Selection - Gated to screen view)
+            let closestBtn = null;
+            let closestDist = Infinity;
+            const handGripping = isLeftHand ? isGrippingThrottleHand : isGrippingStickHand;
+            if (handGripping) {
+              const anchor = isLeftHand ? throttleGripPoint : stickGripPoint;
+              const group = isLeftHand ? handGroupLeft : handGroupRight;
+              const target = cameraRig.worldToLocal(anchor.getWorldPosition(new THREE.Vector3()));
+              const trackedCenter = cameraRig.worldToLocal(handCenter.clone());
+              group.position.copy(target).sub(trackedCenter);
+            }
+            for (let b = 0; b < cockpitInteractables.length && !handGripping; b++) {
+              const btn = cockpitInteractables[b];
+              if (!btn.mesh || !novaWorldVisible(btn.mesh)) continue;
+              // Prevent pushing buttons that are off the pilot's screen!
+              if (!novaIsObjectOnScreen(btn.mesh, 0.48)) continue;
+              const dist = novaButtonDistance(tipWorld, btn.mesh);
+              if (dist < Math.max(btn.radius, 0.03) && dist < closestDist) {
+                closestDist = dist;
+                closestBtn = btn;
+              }
+            }
+            const pokeKey = isLeftHand ? '_fingerL' : '_fingerR';
+            if (closestBtn) {
+              isHandBusyWithControls = true;
+              if (window[pokeKey] !== closestBtn && now - closestBtn.lastPressTime > 250) {
+                closestBtn.lastPressTime = now;
+                closestBtn.pressTimer = 0.15;
+                try { closestBtn.action(); } catch (e) { console.error(e); }
+                try { sound.switchClick(); } catch (e) {}
+              }
+            }
+            window[pokeKey] = closestBtn;
+          });
+
+          // Hide untracked optical hand meshes
+          if (!isLeftHandTracked) {
+            novaTrackedHandFilter.left.ready = false;
+            handMeshes1.forEach(m => m.visible = false);
+            boneMeshes1.forEach(b => b.visible = false);
+            isGrippingThrottleHand = false;
+            if (wristBeaconGroup) wristBeaconGroup.visible = false;
+            if (debugWatchGroup && !isWristMenuOpen) {
+              debugWatchGroup.visible = false;
             }
           }
-
-          // Rotation Dampeners Toggle Button Touch (2x Larger Target)
-          const dampBtnWorldPos = new THREE.Vector3();
-          dampBtnMesh.getWorldPosition(dampBtnWorldPos);
-          if (tipWorld.distanceTo(dampBtnWorldPos) < 0.10) {
-            if (now - lastFaceBtnTime > 380) {
-              lastFaceBtnTime = now;
-              toggleRotationDampeners();
+          if (!isLeftHandTracked && isWristMenuOpen && debugWatchGroup) {
+            debugWatchGroup.visible = true;
+            if (debugWatchGroup.position.lengthSq() < 0.01 || Math.abs(debugWatchGroup.position.x) < 0.05) {
+              debugWatchGroup.position.set(-0.28, 0.15, -0.42);
             }
           }
-
-          // Autopilot Navigation Toggle Button Touch (2x Larger Target)
-          const apBtnWorldPos = new THREE.Vector3();
-          apBtnMesh.getWorldPosition(apBtnWorldPos);
-          if (tipWorld.distanceTo(apBtnWorldPos) < 0.10) {
-            if (now - lastFaceBtnTime > 380) {
-              lastFaceBtnTime = now;
-              toggleAutopilot();
-            }
-          }
-
-          // Flashing Lightspeed / Hyperspace Button (2x Larger Target)
-          const warpBtnWorldPos = new THREE.Vector3();
-          lightspeedBtn.getWorldPosition(warpBtnWorldPos);
-          if (tipWorld.distanceTo(warpBtnWorldPos) < 0.11) {
-            if (now - lastFireTime > 300) {
-              triggerLightspeed();
-            }
-          }
-
-          }
-          // Physical Disarm Tab (Visual reference only; latch is controlled via hold-down on gripTab)
-
-          // Comms Arm Fold/Deploy Tab Button (Gated to screen view)
-          const foldBtnWorldPos = new THREE.Vector3();
-          if (typeof commsFoldBtn !== 'undefined' && commsFoldBtn) commsFoldBtn.getWorldPosition(foldBtnWorldPos); else foldBtnWorldPos.set(9999, 9999, 9999);
-          if (tipWorld.distanceTo(foldBtnWorldPos) < 0.075 && novaIsObjectOnScreen(commsFoldBtn, 0.48)) {
-            isHandBusyWithControls = true;
-            if (now - lastFaceBtnTime > 500) {
-              lastFaceBtnTime = now;
-              toggleCommsArm();
-            }
-          }
-
-          // Interactive Cockpit Buttons Array Outside Front Dash (Closest Button Selection - Gated to screen view)
-          let closestBtn = null;
-          let closestDist = Infinity;
-          const handGripping = isLeftHand ? isGrippingThrottleHand : isGrippingStickHand;
-          if (handGripping) {
-            const anchor = isLeftHand ? throttleGripPoint : stickGripPoint;
-            const group = isLeftHand ? handGroupLeft : handGroupRight;
-            const target = cameraRig.worldToLocal(anchor.getWorldPosition(new THREE.Vector3()));
-            const trackedCenter = cameraRig.worldToLocal(handCenter.clone());
-            group.position.copy(target).sub(trackedCenter);
-          }
-          for (let b = 0; b < cockpitInteractables.length && !handGripping; b++) {
-            const btn = cockpitInteractables[b];
-            if (!btn.mesh || !novaWorldVisible(btn.mesh)) continue;
-            // Prevent pushing buttons that are off the pilot's screen!
-            if (!novaIsObjectOnScreen(btn.mesh, 0.48)) continue;
-            const dist = novaButtonDistance(tipWorld, btn.mesh);
-            if (dist < Math.max(btn.radius, 0.03) && dist < closestDist) {
-              closestDist = dist;
-              closestBtn = btn;
-            }
-          }
-          const pokeKey = isLeftHand ? '_fingerL' : '_fingerR';
-          if (closestBtn) {
-            isHandBusyWithControls = true;
-            if (window[pokeKey] !== closestBtn && now - closestBtn.lastPressTime > 250) {
-              closestBtn.lastPressTime = now;
-              closestBtn.pressTimer = 0.15;
-              try { closestBtn.action(); } catch (e) { console.error(e); }
-              try { sound.switchClick(); } catch (e) {}
-            }
-          }
-          window[pokeKey] = closestBtn;
-        });
-
-        // Hide untracked optical hand meshes
-        if (!isLeftHandTracked) {
-          novaTrackedHandFilter.left.ready = false;
-          handMeshes1.forEach(m => m.visible = false);
-          boneMeshes1.forEach(b => b.visible = false);
-          isGrippingThrottleHand = false;
-          if (wristBeaconGroup) wristBeaconGroup.visible = false;
-          if (debugWatchGroup && !isWristMenuOpen) {
-            debugWatchGroup.visible = false;
+          if (!isRightHandTracked) {
+            novaTrackedHandFilter.right.ready = false;
+            handMeshes2.forEach(m => m.visible = false);
+            boneMeshes2.forEach(b => b.visible = false);
+            isGrippingStickHand = false;
           }
         }
-        if (!isLeftHandTracked && isWristMenuOpen && debugWatchGroup) {
-          debugWatchGroup.visible = true;
-          if (debugWatchGroup.position.lengthSq() < 0.01 || Math.abs(debugWatchGroup.position.x) < 0.05) {
-            debugWatchGroup.position.set(-0.28, 0.15, -0.42);
-          }
-        }
-        if (!isRightHandTracked) {
-          novaTrackedHandFilter.right.ready = false;
-          handMeshes2.forEach(m => m.visible = false);
-          boneMeshes2.forEach(b => b.visible = false);
-          isGrippingStickHand = false;
-        }
-
+      }
+      novaUpdateTrackedHands(delta, false);
+      const session = renderer.xr.getSession();
+      if (session) {
         // Quest Touch Controller Gripping & HOTAS manipulation
         const controllers = [
           { ctrl: c1, grip: c1Grip, isGrip: (c1.userData.handedness !== 'right') ? isC1GripPressed : isC2GripPressed, isLeft: c1.userData.handedness !== 'right' },

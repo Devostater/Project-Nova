@@ -116,23 +116,28 @@ export function init(nova) {
   laserBeamLine.raycast = () => {};
   scene.add(laserBeamLine);
 
-  // ── Floating 360° Locomotion Joystick Orb (Left-Hand Virtual Joystick) ──
+  // ── Floating 360° Locomotion Joystick Orb (Virtual Joystick with Large Outer Zone) ──
   const locoGroup = new T.Group();
   locoGroup.name = 'NOVA_FPS_LOCO_ORB';
-  const locoBaseRingGeo = new T.TorusGeometry(0.046, 0.0035, 12, 32);
+  const locoBaseRingGeo = new T.TorusGeometry(0.18, 0.0045, 12, 48);
   locoBaseRingGeo.rotateX(Math.PI / 2); // Lie flat in XZ plane
   const locoBaseRingMat = new T.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.65, side: T.DoubleSide, depthTest: false });
   const locoBaseRing = new T.Mesh(locoBaseRingGeo, locoBaseRingMat);
   locoGroup.add(locoBaseRing);
 
-  // 4 Directional Cardinal Ticks on Base Ring
+  const locoInnerRingGeo = new T.TorusGeometry(0.09, 0.0025, 10, 36);
+  locoInnerRingGeo.rotateX(Math.PI / 2);
+  const locoInnerRing = new T.Mesh(locoInnerRingGeo, locoBaseRingMat);
+  locoGroup.add(locoInnerRing);
+
+  // 4 Directional Cardinal Ticks on Base Ring (18cm outer boundary)
   const locoTicks = new T.Group();
-  const tickGeo = new T.PlaneGeometry(0.003, 0.012);
+  const tickGeo = new T.PlaneGeometry(0.004, 0.022);
   tickGeo.rotateX(Math.PI / 2);
   const tickMat = new T.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.75, side: T.DoubleSide, depthTest: false });
   for (let i = 0; i < 4; i++) {
     const tick = new T.Mesh(tickGeo, tickMat);
-    tick.position.set(0, 0, 0.046).applyAxisAngle(new T.Vector3(0, 1, 0), i * Math.PI / 2);
+    tick.position.set(0, 0, 0.18).applyAxisAngle(new T.Vector3(0, 1, 0), i * Math.PI / 2);
     tick.rotation.y = i * Math.PI / 2;
     locoTicks.add(tick);
   }
@@ -175,18 +180,21 @@ export function init(nova) {
   locoGroup.traverse(o => { o.raycast = () => {}; });
   scene.add(locoGroup);
 
-  let locoOrbGrabbed = false, locoSocketPosInit = false, initialGrabYaw = 0;
+  let locoOrbGrabbed = false, locoSocketPosInit = false, initialGrabYaw = 0, locoGrabHandIsRight = false;
   const locoSocketPos = new T.Vector3(), tempVec = new T.Vector3(), tempPos = new T.Vector3();
   const camYawFwd = new T.Vector3(), camYawRight = new T.Vector3(), camFwdVec = new T.Vector3();
 
-  function getLeftHandYaw(){
-    if(leftIsHand && leftHandAnchor && leftAnchorState.ready){
-      const fwd = new T.Vector3(0,0,-1).applyQuaternion(leftHandAnchor.quaternion);
+  function getHandYaw(isRight = false){
+    const isH = isRight ? rightIsHand : leftIsHand;
+    const anchor = isRight ? rightHandAnchor : leftHandAnchor;
+    const state = isRight ? rightAnchorState : leftAnchorState;
+    if(isH && anchor && state.ready){
+      const fwd = new T.Vector3(0,0,-1).applyQuaternion(anchor.quaternion);
       return Math.atan2(fwd.x, -fwd.z);
     }
-    if(leftController||leftGrip){
-      const src = leftGrip||leftController;
-      src.getWorldQuaternion(controllerQ);
+    const ctrl = isRight ? (rightGrip || rightController) : (leftGrip || leftController);
+    if(ctrl){
+      ctrl.getWorldQuaternion(controllerQ);
       const fwd = new T.Vector3(0,0,-1).applyQuaternion(controllerQ);
       return Math.atan2(fwd.x, -fwd.z);
     }
@@ -680,9 +688,8 @@ export function init(nova) {
   const leftAnchorState={ready:false},rightAnchorState={ready:false},anchorPos=new T.Vector3(),anchorQ=new T.Quaternion();
   function trackHandAnchor(anchor,jointObject,state,dt){
     jointObject.getWorldPosition(anchorPos);
-    if(anchorPos.lengthSq()<0.0001||(rig&&anchorPos.y<rig.position.y-0.10))return;
     jointObject.getWorldQuaternion(anchorQ);
-    const jump=!state.ready||anchor.position.distanceTo(anchorPos)>.22,a=1-Math.exp(-Math.max(.001,dt)*22);
+    const jump=!state.ready||anchor.position.distanceTo(anchorPos)>.28,a=1-Math.exp(-Math.max(.001,dt)*22);
     if(jump){anchor.position.copy(anchorPos);anchor.quaternion.copy(anchorQ);state.ready=true;}else{anchor.position.lerp(anchorPos,a);anchor.quaternion.slerp(anchorQ,a);}
     anchor.updateMatrixWorld(true);
   }
@@ -740,9 +747,6 @@ export function init(nova) {
     const j=joint(hand,name);
     if(!j)return false;
     j.getWorldPosition(out);
-    // Reject uninitialized or lost joints at origin or below floor level
-    if(out.lengthSq()<0.0001)return false;
-    if(rig&&out.y<(rig.position.y-0.10))return false;
     return true;
   }
   function resolveHand(handedness){
@@ -1070,6 +1074,26 @@ export function init(nova) {
   }
   function interact(){
     if(!active)return false;
+    // Check direct proximity first (e.g. hand or body right in front of door or console)
+    const testPoints = [origin];
+    if (rightIndexValid) testPoints.push(rightIndex);
+    if (leftIndexValid) testPoints.push(leftIndex);
+    if (rightWristValid) testPoints.push(rightWrist);
+    if (leftWristValid) testPoints.push(leftWrist);
+    for (const pt of testPoints) {
+      let foundClose = null;
+      scene.traverse(node => {
+        if (foundClose || !node.visible || isPlayerHierarchy(node)) return;
+        if (node.userData && typeof node.userData.fpsInteract === 'function') {
+          const wPos = new T.Vector3();
+          node.getWorldPosition(wPos);
+          if (wPos.distanceTo(pt) < 1.8) foundClose = node.userData.fpsInteract;
+        }
+      });
+      if (foundClose) {
+        try { foundClose(); return true; } catch (e) { console.warn(e); }
+      }
+    }
     const hits=aimRay();
     for(const hit of hits){
       if(hit.distance>(options.interactRange||3))break;
@@ -1476,11 +1500,11 @@ export function init(nova) {
       if(camYawFwd.lengthSq()<0.001)camYawFwd.set(0,0,-1);
       camYawRight.crossVectors(camYawFwd,up).normalize();
 
-      // Ergonomic hover target: 24cm below head, 22cm to left, 32cm forward
+      // Ergonomic hover target: 24cm below head, 22cm to RIGHT, 32cm forward
       const targetSocketPos=new T.Vector3()
         .copy(camWorldPos)
         .addScaledVector(up,-0.24)
-        .addScaledVector(camYawRight,-0.22)
+        .addScaledVector(camYawRight,0.22)
         .addScaledVector(camYawFwd,0.32);
 
       // Lock directly to player so it always rotates and stays anchored to the left chest
@@ -1498,96 +1522,147 @@ export function init(nova) {
       locoGroup.matrix.makeBasis(camYawRight, up, camYawFwd.clone().negate());
       locoGroup.quaternion.setFromRotationMatrix(locoGroup.matrix);
 
-      // Check Left Hand position & grabbing state
-      const lHandWorld=new T.Vector3();
-      let leftHandPosValid=false,leftSqueezing=false;
-      if(leftIsHand){
-        if(leftIndexValid||leftWristValid){
-          if(leftIndexValid&&leftWristValid){
-            lHandWorld.copy(leftIndex).lerp(leftWrist,0.35); // palm / grip center
-          }else if(leftIndexValid){
-            lHandWorld.copy(leftIndex);
-          }else{
-            lHandWorld.copy(leftWrist);
-          }
-          leftHandPosValid=true;
-          const leftPinchDist=(leftThumbValid&&leftIndexValid)?leftThumb.distanceTo(leftIndex):999;
-          const leftMidPinchDist=(leftThumbValid&&leftMiddleValid)?leftThumb.distanceTo(leftMiddle):999;
-          const leftFist=leftWristValid&&leftIndexValid&&(leftIndex.distanceTo(leftWrist)<0.145);
-          leftSqueezing=leftPinchDist<0.080||leftMidPinchDist<0.080||leftFist;
+      // Check Hand positions & grabbing state (Supports either hand closest to the joystick orb!)
+      const grabHandWorld = new T.Vector3();
+      let grabHandPosValid = false, grabSqueezing = false, isGrabRight = false;
+
+      // Probe Left Hand / Controller
+      const lPos = new T.Vector3();
+      let lValid = false, lSqueeze = false;
+      if (leftIsHand) {
+        if (leftIndexValid || leftWristValid) {
+          if (leftIndexValid && leftWristValid) lPos.copy(leftIndex).lerp(leftWrist, 0.35);
+          else if (leftIndexValid) lPos.copy(leftIndex);
+          else lPos.copy(leftWrist);
+          lValid = true;
+          const leftPinchDist = (leftThumbValid && leftIndexValid) ? leftThumb.distanceTo(leftIndex) : 999;
+          const leftMidPinchDist = (leftThumbValid && leftMiddleValid) ? leftThumb.distanceTo(leftMiddle) : 999;
+          const leftFist = leftWristValid && leftIndexValid && (leftIndex.distanceTo(leftWrist) < 0.145);
+          lSqueeze = leftPinchDist < 0.080 || leftMidPinchDist < 0.080 || leftFist;
         }
-      }else if(leftController||leftGrip){
-        const lCtrl=leftGrip||leftController;
-        lCtrl.getWorldPosition(lHandWorld);
-        leftHandPosValid=true;
-        const gp=leftSource?.gamepad;
-        const gripPress=(gp?.buttons?.[1]?.value>0.25)||!!gp?.buttons?.[1]?.pressed;
-        const trigPress=(gp?.buttons?.[0]?.value>0.25)||!!gp?.buttons?.[0]?.pressed;
-        leftSqueezing=gripPress||trigPress;
+      } else if (leftController || leftGrip) {
+        const lCtrl = leftGrip || leftController;
+        lCtrl.getWorldPosition(lPos);
+        lValid = true;
+        const gp = leftSource?.gamepad;
+        lSqueeze = (gp?.buttons?.[1]?.value > 0.25) || !!gp?.buttons?.[1]?.pressed || (gp?.buttons?.[0]?.value > 0.25) || !!gp?.buttons?.[0]?.pressed;
+      }
+
+      // Probe Right Hand / Controller
+      const rPos = new T.Vector3();
+      let rValid = false, rSqueeze = false;
+      if (rightIsHand) {
+        if (rightIndexValid || rightWristValid) {
+          if (rightIndexValid && rightWristValid) rPos.copy(rightIndex).lerp(rightWrist, 0.35);
+          else if (rightIndexValid) rPos.copy(rightIndex);
+          else rPos.copy(rightWrist);
+          rValid = true;
+          const rPinchDist = (rightThumbValid && rightIndexValid) ? rightThumb.distanceTo(rightIndex) : 999;
+          const rMidPinchDist = (rightThumbValid && rightMiddleValid) ? rightThumb.distanceTo(rightMiddle) : 999;
+          const rightFist = rightWristValid && rightIndexValid && (rightIndex.distanceTo(rightWrist) < 0.145);
+          rSqueeze = rPinchDist < 0.080 || rMidPinchDist < 0.080 || rightFist;
+        }
+      } else if (rightController || rightGrip) {
+        const rCtrl = rightGrip || rightController;
+        rCtrl.getWorldPosition(rPos);
+        rValid = true;
+        const gp = rightSource?.gamepad;
+        rSqueeze = (gp?.buttons?.[1]?.value > 0.25) || !!gp?.buttons?.[1]?.pressed || (gp?.buttons?.[0]?.value > 0.25) || !!gp?.buttons?.[0]?.pressed;
       }
 
       locoOrbMesh.getWorldPosition(tempPos);
-      const grabDist=leftHandPosValid?lHandWorld.distanceTo(tempPos):999;
-      const isNearOrb=grabDist<0.28;
-      if(!locoOrbGrabbed){
-        if(leftHandPosValid&&isNearOrb&&leftSqueezing){
-          locoOrbGrabbed=true;
-          initialGrabYaw=getLeftHandYaw();
-          try{(nova.sound||window.sound)?.click?.();}catch(_){}
+      const distL = lValid ? lPos.distanceTo(tempPos) : 999;
+      const distR = rValid ? rPos.distanceTo(tempPos) : 999;
+
+      if (!locoOrbGrabbed) {
+        // Grab whichever hand is closest and squeezing within generous 0.34m radius
+        if (distR <= distL && distR < 0.34 && rSqueeze) {
+          locoOrbGrabbed = true;
+          locoGrabHandIsRight = true;
+          grabHandPosValid = true;
+          grabHandWorld.copy(rPos);
+          initialGrabYaw = getHandYaw(true);
+          try { (nova.sound || window.sound)?.click?.(); } catch (_) {}
+        } else if (distL < 0.34 && lSqueeze) {
+          locoOrbGrabbed = true;
+          locoGrabHandIsRight = false;
+          grabHandPosValid = true;
+          grabHandWorld.copy(lPos);
+          initialGrabYaw = getHandYaw(false);
+          try { (nova.sound || window.sound)?.click?.(); } catch (_) {}
         }
-      }else{
-        if(!leftHandPosValid||!leftSqueezing||grabDist>0.52){
-          locoOrbGrabbed=false;
+      } else {
+        // Track the grabbed hand
+        if (locoGrabHandIsRight) {
+          if (!rValid || !rSqueeze || distR > 0.55) {
+            locoOrbGrabbed = false;
+          } else {
+            grabHandPosValid = true;
+            grabHandWorld.copy(rPos);
+          }
+        } else {
+          if (!lValid || !lSqueeze || distL > 0.55) {
+            locoOrbGrabbed = false;
+          } else {
+            grabHandPosValid = true;
+            grabHandWorld.copy(lPos);
+          }
         }
       }
 
+      const isNearOrb = Math.min(distL, distR) < 0.32;
+
       // ── Twisting Orb for Yaw Rotation (VR Thruster / Joystick Twist Rudder) ──
-      if(locoOrbGrabbed&&leftHandPosValid){
-        const currentYaw=getLeftHandYaw();
-        let deltaYaw=currentYaw-initialGrabYaw;
-        while(deltaYaw>Math.PI)deltaYaw-=Math.PI*2;
-        while(deltaYaw<-Math.PI)deltaYaw+=Math.PI*2;
-        if(Math.abs(deltaYaw)>0.12){
-          const twistRate=(deltaYaw>0?deltaYaw-0.12:deltaYaw+0.12)*2.8;
-          rig.rotation.y-=twistRate*d;
-          yaw=rig.rotation.y;
+      if (locoOrbGrabbed && grabHandPosValid) {
+        const currentYaw = getHandYaw(locoGrabHandIsRight);
+        let deltaYaw = currentYaw - initialGrabYaw;
+        while (deltaYaw > Math.PI) deltaYaw -= Math.PI * 2;
+        while (deltaYaw < -Math.PI) deltaYaw += Math.PI * 2;
+        if (Math.abs(deltaYaw) > 0.16) {
+          const twistRate = (deltaYaw > 0 ? deltaYaw - 0.16 : deltaYaw + 0.16) * 1.6;
+          rig.rotation.y -= twistRate * d;
+          yaw = rig.rotation.y;
         }
       }
 
       // ── Weapon Firing: Right Pinch (aiming forward/up) OR Left Pinch Debug Fire ──
-      // Right hand pinch fires weapon when aiming forward/up (not aiming down at floor)
-      if(rightPinch&&weaponOn&&!tpMarker.visible&&!rightAimingAtFloor){
-        if(!rightPinchHeld||(performance.now()-lastFire>=activeWeapon.cooldown))fire();
+      // Right hand pinch fires weapon when aiming forward/up (not aiming down at floor, and not using right hand to steer)
+      if (rightPinch && weaponOn && !tpMarker.visible && !rightAimingAtFloor && (!locoOrbGrabbed || !locoGrabHandIsRight)) {
+        if (!rightPinchHeld || (performance.now() - lastFire >= activeWeapon.cooldown)) fire();
       }
 
       // Left hand pinch: FPS gun fires for debug ONLY when NOT grabbing or near the locomotion orb
-      if(leftPinch&&weaponOn&&!locoOrbGrabbed&&!isNearOrb){
-        if(!leftPinchHeld||(performance.now()-lastFire>=activeWeapon.cooldown))fire();
+      if (leftPinch && weaponOn && (!locoOrbGrabbed || locoGrabHandIsRight) && !isNearOrb) {
+        if (!leftPinchHeld || (performance.now() - lastFire >= activeWeapon.cooldown)) fire();
       }
-      // Quick tap without weapon interacts with props/buttons
-      if(!leftPinch&&leftPinchHeld&&!weaponOn&&!leftPinchUsed&&leftPinchTime<.32&&!locoOrbGrabbed&&!isNearOrb){interact();}
-      leftPinchHeld=leftPinch;rightPinchHeld=rightPinch;
+      // Quick tap interacts with props/buttons
+      if ((!leftPinch && leftPinchHeld && !leftPinchUsed && leftPinchTime < .32 && !isNearOrb) ||
+          (!rightPinch && rightPinchHeld && !rightPinchUsed && rightPinchTime < .32 && !rightAimingAtFloor)) {
+        interact();
+      }
+      leftPinchHeld = leftPinch; rightPinchHeld = rightPinch;
 
       // Tactical Wrist Weapon Swap: Touch or tap left wrist with right hand index or controller
-      if(leftWristValid){
-        const rTip=(rightIsHand&&rightIndexValid)?rightIndex:((rightGrip||rightController)?(rightGrip||rightController).position:null);
-        if(rTip&&rTip.distanceTo(leftWrist)<0.14){
-          if(!wristTapHeld){cycleWeapon(1);wristTapHeld=true;}
-        }else{wristTapHeld=false;}
+      if (leftWristValid) {
+        const rTip = (rightIsHand && rightIndexValid) ? rightIndex : ((rightGrip || rightController) ? (rightGrip || rightController).position : null);
+        if (rTip && rTip.distanceTo(leftWrist) < 0.14) {
+          if (!wristTapHeld) { cycleWeapon(1); wristTapHeld = true; }
+        } else { wristTapHeld = false; }
       }
 
-      let orbDeflected=false;
-      const MAX_THROW=0.08,DEADZONE=0.008;
-      const is3DEVA=!!(options.zeroG||options.isEVA||window.novaIsEvaActive||window.novaEva?.active);
+      let orbDeflected = false;
+      // Larger outer zone (18cm throw vs previous 8cm) and lowered sensitivity curve
+      const MAX_THROW = 0.18, DEADZONE = 0.020;
+      const is3DEVA = !!(options.zeroG || options.isEVA || window.novaIsEvaActive || window.novaEva?.active);
 
-      if(locoOrbGrabbed&&leftHandPosValid){
-        const localPos=locoGroup.worldToLocal(lHandWorld.clone());
-        if(!is3DEVA){
-          localPos.y=0; // In gravity interior/shooting range: restrict virtual joystick to 2D horizontal plane
+      if (locoOrbGrabbed && grabHandPosValid) {
+        const localPos = locoGroup.worldToLocal(grabHandWorld.clone());
+        if (!is3DEVA) {
+          localPos.y = 0; // In gravity interior/shooting range: restrict virtual joystick to 2D horizontal plane
         }
-        const dist=localPos.length();
-        if(dist>MAX_THROW){
-          localPos.multiplyScalar(MAX_THROW/dist);
+        const dist = localPos.length();
+        if (dist > MAX_THROW) {
+          localPos.multiplyScalar(MAX_THROW / dist);
         }
         locoOrbGroup.position.copy(localPos);
 
@@ -1595,40 +1670,41 @@ export function init(nova) {
         locoOrbMat.color.setHex(0x66ffbb);
         locoHalo.scale.setScalar(1.35);
 
-        if(dist>DEADZONE){
-          orbDeflected=true;
-          const normMag=Math.min(1.0,(dist-DEADZONE)/(MAX_THROW-DEADZONE));
-          const speedCurve=normMag*normMag*0.45+normMag*0.55;
-          const moveSpeed=(options.speed||3.2)*speedCurve;
+        if (dist > DEADZONE) {
+          orbDeflected = true;
+          // Smooth progressive quadratic ramp with comfortable speed ceiling
+          const normMag = Math.min(1.0, (dist - DEADZONE) / (MAX_THROW - DEADZONE));
+          const speedCurve = Math.pow(normMag, 1.5) * 0.72;
+          const moveSpeed = (options.speed || 2.5) * speedCurve;
 
           // Local coordinates: +X is right, -Z is forward, +Y is up
-          const moveStrafe=localPos.x/MAX_THROW;
-          const moveFwd=-localPos.z/MAX_THROW;
-          const moveDir=new T.Vector3()
-            .addScaledVector(camYawRight,moveStrafe)
-            .addScaledVector(camYawFwd,moveFwd);
+          const moveStrafe = localPos.x / MAX_THROW;
+          const moveFwd = -localPos.z / MAX_THROW;
+          const moveDir = new T.Vector3()
+            .addScaledVector(camYawRight, moveStrafe)
+            .addScaledVector(camYawFwd, moveFwd);
 
-          if(!is3DEVA){
+          if (!is3DEVA) {
             // 2D horizontal movement along floor/room plane
-            if(moveDir.lengthSq()>0.0001){
-              moveDir.normalize().multiplyScalar(moveSpeed*d);
-              moveRigXZ(moveDir.x,moveDir.z);
+            if (moveDir.lengthSq() > 0.0001) {
+              moveDir.normalize().multiplyScalar(moveSpeed * d);
+              moveRigXZ(moveDir.x, moveDir.z);
             }
-          }else{
+          } else {
             // 3D 360° full 6DOF EVA movement (forward/back, strafe, up/down vertical elevation)
-            const moveUp=localPos.y/MAX_THROW;
-            moveDir.addScaledVector(up,moveUp);
-            if(moveDir.lengthSq()>0.0001){
-              const move3D=moveDir.clone().normalize().multiplyScalar(moveSpeed*d);
+            const moveUp = localPos.y / MAX_THROW;
+            moveDir.addScaledVector(up, moveUp);
+            if (moveDir.lengthSq() > 0.0001) {
+              const move3D = moveDir.clone().normalize().multiplyScalar(moveSpeed * d);
               rig.position.add(move3D);
-              if(window.novaEva&&window.novaEva.active&&window.novaEva.vel){
-                window.novaEva.vel.addScaledVector(moveDir.clone().normalize(),moveSpeed*0.45*d);
+              if (window.novaEva && window.novaEva.active && window.novaEva.vel) {
+                window.novaEva.vel.addScaledVector(moveDir.clone().normalize(), moveSpeed * 0.45 * d);
               }
             }
           }
         }
-      }else{
-        locoOrbGroup.position.lerp(new T.Vector3(0,0,0),Math.min(1.0,d*18.0));
+      } else {
+        locoOrbGroup.position.lerp(new T.Vector3(0, 0, 0), Math.min(1.0, d * 18.0));
         locoOrbMat.emissive.setHex(0x007799);
         locoOrbMat.color.setHex(0x00e5ff);
         locoHalo.scale.setScalar(1.0);
@@ -1722,26 +1798,66 @@ export function init(nova) {
         // Check if VR hand or controller reaches near left chest to grab grenade
         if(session){
           let rightGrab=false,leftGrab=false;
-          const rPos=(rightHandAnchor&&rightAnchorState.ready)?rightHandAnchor.position:(rightGrip||rightController)?.position;
-          const rCheckDist=rPos?rPos.distanceTo(grenadeChestPos):(rightIndexValid?rightIndex.distanceTo(grenadeChestPos):999);
-          if(rCheckDist<0.30){
-            const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>0.5)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
-            const rHandGrip=rightIsHand&&(rightPinch||(rightIndexValid&&rightWristValid&&rightIndex.distanceTo(rightWrist)<0.145));
-            if(rSqueeze||rHandGrip){rightGrab=true;}
+
+          // Collect all right hand candidate positions
+          const rPoints = [];
+          if (rightHandAnchor && rightAnchorState.ready) rPoints.push(rightHandAnchor.position);
+          if (rightGrip) rPoints.push(rightGrip.position);
+          if (rightController) rPoints.push(rightController.position);
+          if (rightIndexValid) rPoints.push(rightIndex);
+          if (rightWristValid) rPoints.push(rightWrist);
+          if (rightThumbValid) rPoints.push(rightThumb);
+
+          let rMinDist = 999;
+          for (const pt of rPoints) {
+            const dst = pt.distanceTo(grenadeChestPos);
+            if (dst < rMinDist) rMinDist = dst;
           }
-          const lPos=(leftHandAnchor&&leftAnchorState.ready)?leftHandAnchor.position:(leftGrip||leftController)?.position;
-          const lCheckDist=lPos?lPos.distanceTo(grenadeChestPos):(leftIndexValid?leftIndex.distanceTo(grenadeChestPos):999);
-          if(lCheckDist<0.30){
-            const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>0.5)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
-            const lHandGrip=leftIsHand&&(leftPinch||(leftIndexValid&&leftWristValid&&leftIndex.distanceTo(leftWrist)<0.145));
-            if(lSqueeze||lHandGrip){leftGrab=true;}
+
+          // Collect all left hand candidate positions
+          const lPoints = [];
+          if (leftHandAnchor && leftAnchorState.ready) lPoints.push(leftHandAnchor.position);
+          if (leftGrip) lPoints.push(leftGrip.position);
+          if (leftController) lPoints.push(leftController.position);
+          if (leftIndexValid) lPoints.push(leftIndex);
+          if (leftWristValid) lPoints.push(leftWrist);
+          if (leftThumbValid) lPoints.push(leftThumb);
+
+          let lMinDist = 999;
+          for (const pt of lPoints) {
+            const dst = pt.distanceTo(grenadeChestPos);
+            if (dst < lMinDist) lMinDist = dst;
           }
+
+          const hoverNear = Math.min(rMinDist, lMinDist) < 0.38;
+          if (hoverNear) {
+            grenadeRingMat.color.setHex(0x00ffff);
+            grenadeGroup.scale.setScalar(1.3);
+          } else {
+            grenadeRingMat.color.setHex(0x00aacc);
+            grenadeGroup.scale.setScalar(1.0);
+          }
+
+          if(rMinDist < 0.38){
+            const rTrigger = (rightSource?.gamepad?.buttons?.[0]?.value || 0) > 0.25 || !!rightSource?.gamepad?.buttons?.[0]?.pressed;
+            const rGrip = (rightSource?.gamepad?.buttons?.[1]?.value || 0) > 0.25 || !!rightSource?.gamepad?.buttons?.[1]?.pressed;
+            const rHandGrip = rightIsHand && (rightPinch || (rightIndexValid && rightWristValid && rightIndex.distanceTo(rightWrist) < 0.145));
+            if(rTrigger || rGrip || rHandGrip){ rightGrab = true; }
+          }
+
+          if(lMinDist < 0.38){
+            const lTrigger = (leftSource?.gamepad?.buttons?.[0]?.value || 0) > 0.25 || !!leftSource?.gamepad?.buttons?.[0]?.pressed;
+            const lGrip = (leftSource?.gamepad?.buttons?.[1]?.value || 0) > 0.25 || !!leftSource?.gamepad?.buttons?.[1]?.pressed;
+            const lHandGrip = leftIsHand && (leftPinch || (leftIndexValid && leftWristValid && leftIndex.distanceTo(leftWrist) < 0.145));
+            if(lTrigger || lGrip || lHandGrip){ leftGrab = true; }
+          }
+
           if(rightGrab){
-            grenadeState='held_right';grenadeFuse=3.0;
+            grenadeState='held_right';grenadeFuse=3.0;grenadeGroup.scale.setScalar(1.0);
             try{nova.sound?.switchClick?.();}catch(_){}
             nova.toast?.('💣 GRENADE ARMED · 3s FUSE',1600,'#ffaa00');
           }else if(leftGrab){
-            grenadeState='held_left';grenadeFuse=3.0;
+            grenadeState='held_left';grenadeFuse=3.0;grenadeGroup.scale.setScalar(1.0);
             try{nova.sound?.switchClick?.();}catch(_){}
             nova.toast?.('💣 GRENADE ARMED · 3s FUSE',1600,'#ffaa00');
           }
@@ -1751,6 +1867,7 @@ export function init(nova) {
         const holder=isR?(rightHandAnchor&&rightAnchorState.ready?rightHandAnchor:(rightGrip||rightController||camera)):(leftHandAnchor&&leftAnchorState.ready?leftHandAnchor:(leftGrip||leftController||camera));
         holder.getWorldPosition(grenadeTempPos);
         grenadeGroup.position.copy(grenadeTempPos);
+        grenadeGroup.scale.setScalar(1.0);
         grenadeGroup.visible=true;
         grenadeFuse-=d;
         const blink=(Math.sin(performance.now()*.02)>0);
@@ -1759,13 +1876,15 @@ export function init(nova) {
         else{
           let releasing=false;
           if(isR){
-            const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>0.35)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
-            const rHandGrip=rightIsHand&&(rightPinch||(rightIndexValid&&rightWristValid&&rightIndex.distanceTo(rightWrist)<0.145));
-            if(!rSqueeze&&!rHandGrip)releasing=true;
+            const rTrigger = (rightSource?.gamepad?.buttons?.[0]?.value || 0) > 0.20 || !!rightSource?.gamepad?.buttons?.[0]?.pressed;
+            const rGrip = (rightSource?.gamepad?.buttons?.[1]?.value || 0) > 0.20 || !!rightSource?.gamepad?.buttons?.[1]?.pressed;
+            const rHandGrip = rightIsHand && (rightPinch || (rightIndexValid && rightWristValid && rightIndex.distanceTo(rightWrist) < 0.145));
+            if(!rTrigger && !rGrip && !rHandGrip) releasing = true;
           }else{
-            const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>0.35)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
-            const lHandGrip=leftIsHand&&(leftPinch||(leftIndexValid&&leftWristValid&&leftIndex.distanceTo(leftWrist)<0.145));
-            if(!lSqueeze&&!lHandGrip)releasing=true;
+            const lTrigger = (leftSource?.gamepad?.buttons?.[0]?.value || 0) > 0.20 || !!leftSource?.gamepad?.buttons?.[0]?.pressed;
+            const lGrip = (leftSource?.gamepad?.buttons?.[1]?.value || 0) > 0.20 || !!leftSource?.gamepad?.buttons?.[1]?.pressed;
+            const lHandGrip = leftIsHand && (leftPinch || (leftIndexValid && leftWristValid && leftIndex.distanceTo(leftWrist) < 0.145));
+            if(!lTrigger && !lGrip && !lHandGrip) releasing = true;
           }
           if(releasing){
             camera.getWorldDirection(spawnDir);

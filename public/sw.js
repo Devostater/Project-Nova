@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.19-polish-pass';
+const VERSION = 'nova-alpha-1.20-fps-hands-loco';
 const FILES = [
   "./art/alien_planet.jpg",
   "./art/asteroid.jpg",
