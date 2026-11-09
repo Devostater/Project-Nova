@@ -17,6 +17,7 @@
     "ion_emp.js",
     "eva_core.js",
     "achievements.js",
-    "roster.js"
+    "roster.js",
+    "save.js"
   ]
 }
