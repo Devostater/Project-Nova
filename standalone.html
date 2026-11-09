@@ -24336,18 +24336,7 @@ const GAME_VERSION = 'Alpha 1.4';
       }
     }
     function novaSetOnFootVisualOwnership(active) {
-      if (!active) return; // the normal cockpit input frame restores whichever source is live
-      try {
-        handMeshes1.forEach(m => m.visible = false); handMeshes2.forEach(m => m.visible = false);
-        boneMeshes1.forEach(m => m.visible = false); boneMeshes2.forEach(m => m.visible = false);
-        controllerGhostLeft.visible = false; controllerGhostRight.visible = false;
-        c1Laser.visible = false; c2Laser.visible = false;
-        // wristBeaconGroup remains visible so player can always access the smartwatch menu on foot
-        ['left', 'right'].forEach(side => {
-          const h = novaHands[side]; if (!h) return;
-          if (h.grip) h.grip.visible = false; if (h.ray) h.ray.visible = false; if (h.dot) h.dot.visible = false;
-        });
-      } catch (e) { console.warn('[NOVA FPS] Could not hide a cockpit input visual.', e); }
+      // Use exact same VR hands as cockpit in FPS / on-foot modes
     }
     window.nova = {
       THREE, scene, camera, cameraRig, renderer, shipGroup, shipBody, sound,

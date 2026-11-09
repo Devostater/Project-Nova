@@ -120,18 +120,20 @@ export function init(nova) {
   const locoGroup = new T.Group();
   locoGroup.name = 'NOVA_FPS_LOCO_ORB';
   const locoBaseRingGeo = new T.TorusGeometry(0.046, 0.0035, 12, 32);
-  const locoBaseRingMat = new T.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.65, side: T.DoubleSide });
+  locoBaseRingGeo.rotateX(Math.PI / 2); // Lie flat in XZ plane
+  const locoBaseRingMat = new T.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.65, side: T.DoubleSide, depthTest: false });
   const locoBaseRing = new T.Mesh(locoBaseRingGeo, locoBaseRingMat);
   locoGroup.add(locoBaseRing);
 
   // 4 Directional Cardinal Ticks on Base Ring
   const locoTicks = new T.Group();
   const tickGeo = new T.PlaneGeometry(0.003, 0.012);
-  const tickMat = new T.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.75, side: T.DoubleSide });
+  tickGeo.rotateX(Math.PI / 2);
+  const tickMat = new T.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.75, side: T.DoubleSide, depthTest: false });
   for (let i = 0; i < 4; i++) {
     const tick = new T.Mesh(tickGeo, tickMat);
-    tick.position.set(0, 0.046, 0).applyAxisAngle(new T.Vector3(0, 0, 1), i * Math.PI / 2);
-    tick.rotation.z = i * Math.PI / 2;
+    tick.position.set(0, 0, 0.046).applyAxisAngle(new T.Vector3(0, 1, 0), i * Math.PI / 2);
+    tick.rotation.y = i * Math.PI / 2;
     locoTicks.add(tick);
   }
   locoGroup.add(locoTicks);
@@ -139,7 +141,7 @@ export function init(nova) {
   // Dynamic Connecting Laser Tether Line
   const locoTetherGeo = new T.BufferGeometry();
   locoTetherGeo.setAttribute('position', new T.BufferAttribute(new Float32Array(6), 3));
-  const locoTetherMat = new T.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.85, blending: T.AdditiveBlending });
+  const locoTetherMat = new T.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.85, blending: T.AdditiveBlending, depthTest: false });
   const locoTether = new T.Line(locoTetherGeo, locoTetherMat);
   locoGroup.add(locoTether);
 
@@ -153,19 +155,22 @@ export function init(nova) {
     metalness: 0.3,
     roughness: 0.2,
     transparent: true,
-    opacity: 0.92
+    opacity: 0.92,
+    depthTest: false
   });
   const locoOrbMesh = new T.Mesh(locoOrbGeo, locoOrbMat);
   locoOrbGroup.add(locoOrbMesh);
 
   // Outer Aura Glow Ring
   const locoHaloGeo = new T.RingGeometry(0.026, 0.034, 24);
-  const locoHaloMat = new T.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.5, side: T.DoubleSide, blending: T.AdditiveBlending });
+  locoHaloGeo.rotateX(Math.PI / 2);
+  const locoHaloMat = new T.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.5, side: T.DoubleSide, blending: T.AdditiveBlending, depthTest: false });
   const locoHalo = new T.Mesh(locoHaloGeo, locoHaloMat);
   locoOrbGroup.add(locoHalo);
 
   locoGroup.add(locoOrbGroup);
   locoGroup.visible = false;
+  locoGroup.renderOrder = 9999;
   locoGroup.raycast = () => {};
   locoGroup.traverse(o => { o.raycast = () => {}; });
   scene.add(locoGroup);
@@ -551,6 +556,11 @@ export function init(nova) {
   }
   const pilotChar = createPilotCharacter();
   pilotChar.group.visible = false;
+  pilotChar.group.traverse(o => {
+    o.userData.isPlayer = true;
+    o.userData.fpsIgnore = true;
+    o.raycast = () => {};
+  });
   rig.add(pilotChar.group);
 
   // ── Multi-Weapon Tactical Arsenal Definition ──
@@ -674,6 +684,8 @@ export function init(nova) {
   let active=false,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=100,maxShield=100,yaw=0,pitch=0,hudTimer=0,muzzleTimer=0;
   let timeSinceDamage=0,ctrlTpHeld=false;
   let rightController=null,leftController=null,rightGrip=null,leftGrip=null,rightHand=null,leftHand=null,rightIsHand=false,leftIsHand=false;
+  let rightIndexValid=false,rightWristValid=false,rightThumbValid=false,rightMiddleValid=false;
+  let leftIndexValid=false,leftWristValid=false,leftThumbValid=false,leftMiddleValid=false;
   let leftPinchHeld=false,rightPinchHeld=false,leftPinchTime=0,leftPinchUsed=false,rightPinchTime=0,rightPinchUsed=false,rightPinchAimTime=0,bothPinchTime=0,bothPinchExit=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false,pointerWasLocked=false;
   let xrSwapHeld=false,padSwapHeld=false,wristTapHeld=false,lMidPinchHeld=false;
   let tpValid=false;
@@ -784,31 +796,41 @@ export function init(nova) {
       if(node===rig||node===camera||node===pistol||node===fallbackGun||node===importedGun||
          node===leftGlove||node===rightGlove||node===leftHandAnchor||node===rightHandAnchor||
          node===tpMarker||node===crosshairGroup||node===projRoot||node===vfxRoot||node===locoGroup||
+         node===pilotChar?.group||node.isSkinnedMesh||node.isBone||
          node.userData?.isPlayer||node.userData?.fpsIgnore){
         return true;
       }
-      if(node.name&&(node.name.startsWith('NOVA_FPS_')||node.name==='NOVA_HELMET_HUD'))return true;
+      if(node.name&&(node.name.startsWith('NOVA_FPS_')||node.name==='NOVA_HELMET_HUD'||node.name.includes('Hand')||node.name.includes('Controller')||node.name.includes('Wrist')||node.name.includes('Ghost')))return true;
       node=node.parent;
     }
     return false;
   }
   function aimRay(){
-    if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid&&rightWristValid){
+    let foundAim=false;
+    if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid){
       origin.copy(rightIndex);
-      direction.subVectors(rightIndex,rightWrist).normalize();
+      if(rightWristValid&&rightIndex.distanceTo(rightWrist)>0.03){
+        direction.subVectors(rightIndex,rightWrist).normalize();
+      }else{
+        camera.getWorldDirection(direction).normalize();
+      }
       origin.addScaledVector(direction,.05);
+      foundAim=true;
     }else if(renderer?.xr?.isPresenting&&session&&(rightController||rightGrip)){
       const src=rightController||rightGrip;
       src.getWorldPosition(origin);
       src.getWorldQuaternion(controllerQ);
       direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
       origin.addScaledVector(direction,.12);
+      foundAim=true;
     }else if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
       pistol.getWorldPosition(origin);
       pistol.getWorldQuaternion(controllerQ);
       direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
       origin.addScaledVector(direction,.22);
-    }else{
+      foundAim=true;
+    }
+    if(!foundAim){
       camera.getWorldPosition(origin);camera.getWorldDirection(direction).normalize();
       origin.addScaledVector(direction,.32);
     }
@@ -911,8 +933,8 @@ export function init(nova) {
 
   const spawnPos=new T.Vector3(),spawnDir=new T.Vector3(),camWorldPos=new T.Vector3(),camRightVec=new T.Vector3(),camUpVec=new T.Vector3(),projRightVec=new T.Vector3();
   function launchProjectile(sideOffset=0,spreadX=0,spreadY=0,speedVal=48,damageVal=25,glowCol=0x00f0ff,coreCol=0xbaffff){
-    if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid&&rightWristValid){
-      spawnPos.copy(rightIndex).addScaledVector(direction,.05);
+    if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid){
+      spawnPos.copy(rightIndex).addScaledVector(direction,.06);
       spawnDir.copy(direction);
       projRightVec.set(1,0,0).applyQuaternion(camera.quaternion);
       if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
@@ -1289,12 +1311,12 @@ export function init(nova) {
       pistol.visible=weaponOn&&!!rightSource;
       // three.js controller slots are NOT in session.inputSources order (they drift when hands/controllers swap),
       // so find the slot whose 'connected' event carried this exact input source.
-      const rightIndex=slotOf(rightSource),leftIndex=slotOf(leftSource);
+      const rightSlot=slotOf(rightSource),leftSlot=slotOf(leftSource);
       rightIsHand=!!rightSource?.hand;leftIsHand=!!leftSource?.hand;
-      rightHand=rightIsHand?(resolveHand('right')||(rightIndex>=0?renderer.xr.getHand?.(rightIndex)||null:null)):null;
-      leftHand=leftIsHand?(resolveHand('left')||(leftIndex>=0?renderer.xr.getHand?.(leftIndex)||null:null)):null;
-      rightController=rightIndex>=0?renderer.xr.getController?.(rightIndex)||null:null;rightGrip=rightIndex>=0&&!rightIsHand?renderer.xr.getControllerGrip?.(rightIndex)||null:null;
-      leftController=leftIndex>=0?renderer.xr.getController?.(leftIndex)||null:null;leftGrip=leftIndex>=0&&!leftIsHand?renderer.xr.getControllerGrip?.(leftIndex)||null:null;
+      rightHand=rightIsHand?(resolveHand('right')||(rightSlot>=0?renderer.xr.getHand?.(rightSlot)||null:null)):null;
+      leftHand=leftIsHand?(resolveHand('left')||(leftSlot>=0?renderer.xr.getHand?.(leftSlot)||null:null)):null;
+      rightController=rightSlot>=0?renderer.xr.getController?.(rightSlot)||null:null;rightGrip=rightSlot>=0&&!rightIsHand?renderer.xr.getControllerGrip?.(rightSlot)||null:null;
+      leftController=leftSlot>=0?renderer.xr.getController?.(leftSlot)||null:null;leftGrip=leftSlot>=0&&!leftIsHand?renderer.xr.getControllerGrip?.(leftSlot)||null:null;
       const rightWristJ=joint(rightHand,'wrist');
       const leftWristJ=joint(leftHand,'wrist');
       if(rightSource?.hand&&rightWristJ){
@@ -1304,28 +1326,16 @@ export function init(nova) {
         setWeaponParent(rightGrip||rightController,false);
       }else rightAnchorState.ready=false;
 
-      // Update glove tracking on both hands
+      // In VR: use cockpit hands, keep custom glove models hidden
+      leftGlove.visible=false;
+      rightGlove.visible=false;
+      fpArm.visible=false;
       if(leftSource?.hand&&leftWristJ&&handPoint(leftHand,'wrist',leftWrist)){
         trackHandAnchor(leftHandAnchor,leftWristJ,leftAnchorState,d);
-        if(leftGlove.parent!==leftHandAnchor)leftHandAnchor.add(leftGlove);
-        leftGlove.position.set(0,0,0);leftGlove.rotation.set(0,0,0);
-        leftGlove.visible=true;
-      }else if(leftGrip){
-        leftAnchorState.ready=false;
-        if(leftGlove.parent!==leftGrip)leftGrip.add(leftGlove);
-        leftGlove.position.set(0,0,0);leftGlove.rotation.set(0,0,0);
-        leftGlove.visible=true;
-      }else{leftAnchorState.ready=false;leftGlove.visible=false;}
-
+      }else{leftAnchorState.ready=false;}
       if(rightSource?.hand&&rightWristJ&&handPoint(rightHand,'wrist',rightWrist)){
-        if(rightGlove.parent!==rightHandAnchor)rightHandAnchor.add(rightGlove);
-        rightGlove.position.set(0,0,0);rightGlove.rotation.set(0,0,0);
-        rightGlove.visible=true;
-      }else if(rightGrip){
-        if(rightGlove.parent!==rightGrip)rightGrip.add(rightGlove);
-        rightGlove.position.set(0,0,0);rightGlove.rotation.set(0,0,0);
-        rightGlove.visible=true;
-      }else{rightAnchorState.ready=false;rightGlove.visible=false;}
+        trackHandAnchor(rightHandAnchor,rightWristJ,rightAnchorState,d);
+      }else{rightAnchorState.ready=false;}
 
       let mx=0,mz=0,turn=0,trigger=false,use=false,leave=false;
       const la=stickAxes(leftIsHand?null:leftSource?.gamepad),ra=stickAxes(rightIsHand?null:rightSource?.gamepad);
@@ -1343,19 +1353,19 @@ export function init(nova) {
       if(ctrlTp||tpMarker.visible){mx=0;mz=0;}
       walk(mx,mz,d);if(trigger)fire();if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('vr');
       padUseHeld=use;padExitHeld=leave;
-      const leftThumbValid=leftIsHand&&handPoint(leftHand,'thumb-tip',leftThumb);
-      const leftIndexValid=leftIsHand&&handPoint(leftHand,'index-finger-tip',leftIndex);
-      const leftMiddleValid=leftIsHand&&handPoint(leftHand,'middle-finger-tip',leftMiddle);
-      const leftWristValid=leftIsHand&&handPoint(leftHand,'wrist',leftWrist);
+      leftThumbValid=leftIsHand&&handPoint(leftHand,'thumb-tip',leftThumb);
+      leftIndexValid=leftIsHand&&handPoint(leftHand,'index-finger-tip',leftIndex);
+      leftMiddleValid=leftIsHand&&handPoint(leftHand,'middle-finger-tip',leftMiddle);
+      leftWristValid=leftIsHand&&handPoint(leftHand,'wrist',leftWrist);
       const leftPinch=leftIsHand&&leftThumbValid&&leftIndexValid&&leftThumb.distanceTo(leftIndex)<.055;
       const leftMidPinch=leftIsHand&&leftThumbValid&&leftMiddleValid&&leftThumb.distanceTo(leftMiddle)<.052;
       if(leftMidPinch&&!lMidPinchHeld){cycleWeapon(1);}
       lMidPinchHeld=leftMidPinch;
 
-      const rightThumbValid=rightIsHand&&handPoint(rightHand,'thumb-tip',rightThumb);
-      const rightIndexValid=rightIsHand&&handPoint(rightHand,'index-finger-tip',rightIndex);
-      const rightMiddleValid=rightIsHand&&handPoint(rightHand,'middle-finger-tip',rightMiddle);
-      const rightWristValid=rightIsHand&&handPoint(rightHand,'wrist',rightWrist);
+      rightThumbValid=rightIsHand&&handPoint(rightHand,'thumb-tip',rightThumb);
+      rightIndexValid=rightIsHand&&handPoint(rightHand,'index-finger-tip',rightIndex);
+      rightMiddleValid=rightIsHand&&handPoint(rightHand,'middle-finger-tip',rightMiddle);
+      rightWristValid=rightIsHand&&handPoint(rightHand,'wrist',rightWrist);
       const rPinchDist=(rightThumbValid&&rightIndexValid)?rightThumb.distanceTo(rightIndex):999;
       const rMidPinchDist=(rightThumbValid&&rightMiddleValid)?rightThumb.distanceTo(rightMiddle):999;
       const rIndexCurled=(rightIndexValid&&rightWristValid)?(rightIndex.distanceTo(rightWrist)<.142):false;
@@ -1393,18 +1403,23 @@ export function init(nova) {
       }
       ctrlTpHeld=ctrlTp;
 
-      // ── Right Pinch Floor Teleport (Keep right hand pinch to teleport; left hand does NOT teleport) ──
+      // ── Right Pinch Floor Teleport (Keep right hand pinch to teleport when pointing downward at floor) ──
       let rightAimingAtFloor=false;
       if(rightPinch&&!leftPinch&&rightIsHand&&rightIndexValid){
-        camera.getWorldPosition(origin);
-        const pDir=new T.Vector3().subVectors(rightIndex,origin).normalize();
-        if(pDir.y<-0.05){
+        const pointVec=new T.Vector3();
+        if(rightWristValid&&rightIndex.distanceTo(rightWrist)>0.03){
+          pointVec.subVectors(rightIndex,rightWrist).normalize();
+        }else{
+          camera.getWorldDirection(pointVec).normalize();
+        }
+        // Only trigger floor teleport when pointing downward at the ground
+        if(pointVec.y<-0.25){
           rightAimingAtFloor=true;
           rightPinchAimTime+=d;
           if(rightPinchAimTime>=0.14){
-            const t=(floorY-origin.y)/pDir.y;
+            const t=(floorY-rightIndex.y)/pointVec.y;
             if(t>0.2&&t<35){
-              const hitX=origin.x+pDir.x*t,hitZ=origin.z+pDir.z*t;
+              const hitX=rightIndex.x+pointVec.x*t,hitZ=rightIndex.z+pointVec.z*t;
               const b=options.bounds;
               const cx=(b&&!isMR)?T.MathUtils.clamp(hitX,b[0],b[1]):hitX,cz=(b&&!isMR)?T.MathUtils.clamp(hitZ,b[2],b[3]):hitZ;
               tpHit.set(cx,floorY+.02,cz);
@@ -1443,26 +1458,28 @@ export function init(nova) {
         .addScaledVector(camYawRight,-0.22)
         .addScaledVector(camYawFwd,0.32);
 
-      if(!locoSocketPosInit){
-        locoSocketPos.copy(targetSocketPos);
-        locoSocketPosInit=true;
-      }else{
-        locoSocketPos.lerp(targetSocketPos,Math.min(1.0,d*10.0));
-      }
-      locoGroup.position.copy(locoSocketPos);
-      locoGroup.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),camYawFwd);
-      locoGroup.rotateX(Math.PI/6);
+      // Lock directly to player so it always rotates and stays anchored to the left chest
+      locoGroup.position.copy(targetSocketPos);
+      locoGroup.matrix.makeBasis(camYawRight, up, camYawFwd.clone().negate());
+      locoGroup.quaternion.setFromRotationMatrix(locoGroup.matrix);
 
       // Check Left Hand position & grabbing state
       const lHandWorld=new T.Vector3();
       let leftHandPosValid=false,leftSqueezing=false;
       if(leftIsHand){
         if(leftIndexValid||leftWristValid){
-          lHandWorld.copy(leftIndexValid?leftIndex:leftWrist);
+          if(leftIndexValid&&leftWristValid){
+            lHandWorld.copy(leftIndex).lerp(leftWrist,0.35); // palm / grip center
+          }else if(leftIndexValid){
+            lHandWorld.copy(leftIndex);
+          }else{
+            lHandWorld.copy(leftWrist);
+          }
           leftHandPosValid=true;
-          const hasLeftMid=handPoint(leftHand,'middle-finger-tip',leftMiddle);
-          const curled=leftWristValid&&((hasLeftMid&&leftMiddle.distanceTo(leftWrist)<.14)||(leftIndexValid&&leftIndex.distanceTo(leftWrist)<.14));
-          leftSqueezing=leftPinch||curled;
+          const leftPinchDist=(leftThumbValid&&leftIndexValid)?leftThumb.distanceTo(leftIndex):999;
+          const leftMidPinchDist=(leftThumbValid&&leftMiddleValid)?leftThumb.distanceTo(leftMiddle):999;
+          const leftFist=leftWristValid&&leftIndexValid&&(leftIndex.distanceTo(leftWrist)<0.145);
+          leftSqueezing=leftPinchDist<0.075||leftMidPinchDist<0.075||leftFist;
         }
       }else if(leftController||leftGrip){
         const lCtrl=leftGrip||leftController;
@@ -1474,16 +1491,16 @@ export function init(nova) {
         leftSqueezing=gripPress||trigPress;
       }
 
-      locoOrbGroup.getWorldPosition(tempPos);
+      locoOrbMesh.getWorldPosition(tempPos);
       const grabDist=leftHandPosValid?lHandWorld.distanceTo(tempPos):999;
-      const isNearOrb=grabDist<0.26;
+      const isNearOrb=grabDist<0.28;
       if(!locoOrbGrabbed){
         if(leftHandPosValid&&isNearOrb&&leftSqueezing){
           locoOrbGrabbed=true;
           try{(nova.sound||window.sound)?.click?.();}catch(_){}
         }
       }else{
-        if(!leftHandPosValid||!leftSqueezing||grabDist>0.45){
+        if(!leftHandPosValid||!leftSqueezing||grabDist>0.50){
           locoOrbGrabbed=false;
         }
       }
@@ -1491,12 +1508,12 @@ export function init(nova) {
       // ── Weapon Firing: Right Pinch (aiming forward/up) OR Left Pinch Debug Fire ──
       // Right hand pinch fires weapon when aiming forward/up (not aiming down at floor)
       if(rightPinch&&weaponOn&&!tpMarker.visible&&!rightAimingAtFloor){
-        if(!rightPinchHeld||(performance.now()-lastFire>=200))fire();
+        if(!rightPinchHeld||(performance.now()-lastFire>=activeWeapon.cooldown))fire();
       }
 
       // Left hand pinch: FPS gun fires for debug ONLY when NOT grabbing or near the locomotion orb
       if(leftPinch&&weaponOn&&!locoOrbGrabbed&&!isNearOrb){
-        if(!leftPinchHeld||(performance.now()-lastFire>=200))fire();
+        if(!leftPinchHeld||(performance.now()-lastFire>=activeWeapon.cooldown))fire();
       }
       // Quick tap without weapon interacts with props/buttons
       if(!leftPinch&&leftPinchHeld&&!weaponOn&&!leftPinchUsed&&leftPinchTime<.32&&!locoOrbGrabbed&&!isNearOrb){interact();}
@@ -1511,7 +1528,7 @@ export function init(nova) {
       }
 
       let orbDeflected=false;
-      const MAX_THROW=0.08,DEADZONE=0.010;
+      const MAX_THROW=0.08,DEADZONE=0.008;
       const is3DEVA=!!(options.zeroG||options.isEVA||window.novaIsEvaActive||window.novaEva?.active);
 
       if(locoOrbGrabbed&&leftHandPosValid){
@@ -1535,9 +1552,9 @@ export function init(nova) {
           const speedCurve=normMag*normMag*0.45+normMag*0.55;
           const moveSpeed=(options.speed||3.2)*speedCurve;
 
-          // Directly map deflection to player movement along camYawRight (X) and camYawFwd (-Z)
-          const moveFwd=-localPos.z/MAX_THROW;
+          // Local coordinates: +X is right, -Z is forward, +Y is up
           const moveStrafe=localPos.x/MAX_THROW;
+          const moveFwd=-localPos.z/MAX_THROW;
           const moveDir=new T.Vector3()
             .addScaledVector(camYawRight,moveStrafe)
             .addScaledVector(camYawFwd,moveFwd);
