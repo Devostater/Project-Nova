@@ -18290,10 +18290,24 @@ const GAME_VERSION = 'Alpha 1.4';
     function nhBuild() {
       if (NH.g) return;
       const g = new THREE.Group(); NH.g = g; const R = NH.R;
-      if (NK.on) g.position.copy(nkC(0, 0.412, -0.153)).addScaledVector(NKS.n, 0.10).add(new THREE.Vector3(0, 0.02, 0));
-      else g.position.set(0, 0.36, -0.52);
+      NH.docks = {
+        center: {
+          pos: NK.on ? nkC(0, 0.412, -0.153).addScaledVector(NKS.n, 0.10).add(new THREE.Vector3(0, 0.02, 0)) : new THREE.Vector3(0, 0.36, -0.52),
+          quat: new THREE.Quaternion(),
+          scale: new THREE.Vector3(1, 1, 1)
+        },
+        upper_right: {
+          pos: new THREE.Vector3(0.19, 0.71, -0.22),
+          quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.atan2(-0.19, 0.22), 0)),
+          scale: new THREE.Vector3(0.82, 0.82, 0.82)
+        }
+      };
+      NH.activeDock = NH.moved ? 'upper_right' : 'center';
+      NH.home = NH.docks[NH.activeDock];
+      g.position.copy(NH.home.pos);
+      g.quaternion.copy(NH.home.quat);
+      g.scale.copy(NH.home.scale);
       cockpit.add(g);
-      NH.home = { position: g.position.clone(), quaternion: g.quaternion.clone(), scale: g.scale.clone() };
       const add = (geo, col, op, wire) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, wireframe: !!wire, toneMapped: false })); m.raycast = () => { }; g.add(m); return m; };
       add(new THREE.SphereGeometry(R, 20, 10), 0x00d8ff, 0.045, true);   // fainter: see the console through it
       add(new THREE.CircleGeometry(R, 48), 0x0088ff, 0.025).rotation.x = -Math.PI / 2;
@@ -18311,7 +18325,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const ringGeo = new THREE.RingGeometry(0.009, 0.0115, 24);
       NH.ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
       NH.ring.rotation.x = -Math.PI / 2; NH.ring.raycast = () => { }; NH.ring.visible = false; g.add(NH.ring);
-      const bg = new THREE.SphereGeometry(0.0052, 10, 8), hg = new THREE.SphereGeometry(0.012, 8, 6), stg = new THREE.CylinderGeometry(0.0006, 0.0006, 1, 4);
+      const bg = new THREE.SphereGeometry(0.0052, 10, 8), hg = new THREE.SphereGeometry(0.016, 8, 6), stg = new THREE.CylinderGeometry(0.0006, 0.0006, 1, 4);
       const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
       const stalkMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.3, depthWrite: false, toneMapped: false });
       for (let i = 0; i < 24; i++) {
@@ -18321,7 +18335,7 @@ const GAME_VERSION = 'Alpha 1.4';
         const nt = new THREE.CanvasTexture(nc); const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: nt, transparent: true, depthWrite: false, toneMapped: false })); tag.scale.set(0.048, 0.009, 1); tag.visible = false; b.add(tag); b.userData.nameTag = tag; b.userData.nameCanvas = nc; b.userData.nameCtx = nx; b.userData.nameTex = nt; b.userData.lastName = '';
         const st = new THREE.Mesh(stg, stalkMat); st.visible = false; st.raycast = () => { }; g.add(st);
         b.userData.stalk = st; g.add(b); NH.pool.push(b);
-        registerCockpitButton(b, 'HOLO CONTACT', () => { if (b.userData.c) novaHoloSelect(b.userData.c); }, 0.02);
+        registerCockpitButton(b, 'HOLO CONTACT', () => { if (b.userData.c) novaHoloSelect(b.userData.c); }, 0.045);
         cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
       }
       const lc = document.createElement('canvas'); lc.width = 256; lc.height = 64; NH.lctx = lc.getContext('2d'); NH.ltex = new THREE.CanvasTexture(lc);
@@ -18337,26 +18351,85 @@ const GAME_VERSION = 'Alpha 1.4';
         cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
       };
       zoomBtn('HOLO ZOOM IN', 'ZOOM −', -0.026, -1); zoomBtn('HOLO ZOOM OUT', 'ZOOM +', 0.026, 1);
+
+      // Holographic Gimbal Grab Handle & Mounting Bracket
+      const handleGroup = new THREE.Group();
+      handleGroup.name = 'HOLO_RADAR_HANDLE';
+      handleGroup.position.set(0, -R - 0.020, R * 0.32);
+      g.add(handleGroup);
+      NH.handle = handleGroup;
+
+      const gripGeo = new THREE.CylinderGeometry(0.0065, 0.0065, 0.13, 16);
+      const gripMat = new THREE.MeshStandardMaterial({
+        color: 0x00f0ff,
+        emissive: 0x00a8cc,
+        emissiveIntensity: 0.9,
+        roughness: 0.2,
+        metalness: 0.8
+      });
+      const gripMesh = new THREE.Mesh(gripGeo, gripMat);
+      gripMesh.rotation.z = Math.PI / 2;
+      handleGroup.add(gripMesh);
+      NH.handleMat = gripMat;
+
+      [-0.06, 0.06].forEach(sx => {
+        const bracket = new THREE.Mesh(
+          new THREE.BoxGeometry(0.006, 0.030, 0.012),
+          new THREE.MeshStandardMaterial({ color: 0x162a3a, metalness: 0.9, roughness: 0.3 })
+        );
+        bracket.position.set(sx, 0.015, 0);
+        handleGroup.add(bracket);
+      });
+
+      [-0.065, 0.065].forEach(sx => {
+        const hHalo = new THREE.Mesh(
+          new THREE.TorusGeometry(0.012, 0.002, 8, 20),
+          new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.85, toneMapped: false })
+        );
+        hHalo.position.set(sx, 0, 0);
+        handleGroup.add(hHalo);
+      });
+
+      const hCanvas = document.createElement('canvas'); hCanvas.width = 256; hCanvas.height = 48;
+      const hCtx = hCanvas.getContext('2d');
+      hCtx.fillStyle = 'rgba(2, 16, 28, 0.92)'; hCtx.fillRect(2, 2, 252, 44);
+      hCtx.strokeStyle = '#00f0ff'; hCtx.lineWidth = 2.5; hCtx.strokeRect(3, 3, 250, 42);
+      hCtx.fillStyle = '#00ffcc'; hCtx.font = 'bold 22px monospace'; hCtx.textAlign = 'center'; hCtx.textBaseline = 'middle';
+      hCtx.fillText('✊ GRAB · ROTATE', 128, 24);
+      const hTex = new THREE.CanvasTexture(hCanvas);
+      const hTag = new THREE.Mesh(new THREE.PlaneGeometry(0.065, 0.013), new THREE.MeshBasicMaterial({ map: hTex, transparent: true, side: THREE.DoubleSide }));
+      hTag.position.set(0, -0.016, 0.008);
+      hTag.rotation.x = -0.55;
+      handleGroup.add(hTag);
+
+      const gripHitGeo = new THREE.BoxGeometry(0.16, 0.05, 0.06);
+      const gripHitMesh = new THREE.Mesh(gripHitGeo, hitMat);
+      handleGroup.add(gripHitMesh);
+      registerCockpitButton(gripHitMesh, 'RADAR HANDLE', () => {
+        showToast('✊ GRIP RADAR TO ROTATE & POSITION', 2000, '#00f0ff');
+      }, 0.09);
+      cockpitInteractables[cockpitInteractables.length - 1].noWiggle = true;
+
       console.log('[NOVA13] holo-radar up at', g.position.toArray().map(v => v.toFixed(2)).join(','));
     }
     function novaRadarPositionToggle() {
       try {
         if (!NH.g) nhBuild();
         if (!NH.g) return;
-        if (!NH.moved) {
-          cockpit.attach(NH.g);
-          NH.g.position.set(0.19, 0.71, -0.22); // owner: scooted inward from x 0.28 so the right hand reaches it easily
-          NH.g.rotation.set(0, Math.atan2(-0.19, 0.22), 0);
-          NH.g.scale.setScalar(0.82);
-          NH.moved = true;
-        } else {
-          cockpit.attach(NH.g);
-          NH.g.position.copy(NH.home.position);
-          NH.g.quaternion.copy(NH.home.quaternion);
-          NH.g.scale.copy(NH.home.scale);
-          NH.moved = false;
+        NH.activeDock = (NH.activeDock === 'center') ? 'upper_right' : 'center';
+        NH.moved = (NH.activeDock === 'upper_right');
+        NH.home = NH.docks[NH.activeDock];
+
+        const row = NP_SHIP_ROWS.find(r => r[0] && (r[0].startsWith('3D RADAR') || r[0].startsWith('RADAR DOCK')));
+        if (row) {
+          row[0] = NH.activeDock === 'upper_right' ? '3D RADAR DOCK: UPPER RIGHT' : '3D RADAR DOCK: CENTER DASH';
         }
-        showToast(NH.moved ? '3D RADAR CENTERED' : '3D RADAR MOVED TO UPPER RIGHT DASH', 1800, '#00e5ff');
+
+        const toastMsg = (NH.activeDock === 'upper_right')
+          ? '📍 3D RADAR DOCKED: UPPER RIGHT DASH'
+          : '📍 3D RADAR DOCKED: CENTER DASH';
+        showToast(toastMsg, 2200, '#00e5ff');
+        try { if (sound && sound.switchClick) sound.switchClick(); } catch (_) {}
         const P = NP.panels.find(p => p.cfg.id === 'R'); if (P) P.drawT = 0;
       } catch (e) { console.warn('[NOVA14] radar position toggle failed', e); }
     }
@@ -18364,75 +18437,161 @@ const GAME_VERSION = 'Alpha 1.4';
       if (!NH.g) return;
       NH.g.visible = (NH.on !== false) && cockpit.visible && !NavUI.isOpen && !isCommsKeyboardOpen; if (!NH.g.visible) return;
 
-      // ── Interactive 3D Holo-Radar Grab & Rotate with Smooth Return ──
+      // ── Interactive 3D Holo-Radar Grab & Rotate with Smooth Return to Dock ──
       try {
+        const radarWorldPos = NH.g.getWorldPosition(new THREE.Vector3());
+        const handleWorldPos = NH.handle ? NH.handle.getWorldPosition(new THREE.Vector3()) : radarWorldPos;
+        const grabRadius = 0.22;
+
+        const handsData = { left: null, right: null };
         const ses = (typeof renderer !== 'undefined' && renderer.xr) ? renderer.xr.getSession?.() : null;
-        const sources = ses ? Array.from(ses.inputSources || []) : [];
-        let leftHandGrip = null, rightHandGrip = null;
-        let leftSqueeze = false, rightSqueeze = false;
 
         ['left', 'right'].forEach(side => {
-          const h = (typeof novaHands !== 'undefined') ? novaHands[side] : null;
-          const src = sources.find(s => s.handedness === side);
-          const gp = src?.gamepad;
-          const squeeze = (gp?.buttons?.[1]?.value > 0.45 || !!gp?.buttons?.[1]?.pressed);
-          const gripPos = h?.grip?.getWorldPosition(new THREE.Vector3()) || null;
-          const gripQuat = h?.grip?.getWorldQuaternion(new THREE.Quaternion()) || null;
-          if (side === 'left') { leftHandGrip = { pos: gripPos, quat: gripQuat }; leftSqueeze = squeeze; }
-          else { rightHandGrip = { pos: gripPos, quat: gripQuat }; rightSqueeze = squeeze; }
+          let pos = null;
+          let quat = null;
+          let tip = null;
+          let squeezing = false;
+
+          // A. Check VR Controller
+          if (typeof controllers !== 'undefined' && controllers.length) {
+            const ctrl = controllers.find(c => c.isLeft === (side === 'left'));
+            if (ctrl && ctrl.grip) {
+              pos = ctrl.grip.getWorldPosition(new THREE.Vector3());
+              quat = ctrl.grip.getWorldQuaternion(new THREE.Quaternion());
+              tip = new THREE.Vector3(0, -0.02, -0.06).applyQuaternion(quat).add(pos);
+              const gp = (side === 'left') ? leftGamepad : rightGamepad;
+              if (ctrl.isGrip || (gp?.buttons?.[1] && (gp.buttons[1].pressed || gp.buttons[1].value > 0.35))) {
+                squeezing = true;
+              }
+              if (gp?.buttons?.[0]?.pressed && pos.distanceTo(handleWorldPos) < 0.16) {
+                squeezing = true;
+              }
+            }
+          }
+
+          // B. Check Quest Hand Tracking
+          if (typeof novaHands !== 'undefined' && novaHands[side]) {
+            const nh = novaHands[side];
+            if (nh.grip && nh.grip.visible) {
+              if (!pos) pos = nh.grip.getWorldPosition(new THREE.Vector3());
+              if (!quat) quat = nh.grip.getWorldQuaternion(new THREE.Quaternion());
+            }
+            if (nh.tip && !tip) tip = nh.tip.getWorldPosition(new THREE.Vector3());
+          }
+
+          if (typeof h1 !== 'undefined' && typeof h2 !== 'undefined') {
+            const handObj = [h1, h2].find(h => h.userData?.handedness === side) || (side === 'left' ? h1 : h2);
+            if (handObj && handObj.joints) {
+              const wrist = handObj.joints['wrist'];
+              const indexTip = handObj.joints['index-finger-tip'];
+              const thumbTip = handObj.joints['thumb-tip'];
+              if (wrist && wrist.visible !== false) {
+                const wPos = wrist.getWorldPosition(new THREE.Vector3());
+                if (!pos || !squeezing) {
+                  pos = wPos;
+                  quat = wrist.getWorldQuaternion(new THREE.Quaternion());
+                }
+              }
+              if (indexTip && indexTip.visible !== false) {
+                tip = indexTip.getWorldPosition(new THREE.Vector3());
+                if (thumbTip && thumbTip.visible !== false) {
+                  const thPos = thumbTip.getWorldPosition(new THREE.Vector3());
+                  if (tip.distanceTo(thPos) < 0.042) squeezing = true;
+                }
+              }
+            }
+          }
+
+          if (typeof novaPinch !== 'undefined' && novaPinch[side]) squeezing = true;
+
+          handsData[side] = { pos, quat, tip, squeezing };
         });
 
-        const radarWorldPos = NH.g.getWorldPosition(new THREE.Vector3());
-        const grabRadius = 0.20;
-
         if (!NH.grabbed) {
-          if (leftSqueeze && leftHandGrip.pos && leftHandGrip.pos.distanceTo(radarWorldPos) < grabRadius) {
-            NH.grabbed = true;
-            NH.grabHand = 'left';
-            NH.initHandPos = leftHandGrip.pos.clone();
-            NH.initHandQuat = leftHandGrip.quat ? leftHandGrip.quat.clone() : new THREE.Quaternion();
-            NH.initRadarPos = NH.g.position.clone();
-            NH.initRadarQuat = NH.g.quaternion.clone();
-            try { sound.beep(880, 0.05); } catch (_) {}
-            showToast('✋ 3D RADAR GRABBED · ROTATE WITH WRIST · TOUCH TARGETS', 1800, '#00e5ff');
-          } else if (rightSqueeze && rightHandGrip.pos && rightHandGrip.pos.distanceTo(radarWorldPos) < grabRadius) {
-            NH.grabbed = true;
-            NH.grabHand = 'right';
-            NH.initHandPos = rightHandGrip.pos.clone();
-            NH.initHandQuat = rightHandGrip.quat ? rightHandGrip.quat.clone() : new THREE.Quaternion();
-            NH.initRadarPos = NH.g.position.clone();
-            NH.initRadarQuat = NH.g.quaternion.clone();
-            try { sound.beep(880, 0.05); } catch (_) {}
-            showToast('✋ 3D RADAR GRABBED · ROTATE WITH WRIST · TOUCH TARGETS', 1800, '#00e5ff');
-          }
+          ['left', 'right'].forEach(side => {
+            if (NH.grabbed) return;
+            const hd = handsData[side];
+            if (!hd || !hd.pos || !hd.squeezing) return;
+            const distHandle = hd.pos.distanceTo(handleWorldPos);
+            const distGlobe = hd.pos.distanceTo(radarWorldPos);
+            if (Math.min(distHandle, distGlobe) < grabRadius) {
+              NH.grabbed = true;
+              NH.grabHand = side;
+              NH.initHandPos = hd.pos.clone();
+              NH.initHandQuat = hd.quat ? hd.quat.clone() : new THREE.Quaternion();
+              NH.initRadarPos = NH.g.position.clone();
+              NH.initRadarQuat = NH.g.quaternion.clone();
+              if (NH.handleMat) {
+                NH.handleMat.color.setHex(0x00ff88);
+                NH.handleMat.emissive.setHex(0x00cc66);
+                NH.handleMat.emissiveIntensity = 2.2;
+              }
+              try { sound.beep(880, 0.06); } catch (_) {}
+              showToast('✋ 3D RADAR GRABBED · ROTATE WITH WRIST · TOUCH TARGETS WITH OTHER HAND', 2400, '#00ffcc');
+            }
+          });
         } else {
-          const isLeft = NH.grabHand === 'left';
-          const curGrip = isLeft ? leftHandGrip : rightHandGrip;
-          const curSqueeze = isLeft ? leftSqueeze : rightSqueeze;
-
-          if (!curSqueeze || !curGrip.pos) {
+          const grabData = handsData[NH.grabHand];
+          if (!grabData || !grabData.squeezing || !grabData.pos) {
             NH.grabbed = false;
             NH.grabHand = null;
-            try { sound.beep(720, 0.04); } catch (_) {}
+            if (NH.handleMat) {
+              NH.handleMat.color.setHex(0x00f0ff);
+              NH.handleMat.emissive.setHex(0x00a8cc);
+              NH.handleMat.emissiveIntensity = 0.9;
+            }
+            try { sound.beep(640, 0.05); } catch (_) {}
+            showToast('📍 3D RADAR RELEASED · RETURNING TO DOCK', 1600, '#00e5ff');
           } else {
-            const deltaWorld = curGrip.pos.clone().sub(NH.initHandPos);
+            const deltaWorld = grabData.pos.clone().sub(NH.initHandPos);
             const invCockpitQuat = cockpit.getWorldQuaternion(new THREE.Quaternion()).invert();
             const deltaLocal = deltaWorld.applyQuaternion(invCockpitQuat);
             NH.g.position.copy(NH.initRadarPos).add(deltaLocal);
 
-            if (curGrip.quat && NH.initHandQuat) {
-              const rotDiff = curGrip.quat.clone().multiply(NH.initHandQuat.clone().invert());
+            if (grabData.quat && NH.initHandQuat) {
+              const rotDiff = grabData.quat.clone().multiply(NH.initHandQuat.clone().invert());
               const localRotDiff = invCockpitQuat.clone().multiply(rotDiff).multiply(cockpit.getWorldQuaternion(new THREE.Quaternion()));
               NH.g.quaternion.copy(localRotDiff).multiply(NH.initRadarQuat);
+            }
+
+            // TOUCH TARGETS with the other hand!
+            const otherSide = (NH.grabHand === 'left') ? 'right' : 'left';
+            const otherHd = handsData[otherSide];
+            const touchTip = otherHd?.tip || otherHd?.pos;
+            if (touchTip) {
+              for (let i = 0; i < NH.pool.length; i++) {
+                const b = NH.pool[i];
+                if (!b.visible || !b.userData.c) continue;
+                const bPos = b.getWorldPosition(new THREE.Vector3());
+                if (touchTip.distanceTo(bPos) < 0.048) {
+                  if (NH.lastTouchBlip !== b) {
+                    NH.lastTouchBlip = b;
+                    novaHoloSelect(b.userData.c);
+                    try {
+                      const gp = (otherSide === 'left') ? leftGamepad : rightGamepad;
+                      ses?.inputSources?.forEach(is => {
+                        if (is.gamepad === gp && is.gamepad?.hapticActuators?.[0]) {
+                          is.gamepad.hapticActuators[0].pulse(0.65, 55);
+                        }
+                      });
+                    } catch (_) {}
+                  }
+                  break;
+                }
+              }
+            } else {
+              NH.lastTouchBlip = null;
             }
           }
         }
 
+        // Smooth return to whatever dock is selected!
         if (!NH.grabbed && NH.home) {
-          const distToDock = NH.g.position.distanceTo(NH.home.position);
-          if (distToDock > 0.001) {
-            NH.g.position.lerp(NH.home.position, Math.min(1, dt * 6.5));
-            NH.g.quaternion.slerp(NH.home.quaternion, Math.min(1, dt * 6.5));
+          const distToDock = NH.g.position.distanceTo(NH.home.pos);
+          if (distToDock > 0.0005) {
+            NH.g.position.lerp(NH.home.pos, Math.min(1, dt * 5.0));
+            NH.g.quaternion.slerp(NH.home.quat, Math.min(1, dt * 5.0));
+            NH.g.scale.lerp(NH.home.scale, Math.min(1, dt * 5.0));
           }
         }
       } catch (e) {}
@@ -19744,7 +19903,7 @@ const GAME_VERSION = 'Alpha 1.4';
       [novaCruise.active ? 'CRUISE: ON (J)' : 'CRUISE: OFF (J)', '#66ffcc', () => novaCruiseToggle()],
       ['SEAT UP', '#00e5ff', () => adjustSeat(0.02)], ['SEAT DOWN', '#00e5ff', () => adjustSeat(-0.02)],
       ['QUEST LOG', '#ffcc00', () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); }],
-      ['3D RADAR: UPPER RIGHT', '#00e5ff', () => novaRadarPositionToggle()],
+      ['3D RADAR DOCK: UPPER RIGHT', '#00e5ff', () => novaRadarPositionToggle()],
       ['RADAR NAMES: ON', '#66ddff', () => { NH.names = !NH.names; NP_SHIP_ROWS[5][0] = 'RADAR NAMES: ' + (NH.names ? 'ON' : 'OFF'); }],
       ['LABELS: BELOW', '#66ddff', () => { NH.labelAbove = !NH.labelAbove; NP_SHIP_ROWS[6][0] = 'LABELS: ' + (NH.labelAbove ? 'ABOVE' : 'BELOW'); }]];
     // OPTIONS tab (after MUSIC): view mode, recenter, save / load, volume, graphics, exit
