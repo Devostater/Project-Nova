@@ -52,3 +52,10 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 ## Before any of these
 - Merge PR #61 and get the deploy green.
 - Pull the AI Studio work (rover, hub, crash fixes) onto a branch: upload only `standalone.html` + `modules/`.
+
+### 9. Planetside city life  *(big task, split it: 9a first)*
+- **9a. City hub at Cygnus Prime:** a walkable district next to the spaceport (built on the AI Studio hub/rover work): streets, shops, a bar, a market terminal (task 4), an upgrade shop (task 6). Quest-cheap: modular buildings, instanced props, fog plus the planet skybox.
+- **9b. Life:** NPC crowds with simple walk loops, ambient traffic (hover cars on splines), day/night lighting, city sounds.
+- **9c. Activities:** job board (cargo, bounties, pirate contracts that tie into rep), talking NPCs, a home/apartment that upgrades the safehouse.
+- **9d. More cities:** reuse the kit on other planets (pirate city = black market).
+- Budget: the city must hold Quest framerate. Use LODs, cull what's out of view, and cap the NPC count.
