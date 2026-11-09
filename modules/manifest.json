@@ -13,6 +13,9 @@
     "postfx.js",
     "cantina_props.js",
     "cinematics.js",
-    "comfort_vignette.js"
+    "comfort_vignette.js",
+    "ion_emp.js",
+    "eva_core.js",
+    "achievements.js"
   ]
 }

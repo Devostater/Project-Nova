@@ -18,6 +18,18 @@ Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. D
 - Vendor postprocessing addons later for APK/offline.
 
 ### Antigravity (Gemini) — **DONE (OFFLINE READY)**
+- **FPS Multi-Weapon Arsenal & Tactical Combat**:
+  - Added 3-weapon roster in `modules/fps_core.js` and `public/modules/fps_core.js`:
+    - **Arc-Pistol**: Balanced tactical sidearm (25 dmg, 160ms / 70ms overdrive, cyan plasma).
+    - **Vulkan Scatter-Blaster**: Heavy short-range shotgun with dual barrels & orange radiator vents firing a 6-pellet conical spread (16 dmg/pellet, 96 dmg point-blank, 440ms, heavy recoil kick).
+    - **Long-Lance Plasma Rifle**: Precision long-range energy lance with extended barrel and 4 blue magnetic induction coils (60 dmg, 85 m/s velocity, 320ms, tight beam).
+  - 3D models for all three weapons created procedurally for both 1st-person right glove and 3rd-person showcase mode.
+  - Seamless weapon switching: `KeyQ`, keys `1`/`2`/`3`, mouse wheel, on-screen `[ 🔫 WEAPON ]` button, and voice commands (`"switch weapon"`, `"scatter blaster"`, `"plasma rifle"`, `"arc pistol"`).
+- **Flight Model & VR Missile Fixes (Playtest Items #5 & #6)**:
+  - **Playtest #5 (Advanced Yaw)**: Resolved VR yaw input zeroing bug in `standalone.html`; mapped throttle L/R slide, keys (Q/E), and gamepad sticks to true rotational thruster torque (`normYaw * 4.2 * delta`) with independent per-axis rotational damping decay.
+  - **Playtest #6 (VR Missile Arming / Firing)**: Hardened physical VR touch targets for `bigRedBtn` (0.075m), `lidCover` (0.075m), `gripTab` (0.065m), `MISSILE ARM` (0.024m), and `FIRE MISSILE (CONSOLE)` (0.065m). Removed lid toggle debounce on forced arming; firing missiles automatically flips open the safety cover if closed.
+- **Combat Lead Pursuit Pip HUD**:
+  - Dynamic 3D interception lead indicator (`novaLeadPip`) calculated in `standalone.html` when locking onto moving hostile targets: projects interception point based on target velocity and laser projectile speed (260 m/s), providing precision dogfighting deflection guidance.
 - **3D FPS Pilot Character & Showcase Mode**:
   - Full procedural pilot mesh in `modules/fps_core.js` and `public/modules/fps_core.js`.
   - 1st-person view: Armored forearm with cyan reactive light bar & tactical glove gripping Arc-Pistol (floating gun replaced); look-down suit presence (torso armor, cyan glowing reactor core, utility belt, holster/pouches, armored legs and mag-lock boots with cyan glow soles; head culled in 1P).
@@ -34,10 +46,10 @@ Read this file and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. D
 - **3D volumetric world spawning**: Doubled asteroid field density (220 rocks), 3D spherical pitch distribution (±75° elevation on 90° vertical axis), 3D pirate/traffic patrol routes.
 - **Simplified player interactions**: 1-touch auto-arm missile launch; reticle-first target priority; VR hand-tracking pinch-to-fire + expanded stick trigger contact; 1-touch auto-dock with tractor touchdown; expanded smartwatch hitboxes (18px).
 - **Offline testing prep**: Synced all modules (`public/modules/` <-> `modules/`), synced SFX, news, art, and VFX. Upgraded Service Worker cache (`nova-alpha-1.15-offline-ready`) with 217 assets pre-cached for 100% offline Quest 3 playtesting.
-- **Branch status**: Merged to `main` locally; ready for push / playtest.
+- **Active branch**: `gemini/weapons-and-flight-polish`.
 
 ### Claude / ChatGPT
-Still offline (usage). When back: Claude resumes lead and reviews/merges `grok/graphics-overhaul`. GPT: playtest items 5–6 (ADVANCED yaw, missiles in VR).
+Still offline (usage). When back: Claude resumes lead and reviews/merges `grok/graphics-overhaul`. GPT: playtest items 5–6 (completed on `gemini/weapons-and-flight-polish`).
 
 ### Owner
 - Desktop test FORCE ULTRA on this branch; report FPS / look.
@@ -47,7 +59,7 @@ Still offline (usage). When back: Claude resumes lead and reviews/merges `grok/g
 | AI | Done | Open / next | Branch |
 |---|---|---|---|
 | **Grok** (temp lead) | AI list #57; `postfx.js`; `fx_ultra` ULTRA bump; Force Ultra in OPTIONS (`2f4d43d`); autopilot enemy tracking patch (`0147c6b`) | Modules-first VFX; postfx render hook; STATUS | `grok/graphics-overhaul` |
-| **Antigravity** | 3D FPS pilot presence & 3P cam showcase, Arc-Pistol overdrive, 120+ voice engine, 1-touch missiles, reticle targeting, VR pinch fire, 3D world elevation, news reader, sw.js offline cache | Quest & Desktop playtest ready | `gemini/cockpit-seat-fix` (merged into `main`) |
+| **Antigravity** | FPS 3-weapon arsenal (Pistol/Scatter/Rifle), Adv flight yaw fix, VR missile hardening, Lead pursuit pip, 3D FPS pilot presence & 3P cam showcase | Playtest verification -> Track B (Pirate Boarding) | `gemini/weapons-and-flight-polish` |
 | **Claude** (offline) | Prior lead work | Resume lead; merge graphics branch when back | — |
 | **ChatGPT** (offline) | Flight, DOCK, boarding… | ADVANCED yaw + missiles VR when back | — |
 | **Owner** | Restored/patched standalone on branch | Desktop ULTRA test; Quest later | |
