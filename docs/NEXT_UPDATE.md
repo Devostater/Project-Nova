@@ -146,3 +146,10 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Choice + consequence:** take the job, warn the target, or double-cross the client. The outcome shifts territory (task 20), rep (task 2), heavy wanted level/jail (task 14), and big news. A new leader takes over with different policies.
 - **Story tie-in:** one key assassination plot in the main branching campaign (who ordered it is a mystery the player uncovers).
 - Keep it clearly fictional sci-fi factions.
+
+### 23. Galaxy map + warp to new places
+- **Galaxy map:** a 3D holographic map (VR: grab/rotate/pinch-zoom with hands, a stick on a gamepad, drag/scroll on desktop/touch). Shows sectors (task 11), territory colors (task 20), trade routes (task 4), mission markers, news hotspots (task 19) and discovered vs. unknown systems.
+- **Warp to new places:** pick a destination → plot route → warp (extend the existing warp/nav `NW`/`nwp*` system plus its cinematic). Longer jumps cost fuel/time. Unknown systems need scanning first or a contact's coordinates (task 21).
+- **Discovery:** new systems unlock through story, exploration, bought charts, or scanning anomalies. First visit gives a discovery bonus and a news story.
+- **New places to add:** a nebula outpost, an asteroid mining colony, an alien ruin, a derelict battlefield, a pirate hideout, and a second planet you can land on (reuse the Cygnus landing + task 9 city kit).
+- Each place is JSON data (skybox, stations, faction, hazards, music) so adding one needs no code. Load one at a time for Quest memory.
