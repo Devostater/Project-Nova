@@ -8715,6 +8715,47 @@ const GAME_VERSION = 'Alpha 1.4';
             showToast('🎺 VICTORY FANFARE TESTED', 1800, '#00ffcc');
           }
         }}
+      ],
+      // Page 5: Executive Business & Stock Desk
+      [
+        { id: 'stock-buy-ore', label: () => {
+          const desk = window.novaStockDesk;
+          const p = desk?.state?.orePrice || 100;
+          const h = desk?.state?.holdings?.ore || 0;
+          return `📈 BUY 10 $ORE (${p * 10} CR) [${h}]`;
+        }, color: '#00ffaa', action: () => {
+          if (window.novaStockDesk?.buyOre) window.novaStockDesk.buyOre(10);
+          drawDebugWatch();
+        }},
+        { id: 'stock-sell-ore', label: () => {
+          const desk = window.novaStockDesk;
+          const p = desk?.state?.orePrice || 100;
+          const h = desk?.state?.holdings?.ore || 0;
+          return `💰 SELL ALL $ORE (+${h * p} CR)`;
+        }, color: '#ffd24a', action: () => {
+          if (window.novaStockDesk?.sellOre) window.novaStockDesk.sellOre();
+          drawDebugWatch();
+        }},
+        { id: 'stock-market-quote', label: () => {
+          const s = window.novaStockDesk?.state;
+          return s ? `📊 $STR:${s.strPrice} · $VLK:${s.vlkPrice} CR` : '📊 COMMODITIES';
+        }, color: '#00e5ff', action: () => {
+          const s = window.novaStockDesk?.state;
+          if (s) showToast(`COMMODITIES: $ORE ${s.orePrice} CR | $STR ${s.strPrice} CR | $VLK ${s.vlkPrice} CR`, 3500, '#00e5ff');
+          drawDebugWatch();
+        }},
+        { id: 'police-impound-status', label: () => {
+          const not = window.novaPiracyMod?.notoriety || 0;
+          return not > 0 ? `🚨 HEAT: ${not}★ (FINE ${not * 1500} CR)` : '🛡️ CLEAN RECORD (0★)';
+        }, color: '#ff3355', action: () => {
+          const imp = window.novaCheckImpound ? window.novaCheckImpound() : null;
+          if (imp && imp.grounded) {
+            if (window.novaPayImpoundFine) window.novaPayImpoundFine();
+          } else {
+            showToast('🛡️ SECTOR STATUS: Clean record. No outstanding warrants.', 2500, '#00ffaa');
+          }
+          drawDebugWatch();
+        }}
       ]
     ];
     const debugWatchButtons = [];
