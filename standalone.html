@@ -12775,7 +12775,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     const _tpA = new THREE.Vector3(), _tpB = new THREE.Vector3(), _tpH = new THREE.Vector3();
     function novaTeleportTick(delta) {
-      if (!(isInsideCantina || isInsideCarrier) || !renderer.xr.isPresenting) { novaTpMark.visible = false; novaTp.held = 0; novaTp.active = false; return; }
+      if (!(isInsideCantina || isInsideCarrier) || !renderer.xr.isPresenting || (window.novaFpsActive && window.novaFpsActive())) { novaTpMark.visible = false; novaTp.held = 0; novaTp.active = false; return; }
       let pinchHand = null;
       for (const h of [h1, h2]) {
         if (!h) continue;
@@ -13048,6 +13048,9 @@ const GAME_VERSION = 'Alpha 1.4';
     let hasAutoRecenteredOnFirstFrame = false;
     function novaOnFoot() { try { if (window.isInsideSafehouse && window.isInsideSafehouse()) return true; const f = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('fps_core'); return !!(f && f.active); } catch (e) { return false; } }
     window.novaOnFoot = novaOnFoot;
+    // FPS owns hand input while active: other pinch systems (cantina teleport, comfort turn) stand down
+    function novaFpsActive() { try { const f = window.nova && window.nova.modules && window.nova.modules.get && window.nova.modules.get('fps_core'); return !!(f && f.active); } catch (e) { return false; } }
+    window.novaFpsActive = novaFpsActive;
     function novaRender(delta = 0.016) {
       if (!renderer.xr?.isPresenting) {
         if (typeof window.novaRenderFn === 'function') {
@@ -15040,6 +15043,7 @@ const GAME_VERSION = 'Alpha 1.4';
     let novaTurnPoseReady = false, novaTurnPinchTouch = -1, novaTurnPinchSince = 0, novaTurnPinchLatched = false;
     function novaHandTurnFrame(frame, now) {
       novaTurnUI.visible = false;
+      if (window.novaFpsActive && window.novaFpsActive()) return;
       const session = renderer.xr.getSession();
       const blocked = isGrippingStickHand || isGrippingThrottleHand || isGrippingStick || isGrippingThrottle;
       const ref = renderer.xr.getReferenceSpace();

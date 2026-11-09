@@ -1253,6 +1253,7 @@ export function init(nova) {
   function keyUp(e){down.delete(e.code);}
   function onXRSelect(e){
     if(!active||!weaponOn)return;
+    if(e&&e.inputSource&&e.inputSource.hand)return; // hand pinch already fires via joint tracking: avoid double shots
     if(tpMarker&&tpMarker.visible)return;
     fire();
   }
