@@ -70,3 +70,11 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - Each sector has its own skybox, faction control, stations, hazards and trade prices.
 - Load one sector at a time to stay inside Quest memory. Sector data goes in JSON so new sectors don't need code.
 - Start with 3: **Core (EDF)**, **Pirate Reach**, **Alien Frontier**.
+
+### 12. AI characters + in-game chat
+- **Smarter AI companions:** NYX, MATRIX and the station NPCs remember your rep, cargo, location and story choices, and react to them (one shared context object passed to the chat).
+- **In-game chat panel:** type or use voice (the voice engine exists) to talk to your companion or NPCs. Replies go in subtitles plus TTS. Works on the wrist menu in VR.
+- **Comms:** pirates and EDF hail you, NPCs make trade offers and bounty calls (ties into tasks 2–4).
+- **Offline fallback:** scripted lines when there's no connection (Quest offline play must still work).
+- Key safety: the AI API key never ships in the client. Calls go through a small server proxy.
+- Later (DLC): player-to-player chat with multiplayer.
