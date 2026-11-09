@@ -19,6 +19,7 @@
     "achievements.js",
     "roster.js",
     "save.js",
-    "vr_hands.js"
+    "vr_hands.js",
+    "novanet.js"
   ]
 }

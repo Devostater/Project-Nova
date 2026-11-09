@@ -177,6 +177,7 @@ const FILES = [
   "./modules/manifest.json",
   "./modules/mission.js",
   "./modules/morality.js",
+  "./modules/novanet.js",
   "./modules/pirate_boarding.js",
   "./modules/postfx.js",
   "./modules/roster.js",
