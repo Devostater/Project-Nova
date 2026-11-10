@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.28-emblems';
+const VERSION = 'nova-alpha-1.29-emblem-decals';
 const FILES = [
   "./Alien/Alien all around wrokercargo drone.glb",
   "./Alien/Alien carrier ship.glb",
@@ -28,6 +28,15 @@ const FILES = [
 "./art/emblems/emblem_09.png",
 "./art/emblems/emblem_10.png",
 "./art/emblems/manifest.json",
+"./art/emblems/decal_02.png",
+"./art/emblems/decal_03.png",
+"./art/emblems/decal_04.png",
+"./art/emblems/decal_05.png",
+"./art/emblems/decal_06.png",
+"./art/emblems/decal_07.png",
+"./art/emblems/decal_08.png",
+"./art/emblems/decal_09.png",
+"./art/emblems/decal_10.png",
 "./art/icon_192.png",
   "./art/icon_512.png",
   "./art/keyart.jpg",
@@ -201,6 +210,7 @@ const FILES = [
   "./modules/mission.js",
   "./modules/morality.js",
   "./modules/novanet.js",
+"./modules/emblems.js",
   "./modules/pirate_boarding.js",
   "./modules/postfx.js",
   "./modules/roster.js",
