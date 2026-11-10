@@ -13073,7 +13073,7 @@ const GAME_VERSION = 'Alpha 1.4';
         }
       }
       // interiors / arenas (modules/interior.js): flight is paused while the player is on foot
-      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot()) {
+      if ((window.novaInteriorMod && window.novaInteriorMod.active) || novaOnFoot() || window.novaGalaxyOpen) {   // galaxy map room pauses flight too
         novaCruiseStop('INTERIOR');
         try { if (window.novaInteriorMod && window.novaInteriorMod.active) window.novaInteriorMod.frame(delta, frame); } catch (e) { console.error('[interior]', e); }
         // Safehouse walk locomotion (keyboard + VR thumbstick)
@@ -16069,6 +16069,7 @@ const GAME_VERSION = 'Alpha 1.4';
       { id: 'colony', name: 'CYGNUS COLONY', r: 240, pos: () => NW_COLONY_POS },
       { id: 'reef', name: 'PIRATE REEF', r: 280, pos: () => NW_REEF_POS }
     ];
+    window.NW_DESTS = NW_DESTS;   // galaxy_map.js reads the warp destinations
     function nwLabel(text, col, w, h) {
       const c = document.createElement('canvas'); c.width = 512; c.height = 128;
       const g = c.getContext('2d'); g.fillStyle = 'rgba(4,10,20,0.6)'; g.fillRect(0, 0, 512, 128);
@@ -20457,7 +20458,7 @@ const GAME_VERSION = 'Alpha 1.4';
     }
     // ── NOVA14: swipe / drag / mouse-wheel on the left panel (COMMS list scrolls up-down, WARP cards flip left-right) ──
     const NP_WARP = { name: 'WARP', c: '#b266ff', i: 0, hint: 'swipe the card to select a route · launch only with the green JUMP button',
-      pads: [{ l: '◀ PREV', c: '#b266ff', fn: () => npWarpStep(-1) }, { l: 'JUMP', c: '#33ff99', fn: () => npWarpGo() }, { l: 'NEXT ▶', c: '#b266ff', fn: () => npWarpStep(1) },
+      pads: [{ l: '\u{1F30C} MAP', c: '#33e6ff', fn: () => { try { window.novaGalaxyMap && window.novaGalaxyMap.open(); } catch (e) { } } }, { l: 'JUMP', c: '#33ff99', fn: () => npWarpGo() }, { l: 'NEXT ▶', c: '#b266ff', fn: () => npWarpStep(1) },
         { l: 'EXIT WARP', c: '#ff7a66', fn: () => { if (isLightspeedActive) exitLightspeed(); else showToast('Not in warp.', 1400, '#88aacc'); } }],
       draw: (x, P) => {
         const L = npWarpList(); if (!L.length) return;
