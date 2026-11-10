@@ -801,6 +801,7 @@
       <!-- Clean, focused Main Menu -->
       <div id="menu-main">
         <button class="modal-btn btn-2d" id="btn-play" style="border-width: 3px; font-size: 22px; padding: 18px;" onclick="window.novaPlay(); event.stopPropagation();">&#9654; PLAY</button>
+        <button class="modal-btn" id="btn-intro-play" style="border-color: #ffcc00; color: #ffe08a; background: rgba(255, 204, 0, 0.12);" onclick="event.stopPropagation(); (async () => { try { if (window.novaWatchVideo) await window.novaWatchVideo('intro'); } catch (e) { } if (window.novaPlay) window.novaPlay(); })();">&#9654; PLAY INTRO</button>
         <button class="modal-btn" id="btn-range" style="border-color: #ff3377; color: #ff88aa; background: rgba(255, 51, 119, 0.15);" onclick="if(window.novaStartRange) window.novaStartRange(event); event.stopPropagation();">&#127919; FIRING RANGE</button>
         <button class="modal-btn" id="btn-options" onclick="window.novaMenuView('opt'); event.stopPropagation();">&#9881; OPTIONS &amp; MODES</button>
         <button class="modal-btn" id="btn-exit" style="border-color:#885566;color:#cc8899;background:rgba(120,30,50,0.15);" onclick="window.novaExit(); event.stopPropagation();">&#10006; EXIT</button>

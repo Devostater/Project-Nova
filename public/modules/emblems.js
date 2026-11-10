@@ -43,7 +43,28 @@ export function init(nova) {
     });
     return true;
   }
+  // Nova-1 Station Authority emblem on the station's outer hull (4 sides, found by raycast)
+  let stationDone = false;
+  function dressStation() {
+    const st = window.stationGroup; if (!st || !map || !map.nova_1) return false;
+    let n = 0; st.traverse(o => { if (o.isMesh && o.visible && o.geometry && o.geometry.attributes.position.count > 500) n++; }); if (!n) return false;
+    st.updateMatrixWorld(true);
+    const wb = new T.Box3().setFromObject(st); if (wb.isEmpty()) return false;
+    const wc = wb.getCenter(new T.Vector3()), ws = wb.getSize(new T.Vector3()), R = Math.max(ws.x, ws.y, ws.z);
+    const targets = []; st.traverse(o => { if (o.isMesh && o.visible && o.name !== 'NOVA_EMBLEM') targets.push(o); });
+    const ray = new T.Raycaster(); ray.camera = nova.camera; const inv = new T.Matrix4().copy(st.matrixWorld).invert();
+    const m = mat(map.nova_1), size = Math.min(60, R * 0.12) / Math.max(1e-6, st.getWorldScale(new T.Vector3()).x);
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dz]) => {
+      const from = wc.clone().add(new T.Vector3(dx, 0.15, dz).multiplyScalar(R)), dir = wc.clone().sub(from).normalize();
+      ray.set(from, dir); const h = ray.intersectObjects(targets, false).find(h => h.face); if (!h) return;
+      const nW = h.face.normal.clone().transformDirection(h.object.matrixWorld); if (nW.dot(dir) > 0) nW.negate();
+      const pL = h.point.clone().addScaledVector(nW, 0.3).applyMatrix4(inv);
+      const d = new T.Mesh(geo, m); d.scale.setScalar(size); d.position.copy(pL); d.raycast = () => { }; d.name = 'NOVA_EMBLEM'; st.add(d); d.updateMatrixWorld(true); d.lookAt(h.point.clone().addScaledVector(nW, 5));   // lookAt takes a world-space target
+    });
+    return true;
+  }
   const timer = setInterval(() => {
+    try { if (!stationDone && map) stationDone = dressStation(); } catch (e) { stationDone = true; console.warn('[emblems] station', e); }
     try { const NF = window.NF; if (!map || !NF) return; NF.units.forEach(u => { if (u.alive && !u.emblem && u.slug !== 'mine' && FAC[u.fac]) { if (dress(u)) u.emblem = true; } }); } catch (e) { }
   }, 1500);
   return { ready: true, dispose() { clearInterval(timer); } };
