@@ -71,7 +71,42 @@ export function build(section=0){
   const mats=getMaterials();Object.entries(batches).forEach(([key,items])=>addBatch(root,items,mats[key],geometries));
   root.traverse(o=>{if(o.isInstancedMesh)o.userData.fpsOccluder=true;});
   root.userData.section=index;root.userData.dispose=()=>geometries.forEach(g=>g.dispose());
+  dressProps(root,index);
   return{root,spawn:new THREE.Vector3(0,0,5.8),checkpoints,cover,enemySpawns,exits,colliders};
+}
+
+// Owner props (Pirate/boarding → public/models/boarding, optimised): loaded async, sized to fit, sat on the floor.
+const PROPS={};let loaderP=null;
+function propLoader(){return loaderP||(loaderP=import(new URL('../vendor/loaders/GLTFLoader.js',import.meta.url).href).then(m=>new m.GLTFLoader()).catch(()=>null));}
+function loadProp(name){
+  return PROPS[name]||(PROPS[name]=propLoader().then(L=>L?new Promise(res=>L.load(new URL(`../models/boarding/${name}.glb`,import.meta.url).href,g=>res(g.scene),undefined,()=>res(null))):null));
+}
+// place(name, [x,y,z], size (m), rotY, axis): axis 'y' = size is the height, otherwise the longest side
+function dressProps(root,index){
+  const place=(name,pos,size,rotY=0,axis)=>loadProp(name).then(src=>{
+    if(!src||root.userData.disposed)return;
+    const m=src.clone(true),b=new THREE.Box3().setFromObject(m),sz=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());
+    m.position.set(-c.x,-b.min.y,-c.z);const w=new THREE.Group();w.add(m);
+    w.scale.setScalar(size/Math.max(1e-6,axis==='y'?sz.y:Math.max(sz.x,sz.z)));w.position.set(pos[0],pos[1]||0,pos[2]);w.rotation.y=rotY;w.name='BOARDING_PROP_'+name;
+    m.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;o.userData.fpsOccluder=true;}});root.add(w);
+  });
+  place('prop_door_hatch',[0,0,-17.75],3.4,0,'y');place('prop_door_hatch',[0,0,7.75],3.4,Math.PI,'y');
+  if(index===0){
+    [-3.3,3.3].forEach(x=>place('prop_supply_crate',[x,0,-7],1.45,x>0?.2:-.15,'y'));
+    place('prop_radiator_heater',[-5.6,0,-2],1.1,Math.PI/2,'y');place('prop_supply_crate',[5,0,1.5],1.1,.6,'y');
+  }else if(index===1){
+    [-1,1].forEach(side=>{place('prop_cot_bed',[side*3.75,0,-8.5],2.1,Math.PI/2);place('prop_cot_bed',[side*3.75,0,-1.5],2.1,Math.PI/2);place('prop_chair',[side*1.6,0,-5],.95,side>0?-Math.PI/2:Math.PI/2,'y');});
+    place('prop_radiator_heater',[5.6,0,-12.8],1.1,-Math.PI/2,'y');
+  }else if(index===2){
+    [[-5,-10],[0,-6],[5,-12],[-4,0],[4,-1]].forEach(([x,z],i)=>place('prop_supply_crate',[x,0,z],1.8,i*.4,'y'));
+    place('prop_supply_crate',[-6.5,0,-15.5],1.2,.3,'y');place('prop_supply_crate',[6.5,0,4],1.2,-.4,'y');
+  }else if(index===3){
+    [-4.6,4.6].forEach(x=>place('prop_engine_turbine',[x,0,-2.5],3.2,x>0?Math.PI:0));
+    [-4.8,4.8].forEach(x=>place('prop_computer_terminal',[x,0,-15.6],1.6,0,'y'));
+  }else{
+    [-2.5,0,2.5].forEach(x=>{place('prop_computer_terminal',[x,0,2.4],1.7,Math.PI,'y');place('prop_chair',[x,0,.9],.95,Math.PI,'y');});
+    place('prop_supply_crate',[-6,0,-15],1.2,.5,'y');
+  }
 }
 
 export function init(){return{ready:true,build};}
