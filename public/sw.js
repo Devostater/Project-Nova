@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.27-music';
+const VERSION = 'nova-alpha-1.28-emblems';
 const FILES = [
   "./Alien/Alien all around wrokercargo drone.glb",
   "./Alien/Alien carrier ship.glb",
@@ -18,7 +18,17 @@ const FILES = [
   "./art/asteroid.jpg",
   "./art/cargo_icons.jpg",
   "./art/eagle.png",
-  "./art/icon_192.png",
+  "./art/emblems/emblem_02_source.webp",
+"./art/emblems/emblem_03.png",
+"./art/emblems/emblem_04.png",
+"./art/emblems/emblem_05.png",
+"./art/emblems/emblem_06.png",
+"./art/emblems/emblem_07.png",
+"./art/emblems/emblem_08.png",
+"./art/emblems/emblem_09.png",
+"./art/emblems/emblem_10.png",
+"./art/emblems/manifest.json",
+"./art/icon_192.png",
   "./art/icon_512.png",
   "./art/keyart.jpg",
   "./art/matrix_holo.jpg",
