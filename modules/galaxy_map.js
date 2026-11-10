@@ -59,6 +59,18 @@ export function init(nova) {
   const btnPrev = button('◀ PREV', '#33e6ff', -1.6, 1.25, () => step(-1)); btnPrev.rotation.y = 0.6; btnPrev.position.z = -1.0;
   const btnNext = button('NEXT ▶', '#33e6ff', -1.6, 0.98, () => step(1)); btnNext.rotation.y = 0.6; btnNext.position.z = -1.0;
 
+  // territory: which faction holds each destination (playtest mapping; see art/emblems/manifest.json for emblems)
+  const TERR = { station: ['nova_1', 0x33e6ff, 'NOVA-1 AUTHORITY'], ceres: ['ceres_mining', 0xffb347, 'CERES MINING CO-OP'], colony: ['neutral_civilian', 0x9fd8a8, 'CIVILIAN'],
+    reef: ['red_wake', 0xff4455, 'RED WAKE PIRATES'], lantern: ['lantern_freeports', 0xffcc55, 'LANTERN FREEPORTS'], meridian: ['meridian_combine', 0xb98cff, 'MERIDIAN COMBINE'],
+    mindspace: ['veyran_assembly', 0x55ffcc, 'VEYRAN ASSEMBLY'], graveyard: [null, 0x8899aa, 'UNCLAIMED'], frost: [null, 0x8899aa, 'UNCLAIMED'] };
+  const EMB = {}; fetch(new URL('../art/emblems/manifest.json', import.meta.url).href).then(r => r.json()).then(m => (m.emblems || []).forEach(e => { EMB[e.faction] = e.id.replace('emblem_', ''); })).catch(() => { });
+  const embTex = {}, tl = new T.TextureLoader();
+  function emblemSprite(faction) {
+    const id = EMB[faction]; if (!id) return null;
+    const t = embTex[id] || (embTex[id] = tl.load(new URL('../art/emblems/decal_' + id + '.png', import.meta.url).href));
+    const sp = new T.Sprite(new T.SpriteMaterial({ map: t, transparent: true, depthWrite: false })); sp.scale.set(0.09, 0.09, 1); return sp;
+  }
+  const bubbleGeo = new T.SphereGeometry(1, 24, 16);
   function dests() { return (window.NW_DESTS || []).filter(d => d.id !== 'fwd' && d.pos); }
   function rebuild() {
     S.items.forEach(it => holo.remove(it.g)); S.items = [];
@@ -77,6 +89,12 @@ export function init(nova) {
       const stem = new T.Mesh(new T.CylinderGeometry(0.004, 0.004, Math.abs(g.position.y), 6), new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35 }));
       stem.position.y = -g.position.y / 2; g.add(stem);   // drop line to the plane shows height
       const lab = label(locked ? '??? SIGNAL' : d.name, locked ? '#667788' : '#9fefff', 0.42); lab.position.y = 0.1; g.add(lab);
+      const tr = !locked && TERR[d.id];
+      if (tr) {   // territory bubble + faction emblem
+        const bub = new T.Mesh(bubbleGeo, new T.MeshBasicMaterial({ color: tr[1], transparent: true, opacity: 0.1, depthWrite: false, blending: T.AdditiveBlending }));
+        bub.scale.setScalar(0.16 + Math.min(0.12, (d.r || 200) / 4000)); g.add(bub);
+        const em = tr[0] && emblemSprite(tr[0]); if (em) { em.position.y = 0.19; g.add(em); }
+      }
       holo.add(g); S.items.push({ d, g, n, h, locked });
     });
     shipMark.position.copy(S.map(ship.clone()));
@@ -94,6 +112,7 @@ export function init(nova) {
     const g = panelC.getContext('2d'), it = S.items[S.sel]; g.clearRect(0, 0, 1024, 640);
     g.fillStyle = 'rgba(3,12,22,0.92)'; g.fillRect(0, 0, 1024, 640); g.strokeStyle = '#33e6ff'; g.lineWidth = 8; g.strokeRect(4, 4, 1016, 632);
     g.fillStyle = '#33e6ff'; g.font = 'bold 44px monospace'; g.fillText('GALAXY MAP', 40, 70);
+    if (it) { const tr = !it.locked && TERR[it.d.id]; if (tr) { g.fillStyle = '#' + tr[1].toString(16).padStart(6, '0'); g.font = 'bold 30px monospace'; g.fillText('TERRITORY · ' + tr[2], 40, 490); } }
     if (!it) { g.fillStyle = '#9fc3d8'; g.font = '32px monospace'; g.fillText('No routes on file.', 40, 160); panelT.needsUpdate = true; return; }
     const inf = info(it.d), ship = window.shipGroup ? window.shipGroup.position : new T.Vector3();
     let dy = 0; try { dy = it.d.pos().y - ship.y; } catch (e) { }
