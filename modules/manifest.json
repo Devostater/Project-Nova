@@ -20,6 +20,7 @@
     "roster.js",
     "save.js",
     "vr_hands.js",
-    "novanet.js"
+    "novanet.js",
+    "emblems.js"
   ]
 }
