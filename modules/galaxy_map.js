@@ -56,8 +56,8 @@ export function init(nova) {
   const btnWarp = button('⚡ WARP', '#33ff99', 1.5, 0.95, () => warp());
   const btnClose = button('✕ CLOSE', '#ff6b7d', 2.05, 0.95, () => close());
   btnClose.position.z = -0.85;
-  const btnPrev = button('◀ PREV', '#33e6ff', -1.6, 1.25, () => step(-1)); btnPrev.rotation.y = 0.6; btnPrev.position.z = -1.0;
-  const btnNext = button('NEXT ▶', '#33e6ff', -1.6, 0.98, () => step(1)); btnNext.rotation.y = 0.6; btnNext.position.z = -1.0;
+  const btnPrev = button('◀ PREV', '#33e6ff', 1.5, 0.7, () => step(-1));
+  const btnNext = button('NEXT ▶', '#33e6ff', 2.05, 0.7, () => step(1)); btnNext.position.z = -0.85;   // under WARP / CLOSE (the council panel is on the left)
 
   // territory: which faction holds each destination (playtest mapping; see art/emblems/manifest.json for emblems)
   const TERR = { station: ['nova_1', 0x33e6ff, 'NOVA-1 AUTHORITY'], ceres: ['ceres_mining', 0xffb347, 'CERES MINING CO-OP'], colony: ['neutral_civilian', 0x9fd8a8, 'CIVILIAN'],
@@ -71,6 +71,34 @@ export function init(nova) {
     const sp = new T.Sprite(new T.SpriteMaterial({ map: t, transparent: true, depthWrite: false })); sp.scale.set(0.09, 0.09, 1); return sp;
   }
   const bubbleGeo = new T.SphereGeometry(1, 24, 16);
+  // council panel (politics.js) on the left of the room
+  const councilC = document.createElement('canvas'); councilC.width = 1024; councilC.height = 768; const councilT = new T.CanvasTexture(councilC);
+  const council = new T.Mesh(new T.PlaneGeometry(1.5, 1.125), new T.MeshBasicMaterial({ map: councilT, transparent: true, toneMapped: false }));
+  council.position.set(-2.05, 1.95, -0.7); council.rotation.y = 0.75; root.add(council);
+  const btnFor = button('LOBBY FOR', '#33ff99', -2.25, 1.22, () => { window.novaPolitics && window.novaPolitics.lobby(1); drawCouncil(); }); btnFor.rotation.y = 0.75; btnFor.position.z = -0.5;
+  const btnAgainst = button('LOBBY NO', '#ff6b7d', -1.85, 1.22, () => { window.novaPolitics && window.novaPolitics.lobby(-1); drawCouncil(); }); btnAgainst.rotation.y = 0.75; btnAgainst.position.z = -0.86;
+  function drawCouncil() {
+    const g = councilC.getContext('2d'), P = window.novaPolitics, st = P && P.state; g.clearRect(0, 0, 1024, 768);
+    g.fillStyle = 'rgba(14,6,26,0.92)'; g.fillRect(0, 0, 1024, 768); g.strokeStyle = '#c9a8ff'; g.lineWidth = 8; g.strokeRect(4, 4, 1016, 760);
+    g.fillStyle = '#c9a8ff'; g.font = 'bold 44px monospace'; g.fillText('🏛 THE COUNCIL FLOOR', 36, 70);
+    if (!st) { g.fillStyle = '#9fc3d8'; g.font = '30px monospace'; g.fillText('Council feed offline.', 36, 150); councilT.needsUpdate = true; return; }
+    const wrap = (t, x, y, w, lh) => { let line = ''; t.split(' ').forEach(word => { const n = line ? line + ' ' + word : word; if (g.measureText(n).width > w && line) { g.fillText(line, x, y); y += lh; line = word; } else line = n; }); if (line) g.fillText(line, x, y); return y + lh; };
+    let y = 130; const a = st.active;
+    if (a) {
+      g.fillStyle = '#ffffff'; g.font = 'bold 38px monospace'; g.fillText(a.title.toUpperCase(), 36, y); y += 44;
+      g.fillStyle = '#b7a6d6'; g.font = '26px monospace'; g.fillText('tabled by ' + a.sponsor, 36, y); y += 40;
+      g.fillStyle = '#e8ddff'; g.font = '28px monospace'; y = wrap(a.text, 36, y, 950, 34) + 6;
+      const yes = a.yes + Math.max(0, a.swing), no = a.no + Math.max(0, -a.swing), tot = Math.max(1, yes + no);
+      g.fillStyle = '#1d1430'; g.fillRect(36, y, 950, 34); g.fillStyle = '#33ff99'; g.fillRect(36, y, 950 * yes / tot, 34); g.fillStyle = '#ff6b7d'; g.fillRect(36 + 950 * yes / tot, y, 950 * no / tot, 34);
+      g.fillStyle = '#021019'; g.font = 'bold 26px monospace'; g.fillText(`FOR ${yes}`, 48, y + 26); g.textAlign = 'right'; g.fillText(`AGAINST ${no}`, 974, y + 26); g.textAlign = 'left'; y += 70;
+      g.fillStyle = '#ffd24a'; g.font = 'bold 30px monospace'; g.fillText(`VOTE IN ${Math.max(0, Math.ceil(a.left))} s · LOBBY COST ${window.novaPolitics.lobbyCost()} CR`, 36, y); y += 56;
+    } else { g.fillStyle = '#9fc3d8'; g.font = '30px monospace'; g.fillText('No motion on the floor. The council is in recess.', 36, y); y += 60; }
+    g.fillStyle = '#c9a8ff'; g.font = 'bold 30px monospace'; g.fillText('LAWS IN FORCE', 36, y); y += 40; g.font = '26px monospace'; g.fillStyle = '#e8ddff';
+    if (!st.laws.length) { g.fillText('none', 36, y); y += 34; } else st.laws.slice(0, 4).forEach(l => { g.fillText('• ' + l.title, 36, y); y += 34; });
+    y += 14; g.fillStyle = '#c9a8ff'; g.font = 'bold 30px monospace'; g.fillText('RECENT VOTES', 36, y); y += 40; g.font = '26px monospace';
+    st.history.slice(0, 3).forEach(h => { g.fillStyle = h.pass ? '#33ff99' : '#ff8877'; g.fillText(`${h.pass ? 'PASSED' : 'FAILED'} ${h.yes}–${h.no}  ${h.title}`, 36, y); y += 34; });
+    councilT.needsUpdate = true;
+  }
   function dests() { return (window.NW_DESTS || []).filter(d => d.id !== 'fwd' && d.pos); }
   function rebuild() {
     S.items.forEach(it => holo.remove(it.g)); S.items = [];
@@ -142,7 +170,7 @@ export function init(nova) {
     S.prev = { parent: rig.parent, pos: rig.position.clone(), q: rig.quaternion.clone(), cam: camera.rotation.clone() };
     root.visible = true; scene.add(rig); rig.position.copy(ORIGIN).add(new T.Vector3(0, renderer.xr.isPresenting ? 0 : 1.7, 1.7)); rig.quaternion.identity();
     if (!renderer.xr.isPresenting) camera.rotation.set(-0.12, 0, 0);
-    S.open = true; window.novaGalaxyOpen = true; S.yaw = 0; S.zoom = 1; rebuild();
+    S.open = true; window.novaGalaxyOpen = true; S.yaw = 0; S.zoom = 1; rebuild(); drawCouncil();
     addEventListener('keydown', key, true); addEventListener('pointerdown', down, true); addEventListener('pointermove', move, true); addEventListener('pointerup', up, true); addEventListener('wheel', wheel, { passive: false, capture: true });
     try { renderer.xr.getController(0).addEventListener('selectstart', xrSelect); renderer.xr.getController(1).addEventListener('selectstart', xrSelect); } catch (e) { }
     try { nova.toast && nova.toast('GALAXY MAP · pick a system, then WARP', 2400, '#33e6ff'); } catch (e) { }
@@ -159,7 +187,7 @@ export function init(nova) {
   // ── input ──
   function pick(origin, dir) {
     ray.set(origin, dir); ray.camera = camera;
-    const targets = []; S.items.forEach(it => targets.push(it.n, it.h)); targets.push(btnWarp, btnClose, btnPrev, btnNext);
+    const targets = []; S.items.forEach(it => targets.push(it.n, it.h)); targets.push(btnWarp, btnClose, btnPrev, btnNext, btnFor, btnAgainst);
     const h = ray.intersectObjects(targets, false)[0]; if (!h) return false;
     if (h.object.userData.gmAction) { h.object.userData.gmAction(); return true; }
     if (h.object.userData.gmIndex !== undefined) { select(h.object.userData.gmIndex); return true; }
@@ -196,7 +224,7 @@ export function init(nova) {
         edge(0, warp); edge(1, close); edge(14, () => step(-1)); edge(15, () => step(1));
       } else { edge(5, close); }
     });
-    if (S.items.length && Math.random() < 0.05) drawPanel();   // keep core / cooling status fresh
+    if (S.items.length && Math.random() < 0.05) { drawPanel(); drawCouncil(); }   // keep core / cooling / vote status fresh
   }
   const off = nova.onTick ? nova.onTick(tick) : null;
   addEventListener('keydown', e => { if (!S.open && e.code === 'KeyH' && !(window.novaOnFoot && window.novaOnFoot()) && !(e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) { e.preventDefault(); open(); } });

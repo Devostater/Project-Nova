@@ -23,6 +23,7 @@
     "novanet.js",
     "emblems.js",
     "galaxy_map.js",
-    "space_ads.js"
+    "space_ads.js",
+    "politics.js"
   ]
 }
