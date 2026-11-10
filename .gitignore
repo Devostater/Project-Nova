@@ -41,3 +41,6 @@ public/news/video/*.mp4
 public/news/video/**/*.mp4
 news/video/*.mp4
 news/video/**/*.mp4
+# Quest PWA build output and signing material
+.build/
+dist/*.apk

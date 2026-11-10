@@ -11,12 +11,45 @@ export function init(nova) {
   const lightBlend={transparent:true,depthWrite:false,blending:T.CustomBlending,blendEquation:T.AddEquation,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendEquationAlpha:T.AddEquation,blendSrcAlpha:T.ZeroFactor,blendDstAlpha:T.OneFactor};
 
   const pistol=new T.Group();pistol.name='NOVA_FPS_PISTOL';
-  const fallbackGun=new T.Group();fallbackGun.name='NOVA_FPS_PISTOL_FALLBACK';pistol.add(fallbackGun);
+  const weaponMeshHolder=new T.Group();weaponMeshHolder.name='NOVA_FPS_WEAPON_HOLDER';pistol.add(weaponMeshHolder);
+
+  // 1. ARC-PISTOL
+  const pistolGroup=new T.Group();pistolGroup.name='NOVA_WEAPON_PISTOL';weaponMeshHolder.add(pistolGroup);
+  const fallbackGun=new T.Group();fallbackGun.name='NOVA_FPS_PISTOL_FALLBACK';pistolGroup.add(fallbackGun);
   const gunMat=new T.MeshStandardMaterial({color:0x152535,metalness:.82,roughness:.28});
   const glowMat=new T.MeshStandardMaterial({color:0x27dcff,emissive:0x087795,emissiveIntensity:1.4,metalness:.3});
   fallbackGun.add(new T.Mesh(new T.BoxGeometry(.075,.09,.26),gunMat));
   const grip=new T.Mesh(new T.BoxGeometry(.06,.15,.075),gunMat);grip.position.set(0,-.1,.065);fallbackGun.add(grip);
   const muzzle=new T.Mesh(new T.CylinderGeometry(.025,.025,.09,12),glowMat);muzzle.rotation.x=Math.PI/2;muzzle.position.z=-.16;fallbackGun.add(muzzle);
+
+  // 2. VULKAN SCATTER-BLASTER (Heavy shotgun with dual barrels and orange radiator shroud)
+  const scatterGroup=new T.Group();scatterGroup.name='NOVA_WEAPON_SCATTER';scatterGroup.visible=false;weaponMeshHolder.add(scatterGroup);
+  const scatterMat=new T.MeshStandardMaterial({color:0x1b2028,metalness:.88,roughness:.32});
+  const scatterGlowMat=new T.MeshStandardMaterial({color:0xff7722,emissive:0xbb3300,emissiveIntensity:1.8,metalness:.2});
+  const scatterBody=new T.Mesh(new T.BoxGeometry(.095,.11,.34),scatterMat);scatterBody.position.set(0,0,-.04);scatterGroup.add(scatterBody);
+  const scatterGrip=new T.Mesh(new T.BoxGeometry(.06,.16,.08),scatterMat);scatterGrip.position.set(0,-.11,.07);scatterGrip.rotation.x=-.15;scatterGroup.add(scatterGrip);
+  [-.025,.025].forEach(bx=>{
+    const bMesh=new T.Mesh(new T.CylinderGeometry(.019,.022,.24,12),scatterMat);bMesh.rotation.x=Math.PI/2;bMesh.position.set(bx,.012,-.25);scatterGroup.add(bMesh);
+    const bChoke=new T.Mesh(new T.TorusGeometry(.022,.005,8,16),scatterGlowMat);bChoke.rotation.x=Math.PI/2;bChoke.position.set(bx,.012,-.34);scatterGroup.add(bChoke);
+  });
+  for(let ri=0;ri<4;ri++){
+    const vent=new T.Mesh(new T.BoxGeometry(.08,.012,.02),scatterGlowMat);vent.position.set(0,.062,-.12+ri*.045);scatterGroup.add(vent);
+  }
+
+  // 3. LONG-LANCE PLASMA RIFLE (Precision scoped energy lance with blue acceleration coils)
+  const rifleGroup=new T.Group();rifleGroup.name='NOVA_WEAPON_RIFLE';rifleGroup.visible=false;weaponMeshHolder.add(rifleGroup);
+  const rifleMat=new T.MeshStandardMaterial({color:0x121b26,metalness:.92,roughness:.22});
+  const rifleGlowMat=new T.MeshStandardMaterial({color:0x0088ff,emissive:0x0055ff,emissiveIntensity:2.0,metalness:.1});
+  const rifleBody=new T.Mesh(new T.BoxGeometry(.07,.095,.46),rifleMat);rifleBody.position.set(0,0,-.06);rifleGroup.add(rifleBody);
+  const rifleStock=new T.Mesh(new T.BoxGeometry(.055,.12,.18),rifleMat);rifleStock.position.set(0,-.03,.22);rifleGroup.add(rifleStock);
+  const rifleGrip=new T.Mesh(new T.BoxGeometry(.05,.15,.065),rifleMat);rifleGrip.position.set(0,-.11,.05);rifleGrip.rotation.x=-.22;rifleGroup.add(rifleGrip);
+  const rifleBarrel=new T.Mesh(new T.CylinderGeometry(.014,.018,.42,12),rifleMat);rifleBarrel.rotation.x=Math.PI/2;rifleBarrel.position.set(0,.015,-.44);rifleGroup.add(rifleBarrel);
+  for(let ci=0;ci<4;ci++){
+    const coil=new T.Mesh(new T.TorusGeometry(.024,.004,8,16),rifleGlowMat);coil.rotation.x=Math.PI/2;coil.position.set(0,.015,-.30-ci*.065);rifleGroup.add(coil);
+  }
+  const scopeMount=new T.Mesh(new T.BoxGeometry(.03,.04,.14),rifleMat);scopeMount.position.set(0,.07,-.06);rifleGroup.add(scopeMount);
+  const scopeGlass=new T.Mesh(new T.RingGeometry(.012,.022,16),new T.MeshBasicMaterial({color:0x00e5ff,side:T.DoubleSide,transparent:true,opacity:.85}));scopeGlass.position.set(0,.075,-.14);rifleGroup.add(scopeGlass);
+
   const muzzleFlash=new T.Mesh(new T.SphereGeometry(.045,8,6),new T.MeshBasicMaterial({color:0xbffcff,toneMapped:false,opacity:.95,...lightBlend}));
   muzzleFlash.position.set(0,.025,-.21);muzzleFlash.visible=false;pistol.add(muzzleFlash);
   pistol.visible=false;pistol.raycast=()=>{};pistol.traverse(o=>{o.raycast=()=>{};});scene.add(pistol);
@@ -65,6 +98,109 @@ export function init(nova) {
     crosshairGroup.add(tick);
   }
   crosshairGroup.visible=false;crosshairGroup.raycast=()=>{};crosshairGroup.traverse(o=>{o.raycast=()=>{};});scene.add(crosshairGroup);
+
+  // VR Collimated Laser Sight Beam (from gun barrel to target point)
+  const laserBeamGeo = new T.BufferGeometry();
+  laserBeamGeo.setAttribute('position', new T.BufferAttribute(new Float32Array(6), 3));
+  const laserBeamMat = new T.LineBasicMaterial({
+    color: 0x00f0ff,
+    transparent: true,
+    opacity: 0.85,
+    blending: T.AdditiveBlending,
+    depthWrite: false
+  });
+  const laserBeamLine = new T.Line(laserBeamGeo, laserBeamMat);
+  laserBeamLine.name = 'NOVA_FPS_LASER_SIGHT';
+  laserBeamLine.renderOrder = 9999;
+  laserBeamLine.visible = false;
+  laserBeamLine.raycast = () => {};
+  scene.add(laserBeamLine);
+
+  // ── Floating 360° Locomotion Joystick Orb (Virtual Joystick with Large Outer Zone) ──
+  const locoGroup = new T.Group();
+  locoGroup.name = 'NOVA_FPS_LOCO_ORB';
+  const locoBaseRingGeo = new T.TorusGeometry(0.18, 0.0045, 12, 48);
+  locoBaseRingGeo.rotateX(Math.PI / 2); // Lie flat in XZ plane
+  const locoBaseRingMat = new T.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.65, side: T.DoubleSide, depthTest: false });
+  const locoBaseRing = new T.Mesh(locoBaseRingGeo, locoBaseRingMat);
+  locoGroup.add(locoBaseRing);
+
+  const locoInnerRingGeo = new T.TorusGeometry(0.09, 0.0025, 10, 36);
+  locoInnerRingGeo.rotateX(Math.PI / 2);
+  const locoInnerRing = new T.Mesh(locoInnerRingGeo, locoBaseRingMat);
+  locoGroup.add(locoInnerRing);
+
+  // 4 Directional Cardinal Ticks on Base Ring (18cm outer boundary)
+  const locoTicks = new T.Group();
+  const tickGeo = new T.PlaneGeometry(0.004, 0.022);
+  tickGeo.rotateX(Math.PI / 2);
+  const tickMat = new T.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.75, side: T.DoubleSide, depthTest: false });
+  for (let i = 0; i < 4; i++) {
+    const tick = new T.Mesh(tickGeo, tickMat);
+    tick.position.set(0, 0, 0.18).applyAxisAngle(new T.Vector3(0, 1, 0), i * Math.PI / 2);
+    tick.rotation.y = i * Math.PI / 2;
+    locoTicks.add(tick);
+  }
+  locoGroup.add(locoTicks);
+
+  // Dynamic Connecting Laser Tether Line
+  const locoTetherGeo = new T.BufferGeometry();
+  locoTetherGeo.setAttribute('position', new T.BufferAttribute(new Float32Array(6), 3));
+  const locoTetherMat = new T.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.85, blending: T.AdditiveBlending, depthTest: false });
+  const locoTether = new T.Line(locoTetherGeo, locoTetherMat);
+  locoGroup.add(locoTether);
+
+  // Deflectable Central Plasma Orb Group
+  const locoOrbGroup = new T.Group();
+  const locoOrbGeo = new T.SphereGeometry(0.024, 20, 16);
+  const locoOrbMat = new T.MeshStandardMaterial({
+    color: 0x00e5ff,
+    emissive: 0x007799,
+    emissiveIntensity: 0.8,
+    metalness: 0.3,
+    roughness: 0.2,
+    transparent: true,
+    opacity: 0.92,
+    depthTest: false
+  });
+  const locoOrbMesh = new T.Mesh(locoOrbGeo, locoOrbMat);
+  locoOrbGroup.add(locoOrbMesh);
+
+  // Outer Aura Glow Ring
+  const locoHaloGeo = new T.RingGeometry(0.026, 0.034, 24);
+  locoHaloGeo.rotateX(Math.PI / 2);
+  const locoHaloMat = new T.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.5, side: T.DoubleSide, blending: T.AdditiveBlending, depthTest: false });
+  const locoHalo = new T.Mesh(locoHaloGeo, locoHaloMat);
+  locoOrbGroup.add(locoHalo);
+
+  locoGroup.add(locoOrbGroup);
+  locoGroup.visible = false;
+  locoGroup.renderOrder = 9999;
+  locoGroup.raycast = () => {};
+  locoGroup.traverse(o => { o.raycast = () => {}; });
+  scene.add(locoGroup);
+
+  let locoOrbGrabbed = false, locoSocketPosInit = false, initialGrabYaw = 0, locoGrabHandIsRight = false;
+  const locoSocketPos = new T.Vector3(), tempVec = new T.Vector3(), tempPos = new T.Vector3();
+  const camYawFwd = new T.Vector3(), camYawRight = new T.Vector3(), camFwdVec = new T.Vector3();
+
+  function getHandYaw(isRight = false){
+    const isH = isRight ? rightIsHand : leftIsHand;
+    const anchor = isRight ? rightHandAnchor : leftHandAnchor;
+    const state = isRight ? rightAnchorState : leftAnchorState;
+    if(isH && anchor && state.ready){
+      const fwd = new T.Vector3(0,0,-1).applyQuaternion(anchor.quaternion);
+      return Math.atan2(fwd.x, -fwd.z);
+    }
+    const ctrl = isRight ? (rightGrip || rightController) : (leftGrip || leftController);
+    if(ctrl){
+      ctrl.getWorldQuaternion(controllerQ);
+      const fwd = new T.Vector3(0,0,-1).applyQuaternion(controllerQ);
+      return Math.atan2(fwd.x, -fwd.z);
+    }
+    return 0;
+  }
+
   const crosshairPos=new T.Vector3();let chLocked=false;
   let currentLockedTargetObj=null,currentLockedPoint=new T.Vector3(),targetLocked=false;
 
@@ -94,7 +230,7 @@ export function init(nova) {
         },undefined,e=>console.warn('[NOVA FPS] Arc-Pistol emissive texture failed to load.',e));
         emissive.flipY=false;if('colorSpace' in emissive)emissive.colorSpace=T.SRGBColorSpace;
         model.raycast=()=>{};model.traverse(o=>{o.raycast=()=>{};if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
-        importedGun=model;pistol.add(model);fallbackGun.visible=false;
+        importedGun=model;pistolGroup.add(model);fallbackGun.visible=false;
       },undefined,e=>console.warn('[NOVA FPS] Full-quality pistol failed to load; using fallback.',e));
     }catch(e){console.warn('[NOVA FPS] GLTFLoader unavailable; using fallback pistol.',e);}
   })();
@@ -109,8 +245,8 @@ export function init(nova) {
   const sparkTex=loadTex('spark','../fx/vfx_spark.png');
   const ringTex=loadTex('shockwave','../fx/vfx_shockwave.png');
 
-  // Dedicated Plasma Projectile Pool (24 active bolts)
-  const MAX_PROJECTILES=24;
+  // Dedicated Plasma Projectile Pool (48 active bolts for multi-weapon arsenal)
+  const MAX_PROJECTILES=48;
   const projPool=[];
   const projRoot=new T.Group();projRoot.name='NOVA_FPS_PROJECTILES';projRoot.raycast=()=>{};scene.add(projRoot);
 
@@ -126,14 +262,14 @@ export function init(nova) {
 
   for(let i=0;i<MAX_PROJECTILES;i++){
     const group=new T.Group();group.name='NOVA_FPS_BOLT_'+i;
-    const core=new T.Mesh(boltCoreGeo,boltCoreMat);core.raycast=()=>{};group.add(core);
-    const f1=new T.Mesh(boltFinGeo1,finMat);f1.raycast=()=>{};group.add(f1);
-    const f2=new T.Mesh(boltFinGeo2,finMat);f2.raycast=()=>{};group.add(f2);
-    const tip=new T.Sprite(tipFlareMat);tip.scale.set(.36,.36,.36);tip.position.set(0,0,-.34);tip.raycast=()=>{};group.add(tip);
-    const tail=new T.Sprite(tailFlareMat);tail.scale.set(.24,.24,.24);tail.position.set(0,0,.30);tail.raycast=()=>{};group.add(tail);
+    const core=new T.Mesh(boltCoreGeo,boltCoreMat.clone());core.raycast=()=>{};group.add(core);
+    const f1=new T.Mesh(boltFinGeo1,finMat.clone());f1.raycast=()=>{};group.add(f1);
+    const f2=new T.Mesh(boltFinGeo2,finMat.clone());f2.raycast=()=>{};group.add(f2);
+    const tip=new T.Sprite(tipFlareMat.clone());tip.scale.set(.36,.36,.36);tip.position.set(0,0,-.34);tip.raycast=()=>{};group.add(tip);
+    const tail=new T.Sprite(tailFlareMat.clone());tail.scale.set(.24,.24,.24);tail.position.set(0,0,.30);tail.raycast=()=>{};group.add(tail);
     group.visible=false;group.raycast=()=>{};group.traverse(o=>{o.raycast=()=>{};});
     projRoot.add(group);
-    projPool.push({mesh:group,pos:new T.Vector3(),prevPos:new T.Vector3(),vel:new T.Vector3(),dir:new T.Vector3(),spawnPos:new T.Vector3(),life:0,active:false,dist:0,speed:75});
+    projPool.push({mesh:group,core,f1,f2,tip,tail,pos:new T.Vector3(),prevPos:new T.Vector3(),vel:new T.Vector3(),dir:new T.Vector3(),spawnPos:new T.Vector3(),life:0,active:false,dist:0,speed:75,damage:25});
   }
 
   // Dedicated Impact VFX Pools (Sparks, Expanding Rings, Flares)
@@ -377,9 +513,12 @@ export function init(nova) {
     const rHandGlove = new T.Mesh(new T.BoxGeometry(0.065, 0.08, 0.07), gloveLeatherMat);
     rHandGlove.position.set(0, -0.16, 0.02);
     rForearm.add(rHandGlove);
-    const charBlaster = new T.Mesh(new T.BoxGeometry(0.045, 0.08, 0.22), armorMat);
-    charBlaster.position.set(0, -0.04, -0.11);
-    rHandGlove.add(charBlaster);
+
+    // 3P Arc-Pistol
+    const charBlaster = new T.Group(); charBlaster.name = 'CHAR_WEAPON_PISTOL';
+    const charBlasterBody = new T.Mesh(new T.BoxGeometry(0.045, 0.08, 0.22), armorMat);
+    charBlasterBody.position.set(0, -0.04, -0.11);
+    charBlaster.add(charBlasterBody);
     const charBlasterBarrel = new T.Mesh(new T.CylinderGeometry(0.012, 0.012, 0.12, 8), darkMat);
     charBlasterBarrel.rotation.x = Math.PI / 2;
     charBlasterBarrel.position.set(0, 0.02, -0.14);
@@ -387,6 +526,37 @@ export function init(nova) {
     const charBlasterGlow = new T.Mesh(new T.BoxGeometry(0.015, 0.015, 0.12), cyanGlow);
     charBlasterGlow.position.set(0, 0.038, -0.02);
     charBlaster.add(charBlasterGlow);
+    rHandGlove.add(charBlaster);
+
+    // 3P Vulkan Scatter-Blaster
+    const charScatter = new T.Group(); charScatter.name = 'CHAR_WEAPON_SCATTER'; charScatter.visible = false;
+    const charScatterBody = new T.Mesh(new T.BoxGeometry(0.06, 0.09, 0.26), armorMat);
+    charScatterBody.position.set(0, -0.04, -0.12);
+    charScatter.add(charScatterBody);
+    [-0.016, 0.016].forEach(bx => {
+      const bMesh = new T.Mesh(new T.CylinderGeometry(0.012, 0.014, 0.16, 8), darkMat);
+      bMesh.rotation.x = Math.PI / 2;
+      bMesh.position.set(bx, 0.012, -0.21);
+      charScatter.add(bMesh);
+    });
+    const charScatterGlow = new T.Mesh(new T.BoxGeometry(0.035, 0.016, 0.12), new T.MeshBasicMaterial({ color: 0xff7722, toneMapped: false }));
+    charScatterGlow.position.set(0, 0.025, -0.10);
+    charScatter.add(charScatterGlow);
+    rHandGlove.add(charScatter);
+
+    // 3P Plasma Lance Rifle
+    const charRifle = new T.Group(); charRifle.name = 'CHAR_WEAPON_RIFLE'; charRifle.visible = false;
+    const charRifleBody = new T.Mesh(new T.BoxGeometry(0.045, 0.08, 0.38), armorMat);
+    charRifleBody.position.set(0, -0.03, -0.16);
+    charRifle.add(charRifleBody);
+    const charRifleBarrel = new T.Mesh(new T.CylinderGeometry(0.010, 0.012, 0.30, 8), darkMat);
+    charRifleBarrel.rotation.x = Math.PI / 2;
+    charRifleBarrel.position.set(0, 0.015, -0.32);
+    charRifle.add(charRifleBarrel);
+    const charRifleGlow = new T.Mesh(new T.BoxGeometry(0.018, 0.018, 0.20), new T.MeshBasicMaterial({ color: 0x0088ff, toneMapped: false }));
+    charRifleGlow.position.set(0, 0.028, -0.22);
+    charRifle.add(charRifleGlow);
+    rHandGlove.add(charRifle);
 
     g.add(rightArmGroup);
 
@@ -400,12 +570,103 @@ export function init(nova) {
       leftLeg: leftLegGroup,
       rightLeg: rightLegGroup,
       leftArm: leftArmGroup,
-      rightArm: rightArmGroup
+      rightArm: rightArmGroup,
+      charBlaster,
+      charScatter,
+      charRifle
     };
   }
   const pilotChar = createPilotCharacter();
   pilotChar.group.visible = false;
+  pilotChar.group.traverse(o => {
+    o.userData.isPlayer = true;
+    o.userData.fpsIgnore = true;
+    o.raycast = () => {};
+  });
   rig.add(pilotChar.group);
+
+  // ── Multi-Weapon Tactical Arsenal Definition ──
+  const WEAPONS = [
+    { id: 'pistol', name: 'ARC-PISTOL', type: 'sidearm', cooldown: 160, damage: 25, speed: 48, pellets: 1, spread: 0, recoilKick: 0.045, recoilPitch: 0.06, color: 0x00f0ff, coreColor: 0xbaffff, muzzleColor: 0xbffcff, soundFreq: 880 },
+    { id: 'scatter', name: 'VULKAN SCATTER', type: 'shotgun', cooldown: 440, damage: 16, speed: 44, pellets: 6, spread: 0.075, recoilKick: 0.12, recoilPitch: 0.18, color: 0xff7722, coreColor: 0xffe088, muzzleColor: 0xffaa44, soundFreq: 380 },
+    { id: 'rifle', name: 'PLASMA LANCE', type: 'rifle', cooldown: 320, damage: 60, speed: 85, pellets: 1, spread: 0, recoilKick: 0.07, recoilPitch: 0.10, color: 0x3388ff, coreColor: 0xddeeff, muzzleColor: 0x77ccff, soundFreq: 1100 }
+  ];
+  let activeWeaponIdx = 0;
+  let activeWeapon = WEAPONS[0];
+  let wpnBtn = null;
+
+  function updateWeaponVisuals() {
+    const isP = activeWeapon.id === 'pistol';
+    const isS = activeWeapon.id === 'scatter';
+    const isR = activeWeapon.id === 'rifle';
+    pistolGroup.visible = isP;
+    scatterGroup.visible = isS;
+    rifleGroup.visible = isR;
+    if (pilotChar.charBlaster) pilotChar.charBlaster.visible = isP;
+    if (pilotChar.charScatter) pilotChar.charScatter.visible = isS;
+    if (pilotChar.charRifle) pilotChar.charRifle.visible = isR;
+    if (isP) {
+      muzzleFlash.position.set(0, .025, -.21);
+      muzzleRing.position.set(0, .025, -.24);
+    } else if (isS) {
+      muzzleFlash.position.set(0, .014, -.36);
+      muzzleRing.position.set(0, .014, -.38);
+    } else if (isR) {
+      muzzleFlash.position.set(0, .015, -.65);
+      muzzleRing.position.set(0, .015, -.67);
+    }
+    if (wpnBtn) {
+      wpnBtn.textContent = isP ? 'ARC' : (isS ? 'SCTR' : 'RNGE');
+      const c = '#' + (activeWeapon.color.toString(16).padStart(6, '0'));
+      wpnBtn.style.color = c;
+      wpnBtn.style.borderColor = c;
+      wpnBtn.style.boxShadow = `0 0 18px ${c}55`;
+    }
+  }
+
+  function playWeaponSwitchSound(){
+    try{
+      const ctx=nova.sound?.ctx||window.sound?.ctx;
+      if(ctx){
+        if(ctx.state==='suspended')ctx.resume?.();
+        const t=ctx.currentTime, osc=ctx.createOscillator(), g=ctx.createGain();
+        osc.type='sine';
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.06);
+        g.gain.setValueAtTime(0.12, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.07);
+      }
+    }catch(_){}
+  }
+
+  function setWeapon(idOrIdx) {
+    let targetIdx = -1;
+    if (typeof idOrIdx === 'number') {
+      targetIdx = (idOrIdx % WEAPONS.length + WEAPONS.length) % WEAPONS.length;
+    } else if (typeof idOrIdx === 'string') {
+      const q = idOrIdx.toLowerCase();
+      targetIdx = WEAPONS.findIndex(w => w.id === q || w.name.toLowerCase().includes(q) || w.type.includes(q));
+    }
+    if (targetIdx < 0) return false;
+    activeWeaponIdx = targetIdx;
+    activeWeapon = WEAPONS[activeWeaponIdx];
+    updateWeaponVisuals();
+    playWeaponSwitchSound();
+    drawHud();
+    const hexColor = '#' + activeWeapon.color.toString(16).padStart(6, '0');
+    nova.toast?.(`🔫 ARMED: ${activeWeapon.name} [${activeWeapon.type.toUpperCase()}]`, 1800, hexColor);
+    return true;
+  }
+
+  function cycleWeapon(dir = 1) {
+    const next = (activeWeaponIdx + dir % WEAPONS.length + WEAPONS.length) % WEAPONS.length;
+    setWeapon(next);
+  }
+
+  window.novaSetFpsWeapon = setWeapon;
+  window.novaCycleFpsWeapon = cycleWeapon;
 
   let isThirdPerson = false, walkCycleTimer = 0;
   function toggleThirdPerson(force){
@@ -426,7 +687,9 @@ export function init(nova) {
   leftHandAnchor.raycast=()=>{};rightHandAnchor.raycast=()=>{};scene.add(leftHandAnchor,rightHandAnchor);
   const leftAnchorState={ready:false},rightAnchorState={ready:false},anchorPos=new T.Vector3(),anchorQ=new T.Quaternion();
   function trackHandAnchor(anchor,jointObject,state,dt){
-    jointObject.getWorldPosition(anchorPos);jointObject.getWorldQuaternion(anchorQ);const jump=!state.ready||anchor.position.distanceTo(anchorPos)>.22,a=1-Math.exp(-Math.max(.001,dt)*22);
+    jointObject.getWorldPosition(anchorPos);
+    jointObject.getWorldQuaternion(anchorQ);
+    const jump=!state.ready||anchor.position.distanceTo(anchorPos)>.28,a=1-Math.exp(-Math.max(.001,dt)*22);
     if(jump){anchor.position.copy(anchorPos);anchor.quaternion.copy(anchorQ);state.ready=true;}else{anchor.position.lerp(anchorPos,a);anchor.quaternion.slerp(anchorQ,a);}
     anchor.updateMatrixWorld(true);
   }
@@ -444,8 +707,11 @@ export function init(nova) {
   const down=new Set();
   let active=false,weaponOn=true,lastFire=0,lastDamage=0,health=100,shield=100,maxShield=100,yaw=0,pitch=0,hudTimer=0,muzzleTimer=0;
   let timeSinceDamage=0,ctrlTpHeld=false;
-  let rightController=null,leftController=null,rightGrip=null,leftGrip=null,rightHand=null,leftHand=null,rightIsHand=false,leftIsHand=false,leftFist=false,leftAnchor=null;
-  let leftPinchHeld=false,rightPinchHeld=false,leftPinchTime=0,leftPinchUsed=false,bothPinchTime=0,bothPinchExit=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false,pointerWasLocked=false;
+  let rightController=null,leftController=null,rightGrip=null,leftGrip=null,rightHand=null,leftHand=null,rightIsHand=false,leftIsHand=false;
+  let rightIndexValid=false,rightWristValid=false,rightThumbValid=false,rightMiddleValid=false;
+  let leftIndexValid=false,leftWristValid=false,leftThumbValid=false,leftMiddleValid=false;
+  let leftPinchHeld=false,rightPinchHeld=false,leftPinchTime=0,leftPinchUsed=false,rightPinchTime=0,rightPinchUsed=false,rightPinchAimTime=0,bothPinchTime=0,bothPinchExit=false,snapHeld=false,padExitHeld=false,padUseHeld=false,session=null,exiting=false,pointerWasLocked=false;
+  let xrSwapHeld=false,padSwapHeld=false,wristTapHeld=false,lMidPinchHeld=false;
   let tpValid=false;
   let options={};
 
@@ -459,10 +725,10 @@ export function init(nova) {
     c.font='bold 25px monospace';c.textAlign='left';c.fillStyle='#7ffcff';c.fillText('HELMET · '+String(options.mode||'FPS').toUpperCase(),70,438);
     c.fillStyle=health>35?'#65ffad':'#ff596d';c.fillText('HULL '+Math.round(health)+'%',350,438);
     c.fillStyle='#58dfff';c.fillText('SHIELD '+Math.round(shield)+'%',500,438);
-    c.fillStyle=weaponOn?'#ffcf58':'#8295a0';c.fillText(weaponOn?'ARMED':'HANDS',670,438);
+    c.fillStyle=weaponOn?('#'+activeWeapon.color.toString(16).padStart(6,'0')):'#8295a0';c.fillText(weaponOn?activeWeapon.name:'HANDS',650,438);
     c.font='bold 21px monospace';c.fillStyle=grenadeState==='holstered'?'#33e5ff':'#ff9933';
-    c.fillText(grenadeState==='holstered'?'GRENADE:READY':(grenadeState==='cooldown'?'GRENADE:RELOAD':'GRENADE:'+Math.max(0,grenadeFuse).toFixed(1)+'s'),780,438);
-    c.font='18px monospace';c.fillStyle='#a9d8e8';c.fillText(renderer?.xr?.isPresenting?'PINCH/STICK: TELEPORT · FIST: MOVE · GRENADE: LEFT CHEST · R-PINCH: FIRE':'WASD / STICKS MOVE · G GRENADE · CLICK / RT FIRE · E / A USE · ESC EXIT',70,464);
+    c.fillText(grenadeState==='holstered'?'GRENADE:READY':(grenadeState==='cooldown'?'GRENADE:RELOAD':'GRENADE:'+Math.max(0,grenadeFuse).toFixed(1)+'s'),810,438);
+    c.font='18px monospace';c.fillStyle='#a9d8e8';c.fillText(renderer?.xr?.isPresenting?'PINCH/STICK: TELEPORT · FIST: MOVE · GRENADE: LEFT CHEST · R-PINCH: FIRE':'WASD MOVE · CLICK FIRE · Q WEAPON · G GRENADE · E USE · C/V CAM · ESC EXIT',70,464);
     hudTexture.needsUpdate=true;
   }
 
@@ -477,7 +743,30 @@ export function init(nova) {
     }
     return null;
   }
-  function handPoint(hand,name,out){const j=joint(hand,name);if(!j)return false;j.getWorldPosition(out);return true;}
+  function handPoint(hand,name,out){
+    // Fallback directly to global tracked hand positions if three.js joint object is unavailable
+    const isR = hand?.userData?.handedness === 'right';
+    if(isR && name === 'wrist' && window._novaTrackedRightWrist){
+      out.copy(window._novaTrackedRightWrist);
+      return true;
+    }
+    if(isR && name === 'index-finger-tip' && window._novaTrackedRightTip){
+      out.copy(window._novaTrackedRightTip);
+      return true;
+    }
+    if(!isR && name === 'wrist' && window._novaTrackedLeftWrist){
+      out.copy(window._novaTrackedLeftWrist);
+      return true;
+    }
+    if(!isR && name === 'index-finger-tip' && window._novaTrackedLeftTip){
+      out.copy(window._novaTrackedLeftTip);
+      return true;
+    }
+    const j=joint(hand,name);
+    if(!j)return false;
+    j.getWorldPosition(out);
+    return true;
+  }
   function resolveHand(handedness){
     for(let i=0;i<2;i++){
       const h=renderer?.xr?.getHand?.(i);
@@ -509,18 +798,29 @@ export function init(nova) {
     pistol.position.set(hand ? .018 : .015,(hand ? -.018 : -.035) + recoilPitch*.03,(hand ? -.075 : -.09) + recoilKick);
     pistol.rotation.set((hand ? handGunPitch : 0) - recoilPitch,hand ? handGunYaw : 0,hand ? handGunRoll : 0);
   }
-  function playLaserSound(){
+  function playLaserSound(wpn=activeWeapon){
     try{
-      if(nova.sound?.laser){nova.sound.laser();return;}
-      if(window.sound?.laser){window.sound.laser();return;}
       const ctx=nova.sound?.ctx||window.sound?.ctx;
       if(ctx){
         if(ctx.state==='suspended')ctx.resume?.();
-        const t=ctx.currentTime,osc=ctx.createOscillator(),g=ctx.createGain();
-        osc.type='triangle';osc.frequency.setValueAtTime(560,t);osc.frequency.exponentialRampToValueAtTime(140,t+.08);
-        g.gain.setValueAtTime(.18,t);g.gain.exponentialRampToValueAtTime(.001,t+.085);
-        osc.connect(g);g.connect(ctx.destination);osc.start(t);osc.stop(t+.085);
-      }
+        const t=ctx.currentTime;
+        if(wpn?.id==='scatter'){
+          const osc=ctx.createOscillator(),g=ctx.createGain();
+          osc.type='sawtooth';osc.frequency.setValueAtTime(340,t);osc.frequency.exponentialRampToValueAtTime(75,t+.13);
+          g.gain.setValueAtTime(.26,t);g.gain.exponentialRampToValueAtTime(.001,t+.14);
+          osc.connect(g);g.connect(ctx.destination);osc.start(t);osc.stop(t+.14);
+        }else if(wpn?.id==='rifle'){
+          const osc=ctx.createOscillator(),g=ctx.createGain();
+          osc.type='triangle';osc.frequency.setValueAtTime(1350,t);osc.frequency.exponentialRampToValueAtTime(310,t+.11);
+          g.gain.setValueAtTime(.22,t);g.gain.exponentialRampToValueAtTime(.001,t+.115);
+          osc.connect(g);g.connect(ctx.destination);osc.start(t);osc.stop(t+.115);
+        }else{
+          const osc=ctx.createOscillator(),g=ctx.createGain();
+          osc.type='triangle';osc.frequency.setValueAtTime(560,t);osc.frequency.exponentialRampToValueAtTime(140,t+.08);
+          g.gain.setValueAtTime(.18,t);g.gain.exponentialRampToValueAtTime(.001,t+.085);
+          osc.connect(g);g.connect(ctx.destination);osc.start(t);osc.stop(t+.085);
+        }
+      }else if(nova.sound?.laser)nova.sound.laser();
     }catch(_){}
   }
   function playImpactSound(){
@@ -542,33 +842,50 @@ export function init(nova) {
     while(node){
       if(node===rig||node===camera||node===pistol||node===fallbackGun||node===importedGun||
          node===leftGlove||node===rightGlove||node===leftHandAnchor||node===rightHandAnchor||
-         node===tpMarker||node===crosshairGroup||node===projRoot||node===vfxRoot||
+         node===tpMarker||node===crosshairGroup||node===projRoot||node===vfxRoot||node===locoGroup||
+         node===pilotChar?.group||node.isSkinnedMesh||node.isBone||
          node.userData?.isPlayer||node.userData?.fpsIgnore){
         return true;
       }
-      if(node.name&&(node.name.startsWith('NOVA_FPS_')||node.name==='NOVA_HELMET_HUD'))return true;
+      if(node.name&&(node.name.startsWith('NOVA_FPS_')||node.name==='NOVA_HELMET_HUD'||node.name.includes('Hand')||node.name.includes('Controller')||node.name.includes('Wrist')||node.name.includes('Ghost')))return true;
       node=node.parent;
     }
     return false;
   }
   function aimRay(){
-    if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
+    let foundAim=false;
+    // Prefer right hand / controller tracking for weapon aim ray
+    if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent&&pistol.parent!==scene&&(rightAnchorState.ready||rightGrip||rightController)){
       pistol.getWorldPosition(origin);
       pistol.getWorldQuaternion(controllerQ);
       direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
-      origin.addScaledVector(direction,.22);
-    }else if(renderer?.xr?.isPresenting&&session&&(rightGrip||rightController)){
-      const src=rightGrip||rightController;
-      src.getWorldPosition(origin);direction.set(0,0,-1).applyQuaternion(src.getWorldQuaternion(controllerQ)).normalize();
-      origin.addScaledVector(direction,.22);
-    }else{
+      origin.addScaledVector(direction,.15);
+      foundAim=true;
+    }else if(renderer?.xr?.isPresenting&&session&&(rightController||rightGrip)){
+      const src=rightController||rightGrip;
+      src.getWorldPosition(origin);
+      src.getWorldQuaternion(controllerQ);
+      direction.set(0,0,-1).applyQuaternion(controllerQ).normalize();
+      origin.addScaledVector(direction,.12);
+      foundAim=true;
+    }else if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid){
+      origin.copy(rightIndex);
+      if(rightWristValid&&rightIndex.distanceTo(rightWrist)>0.03){
+        direction.subVectors(rightIndex,rightWrist).normalize();
+      }else{
+        camera.getWorldDirection(direction).normalize();
+      }
+      origin.addScaledVector(direction,.05);
+      foundAim=true;
+    }
+    if(!foundAim){
       camera.getWorldPosition(origin);camera.getWorldDirection(direction).normalize();
       origin.addScaledVector(direction,.32);
     }
     ray.set(origin,direction);ray.camera=camera;   // sprites need the camera to raycast
     try{
       const rawHits=ray.intersectObjects(scene.children,true);
-      return rawHits.filter(h=>!isPlayerHierarchy(h.object)&&h.distance>.35);
+      return rawHits.filter(h=>!isPlayerHierarchy(h.object)&&h.distance>.20);
     }catch(e){return [];}
   }
   function findUserData(object,key){
@@ -650,31 +967,39 @@ export function init(nova) {
     }
   }
 
-  function triggerMuzzleFlash(){
+  function triggerMuzzleFlash(wpn=activeWeapon){
     muzzleTimer=.09;
     muzzleFlash.visible=true;
-    muzzleFlash.scale.set(1.4,1.4,1.4);
+    const isS=wpn?.id==='scatter', isR=wpn?.id==='rifle';
+    const sScale=isS?2.2:(isR?1.6:1.4);
+    muzzleFlash.scale.set(sScale,sScale,sScale);
+    muzzleFlash.material.color.setHex(wpn?.muzzleColor||0xbffcff);
     muzzleRing.visible=true;
-    muzzleRing.scale.set(1,1,1);
-    recoilKick=.026;recoilPitch=.052;
+    muzzleRing.scale.set(isS?1.8:(isR?1.3:1),isS?1.8:(isR?1.3:1),1);
+    muzzleRing.material.color.setHex(wpn?.color||0x00f0ff);
   }
 
   const spawnPos=new T.Vector3(),spawnDir=new T.Vector3(),camWorldPos=new T.Vector3(),camRightVec=new T.Vector3(),camUpVec=new T.Vector3(),projRightVec=new T.Vector3();
-  function launchProjectile(sideOffset=0){
+  function launchProjectile(sideOffset=0,spreadX=0,spreadY=0,speedVal=48,damageVal=25,glowCol=0x00f0ff,coreCol=0xbaffff){
     if(renderer?.xr?.isPresenting&&weaponOn&&pistol&&pistol.parent){
       pistol.getWorldPosition(spawnPos);
       pistol.getWorldQuaternion(controllerQ);
       spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
       projRightVec.set(1,0,0).applyQuaternion(controllerQ);
-      spawnPos.addScaledVector(spawnDir,.22);
+      spawnPos.addScaledVector(spawnDir,.20);
       if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
-    }else if(renderer?.xr?.isPresenting&&session&&(rightGrip||rightController)){
-      const src=rightGrip||rightController;
+    }else if(renderer?.xr?.isPresenting&&session&&(rightController||rightGrip)){
+      const src=rightController||rightGrip;
       src.getWorldPosition(spawnPos);
       src.getWorldQuaternion(controllerQ);
       spawnDir.set(0,0,-1).applyQuaternion(controllerQ).normalize();
       projRightVec.set(1,0,0).applyQuaternion(controllerQ);
-      spawnPos.addScaledVector(spawnDir,.22);
+      spawnPos.addScaledVector(spawnDir,.14);
+      if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
+    }else if(renderer?.xr?.isPresenting&&rightIsHand&&rightIndexValid){
+      spawnPos.copy(rightIndex).addScaledVector(direction,.06);
+      spawnDir.copy(direction);
+      projRightVec.set(1,0,0).applyQuaternion(camera.quaternion);
       if(sideOffset)spawnPos.addScaledVector(projRightVec,sideOffset);
     }else if(isThirdPerson){
       pilotChar.rightArm.getWorldPosition(spawnPos);
@@ -694,42 +1019,100 @@ export function init(nova) {
         .addScaledVector(spawnDir,.42);
     }
 
-    // Direct bolt toward crosshair if active
-    if(crosshairGroup.visible){
+    // Direct bolt toward crosshair / locked target point if active
+    if(targetLocked&&currentLockedPoint&&currentLockedPoint.lengthSq()>0.001){
+      spawnDir.subVectors(currentLockedPoint,spawnPos).normalize();
+    }else if(crosshairGroup.visible){
       spawnDir.subVectors(crosshairGroup.position,spawnPos).normalize();
+    }
+    // Apply shotgun / weapon dispersion
+    if(spreadX||spreadY){
+      camRightVec.set(1,0,0).applyQuaternion(camera.quaternion);
+      camUpVec.set(0,1,0).applyQuaternion(camera.quaternion);
+      spawnDir.addScaledVector(camRightVec,spreadX).addScaledVector(camUpVec,spreadY).normalize();
     }
 
     const p=projPool.find(x=>!x.active)||projPool[0];
     p.active=true;
     p.life=1.6;
     p.dist=0;
+    p.damage=damageVal;
     p.pos.copy(spawnPos);
     p.prevPos.copy(spawnPos);
     p.spawnPos.copy(spawnPos);
     p.dir.copy(spawnDir);
-    p.vel.copy(spawnDir).multiplyScalar(window.novaPewPewOverdrive ? 68 : 48);
+    p.vel.copy(spawnDir).multiplyScalar(speedVal);
     p.lockedTarget=targetLocked?currentLockedTargetObj:null;
     p.lockedPos=targetLocked?crosshairGroup.position.clone():null;
     p.mesh.position.copy(spawnPos);
     p.mesh.quaternion.setFromUnitVectors(new T.Vector3(0,0,-1),spawnDir);
+    if(p.core&&p.core.material)p.core.material.color.setHex(coreCol);
+    if(p.f1&&p.f1.material)p.f1.material.color.setHex(glowCol);
+    if(p.f2&&p.f2.material)p.f2.material.color.setHex(glowCol);
+    if(p.tip&&p.tip.material)p.tip.material.color.setHex(coreCol);
+    if(p.tail&&p.tail.material)p.tail.material.color.setHex(glowCol);
     p.mesh.visible=true;
   }
 
   function fire(){
     const overdrive=!!window.novaPewPewOverdrive;
-    const cooldown=overdrive?70:160;
+    const isScatter=activeWeapon.id==='scatter';
+    const isRifle=activeWeapon.id==='rifle';
+    let cooldown=activeWeapon.cooldown;
+    if(overdrive&&activeWeapon.id==='pistol')cooldown=70;
+    else if(overdrive)cooldown=Math.round(cooldown*0.55);
+
     const now=performance.now();if(!active||!weaponOn||now-lastFire<cooldown)return false;lastFire=now;
-    playLaserSound();
+    playLaserSound(activeWeapon);
     try{options.onShot?.();}catch(_){}
     aimRay(); // updates origin and direction cleanly
-    launchProjectile(overdrive ? 0.045 : 0);
-    if(overdrive)launchProjectile(-0.045);
-    triggerMuzzleFlash();
-    nova.emit?.('fpsWeaponFired',{mode:options.mode||'fps'});
+
+    const up = (typeof window !== 'undefined' && window.novaFpsUpgrades) ? window.novaFpsUpgrades : {};
+    if(isScatter){
+      recoilKick=0.12;recoilPitch=0.18;
+      const count = up.scatter_choke ? 8 : 6;
+      const spreadMult = up.scatter_choke ? 0.65 : 1.0;
+      for(let i=0;i<count;i++){
+        const a=(i/count)*Math.PI*2+(Math.random()-0.5)*0.5;
+        const rad=(0.035+Math.random()*0.038)*spreadMult;
+        launchProjectile(0,Math.cos(a)*rad,Math.sin(a)*rad,44,16,0xff7722,0xffe088);
+      }
+    }else if(isRifle){
+      recoilKick=0.07;recoilPitch=0.10;
+      const dmg = up.lance_focus ? 90 : 60;
+      launchProjectile(0,0,0,85,dmg,0x3388ff,0xddeeff);
+    }else{
+      recoilKick=overdrive?0.035:0.045;recoilPitch=overdrive?0.04:0.06;
+      const dmg = up.arc_cap ? 35 : 25;
+      launchProjectile(overdrive ? 0.045 : 0,0,0,overdrive ? 68 : 48,dmg,0x00f0ff,0xbaffff);
+      if(overdrive)launchProjectile(-0.045,0,0,68,dmg,0x00f0ff,0xbaffff);
+    }
+    triggerMuzzleFlash(activeWeapon);
+    nova.emit?.('fpsWeaponFired',{mode:options.mode||'fps',weapon:activeWeapon.id});
     return true;
   }
   function interact(){
     if(!active)return false;
+    // Check direct proximity first (e.g. hand or body right in front of door or console)
+    const testPoints = [origin];
+    if (rightIndexValid) testPoints.push(rightIndex);
+    if (leftIndexValid) testPoints.push(leftIndex);
+    if (rightWristValid) testPoints.push(rightWrist);
+    if (leftWristValid) testPoints.push(leftWrist);
+    for (const pt of testPoints) {
+      let foundClose = null;
+      scene.traverse(node => {
+        if (foundClose || !node.visible || isPlayerHierarchy(node)) return;
+        if (node.userData && typeof node.userData.fpsInteract === 'function') {
+          const wPos = new T.Vector3();
+          node.getWorldPosition(wPos);
+          if (wPos.distanceTo(pt) < 1.8) foundClose = node.userData.fpsInteract;
+        }
+      });
+      if (foundClose) {
+        try { foundClose(); return true; } catch (e) { console.warn(e); }
+      }
+    }
     const hits=aimRay();
     for(const hit of hits){
       if(hit.distance>(options.interactRange||3))break;
@@ -856,10 +1239,21 @@ export function init(nova) {
     else if(e.code==='KeyE'||e.code==='Enter'){e.preventDefault();interact();}
     else if(e.code==='KeyG'){e.preventDefault();throwGrenadeForward();}
     else if(e.code==='KeyC'||e.code==='KeyV'){e.preventDefault();toggleThirdPerson();}
+    else if(e.code==='KeyQ'){e.preventDefault();cycleWeapon(1);}
+    else if(e.code==='Digit1'){e.preventDefault();setWeapon('pistol');}
+    else if(e.code==='Digit2'){e.preventDefault();setWeapon('scatter');}
+    else if(e.code==='Digit3'){e.preventDefault();setWeapon('rifle');}
+  }
+  function onWheel(e){
+    if(!active||!weaponOn)return;
+    e.preventDefault();
+    if(e.deltaY>0)cycleWeapon(1);
+    else if(e.deltaY<0)cycleWeapon(-1);
   }
   function keyUp(e){down.delete(e.code);}
   function onXRSelect(e){
     if(!active||!weaponOn)return;
+    if(e&&e.inputSource&&e.inputSource.hand)return; // hand pinch already fires via joint tracking: avoid double shots
     if(tpMarker&&tpMarker.visible)return;
     fire();
   }
@@ -901,8 +1295,8 @@ export function init(nova) {
           p.active=false;p.mesh.visible=false;
           playImpactSound();
           hitNormal.copy(p.dir).negate();
-          const hitTarget=applyDamageToTarget(p.lockedTarget,25,{origin:p.prevPos.clone(),point:p.lockedPos.clone(),normal:hitNormal.clone()});
-          nova.emit?.('targetHit',{target:hitTarget||p.lockedTarget,damage:25,point:p.lockedPos});
+          const hitTarget=applyDamageToTarget(p.lockedTarget,p.damage||25,{origin:p.prevPos.clone(),point:p.lockedPos.clone(),normal:hitNormal.clone()});
+          nova.emit?.('targetHit',{target:hitTarget||p.lockedTarget,damage:p.damage||25,point:p.lockedPos});
           spawnImpactVfx(p.lockedPos,hitNormal,true);
           continue;
         }
@@ -924,11 +1318,11 @@ export function init(nova) {
             hitNormal.copy(p.dir).negate();
           }
 
-          const target=applyDamageToTarget(hit.object,25,{origin:p.prevPos.clone(),point:hit.point.clone(),normal:hitNormal.clone()});
+          const target=applyDamageToTarget(hit.object,p.damage||25,{origin:p.prevPos.clone(),point:hit.point.clone(),normal:hitNormal.clone()});
           if(target){
             p.active=false;p.mesh.visible=false;
             playImpactSound();
-            nova.emit?.('targetHit',{target,damage:25,point:hit.point});
+            nova.emit?.('targetHit',{target,damage:p.damage||25,point:hit.point});
             spawnImpactVfx(hit.point,hitNormal,true);
             break;
           }else if(isOccluder(hit.object)){
@@ -986,12 +1380,12 @@ export function init(nova) {
       pistol.visible=weaponOn&&!!rightSource;
       // three.js controller slots are NOT in session.inputSources order (they drift when hands/controllers swap),
       // so find the slot whose 'connected' event carried this exact input source.
-      const rightIndex=slotOf(rightSource),leftIndex=slotOf(leftSource);
+      const rightSlot=slotOf(rightSource),leftSlot=slotOf(leftSource);
       rightIsHand=!!rightSource?.hand;leftIsHand=!!leftSource?.hand;
-      rightHand=rightIsHand?(resolveHand('right')||(rightIndex>=0?renderer.xr.getHand?.(rightIndex)||null:null)):null;
-      leftHand=leftIsHand?(resolveHand('left')||(leftIndex>=0?renderer.xr.getHand?.(leftIndex)||null:null)):null;
-      rightController=rightIndex>=0?renderer.xr.getController?.(rightIndex)||null:null;rightGrip=rightIndex>=0&&!rightIsHand?renderer.xr.getControllerGrip?.(rightIndex)||null:null;
-      leftController=leftIndex>=0?renderer.xr.getController?.(leftIndex)||null:null;leftGrip=leftIndex>=0&&!leftIsHand?renderer.xr.getControllerGrip?.(leftIndex)||null:null;
+      rightHand=rightIsHand?(resolveHand('right')||(rightSlot>=0?renderer.xr.getHand?.(rightSlot)||null:null)):null;
+      leftHand=leftIsHand?(resolveHand('left')||(leftSlot>=0?renderer.xr.getHand?.(leftSlot)||null:null)):null;
+      rightController=rightSlot>=0?renderer.xr.getController?.(rightSlot)||null:null;rightGrip=rightSlot>=0&&!rightIsHand?renderer.xr.getControllerGrip?.(rightSlot)||null:null;
+      leftController=leftSlot>=0?renderer.xr.getController?.(leftSlot)||null:null;leftGrip=leftSlot>=0&&!leftIsHand?renderer.xr.getControllerGrip?.(leftSlot)||null:null;
       const rightWristJ=joint(rightHand,'wrist');
       const leftWristJ=joint(leftHand,'wrist');
       if(rightSource?.hand&&rightWristJ){
@@ -1001,28 +1395,16 @@ export function init(nova) {
         setWeaponParent(rightGrip||rightController,false);
       }else rightAnchorState.ready=false;
 
-      // Update glove tracking on both hands
+      // In VR: use cockpit hands, keep custom glove models hidden
+      leftGlove.visible=false;
+      rightGlove.visible=false;
+      fpArm.visible=false;
       if(leftSource?.hand&&leftWristJ&&handPoint(leftHand,'wrist',leftWrist)){
         trackHandAnchor(leftHandAnchor,leftWristJ,leftAnchorState,d);
-        if(leftGlove.parent!==leftHandAnchor)leftHandAnchor.add(leftGlove);
-        leftGlove.position.set(0,0,0);leftGlove.rotation.set(0,0,0);
-        leftGlove.visible=true;
-      }else if(leftGrip){
-        leftAnchorState.ready=false;
-        if(leftGlove.parent!==leftGrip)leftGrip.add(leftGlove);
-        leftGlove.position.set(0,0,0);leftGlove.rotation.set(0,0,0);
-        leftGlove.visible=true;
-      }else{leftAnchorState.ready=false;leftGlove.visible=false;}
-
+      }else{leftAnchorState.ready=false;}
       if(rightSource?.hand&&rightWristJ&&handPoint(rightHand,'wrist',rightWrist)){
-        if(rightGlove.parent!==rightHandAnchor)rightHandAnchor.add(rightGlove);
-        rightGlove.position.set(0,0,0);rightGlove.rotation.set(0,0,0);
-        rightGlove.visible=true;
-      }else if(rightGrip){
-        if(rightGlove.parent!==rightGrip)rightGrip.add(rightGlove);
-        rightGlove.position.set(0,0,0);rightGlove.rotation.set(0,0,0);
-        rightGlove.visible=true;
-      }else{rightAnchorState.ready=false;rightGlove.visible=false;}
+        trackHandAnchor(rightHandAnchor,rightWristJ,rightAnchorState,d);
+      }else{rightAnchorState.ready=false;}
 
       let mx=0,mz=0,turn=0,trigger=false,use=false,leave=false;
       const la=stickAxes(leftIsHand?null:leftSource?.gamepad),ra=stickAxes(rightIsHand?null:rightSource?.gamepad);
@@ -1030,29 +1412,38 @@ export function init(nova) {
       trigger=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[0]?.value||0)>.45)||((rightSource?.gamepad?.buttons?.[1]?.value||0)>.75));
       use=!rightIsHand&&(!!rightSource?.gamepad?.buttons?.[4]?.pressed||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
       leave=!rightIsHand&&!!rightSource?.gamepad?.buttons?.[5]?.pressed;
+      // VR Controller Weapon Swap: Left controller X (btn 4) or Y (btn 5) only (Right hand controller does NOT switch weapons)
+      const xrSwap=!leftIsHand&&(!!leftSource?.gamepad?.buttons?.[4]?.pressed||!!leftSource?.gamepad?.buttons?.[5]?.pressed);
+      if(xrSwap&&!xrSwapHeld){cycleWeapon(leftSource?.gamepad?.buttons?.[5]?.pressed?-1:1);}
+      xrSwapHeld=xrSwap;
       if(turn){if(!snapHeld){rig.rotation.y-=Math.sign(turn)*Math.PI/6;snapHeld=true;}}else snapHeld=false;
       const isMR=window.isPassthroughActive||(renderer?.xr?.isPresenting&&window.xrSessionType==='immersive-ar');
       const ctrlTp=!leftIsHand&&((la[1]<-.60)||!!leftSource?.gamepad?.buttons?.[3]?.pressed);
       if(ctrlTp||tpMarker.visible){mx=0;mz=0;}
       walk(mx,mz,d);if(trigger)fire();if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('vr');
       padUseHeld=use;padExitHeld=leave;
-      const leftThumbValid=leftIsHand&&handPoint(leftHand,'thumb-tip',leftThumb);
-      const leftIndexValid=leftIsHand&&handPoint(leftHand,'index-finger-tip',leftIndex);
-      const leftWristValid=leftIsHand&&handPoint(leftHand,'wrist',leftWrist);
+      leftThumbValid=leftIsHand&&handPoint(leftHand,'thumb-tip',leftThumb);
+      leftIndexValid=leftIsHand&&handPoint(leftHand,'index-finger-tip',leftIndex);
+      leftMiddleValid=leftIsHand&&handPoint(leftHand,'middle-finger-tip',leftMiddle);
+      leftWristValid=leftIsHand&&handPoint(leftHand,'wrist',leftWrist);
       const leftPinch=leftIsHand&&leftThumbValid&&leftIndexValid&&leftThumb.distanceTo(leftIndex)<.055;
+      const leftMidPinch=leftIsHand&&leftThumbValid&&leftMiddleValid&&leftThumb.distanceTo(leftMiddle)<.052;
+      if(leftMidPinch&&!lMidPinchHeld){cycleWeapon(1);}
+      lMidPinchHeld=leftMidPinch;
 
-      const rightThumbValid=rightIsHand&&handPoint(rightHand,'thumb-tip',rightThumb);
-      const rightIndexValid=rightIsHand&&handPoint(rightHand,'index-finger-tip',rightIndex);
-      const rightMiddleValid=rightIsHand&&handPoint(rightHand,'middle-finger-tip',rightMiddle);
-      const rightWristValid=rightIsHand&&handPoint(rightHand,'wrist',rightWrist);
+      rightThumbValid=rightIsHand&&handPoint(rightHand,'thumb-tip',rightThumb);
+      rightIndexValid=rightIsHand&&handPoint(rightHand,'index-finger-tip',rightIndex);
+      rightMiddleValid=rightIsHand&&handPoint(rightHand,'middle-finger-tip',rightMiddle);
+      rightWristValid=rightIsHand&&handPoint(rightHand,'wrist',rightWrist);
       const rPinchDist=(rightThumbValid&&rightIndexValid)?rightThumb.distanceTo(rightIndex):999;
       const rMidPinchDist=(rightThumbValid&&rightMiddleValid)?rightThumb.distanceTo(rightMiddle):999;
       const rIndexCurled=(rightIndexValid&&rightWristValid)?(rightIndex.distanceTo(rightWrist)<.142):false;
       const rightPinch=rightIsHand&&(rPinchDist<.065||rMidPinchDist<.065||rIndexCurled);
       if(leftPinch&&!leftPinchHeld){leftPinchTime=0;leftPinchUsed=false;}if(leftPinch)leftPinchTime+=d;
-      if(leftPinch&&rightPinch){bothPinchTime+=d;if(bothPinchTime>=1.0&&!bothPinchExit){bothPinchExit=true;requestExit('hands');}}else{bothPinchTime=0;bothPinchExit=false;}
+      if(rightPinch&&!rightPinchHeld){rightPinchTime=0;rightPinchUsed=false;}if(rightPinch)rightPinchTime+=d;
+      if(leftPinch&&rightPinch&&!weaponOn){bothPinchTime+=d;if(bothPinchTime>=1.0&&!bothPinchExit){bothPinchExit=true;requestExit('hands');}}else{bothPinchTime=0;bothPinchExit=false;}
 
-      // ── Smooth Floor Teleportation (Cantina-parity: eye-to-hand ray / controller forward ray) ──
+      // ── Smooth Floor Teleportation (Controller forward ray / Left stick click) ──
       const floorY=rig.position.y;
       if(ctrlTp&&leftController){
         leftController.getWorldPosition(origin);
@@ -1081,61 +1472,262 @@ export function init(nova) {
       }
       ctrlTpHeld=ctrlTp;
 
-      // Left Pinch Floor Teleport (intuitive Cantina gesture: eye through pinch hand toward floor)
-      if(leftPinch&&!rightPinch&&leftIsHand&&leftIndexValid){
-        camera.getWorldPosition(origin);
-        const pDir=new T.Vector3().subVectors(leftIndex,origin).normalize();
-        if(pDir.y<-0.04&&leftPinchTime>=.18){
-          const t=(floorY-origin.y)/pDir.y;
-          if(t>0.2&&t<35){
-            const hitX=origin.x+pDir.x*t,hitZ=origin.z+pDir.z*t;
-            const b=options.bounds;
-            const cx=(b&&!isMR)?T.MathUtils.clamp(hitX,b[0],b[1]):hitX,cz=(b&&!isMR)?T.MathUtils.clamp(hitZ,b[2],b[3]):hitZ;
-            tpHit.set(cx,floorY+.02,cz);
-            tpMarker.position.copy(tpHit);
-            tpMarker.visible=true;
-            tpValid=true;
+      // ── Right Pinch Floor Teleport (Keep right hand pinch to teleport when pointing downward at floor) ──
+      let rightAimingAtFloor=false;
+      if(rightPinch&&!leftPinch&&rightIsHand&&rightIndexValid){
+        const pointVec=new T.Vector3();
+        if(rightWristValid&&rightIndex.distanceTo(rightWrist)>0.03){
+          pointVec.subVectors(rightIndex,rightWrist).normalize();
+        }else{
+          camera.getWorldDirection(pointVec).normalize();
+        }
+        // Only trigger floor teleport when pointing downward at the ground
+        if(pointVec.y<-0.25){
+          rightAimingAtFloor=true;
+          rightPinchAimTime+=d;
+          if(rightPinchAimTime>=0.14){
+            const t=(floorY-rightIndex.y)/pointVec.y;
+            if(t>0.2&&t<35){
+              const hitX=rightIndex.x+pointVec.x*t,hitZ=rightIndex.z+pointVec.z*t;
+              const b=options.bounds;
+              const cx=(b&&!isMR)?T.MathUtils.clamp(hitX,b[0],b[1]):hitX,cz=(b&&!isMR)?T.MathUtils.clamp(hitZ,b[2],b[3]):hitZ;
+              tpHit.set(cx,floorY+.02,cz);
+              tpMarker.position.copy(tpHit);
+              tpMarker.visible=true;
+              tpValid=true;
+            }else{tpMarker.visible=false;tpValid=false;}
           }else{tpMarker.visible=false;tpValid=false;}
         }else{
-          tpMarker.visible=false;tpValid=false;
-          if(leftPinchTime>=.32&&!leftPinchUsed){interact();leftPinchUsed=true;}
+          tpMarker.visible=false;tpValid=false;rightPinchAimTime=0;
         }
       }else{
-        if(tpMarker.visible&&tpValid&&!leftPinch&&leftPinchHeld){
+        if(tpMarker.visible&&tpValid&&!rightPinch&&rightPinchHeld){
           camera.getWorldPosition(origin);
           const cDx=origin.x-rig.position.x,cDz=origin.z-rig.position.z;
           rig.position.x=tpHit.x-cDx;
           rig.position.z=tpHit.z-cDz;
           try{(nova.sound||window.sound)?.beep?.(900,.05);}catch(_){}
-          leftPinchUsed=true;
+          rightPinchUsed=true;
         }
-        tpMarker.visible=false;tpValid=false;
+        tpMarker.visible=false;tpValid=false;rightPinchAimTime=0;
       }
 
-      // Quick tap interacts with buttons/props; weapon stays ARMED without accidental disarming
-      if(!leftPinch&&leftPinchHeld&&!leftPinchUsed&&leftPinchTime<.32){interact();}
-      if(rightPinch&&weaponOn&&!leftPinch&&!tpMarker.visible){
-        if(!rightPinchHeld||(performance.now()-lastFire>=200))fire();
-      }
-      leftPinchHeld=leftPinch;rightPinchHeld=rightPinch;
+      // ── Floating 360° Locomotion Orb (Left-Hand Virtual Joystick) ──
+      locoGroup.visible=true;
+      camera.getWorldPosition(camWorldPos);
+      camera.getWorldDirection(camFwdVec);
+      camYawFwd.set(camFwdVec.x,0,camFwdVec.z).normalize();
+      if(camYawFwd.lengthSq()<0.001)camYawFwd.set(0,0,-1);
+      camYawRight.crossVectors(camYawFwd,up).normalize();
 
-      // Reliable Fist Locomotion (curl left hand fingers and move fist relative to anchor to walk)
-      const hasLeftWrist=handPoint(leftHand,'wrist',leftWrist);
-      const hasLeftMid=handPoint(leftHand,'middle-finger-tip',leftMiddle);
-      const curled=leftIsHand&&hasLeftWrist&&((hasLeftMid&&leftMiddle.distanceTo(leftWrist)<.13)||(leftIndexValid&&leftIndex.distanceTo(leftWrist)<.13))&&!leftPinch&&!tpMarker.visible;
-      if(curled){
-        const localWrist=rig.worldToLocal(leftWrist.clone());
-        if(!leftFist){leftAnchor=localWrist.clone();leftFist=true;}
-        const off=localWrist.clone().sub(leftAnchor);off.y=0;
-        if(off.length()>.016){
-          camera.getWorldDirection(forward);forward.y=0;if(forward.lengthSq()<.001)forward.set(0,0,-1);forward.normalize();
-          right.crossVectors(forward,up).normalize();
-          const k=1/.06;
-          walk(T.MathUtils.clamp(off.dot(right)*k,-1,1),T.MathUtils.clamp(-off.dot(forward)*k,-1,1),d);
+      // Ergonomic hover target: 24cm below head, 22cm to LEFT, 32cm forward
+      const targetSocketPos=new T.Vector3()
+        .copy(camWorldPos)
+        .addScaledVector(up,-0.24)
+        .addScaledVector(camYawRight,-0.22)
+        .addScaledVector(camYawFwd,0.32);
+
+      // Lock directly to player so it always rotates and stays anchored to the left chest
+      if(!locoSocketPosInit){
+        locoSocketPos.copy(targetSocketPos);
+        locoSocketPosInit=true;
+      }
+      if(!locoOrbGrabbed){
+        locoSocketPos.lerp(targetSocketPos,Math.min(1.0,d*5.0));
+      }else{
+        // Smoothly follow rig movement without jittering from head tilts
+        locoSocketPos.lerp(targetSocketPos,Math.min(1.0,d*12.0));
+      }
+      locoGroup.position.copy(locoSocketPos);
+      locoGroup.matrix.makeBasis(camYawRight, up, camYawFwd.clone().negate());
+      locoGroup.quaternion.setFromRotationMatrix(locoGroup.matrix);
+
+      // Check Hand positions & grabbing state (Supports either hand closest to the joystick orb!)
+      const grabHandWorld = new T.Vector3();
+      let grabHandPosValid = false, grabSqueezing = false, isGrabRight = false;
+
+      // Probe Left Hand / Controller
+      const lPos = new T.Vector3();
+      let lValid = false, lSqueeze = false;
+      if (leftIsHand) {
+        if (leftIndexValid || leftWristValid) {
+          if (leftIndexValid && leftWristValid) lPos.copy(leftIndex).lerp(leftWrist, 0.35);
+          else if (leftIndexValid) lPos.copy(leftIndex);
+          else lPos.copy(leftWrist);
+          lValid = true;
+          const leftPinchDist = (leftThumbValid && leftIndexValid) ? leftThumb.distanceTo(leftIndex) : 999;
+          const leftMidPinchDist = (leftThumbValid && leftMiddleValid) ? leftThumb.distanceTo(leftMiddle) : 999;
+          const leftFist = leftWristValid && leftIndexValid && (leftIndex.distanceTo(leftWrist) < 0.145);
+          lSqueeze = leftPinchDist < 0.080 || leftMidPinchDist < 0.080 || leftFist;
+        }
+      } else if (leftController || leftGrip) {
+        const lCtrl = leftGrip || leftController;
+        lCtrl.getWorldPosition(lPos);
+        lValid = true;
+        const gp = leftSource?.gamepad;
+        lSqueeze = (gp?.buttons?.[1]?.value > 0.25) || !!gp?.buttons?.[1]?.pressed || (gp?.buttons?.[0]?.value > 0.25) || !!gp?.buttons?.[0]?.pressed;
+      }
+
+      // Probe Right Hand / Controller
+      const rPos = new T.Vector3();
+      let rValid = false, rSqueeze = false;
+      if (rightIsHand) {
+        if (rightIndexValid || rightWristValid) {
+          if (rightIndexValid && rightWristValid) rPos.copy(rightIndex).lerp(rightWrist, 0.35);
+          else if (rightIndexValid) rPos.copy(rightIndex);
+          else rPos.copy(rightWrist);
+          rValid = true;
+          const rPinchDist = (rightThumbValid && rightIndexValid) ? rightThumb.distanceTo(rightIndex) : 999;
+          const rMidPinchDist = (rightThumbValid && rightMiddleValid) ? rightThumb.distanceTo(rightMiddle) : 999;
+          const rightFist = rightWristValid && rightIndexValid && (rightIndex.distanceTo(rightWrist) < 0.145);
+          rSqueeze = rPinchDist < 0.080 || rMidPinchDist < 0.080 || rightFist;
+        }
+      } else if (rightController || rightGrip) {
+        const rCtrl = rightGrip || rightController;
+        rCtrl.getWorldPosition(rPos);
+        rValid = true;
+        const gp = rightSource?.gamepad;
+        rSqueeze = (gp?.buttons?.[1]?.value > 0.25) || !!gp?.buttons?.[1]?.pressed || (gp?.buttons?.[0]?.value > 0.25) || !!gp?.buttons?.[0]?.pressed;
+      }
+
+      locoOrbMesh.getWorldPosition(tempPos);
+      const distL = lValid ? lPos.distanceTo(tempPos) : 999;
+      const distR = rValid ? rPos.distanceTo(tempPos) : 999;
+
+      if (!locoOrbGrabbed) {
+        // Grab whichever hand is closest and squeezing within generous 0.34m radius
+        if (distR <= distL && distR < 0.34 && rSqueeze) {
+          locoOrbGrabbed = true;
+          locoGrabHandIsRight = true;
+          grabHandPosValid = true;
+          grabHandWorld.copy(rPos);
+          initialGrabYaw = getHandYaw(true);
+          try { (nova.sound || window.sound)?.click?.(); } catch (_) {}
+        } else if (distL < 0.34 && lSqueeze) {
+          locoOrbGrabbed = true;
+          locoGrabHandIsRight = false;
+          grabHandPosValid = true;
+          grabHandWorld.copy(lPos);
+          initialGrabYaw = getHandYaw(false);
+          try { (nova.sound || window.sound)?.click?.(); } catch (_) {}
+        }
+      } else {
+        // Track the grabbed hand
+        if (locoGrabHandIsRight) {
+          if (!rValid || !rSqueeze || distR > 0.55) {
+            locoOrbGrabbed = false;
+          } else {
+            grabHandPosValid = true;
+            grabHandWorld.copy(rPos);
+          }
+        } else {
+          if (!lValid || !lSqueeze || distL > 0.55) {
+            locoOrbGrabbed = false;
+          } else {
+            grabHandPosValid = true;
+            grabHandWorld.copy(lPos);
+          }
         }
       }
-      else{leftFist=false;leftAnchor=null;}
-      const vrWalking = (Math.abs(mx) + Math.abs(mz) > 0.01) || leftFist;
+
+      const isNearOrb = Math.min(distL, distR) < 0.32;
+
+      // ── Twisting Orb for Yaw Rotation (VR Thruster / Joystick Twist Rudder) ──
+      if (locoOrbGrabbed && grabHandPosValid) {
+        const currentYaw = getHandYaw(locoGrabHandIsRight);
+        let deltaYaw = currentYaw - initialGrabYaw;
+        while (deltaYaw > Math.PI) deltaYaw -= Math.PI * 2;
+        while (deltaYaw < -Math.PI) deltaYaw += Math.PI * 2;
+        if (Math.abs(deltaYaw) > 0.16) {
+          const twistRate = (deltaYaw > 0 ? deltaYaw - 0.16 : deltaYaw + 0.16) * 1.6;
+          rig.rotation.y -= twistRate * d;
+          yaw = rig.rotation.y;
+        }
+      }
+
+      // ── Weapon Firing: Right Pinch (aiming forward/up) OR Left Pinch Debug Fire ──
+      // Right hand pinch fires weapon when aiming forward/up (not aiming down at floor, and not using right hand to steer)
+      if (rightPinch && weaponOn && !tpMarker.visible && !rightAimingAtFloor && (!locoOrbGrabbed || !locoGrabHandIsRight)) {
+        if (!rightPinchHeld || (performance.now() - lastFire >= activeWeapon.cooldown)) fire();
+      }
+
+      // Left hand pinch: FPS gun fires for debug ONLY when NOT grabbing or near the locomotion orb
+      if (leftPinch && weaponOn && (!locoOrbGrabbed || locoGrabHandIsRight) && !isNearOrb) {
+        if (!leftPinchHeld || (performance.now() - lastFire >= activeWeapon.cooldown)) fire();
+      }
+      // Quick tap interacts with props/buttons
+      if ((!leftPinch && leftPinchHeld && !leftPinchUsed && leftPinchTime < .32 && !isNearOrb) ||
+          (!rightPinch && rightPinchHeld && !rightPinchUsed && rightPinchTime < .32 && !rightAimingAtFloor)) {
+        interact();
+      }
+      leftPinchHeld = leftPinch; rightPinchHeld = rightPinch;
+
+      let orbDeflected = false;
+      // Larger outer zone (18cm throw vs previous 8cm) and lowered sensitivity curve
+      const MAX_THROW = 0.18, DEADZONE = 0.020;
+      const is3DEVA = !!(options.zeroG || options.isEVA || window.novaIsEvaActive || window.novaEva?.active);
+
+      if (locoOrbGrabbed && grabHandPosValid) {
+        const localPos = locoGroup.worldToLocal(grabHandWorld.clone());
+        if (!is3DEVA) {
+          localPos.y = 0; // In gravity interior/shooting range: restrict virtual joystick to 2D horizontal plane
+        }
+        const dist = localPos.length();
+        if (dist > MAX_THROW) {
+          localPos.multiplyScalar(MAX_THROW / dist);
+        }
+        locoOrbGroup.position.copy(localPos);
+
+        locoOrbMat.emissive.setHex(0x00ff88);
+        locoOrbMat.color.setHex(0x66ffbb);
+        locoHalo.scale.setScalar(1.35);
+
+        if (dist > DEADZONE) {
+          orbDeflected = true;
+          // Smooth progressive quadratic ramp with comfortable speed ceiling
+          const normMag = Math.min(1.0, (dist - DEADZONE) / (MAX_THROW - DEADZONE));
+          const speedCurve = Math.pow(normMag, 1.5) * 0.72;
+          const moveSpeed = (options.speed || 2.5) * speedCurve;
+
+          // Local coordinates: +X is right, -Z is forward, +Y is up
+          const moveStrafe = localPos.x / MAX_THROW;
+          const moveFwd = -localPos.z / MAX_THROW;
+          const moveDir = new T.Vector3()
+            .addScaledVector(camYawRight, moveStrafe)
+            .addScaledVector(camYawFwd, moveFwd);
+
+          if (!is3DEVA) {
+            // 2D horizontal movement along floor/room plane
+            if (moveDir.lengthSq() > 0.0001) {
+              moveDir.normalize().multiplyScalar(moveSpeed * d);
+              moveRigXZ(moveDir.x, moveDir.z);
+            }
+          } else {
+            // 3D 360° full 6DOF EVA movement (forward/back, strafe, up/down vertical elevation)
+            const moveUp = localPos.y / MAX_THROW;
+            moveDir.addScaledVector(up, moveUp);
+            if (moveDir.lengthSq() > 0.0001) {
+              const move3D = moveDir.clone().normalize().multiplyScalar(moveSpeed * d);
+              rig.position.add(move3D);
+              if (window.novaEva && window.novaEva.active && window.novaEva.vel) {
+                window.novaEva.vel.addScaledVector(moveDir.clone().normalize(), moveSpeed * 0.45 * d);
+              }
+            }
+          }
+        }
+      } else {
+        locoOrbGroup.position.lerp(new T.Vector3(0, 0, 0), Math.min(1.0, d * 18.0));
+        locoOrbMat.emissive.setHex(0x007799);
+        locoOrbMat.color.setHex(0x00e5ff);
+        locoHalo.scale.setScalar(1.0);
+      }
+
+      const tetherPosAttr=locoTetherGeo.attributes.position;
+      tetherPosAttr.setXYZ(0,0,0,0);
+      tetherPosAttr.setXYZ(1,locoOrbGroup.position.x,locoOrbGroup.position.y,locoOrbGroup.position.z);
+      tetherPosAttr.needsUpdate=true;
+
+      const vrWalking = (Math.abs(mx) + Math.abs(mz) > 0.01) || orbDeflected;
       if(vrWalking){
         walkCycleTimer += d * 8.0;
         const stride = Math.sin(walkCycleTimer) * 0.38;
@@ -1146,9 +1738,7 @@ export function init(nova) {
         pilotChar.rightLeg.rotation.x = T.MathUtils.lerp(pilotChar.rightLeg.rotation.x, 0, d * 8);
       }
       correctRoomScale();
-      pilotChar.group.position.set(camera.position.x, 0, camera.position.z);
-      pilotChar.group.rotation.y = camera.rotation.y;
-      pilotChar.head.visible = false;
+      pilotChar.group.visible = false; // In VR: remove/hide FPS body so it doesn't obstruct player view or hands
       fpArm.visible = false;
     }else{
       if(pistol.parent!==camera){camera.add(pistol);}
@@ -1159,12 +1749,16 @@ export function init(nova) {
         x=Math.abs(pad.axes?.[0]||0)>.17?(pad.axes[0]||0):x;z=Math.abs(pad.axes?.[1]||0)>.17?(pad.axes[1]||0):z;
         yaw-=dead(pad.axes?.[2]||0)*d*2.2;pitch=T.MathUtils.clamp(pitch-dead(pad.axes?.[3]||0)*d*1.8,-1.25,1.25);
         if((pad.buttons?.[7]?.value||0)>.45)fire();use=!!pad.buttons?.[0]?.pressed;leave=!!pad.buttons?.[1]?.pressed;
+        const padSwap=!!pad.buttons?.[2]?.pressed||!!pad.buttons?.[4]?.pressed||!!pad.buttons?.[5]?.pressed;
+        if(padSwap&&!padSwapHeld){cycleWeapon(1);}
+        padSwapHeld=padSwap;
       }
       rig.rotation.set(0,yaw,0);camera.rotation.set(pitch,0,0,"YXZ");walk(x,z,d);
       if(use&&!padUseHeld)interact();if(leave&&!padExitHeld)requestExit('gamepad');padUseHeld=use;padExitHeld=leave;
 
+      pilotChar.group.visible = true;
       pilotChar.group.position.set(0, -1.65, 0);
-      pilotChar.group.rotation.set(0, 0, 0);
+      pilotChar.group.rotation.set(0, Math.PI, 0); // For PC: Rotate 180 degrees so character faces downrange along -Z
       pilotChar.head.visible = isThirdPerson;
 
       const isWalking = (Math.abs(x) + Math.abs(z)) > 0.01;
@@ -1200,45 +1794,82 @@ export function init(nova) {
     // ── Update Chest Grenade (Grab from left chest, throw, 3s fuse, explosion) ──
     if(active){
       camera.getWorldPosition(camWorldPos);
-      camera.getWorldQuaternion(controllerQ);
-      camRightVec.set(1,0,0).applyQuaternion(controllerQ);
-      camUpVec.set(0,1,0).applyQuaternion(controllerQ);
       camera.getWorldDirection(spawnDir);
 
       if(grenadeState==='holstered'){
-        // Mounted on left chest: 30cm below head, 16cm to left, 13cm forward
+        // Mounted on left chest: 32cm below head, 16cm to left, 14cm forward
         grenadeChestPos.copy(camWorldPos)
-          .addScaledVector(camUpVec,-.30)
-          .addScaledVector(camRightVec,-.16)
-          .addScaledVector(spawnDir,.13);
+          .addScaledVector(up,-.32)
+          .addScaledVector(camYawRight,-.16)
+          .addScaledVector(camYawFwd,.14);
         grenadeGroup.position.copy(grenadeChestPos);
-        grenadeGroup.quaternion.copy(controllerQ);
+        grenadeGroup.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(camYawRight, up, camYawFwd.clone().negate()));
         grenadeGroup.visible=true;
         grenadeRingMat.color.setHex(0x00f0ff);
 
         // Check if VR hand or controller reaches near left chest to grab grenade
         if(session){
           let rightGrab=false,leftGrab=false;
-          if(rightGrip||rightController||(rightHandAnchor&&rightAnchorState.ready)){
-            const rhPos=(rightHandAnchor&&rightAnchorState.ready)?rightHandAnchor.position:(rightGrip||rightController).position;
-            if(rhPos&&rhPos.distanceTo(grenadeChestPos)<.24){
-              const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>.6)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
-              if(rSqueeze||(rightIsHand&&rightPinch)){rightGrab=true;}
-            }
+
+          // Collect all right hand candidate positions
+          const rPoints = [];
+          if (rightHandAnchor && rightAnchorState.ready) rPoints.push(rightHandAnchor.position);
+          if (rightGrip) rPoints.push(rightGrip.position);
+          if (rightController) rPoints.push(rightController.position);
+          if (rightIndexValid) rPoints.push(rightIndex);
+          if (rightWristValid) rPoints.push(rightWrist);
+          if (rightThumbValid) rPoints.push(rightThumb);
+
+          let rMinDist = 999;
+          for (const pt of rPoints) {
+            const dst = pt.distanceTo(grenadeChestPos);
+            if (dst < rMinDist) rMinDist = dst;
           }
-          if(leftGrip||leftController||(leftHandAnchor&&leftAnchorState.ready)){
-            const lhPos=(leftHandAnchor&&leftAnchorState.ready)?leftHandAnchor.position:(leftGrip||leftController).position;
-            if(lhPos&&lhPos.distanceTo(grenadeChestPos)<.24){
-              const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>.6)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
-              if(lSqueeze||(leftIsHand&&leftPinch)){leftGrab=true;}
-            }
+
+          // Collect all left hand candidate positions
+          const lPoints = [];
+          if (leftHandAnchor && leftAnchorState.ready) lPoints.push(leftHandAnchor.position);
+          if (leftGrip) lPoints.push(leftGrip.position);
+          if (leftController) lPoints.push(leftController.position);
+          if (leftIndexValid) lPoints.push(leftIndex);
+          if (leftWristValid) lPoints.push(leftWrist);
+          if (leftThumbValid) lPoints.push(leftThumb);
+
+          let lMinDist = 999;
+          for (const pt of lPoints) {
+            const dst = pt.distanceTo(grenadeChestPos);
+            if (dst < lMinDist) lMinDist = dst;
           }
+
+          const hoverNear = Math.min(rMinDist, lMinDist) < 0.38;
+          if (hoverNear) {
+            grenadeRingMat.color.setHex(0x00ffff);
+            grenadeGroup.scale.setScalar(1.3);
+          } else {
+            grenadeRingMat.color.setHex(0x00aacc);
+            grenadeGroup.scale.setScalar(1.0);
+          }
+
+          if(rMinDist < 0.38){
+            const rTrigger = (rightSource?.gamepad?.buttons?.[0]?.value || 0) > 0.25 || !!rightSource?.gamepad?.buttons?.[0]?.pressed;
+            const rGrip = (rightSource?.gamepad?.buttons?.[1]?.value || 0) > 0.25 || !!rightSource?.gamepad?.buttons?.[1]?.pressed;
+            const rHandGrip = rightIsHand && (rightPinch || (rightIndexValid && rightWristValid && rightIndex.distanceTo(rightWrist) < 0.145));
+            if(rTrigger || rGrip || rHandGrip){ rightGrab = true; }
+          }
+
+          if(lMinDist < 0.38){
+            const lTrigger = (leftSource?.gamepad?.buttons?.[0]?.value || 0) > 0.25 || !!leftSource?.gamepad?.buttons?.[0]?.pressed;
+            const lGrip = (leftSource?.gamepad?.buttons?.[1]?.value || 0) > 0.25 || !!leftSource?.gamepad?.buttons?.[1]?.pressed;
+            const lHandGrip = leftIsHand && (leftPinch || (leftIndexValid && leftWristValid && leftIndex.distanceTo(leftWrist) < 0.145));
+            if(lTrigger || lGrip || lHandGrip){ leftGrab = true; }
+          }
+
           if(rightGrab){
-            grenadeState='held_right';grenadeFuse=3.0;
+            grenadeState='held_right';grenadeFuse=3.0;grenadeGroup.scale.setScalar(1.0);
             try{nova.sound?.switchClick?.();}catch(_){}
             nova.toast?.('💣 GRENADE ARMED · 3s FUSE',1600,'#ffaa00');
           }else if(leftGrab){
-            grenadeState='held_left';grenadeFuse=3.0;
+            grenadeState='held_left';grenadeFuse=3.0;grenadeGroup.scale.setScalar(1.0);
             try{nova.sound?.switchClick?.();}catch(_){}
             nova.toast?.('💣 GRENADE ARMED · 3s FUSE',1600,'#ffaa00');
           }
@@ -1248,6 +1879,7 @@ export function init(nova) {
         const holder=isR?(rightHandAnchor&&rightAnchorState.ready?rightHandAnchor:(rightGrip||rightController||camera)):(leftHandAnchor&&leftAnchorState.ready?leftHandAnchor:(leftGrip||leftController||camera));
         holder.getWorldPosition(grenadeTempPos);
         grenadeGroup.position.copy(grenadeTempPos);
+        grenadeGroup.scale.setScalar(1.0);
         grenadeGroup.visible=true;
         grenadeFuse-=d;
         const blink=(Math.sin(performance.now()*.02)>0);
@@ -1256,11 +1888,15 @@ export function init(nova) {
         else{
           let releasing=false;
           if(isR){
-            const rSqueeze=!rightIsHand&&(((rightSource?.gamepad?.buttons?.[1]?.value||0)>.4)||!!rightSource?.gamepad?.buttons?.[1]?.pressed);
-            if(!rSqueeze&&(!rightIsHand||!rightPinch))releasing=true;
+            const rTrigger = (rightSource?.gamepad?.buttons?.[0]?.value || 0) > 0.20 || !!rightSource?.gamepad?.buttons?.[0]?.pressed;
+            const rGrip = (rightSource?.gamepad?.buttons?.[1]?.value || 0) > 0.20 || !!rightSource?.gamepad?.buttons?.[1]?.pressed;
+            const rHandGrip = rightIsHand && (rightPinch || (rightIndexValid && rightWristValid && rightIndex.distanceTo(rightWrist) < 0.145));
+            if(!rTrigger && !rGrip && !rHandGrip) releasing = true;
           }else{
-            const lSqueeze=!leftIsHand&&(((leftSource?.gamepad?.buttons?.[1]?.value||0)>.4)||!!leftSource?.gamepad?.buttons?.[1]?.pressed);
-            if(!lSqueeze&&(!leftIsHand||!leftPinch))releasing=true;
+            const lTrigger = (leftSource?.gamepad?.buttons?.[0]?.value || 0) > 0.20 || !!leftSource?.gamepad?.buttons?.[0]?.pressed;
+            const lGrip = (leftSource?.gamepad?.buttons?.[1]?.value || 0) > 0.20 || !!leftSource?.gamepad?.buttons?.[1]?.pressed;
+            const lHandGrip = leftIsHand && (leftPinch || (leftIndexValid && leftWristValid && leftIndex.distanceTo(leftWrist) < 0.145));
+            if(!lTrigger && !lGrip && !lHandGrip) releasing = true;
           }
           if(releasing){
             camera.getWorldDirection(spawnDir);
@@ -1293,11 +1929,11 @@ export function init(nova) {
       }
     }
 
-    // Update dynamic 3D crosshair at the point where the gun will hit
+    // Update dynamic 3D crosshair and VR laser sight at the point where the gun will hit
     if(active&&weaponOn){
       const hits=aimRay();
       const isMR=window.isPassthroughActive||(renderer?.xr?.isPresenting&&window.xrSessionType==='immersive-ar');
-      let hitDist=isMR?3.5:6.0;targetLocked=false;currentLockedTargetObj=null;
+      let hitDist=isMR?14.0:45.0;targetLocked=false;currentLockedTargetObj=null;
       for(const hit of hits){
         const isEnemyTarget=findUserData(hit.object,'rangeTarget')||findUserData(hit.object,'enemy')||findUserData(hit.object,'fpsEnemy')||findUserData(hit.object,'nfUnit')||findUserData(hit.object,'onHit')||findUserData(hit.object,'takeDamage')||findUserData(hit.object,'health')||findUserData(hit.object,'hp');
         if(isEnemyTarget){
@@ -1310,7 +1946,8 @@ export function init(nova) {
       crosshairPos.copy(origin).addScaledVector(direction,hitDist);
       crosshairGroup.position.copy(crosshairPos);
       crosshairGroup.quaternion.copy(camera.quaternion);
-      const chScale=Math.max(.35,Math.min(1.8,hitDist*.14));
+      // High-visibility dynamic scaling so reticle is always crisp in VR
+      const chScale=Math.max(0.65, hitDist * 0.055);
       crosshairGroup.scale.setScalar(chScale);
       crosshairGroup.traverse(o=>{if(o.material){o.material.depthTest=false;o.material.depthWrite=false;}o.renderOrder=10001;});
       if(targetLocked!==chLocked){
@@ -1318,31 +1955,46 @@ export function init(nova) {
         const col=targetLocked?0xff2844:0x00e5ff;
         chRingMat.color.setHex(col);
         chTickMat.color.setHex(col);
+        laserBeamMat.color.setHex(col);
       }
       crosshairGroup.visible=true;
 
+      // Update VR Laser Sight Line
+      laserBeamLine.visible = true;
+      const posAttr = laserBeamGeo.attributes.position;
+      posAttr.setXYZ(0, origin.x, origin.y, origin.z);
+      posAttr.setXYZ(1, crosshairPos.x, crosshairPos.y, crosshairPos.z);
+      posAttr.needsUpdate = true;
+
       // Auto-fire bullet at weapon fire rate when crosshair is locked onto an enemy
-      if(targetLocked&&weaponOn&&!leftFist&&!tpMarker.visible&&!bothPinchExit&&grenadeState!=='held_right'){
+      if(targetLocked&&weaponOn&&!locoOrbGrabbed&&!tpMarker.visible&&!bothPinchExit&&grenadeState!=='held_right'){
         fire();
       }
     }else{
       crosshairGroup.visible=false;
+      laserBeamLine.visible=false;
     }
     hudTimer-=d;if(hudTimer<=0){hudTimer=.1;drawHud();}
   }
 
   function enable(next={}){
     if(active){options={...options,...next};drawHud();return true;}
-    options=next||{};active=true;exiting=false;weaponOn=true;health=100;shield=100;maxShield=100;lastDamage=0;timeSinceDamage=0;grenadeState='holstered';grenadeFuse=3.0;grenadeCooldown=0;
+    const isVR = !!(renderer?.xr?.isPresenting);
+    maxShield = (typeof window !== 'undefined' && window.novaFpsUpgrades?.tactical_shield) ? 150 : 100;
+    options=next||{};active=true;exiting=false;weaponOn=true;health=100;shield=maxShield;lastDamage=0;timeSinceDamage=0;grenadeState='holstered';grenadeFuse=3.0;grenadeCooldown=0;
     yaw=rig.rotation.y;pitch=camera.rotation.x;hud.visible=true;pistol.visible=true;
-    pilotChar.group.visible=true;pilotChar.head.visible=isThirdPerson;
+    pilotChar.group.visible = !isVR;
+    pilotChar.group.rotation.set(0, Math.PI, 0);
+    pilotChar.head.visible = isThirdPerson;
     if(isThirdPerson)camera.position.set(0.42,0.24,2.15);
     rightController=leftController=rightGrip=leftGrip=rightHand=leftHand=null;rightIsHand=leftIsHand=false;
-    leftPinchHeld=rightPinchHeld=leftPinchUsed=bothPinchExit=false;leftPinchTime=bothPinchTime=0;
+    leftPinchHeld=rightPinchHeld=leftPinchUsed=rightPinchUsed=bothPinchExit=false;leftPinchTime=rightPinchTime=rightPinchAimTime=bothPinchTime=0;
+    locoSocketPosInit=false;locoOrbGrabbed=false;locoOrbGroup.position.set(0,0,0);
     if(renderer?.xr?.isPresenting&&(rightGrip||rightController))setWeaponParent(rightGrip||rightController,false);else{camera.add(pistol);pistol.position.set(.28,-.24,-.62);pistol.rotation.set(0,0,0);}
-    window.addEventListener('keydown',keyDown,true);window.addEventListener('keyup',keyUp,true);window.addEventListener('mousemove',mouseMove);document.addEventListener('pointerlockchange',pointerLockChange);
+    window.addEventListener('keydown',keyDown,true);window.addEventListener('keyup',keyUp,true);window.addEventListener('mousemove',mouseMove);window.addEventListener('wheel',onWheel,{passive:false});document.addEventListener('pointerlockchange',pointerLockChange);
     window.addEventListener('pointerdown',pointerDown,true);window.addEventListener('contextmenu',preventMenu,true);showButtons(true);
-    drawHud();nova.toast?.('FPS ACTIVE · RT / RIGHT PINCH FIRE · A / LEFT HOLD USE · B / BOTH HOLD EXIT',3200,'#00e5ff');return true;
+    updateWeaponVisuals();
+    drawHud();nova.toast?.('FPS ACTIVE · RT / RIGHT PINCH FIRE · Q / WHEEL WEAPON · A / LEFT HOLD USE',3200,'#00e5ff');return true;
   }
   // on-screen FIRE / USE / EXIT buttons (mouse, touch and tablet; hidden in VR)
   let btnBar=null;
@@ -1354,7 +2006,12 @@ export function init(nova) {
         b.style.cssText=`width:${size}px;height:${size}px;border-radius:50%;border:3px solid ${col};background:rgba(4,18,28,.72);color:${col};font:inherit;cursor:pointer;box-shadow:0 0 18px ${col}55`;
         let rep=null;const start=e=>{e.preventDefault();e.stopPropagation();fn();if(label==='FIRE'){clearInterval(rep);rep=setInterval(fn,180);}};const stop=()=>{clearInterval(rep);rep=null;};
         b.addEventListener('pointerdown',start);b.addEventListener('pointerup',stop);b.addEventListener('pointerleave',stop);b.addEventListener('pointercancel',stop);btnBar.appendChild(b);return b;};
-      mk('EXIT','#ff6b7d',64,()=>requestExit('button'));mk('CAM','#00f0ff',68,()=>toggleThirdPerson());mk('USE','#ffd166',78,()=>interact());mk('GRENADE','#ff9933',78,()=>throwGrenadeForward());mk('FIRE','#00e5ff',118,()=>fire());
+      mk('EXIT','#ff6b7d',64,()=>requestExit('button'));
+      mk('CAM','#00f0ff',68,()=>toggleThirdPerson());
+      wpnBtn=mk(activeWeapon.id==='pistol'?'ARC':(activeWeapon.id==='scatter'?'SCTR':'RNGE'),'#'+activeWeapon.color.toString(16).padStart(6,'0'),74,()=>cycleWeapon(1));
+      mk('USE','#ffd166',78,()=>interact());
+      mk('GRENADE','#ff9933',78,()=>throwGrenadeForward());
+      mk('FIRE','#00e5ff',118,()=>fire());
       document.body.appendChild(btnBar);
     }
     if(btnBar)btnBar.style.display=on&&!renderer?.xr?.isPresenting?'flex':'none';
@@ -1363,10 +2020,11 @@ export function init(nova) {
   function disable(){
     if(!active)return false;active=false;down.clear();pistol.visible=false;hud.visible=false;damageOverlay.style.opacity='0';
     pilotChar.group.visible=false;isThirdPerson=false;camera.position.set(0,0,0);
-    leftGlove.visible=false;rightGlove.visible=false;crosshairGroup.visible=false;grenadeGroup.visible=false;grenadeState='holstered';
+    leftGlove.visible=false;rightGlove.visible=false;crosshairGroup.visible=false;laserBeamLine.visible=false;grenadeGroup.visible=false;grenadeState='holstered';
     if(tpMarker)tpMarker.visible=false;tpValid=false;
+    locoGroup.visible=false;locoOrbGrabbed=false;locoOrbGroup.position.set(0,0,0);locoSocketPosInit=false;
     if(pistol.parent!==scene)scene.add(pistol);document.exitPointerLock?.();
-    window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
+    window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);showButtons(false);window.removeEventListener('mousemove',mouseMove);window.removeEventListener('wheel',onWheel);document.removeEventListener('pointerlockchange',pointerLockChange);pointerWasLocked=false;
     window.removeEventListener('pointerdown',pointerDown,true);window.removeEventListener('contextmenu',preventMenu,true);
     for(const p of projPool){p.active=false;p.mesh.visible=false;}
     for(const sp of sparkPool){sp.active=false;sp.mesh.visible=false;}
@@ -1378,14 +2036,15 @@ export function init(nova) {
   }
 
   const off=nova.onTick?.(tick);
-  const state=()=>({active,mode:options.mode||null,weaponOn,health,shield,input:session?{left:leftIsHand?'hand':leftController?'controller':'none',right:rightIsHand?'hand':rightController?'controller':'none'}:{left:'desktop',right:'desktop'},colliders:(options.colliders||[]).length,position:rig.position.toArray()});
+  const state=()=>({active,mode:options.mode||null,weaponOn,weapon:activeWeapon.id,health,shield,input:session?{left:leftIsHand?'hand':leftController?'controller':'none',right:rightIsHand?'hand':rightController?'controller':'none'}:{left:'desktop',right:'desktop'},colliders:(options.colliders||[]).length,position:rig.position.toArray()});
   window.novaTest=window.novaTest||{};window.novaTest.fpsState=state;
   window.novaTest.setGunHandRotation=(yawDeg=90,pitchDeg=0,rollDeg=0)=>{handGunYaw=yawDeg*Math.PI/180;handGunPitch=pitchDeg*Math.PI/180;handGunRoll=rollDeg*Math.PI/180;if(pistol.parent===rightHandAnchor)pistol.rotation.set(handGunPitch,handGunYaw,handGunRoll);};
-  return{ready:true,enable,disable,fire,interact,damage,throwGrenade:throwGrenadeForward,state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
+  return{ready:true,enable,disable,fire,interact,damage,throwGrenade:throwGrenadeForward,setWeapon,cycleWeapon,get activeWeapon(){return activeWeapon;},state,get active(){return active;},get health(){return health;},get shield(){return shield;},get helmetHud(){return hud;},set comfortVignette(v){damageOverlay.style.display=v===false?'none':'block';},dispose(){
     disposed=true;disable();off?.();camera.remove(hud);scene.remove(pistol);scene.remove(projRoot);scene.remove(vfxRoot);damageOverlay.remove();
     scene.remove(leftGlove);scene.remove(rightGlove);scene.remove(leftHandAnchor);scene.remove(rightHandAnchor);
     scene.remove(grenadeGroup);grenadeBodyGeo.dispose();grenadeBodyMat.dispose();grenadeCapGeo.dispose();grenadeRingGeo.dispose();grenadeRingMat.dispose();grenadePinGeo.dispose();grenadePinMat.dispose();
     scene.remove(crosshairGroup);chRingGeo.dispose();chRingMat.dispose();chDotGeo.dispose();chDotMat.dispose();chTickGeo.dispose();chTickMat.dispose();
+    scene.remove(locoGroup);locoBaseRingGeo.dispose();locoBaseRingMat.dispose();locoOrbGeo.dispose();locoOrbMat.dispose();locoHaloGeo.dispose();locoHaloMat.dispose();locoTetherGeo.dispose();locoTetherMat.dispose();tickGeo.dispose();tickMat.dispose();
     if(tpMarker){scene.remove(tpMarker);tpRing.geometry?.dispose?.();tpRing.material?.dispose?.();tpBeam.geometry?.dispose?.();tpBeam.material?.dispose?.();tpDot.geometry?.dispose?.();tpDot.material?.dispose?.();}
     leftGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});
     rightGlove.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});

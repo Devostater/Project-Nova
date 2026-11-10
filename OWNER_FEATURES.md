@@ -140,8 +140,8 @@ Sources consulted: this chat's owner-playtest briefs and explicit merge confirma
 | 2 | Right side panel should be larger | **Done**: right console scale 1.0 → 1.22 | Claude |
 | 3 | SYSTEM / OPTIONS buttons wide and thin, easy to mis-press | **Done**: 6 tall tiles (496×110) instead of 8 (496×80); 4 options per page | Claude |
 | 4 | NEXT / BACK buttons too small | **Done**: 240×66 BACK / NEXT buttons with a page counter | Claude |
-| 5 | Advanced flight doesn't change the flight; thrusters should yaw | **Wanted** → GPT (wrote the ARCADE/ADVANCED model in b2d277e). Check `NOPT.o.flightMode` is read every frame in the steering block, and in ADVANCED map throttle L/R slide (and gamepad/keys) to real yaw torque, not roll mix | GPT |
-| 6 | Missile arming/firing broken in VR (works on PC) | **Wanted** → GPT. Trace `toggleMissileLid` / `fireHomingMissile` from the VR interactables (lid, `R EMERGENCY MISSILES`, console button) vs the desktop path; likely the XR press never reaches the arm state or the lid hit-mesh is hidden/not registered | GPT |
+| 5 | Advanced flight doesn't change the flight; thrusters should yaw | **Done** (`gemini/weapons-and-flight-polish`): in ADVANCED, mapped throttle L/R slide, keys (Q/E) and gamepad sticks to true rotational thruster yaw torque (4.2*delta) with independent decay when neutral | Gemini |
+| 6 | Missile arming/firing broken in VR (works on PC) | **Done** (`gemini/weapons-and-flight-polish`): expanded VR touch targets on safety lid (7.5cm), arm button (6.5cm), bigRedBtn (7.5cm) and console screen tiles (3.8cm); removed lid toggle debounce on forced arm; auto-flip open lid on fire | Gemini |
 | 7 | Autopilot floats past the target instead of stopping | **Done**: aims at the target's world position, stand-off = target size + 40 m, brakes on speed | Claude |
 | 8 | DOCK docks at the station when it isn't the target | **Done**: DOCK needs a selected station/friendly ship, otherwise a toast tells you to pick one | Claude |
 | 9 | Intro video uploaded but never played | **Done**: file moved to `public/video/intro.mp4` (it was inside a folder named `intro.mp4`) | Claude |
