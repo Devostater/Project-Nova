@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.30-galaxy-boarding';
+const VERSION = 'nova-alpha-1.31-ads';
 const FILES = [
   "./Alien/Alien all around wrokercargo drone.glb",
   "./Alien/Alien carrier ship.glb",
@@ -221,6 +221,16 @@ const FILES = [
   "./modules/novanet.js",
 "./modules/emblems.js",
 "./modules/galaxy_map.js",
+"./modules/space_ads.js",
+"./art/ads/ad_cantina.jpg",
+"./art/ads/ad_ceres.jpg",
+"./art/ads/ad_drift.jpg",
+"./art/ads/ad_edf.jpg",
+"./art/ads/ad_heatcore.jpg",
+"./art/ads/ad_insurance.jpg",
+"./art/ads/ad_lantern.jpg",
+"./art/ads/ad_radio.jpg",
+"./art/ads/ad_thruster.jpg",
   "./modules/pirate_boarding.js",
   "./modules/postfx.js",
   "./modules/roster.js",
