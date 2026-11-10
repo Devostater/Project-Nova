@@ -21,6 +21,7 @@
     "save.js",
     "vr_hands.js",
     "novanet.js",
-    "emblems.js"
+    "emblems.js",
+    "galaxy_map.js"
   ]
 }
