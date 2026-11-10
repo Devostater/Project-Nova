@@ -22,6 +22,7 @@
     "vr_hands.js",
     "novanet.js",
     "emblems.js",
-    "galaxy_map.js"
+    "galaxy_map.js",
+    "space_ads.js"
   ]
 }
