@@ -42,8 +42,33 @@ export function init(nova) {
     for(const d of drones)if(d.dead){d.dead=false;d.hp=100;d.group.userData.hp=100;d.group.visible=true;d.group.position.copy(d.home);d.state='patrol';d.timer=1;}
     setActive(true);
   }
-  function start(options={}){state.manual=true;activate(options);}
-  function stop(){state.manual=false;setActive(false);}
+  // ── Pirate skin (boarding): drone 0 = animated pirate crew, drone 1 = pirate droid (owner models) ──
+  const P={want:false,loaded:false,loading:null};
+  function applySkin(){
+    for(const d of drones){const pv=d.pirate;const on=P.want&&!!pv;if(pv)pv.visible=on;if(d.visual)d.visual.visible=!on;if(!d.visual)d.group.children[0].visible=!on&&d.group.children[0]!==pv;
+      if(on){d.meshes=d.pirateMeshes;}else if(d.visual){d.meshes=d.alienMeshes||d.meshes;}}
+  }
+  function loadPirates(){
+    if(P.loading)return P.loading;
+    const lu=new URL('../vendor/loaders/GLTFLoader.js',import.meta.url).href,su=new URL('../vendor/utils/SkeletonUtils.js',import.meta.url).href;
+    const url=n=>new URL('../models/boarding/'+n+'.glb',import.meta.url).href;
+    return P.loading=Promise.all([import(lu),import(su).catch(()=>null)]).then(([{GLTFLoader},SU])=>new Promise(res=>{
+      const L=new GLTFLoader();let left=2;const done=()=>{if(--left===0){P.loaded=true;applySkin();res(true);}};
+      const fit=(model,h)=>{const b=new T.Box3().setFromObject(model),sz=b.getSize(new T.Vector3()),c=b.getCenter(new T.Vector3());const k=h/Math.max(sz.y,.01);const inner=new T.Group();model.scale.setScalar(k);model.position.set(-c.x*k,-b.min.y*k,-c.z*k);inner.add(model);return inner;};
+      const wire=(d,vis)=>{d.pirateMeshes=[];vis.traverse(o=>{o.userData.rangeTarget=true;o.userData.onHit=(dmg,hi)=>hit(d,dmg,hi);if(o.isMesh){o.frustumCulled=false;o.castShadow=true;d.pirateMeshes.push(o);}});vis.userData.rangeTarget=true;vis.visible=false;d.pirate=vis;d.group.add(vis);};
+      L.load(url('pirate_crew_rigged_7anim'),g=>{if(state.disposed)return done();const d=drones[0];const src=SU&&SU.clone?SU.clone(g.scene):g.scene;const vis=fit(src,1.8);wire(d,vis);
+        d.mixer=new T.AnimationMixer(src);const clip=n=>g.animations.find(a=>a.name.includes(n));
+        d.anim={idle:clip('Idle'),walk:clip('Walking'),run:clip('Running'),hit:clip('HeadHit')||clip('KidneyHit'),die:clip('Dying')};d.cur=null;done();},undefined,()=>done());
+      L.load(url('pirate_droid'),g=>{if(state.disposed)return done();const d=drones[1];wire(d,fit(g.scene,1.6));done();},undefined,()=>done());
+    })).catch(()=>false);
+  }
+  function play(d,name,once){
+    if(!d.mixer||!d.anim||!d.anim[name]||!P.want)return;if(d.cur===name&&!once)return;
+    const a=d.mixer.clipAction(d.anim[name]);if(once){a.reset();a.setLoop(T.LoopOnce,1);a.clampWhenFinished=true;}else a.setLoop(T.LoopRepeat,Infinity);
+    if(d.curAction&&d.curAction!==a)d.curAction.fadeOut(.2);a.reset().fadeIn(.2).play();d.curAction=a;d.cur=name;
+  }
+  function start(options={}){state.manual=true;P.want=options.skin==='pirate';if(P.want)loadPirates();applySkin();activate(options);}
+  function stop(){state.manual=false;P.want=false;applySkin();setActive(false);}
   function loadModel(){
     const isPublic=import.meta.url.includes('/public/modules/');
     const loaderUrl=new URL('../vendor/loaders/GLTFLoader.js',import.meta.url).href;
@@ -68,11 +93,11 @@ export function init(nova) {
               d.meshes.push(o);
             }
           });
-          d.visual=visual;
+          d.visual=visual;d.alienMeshes=d.meshes;
           d.group.add(visual);
           d.group.children[0].visible=false;
         }
-      },undefined,()=>{});
+      applySkin();},undefined,()=>{});
     }).catch(()=>{});
   }
   loadModel();
@@ -86,7 +111,7 @@ export function init(nova) {
   function hit(d,damage=25,hitInfo){
     if(d.dead)return;
     d.hp=Math.max(0,d.hp-Math.max(1,Number(damage)||25));d.group.userData.hp=d.hp;d.flash=.22;
-    d.group.position.y+=.08;
+    if(!(P.want&&d.pirate))d.group.position.y+=.08;
     d.group.position.x+=(Math.random()-.5)*.06;
     try{
       if(nova.sound?.laserImpact)nova.sound.laserImpact();
@@ -94,12 +119,14 @@ export function init(nova) {
       else nova.sound?.beep?.(380,.08,'sawtooth');
     }catch(_){}
     if(d.hp<=0){
-      d.dead=true;d.group.visible=false;state.kills++;
+      d.dead=true;state.kills++;
+      if(P.want&&d.mixer&&d.anim&&d.anim.die){play(d,'die',true);setTimeout(()=>{if(d.dead)d.group.visible=false;},2600);}else d.group.visible=false;
       nova.emit?.('droneDestroyed',{id:d.group.name,kills:state.kills});
       nova.toast?.('DRONE DISABLED',1600,'#75ffd1');
     }else{
       nova.toast?.('DRONE HIT · HP '+d.hp+'%',900,'#00e5ff');
       if(d.hp<=55&&d.state!=='retreat'){d.state='retreat';d.timer=2.8;}
+      if(P.want&&d.mixer)play(d,'hit',true);
     }
   }
   for(const d of drones){
@@ -115,10 +142,13 @@ export function init(nova) {
   }
   function tick(dt){
     const should=state.manual||inRange();
-    if(should&&!state.active)activate({origin:nova.modules?.interior?.origin});else if(!should&&state.active)setActive(false);
+    if(should&&!state.active){if(!state.manual){P.want=false;applySkin();}activate({origin:nova.modules?.interior?.origin});}else if(!should&&state.active)setActive(false);
     if(!state.active)return;
     const step=Math.min(.05,Math.max(0,Number(dt)||0));camera.getWorldPosition(cameraPos);cameraLocal.copy(cameraPos);boltsRoot.worldToLocal(cameraLocal);
     for(const d of drones){
+      if(d.mixer)d.mixer.update(step);
+      if(d.pirate&&P.want){d.pirate.position.y=-d.group.position.y+(d===drones[1]?.6:0);   // crew stands on the deck; the droid hovers low
+        if(!d.dead&&d.mixer&&(!d.curAction||d.cur==='idle'||d.cur==='walk'||d.cur==='run'||!d.curAction.isRunning()))play(d,d.state==='shoot'?'idle':d.state==='retreat'?'run':'walk');}
       if(d.dead)continue;
       d.timer-=step;d.fireTimer-=step;
       if(d.flash>0){
