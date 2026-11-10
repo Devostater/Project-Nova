@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.29-emblem-decals-boardprops';
+const VERSION = 'nova-alpha-1.29-emblem-decals-boardprops2';
 const FILES = [
   "./Alien/Alien all around wrokercargo drone.glb",
   "./Alien/Alien carrier ship.glb",
@@ -101,6 +101,8 @@ const FILES = [
   "./manifest.json",
   "./manifest.webmanifest",
   "./models/boarding/prop_chair.glb",
+"./models/boarding/pirate_crew_rigged_7anim.glb",
+"./models/boarding/pirate_droid.glb",
 "./models/boarding/prop_computer_terminal.glb",
 "./models/boarding/prop_cot_bed.glb",
 "./models/boarding/prop_door_hatch.glb",
