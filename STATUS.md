@@ -2,6 +2,17 @@
 
 Read this file, [docs/DECISIONS.md](docs/DECISIONS.md) (locked owner decisions) and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. Don't read anything in `docs/archive/` unless asked.
 
+## Round 2026-11-10 (Claude, lead) — merged to `main`
+- #62 SFX fixed online (`public/SFX` → `public/sfx`, Pages is case-sensitive).
+- #63/#64 faction emblem pack (`art/emblems/`, manifest, cut-out decals) + `modules/emblems.js`: emblems on ship hulls (raycast placement); #66 Nova-1 emblem on the station.
+- #65 removed 64 unreferenced duplicate/backup files.
+- #66 menu ▶ PLAY INTRO restored (plays `video/intro.mp4`, then starts the game).
+- #67 boarding rooms dressed with the owner's props (`public/models/boarding/`); #68 boarding enemies = rigged pirate crew (animated) + pirate droid (`fps_ai.js` pirate skin; range keeps the alien drone).
+- #69 **galaxy map room** (`modules/galaxy_map.js`, H key / WARP tab 🌌 MAP): 3D holo map of every warp destination with height, territory bubbles + emblems, info panel, WARP from the map.
+- **Needs an owner headset check:** emblem decals, boarding props/enemies (placement, facing, scale), galaxy map in VR. Props/enemies are heavy (50–200k tris each; Tripo UV seams block simplification).
+- **Owner to do:** delete the 14 merged old branches on GitHub; pick a better EDF emblem (emblem_02 is a tiled pattern); name the third faction.
+- **Next (task 23):** mission/news markers on the galaxy map, then the new places (nebula outpost, mining colony, alien ruin, derelict battlefield, pirate hideout, second landable planet) as JSON data.
+
 ## Now
 - **Lead:** **Claude** is back as lead/integrator (2026-11-09). `grok/graphics-overhaul` is fully merged into `main`.
 - **Integration merge (2026-11-09, PR #61):** merged `gemini/weapons-and-flight-polish` (planet entry/docking, safehouse, EVA, achievements, ion EMP, piracy law, business desk), `gpt/g1` roster, `g3` save/load, `g4` VR hands (fixed the GLTFLoader import path), `g5` NOVA NET, `a9` Quest offline tools, `g6` cantina brief, and `codex/pirate-boarding` storyboard art. SW cache bumped to `nova-alpha-1.26-quest-preload`; it now also preloads the 13 ULTRA original faction models (~89 MB, 237 files, ~218 MB total) so the Quest has every ship offline. Headless load and PLAY both had 0 failed requests and 0 errors.
