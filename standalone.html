@@ -16071,6 +16071,7 @@ const GAME_VERSION = 'Alpha 1.4';
       { id: 'reef', name: 'PIRATE REEF', r: 280, pos: () => NW_REEF_POS }
     ];
     window.NW_DESTS = NW_DESTS;   // galaxy_map.js reads the warp destinations
+    window.novaCredits = () => bankCredits; window.novaSpendCredits = n => { bankCredits = Math.max(0, bankCredits - n); try { drawInventoryPanel(); } catch (e) { } };   // politics.js lobbying
     function nwLabel(text, col, w, h) {
       const c = document.createElement('canvas'); c.width = 512; c.height = 128;
       const g = c.getContext('2d'); g.fillStyle = 'rgba(4,10,20,0.6)'; g.fillRect(0, 0, 512, 128);
@@ -16138,7 +16139,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const def = NW_DESTS.find(d => d.id === id) || NW_DESTS[0];
       const mul = novaWarpMul(), now = performance.now();
       let cost = 0, dist = 0, eta = 0, need = 15;
-      if (def.id !== 'fwd') { dist = def.pos().distanceTo(shipGroup.position); cost = Math.max(10, Math.round(dist / 48 * mul)); need = cost; eta = dist / 220; }
+      if (def.id !== 'fwd') { dist = def.pos().distanceTo(shipGroup.position); cost = Math.max(10, Math.round(dist / 48 * mul * (window.novaLaws && window.novaLaws.warpCost || 1))); need = cost; eta = dist / 220; }
       let why = null;
       if (activeSector !== 0) why = 'ONLY IN SECTOR NOVA-1';
       else if (isInsideCantina) why = 'LAUNCH FIRST';
@@ -21524,8 +21525,9 @@ const GAME_VERSION = 'Alpha 1.4';
       try { novaBoom(p); } catch (e) { }
       try { u.st.boss || (NF_ASSETS[u.slug] || {}).size > 80 ? sound.bossExplosion() : sound.explosion(); } catch (e) { }
       if (byPlayer && u.st.bounty) {
-        bankCredits += u.st.bounty;
-        showToast(`${u.name} DESTROYED  +${u.st.bounty} CR`, 2200, u.fac === 'alien' ? '#66ffcc' : '#ffaa33');
+        const bty = Math.round(u.st.bounty * (window.novaLaws && window.novaLaws.bounty || 1));   // council law multiplier
+        bankCredits += bty;
+        showToast(`${u.name} DESTROYED  +${bty} CR`, 2200, u.fac === 'alien' ? '#66ffcc' : '#ffaa33');
         try { drawRightDash(); drawInventoryPanel(); } catch (e) { }
       }
       if (u.st.boss) { showToast('THE RING MOTHERSHIP IS BREAKING UP. The rift is quiet.', 4000, '#66ffcc'); try { ncAnnounce('The mothership is down. The warp jam is gone.'); } catch (e) { } }
@@ -22344,11 +22346,11 @@ const GAME_VERSION = 'Alpha 1.4';
       const p = nmkOrePrice(st);
       R.push({ l: `SELL ORE  ${cargoOre}t @ ${p}`, r: cargoOre ? '+' + (cargoOre * p) + ' cr' : 'hold empty', c: '#00ffaa', fn: () => {
         if (cargoOre <= 0) { showToast('Cargo hold is empty.', 1800, '#ffaa00'); return; }
-        const cr = cargoOre * p; bankCredits += cr; showToast(`SOLD ${cargoOre}t ORE TO ${st.name} @ ${p}  +${cr} CR`, 3000, '#00ff88'); cargoOre = 0; novaOreSeen = 0; try { sound.tradeCash(); } catch (e) { } } });
+        const cr = Math.round(cargoOre * p * (window.novaLaws && window.novaLaws.oreSell || 1)); bankCredits += cr; showToast(`SOLD ${cargoOre}t ORE TO ${st.name} @ ${p}  +${cr} CR`, 3000, '#00ff88'); cargoOre = 0; novaOreSeen = 0; try { sound.tradeCash(); } catch (e) { } } });
       if (st.salv) R.push({ l: `SELL SALVAGE x${cargoSalvage}`, r: cargoSalvage ? '+' + st.salv + ' cr ea' : 'none', c: '#dd88ff', fn: () => {
         if (cargoSalvage <= 0) { showToast('No salvage aboard. Try the Graveyard.', 1800, '#ffaa00'); return; }
         cargoSalvage--; try { localStorage.setItem('novaCargoSalvage', String(cargoSalvage)); novaSave13(); } catch (e) {} bankCredits += st.salv; showToast(`SALVAGE SOLD  +${st.salv} CR`, 2200, '#dd88ff'); try { sound.tradeCash(); } catch (e) { } } });
-      { const hc = window.novaHeatCores ? window.novaHeatCores() : 0, hp = st.salv ? 3200 : 2400;   // heat cores: the system's most wanted cargo
+      { const hc = window.novaHeatCores ? window.novaHeatCores() : 0, hp = Math.round((st.salv ? 3200 : 2400) * (window.novaLaws && window.novaLaws.heatCoreSell || 1));   // council law multiplier (politics.js)   // heat cores: the system's most wanted cargo
         R.push({ l: `SELL HEAT CORE x${hc}`, r: hc ? '+' + hp + ' cr ea' : 'none', c: '#ff9a3c', fn: () => {
           if (!(window.novaHeatCoreSpend && window.novaHeatCoreSpend(1))) { showToast('No heat cores aboard. Tractor them from big wrecks.', 2000, '#ffaa00'); return; }
           bankCredits += hp; showToast(`HEAT CORE SOLD  +${hp} CR`, 2400, '#ff9a3c'); window.nova?.emit?.('coreSold', { count: 1, station: st.name }); try { sound.tradeCash(); } catch (e) { } } }); }
@@ -22962,7 +22964,7 @@ const GAME_VERSION = 'Alpha 1.4';
       const dest = Math.random() < 0.5 ? stationGroup.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 300, 40, (Math.random() - 0.5) * 300)) : sp.clone().add(new THREE.Vector3(-Math.cos(a) * R, (Math.random() - 0.5) * 1200, -Math.sin(a) * R));
       const u = nfSpawn(slug, from, {}); if (!u) return;
       u.dest = dest; u.g.lookAt(dest); u.g.rotateY(Math.PI);
-      if (slug === 'cargo_hauler' && Math.random() < 0.35) {   // some haulers are shadowed by pirates
+      if (slug === 'cargo_hauler' && Math.random() < 0.35 * (window.novaLaws && window.novaLaws.pirateActivity || 1)) {   // some haulers are shadowed by pirates
         setTimeout(() => { try { if (u.alive) { const p = nfSpawn('pirate_gunship', u.g.position.clone().add(new THREE.Vector3(140, 30, 140)), {}); if (p) { p.tgt = u; showToast('📡 HAULER UNDER ATTACK · ' + u.name, 2600, '#ffaa33'); } } } catch (e) { } }, 20000 + Math.random() * 20000);
       }
     }
