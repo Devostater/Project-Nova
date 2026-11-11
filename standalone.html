@@ -752,7 +752,7 @@
     <div id="hud-controls">STICK: +0.0° PITCH · +0.0° ROLL | THROTTLE: 0% | SEAT: +5cm</div>
   </div>
 
-  <div id="version-badge">Alpha 1.4 · STARFIGHTER SIMULATOR</div>
+  <div id="version-badge">Alpha 1.5 · MONGOOSE</div>
   <div id="status-toast"></div>
 
   <!-- Desktop / PC Voice HUD -->
@@ -795,6 +795,12 @@
       <div class="modal-subtitle">
         6DOF Space Flight Simulator • Newtonian HOTAS Flight Model • Proportional Navigation Dogfights • Hyperspace Drive
       </div>
+      <div id="menu-build" style="font: bold 12px monospace; color: #ffcc00; letter-spacing: 1px; margin: -4px 0 10px; opacity: .9">ALPHA 1.5 · MONGOOSE</div>
+      <script>
+        // version + code name + exact build (tools/sync_html.mjs writes build.json from git on every local start and deploy)
+        fetch('build.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(b => { if (!b) return; const el = document.getElementById('menu-build');
+          if (el) el.textContent = `${b.version} · ${b.codename} · build ${b.commit} · ${b.date}`; window.NOVA_BUILD = b; }).catch(() => { });
+      </script>
       <div id="device-badge" style="font-size: 11px; color: #79c0ff; background: rgba(14, 40, 70, 0.7); border: 1px solid #1f6feb; border-radius: 4px; padding: 4px 8px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px;">
         Detecting Display Capabilities...
       </div>
@@ -961,7 +967,7 @@ git push -u origin main</pre>
 
         let pirateBoss = null;
     let pirateBossSpawned = false;
-const GAME_VERSION = 'Alpha 1.4';
+const GAME_VERSION = 'Alpha 1.5';   // code name MONGOOSE (see docs/RELEASES.md)
     let passthroughActive = false;
     let seatOffset = 0.12; // Elevated command default (+12cm)
     let throttlePct = 0;
@@ -18495,7 +18501,8 @@ const GAME_VERSION = 'Alpha 1.4';
       if (NKS.ohTrim || !NOV.items.length) return;
       const map = { 'DOME LIGHT': ['MODE', '◉', '#aa88ff', () => novaCycleCockpitMode()], 'POLARIZER': ['DOCK', '⚓', '#00f0ff', () => novaAutoDockPress()],   // owner: docking has its own button
         'PREV TARGET': ['SALVAGE', '⇩', '#66ffee', () => novaTractorPress()], 'CLEAR TARGET': ['REPAIR', '✚', '#33ff99', () => window.novaUseRepairKit()],
-        'AUTO-DOCK': ['RADAR', '◎', '#00e5ff', () => window.novaRadarToggle()], 'OH HAIL': ['AUTOPILOT', '✈', '#33ff99', () => novaTargetAutopilotPress()] };   // Lighting, polarizer and stealth share MODE.
+        'AUTO-DOCK': ['CANOPY', '◐', '#7fd8ff', () => novaToggleCanopy()],   // owner: canopy button back (radar show/hide moved to SYSTEM / OPTIONS)
+        'OH HAIL': ['AUTOPILOT', '✈', '#33ff99', () => novaTargetAutopilotPress()] };   // Lighting, polarizer and stealth share MODE.
       let n = 0;
       NOV.items.forEach(it => {
         if (map[it.label] === null && it.entry) {   // retire: blank plate, no longer a button
@@ -18517,7 +18524,7 @@ const GAME_VERSION = 'Alpha 1.4';
     // ── NOVA14: overhead buttons press in like the missile button, with your icon art, lit in their colour (brighter while active) ──
     const NOH = { img: new Image(), ok: false, wired: false };
     NOH.img.onload = () => { NOH.ok = true; NOH.wired = false; }; NOH.img.src = './art/oh_icons.png';
-    const NOH_MAP = { 'SHIELD BOOST': [0, '#00e5ff', 'SHIELD'], 'FLARES': [1, '#ff8833', 'FLARES'], 'OH MODE': [2, '#aa88ff', 'MODE'], 'OH AUTOPILOT': [4, '#33ff99', 'AUTOPILOT'], 'OH REPAIR': [5, '#33ff99', 'REPAIR'], 'OH RADAR': [2, '#00e5ff', 'RADAR'], 'OH SALVAGE': [3, '#66ffee', 'SALVAGE'], 'AUTO-DOCK': [5, '#00f0ff', 'DOCK'] };
+    const NOH_MAP = { 'SHIELD BOOST': [0, '#00e5ff', 'SHIELD'], 'FLARES': [1, '#ff8833', 'FLARES'], 'OH MODE': [2, '#aa88ff', 'MODE'], 'OH AUTOPILOT': [4, '#33ff99', 'AUTOPILOT'], 'OH REPAIR': [5, '#33ff99', 'REPAIR'], 'OH RADAR': [2, '#00e5ff', 'RADAR'], 'OH CANOPY': [2, '#7fd8ff', 'CANOPY'], 'OH SALVAGE': [3, '#66ffee', 'SALVAGE'], 'AUTO-DOCK': [5, '#00f0ff', 'DOCK'] };
     const nohTint = document.createElement('canvas'); nohTint.width = nohTint.height = 256;
     function nohPaint(it, on) {
       const m = NOH_MAP[it.label]; if (!m) return;
@@ -20193,7 +20200,8 @@ const GAME_VERSION = 'Alpha 1.4';
       ['QUEST LOG', '#ffcc00', () => { const a = (NP.panels[0] && NP.panels[0].acts['QUEST LOG']) || npFindAct('QUEST LOG'); if (a) a(); }],
       ['3D RADAR DOCK: UPPER RIGHT', '#00e5ff', () => novaRadarPositionToggle()],
       ['RADAR NAMES: ON', '#66ddff', () => { NH.names = !NH.names; NP_SHIP_ROWS[5][0] = 'RADAR NAMES: ' + (NH.names ? 'ON' : 'OFF'); }],
-      ['LABELS: BELOW', '#66ddff', () => { NH.labelAbove = !NH.labelAbove; NP_SHIP_ROWS[6][0] = 'LABELS: ' + (NH.labelAbove ? 'ABOVE' : 'BELOW'); }]];
+      ['LABELS: BELOW', '#66ddff', () => { NH.labelAbove = !NH.labelAbove; NP_SHIP_ROWS[6][0] = 'LABELS: ' + (NH.labelAbove ? 'ABOVE' : 'BELOW'); }],
+      ['3D RADAR: SHOW / HIDE', '#00e5ff', () => { try { window.novaRadarToggle && window.novaRadarToggle(); } catch (e) { } }]];   // radar show/hide (its overhead slot is CANOPY now)
     // OPTIONS tab (after MUSIC): view mode, recenter, save / load, volume, graphics, exit
     const npOptRows = () => [
       [(typeof passthroughActive !== 'undefined' && passthroughActive) ? 'SWITCH TO FULL VR' : 'SWITCH TO MIXED REALITY', '#ff66cc', () => togglePassthrough()],
@@ -23318,7 +23326,7 @@ const GAME_VERSION = 'Alpha 1.4';
         { k: 'OPEN SKIES', t: rift === 'contact' ? 'The ring is quiet. It listens.' : rift ? 'The rift is closed.' : 'The lanes are open.', b: ['Convoys run again. The colonies have power. Nova-1 sleeps easy.', 'And everyone on the station knows the name Nova Lead.'] },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(0, 4) },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(4).concat([kept]) },
-        { k: 'PROJECT NOVA', t: 'Alpha 1.4', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
+        { k: 'PROJECT NOVA', t: 'Alpha 1.5 · MONGOOSE', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
         { k: 'CREDITS', t: 'Ships, cockpit and crew', b: ['3D models generated for Project Nova (Tripo), optimised for Quest.', 'Faction fleets: Mind Space, the Corsair Line, the EDF.', 'Obi the cat-bot, Nyx, Valkyrie-7, John, Kip, Mother Kestrel, ADA-9.'] },
         { k: 'CREDITS', t: 'Music and art', b: ['Music: ScifiMusicPack (Fab), tracks Voyager, Space Caravan, Battle in the Market.', 'Sky, planets, icons and key art generated for Project Nova.'] },
         { k: 'THANK YOU FOR FLYING', t: 'The sector is yours.', b: ['Free flight continues: contracts, bounties, markets, the reef and the rift.', 'Fly safe, Nova Lead.'], last: true }
