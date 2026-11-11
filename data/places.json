@@ -1,0 +1,23 @@
+{
+  "note": "Warp destinations added by modules/places.js. pos is in map units (multiplied by the world scale, 3). kind picks the scenery builder. terr = [faction id or null, colour, label] for the galaxy map. ads = billboard images (modules/space_ads.js). locked places stay '??? UNKNOWN SIGNAL' until unlocked in play.",
+  "places": [
+    { "id": "veil", "name": "VEIL OUTPOST", "kind": "nebula", "pos": [-800, 2400, 2600], "r": 300, "col": "#c58cff",
+      "l3": "nebula survey post · fly the 3 buoys", "terr": ["neutral_civilian", "#9fd8a8", "CIVILIAN NETWORK"], "ads": ["ad_radio", "ad_insurance"],
+      "blurb": "A research ring inside the Veil nebula. Fly through the three survey buoys to sell them your sensor data." },
+    { "id": "korva", "name": "KORVA ICE WORKS", "kind": "ice", "pos": [3400, -2200, 1800], "r": 420, "col": "#9be8ff",
+      "l3": "ice mining colony · buys ore · hull repair", "terr": ["ceres_mining", "#ffb347", "CERES MINING CO-OP"], "ads": ["ad_ceres", "ad_heatcore", "ad_thruster"],
+      "blurb": "A Ceres Co-op mining colony on a comet of old ice. They buy ore above the station rate and patch hulls for free." },
+    { "id": "gate", "name": "THE SILENT GATE", "kind": "ruin", "pos": [-3600, -600, -3200], "r": 380, "col": "#66ffcc",
+      "l3": "alien ruin · 4 glyph pylons", "terr": [null, "#55ffcc", "UNCLAIMED · VEYRAN RUIN"],
+      "blurb": "A broken ring older than the colonies. Four pylons still carry glyphs. Fly close to each one to read it." },
+    { "id": "ashfall", "name": "ASHFALL FIELD", "kind": "battlefield", "pos": [600, 900, -4200], "r": 460, "col": "#ff9a5c",
+      "l3": "derelict battlefield · salvage · MINES", "terr": [null, "#8899aa", "UNCLAIMED"], "ads": ["ad_insurance"],
+      "blurb": "Where the Compact and the Red Wake fought their largest battle. Salvage crates drift between the hulks. So do live mines." },
+    { "id": "anchor", "name": "BLACK ANCHOR", "kind": "hideout", "pos": [-4200, 2000, 600], "r": 340, "col": "#ff4455", "locked": true,
+      "l3": "pirate hideout · fence pays for data", "terr": ["red_wake", "#ff4455", "RED WAKE PIRATES"], "ads": ["ad_drift", "ad_lantern"],
+      "blurb": "A Red Wake hideout inside a hollow rock. Not on any chart. The fence pays for whatever your sensors logged on the way in." },
+    { "id": "talos", "name": "TALOS IV", "kind": "planet", "pos": [4800, -400, -4600], "r": 3400, "col": "#e8b070",
+      "l3": "second planet · orbit only for now", "terr": [null, "#8899aa", "UNCLAIMED"],
+      "blurb": "A banded desert world with a thin ring. You can hold orbit; landing sites are not charted yet." }
+  ]
+}

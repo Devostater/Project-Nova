@@ -11,7 +11,7 @@ Change both places together: `RELEASE` in `tools/sync_html.mjs` and `GAME_VERSIO
 | Alpha 1.4 | — | Cold Run, boarding, cantina, owner models |
 | **Alpha 1.5** | **MONGOOSE** | galaxy map room, politics (Council Floor), billboards, emblems, boarding props/enemies, SFX fix, canopy button, menu build info |
 | **Alpha 1.6** | **KESTREL** | talk radio (Drift Report, Beacon, Subspace Ledger on the MUSIC panel), fix for full-screen black flashes on PC (bloom guard) |
-| Alpha 1.7 | BARRACUDA | |
+| **Alpha 1.7** | **LYRA** (owner's name: "Lyra Update 1") | six new places (`modules/places.js`, `data/places.json`), warp cost fixed for the x3 world scale, warp engage audio cue, CREW status pulse, deadzone preset slots. BARRACUDA moves to the spare names. |
 | Alpha 1.8 | WOLVERINE | |
 | Alpha 1.9 | MANTA | |
 | Alpha 2.0 | RAVEN | |

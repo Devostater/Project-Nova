@@ -752,7 +752,7 @@
     <div id="hud-controls">STICK: +0.0° PITCH · +0.0° ROLL | THROTTLE: 0% | SEAT: +5cm</div>
   </div>
 
-  <div id="version-badge">Alpha 1.6 · KESTREL</div>
+  <div id="version-badge">Alpha 1.7 · LYRA</div>
   <div id="status-toast"></div>
 
   <!-- Desktop / PC Voice HUD -->
@@ -795,7 +795,7 @@
       <div class="modal-subtitle">
         6DOF Space Flight Simulator • Newtonian HOTAS Flight Model • Proportional Navigation Dogfights • Hyperspace Drive
       </div>
-      <div id="menu-build" style="font: bold 12px monospace; color: #ffcc00; letter-spacing: 1px; margin: -4px 0 10px; opacity: .9">ALPHA 1.6 · KESTREL</div>
+      <div id="menu-build" style="font: bold 12px monospace; color: #ffcc00; letter-spacing: 1px; margin: -4px 0 10px; opacity: .9">ALPHA 1.7 · LYRA</div>
       <script>
         // version + code name + exact build (tools/sync_html.mjs writes build.json from git on every local start and deploy)
         fetch('build.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(b => { if (!b) return; const el = document.getElementById('menu-build');
@@ -967,7 +967,7 @@ git push -u origin main</pre>
 
         let pirateBoss = null;
     let pirateBossSpawned = false;
-const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
+const GAME_VERSION = 'Alpha 1.7';   // code name LYRA (see docs/RELEASES.md)
     let passthroughActive = false;
     let seatOffset = 0.12; // Elevated command default (+12cm)
     let throttlePct = 0;
@@ -11203,6 +11203,7 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
     window.novaDockPress = novaDockPress;
     window.novaState = () => ({ dock: novaDock.state, cantina: isInsideCantina, shield: Math.round(window.novaShield), hull: Math.round(window.novaHull), bolts: novaBolts.length, raidIn: Math.round(novaRaidTimer) });
     window.novaTestPirate = () => { if (!pirateBoss) spawnPirateBoss(); pirateBoss.visible = true; isPirateDefeated = false; pirateBoss.position.copy(shipGroup.position).add(new THREE.Vector3(0, 10, -200)); };
+    window.novaTestTeleport = (v) => { shipGroup.position.copy(v); if (shipBody) { shipBody.position.copy(v); shipBody.velocity.set(0, 0, 0); } };
     window.novaTestNearStation = (d) => { const p = stationGroup.position.clone().add(new THREE.Vector3(0, 0, d)); shipGroup.position.copy(p); if (shipBody) { shipBody.position.copy(p); shipBody.velocity.set(0, 0, 0); } };
     function novaDockTractor() {
       if (novaDock.state !== 'approach' || !novaDock.rings.length) return;
@@ -16076,7 +16077,7 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
       { id: 'colony', name: 'CYGNUS COLONY', r: 240, pos: () => NW_COLONY_POS },
       { id: 'reef', name: 'PIRATE REEF', r: 280, pos: () => NW_REEF_POS }
     ];
-    window.NW_DESTS = NW_DESTS;   // galaxy_map.js reads the warp destinations
+    window.NW_DESTS = NW_DESTS;   // galaxy_map.js reads the warp destinations; places.js adds more (def.extra, def.meta)
     window.novaCredits = () => bankCredits; window.novaSpendCredits = n => { bankCredits = Math.max(0, bankCredits - n); try { drawInventoryPanel(); } catch (e) { } };   // politics.js lobbying
     function nwLabel(text, col, w, h) {
       const c = document.createElement('canvas'); c.width = 512; c.height = 128;
@@ -16145,7 +16146,7 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
       const def = NW_DESTS.find(d => d.id === id) || NW_DESTS[0];
       const mul = novaWarpMul(), now = performance.now();
       let cost = 0, dist = 0, eta = 0, need = 15;
-      if (def.id !== 'fwd') { dist = def.pos().distanceTo(shipGroup.position); cost = Math.max(10, Math.round(dist / 48 * mul * (window.novaLaws && window.novaLaws.warpCost || 1))); need = cost; eta = dist / 220; }
+      if (def.id !== 'fwd') { dist = def.pos().distanceTo(shipGroup.position); cost = Math.max(10, Math.round(dist / (48 * NOVA_WORLD_SCALE) * mul * (window.novaLaws && window.novaLaws.warpCost || 1))); need = cost; eta = dist / 220; }
       let why = null;
       if (activeSector !== 0) why = 'ONLY IN SECTOR NOVA-1';
       else if (isInsideCantina) why = 'LAUNCH FIRST';
@@ -16183,6 +16184,29 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
       showToast(`WARP CORE SPOOLING: ${inf.def.name}${inf.cost ? '  (-' + inf.cost + '% core)' : ''}`, 2400, '#00ffff');
       try { if (sound.lightspeedEnter) { /* spool whine comes from beeps */ } } catch (e) {}
     }
+    // Lyra Update 1: a clear "warp engaged" cue on top of the engine roar: three rising confirm tones, a sweep and a low thump.
+    // A plotted route gets the full three tones; a forward jump gets two.
+    function novaWarpCue(fwd) {
+      try { sound.init(); } catch (e) { }
+      const ctx = sound && sound.ctx; if (!ctx) return;
+      const vol = Math.max(0, Math.min(1, (NOPT.o.master ?? 0.8) * (NOPT.o.sfx ?? 0.8)));
+      if (vol <= 0) return;
+      const t0 = ctx.currentTime, out = ctx.createGain(); out.gain.value = 0.5 * vol; out.connect(ctx.destination);
+      (fwd ? [523.25, 783.99] : [523.25, 659.25, 987.77]).forEach((f, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + i * 0.11; o.type = 'triangle'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+        o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.35);
+      });
+      const sw = ctx.createOscillator(), sg = ctx.createGain(); sw.type = 'sawtooth'; sw.frequency.setValueAtTime(140, t0 + 0.3); sw.frequency.exponentialRampToValueAtTime(1800, t0 + 1.0);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(600, t0 + 0.3); lp.frequency.exponentialRampToValueAtTime(5000, t0 + 1.0);
+      sg.gain.setValueAtTime(0.0001, t0 + 0.3); sg.gain.exponentialRampToValueAtTime(0.16, t0 + 0.8); sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.05);
+      sw.connect(lp); lp.connect(sg); sg.connect(out); sw.start(t0 + 0.3); sw.stop(t0 + 1.1);
+      const th = ctx.createOscillator(), tg = ctx.createGain(); th.type = 'sine'; th.frequency.setValueAtTime(110, t0 + 1.0); th.frequency.exponentialRampToValueAtTime(38, t0 + 1.5);
+      tg.gain.setValueAtTime(0.0001, t0 + 1.0); tg.gain.exponentialRampToValueAtTime(0.6, t0 + 1.03); tg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
+      th.connect(tg); tg.connect(out); th.start(t0 + 1.0); th.stop(t0 + 1.65);
+      window._novaWarpCueN = (window._novaWarpCueN || 0) + 1;
+    }
+    window.novaWarpCue = novaWarpCue;
     function novaWarpEngage(S) {
       const def = NW_DESTS.find(d => d.id === S.id) || NW_DESTS[0];
       if (def.id !== 'fwd') NW.core = Math.max(0, NW.core - S.cost);
@@ -16191,6 +16215,7 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
       _nwOrigTrigger();
       if (!isLightspeedActive) { NW.jump = null; NW.core = Math.min(novaWarpCap(), NW.core + (def.id === 'fwd' ? 0 : S.cost)); return; }
       novaFlash('#e8ffff', 700);
+      try { novaWarpCue(def.id === 'fwd'); } catch (e) { }
       showToast(def.id === 'fwd' ? 'WARP ENGAGED: FORWARD JUMP. Cut throttle to drop out.' : `WARP ENGAGED: ${def.name}. Auto-nav is steering.`, 3500, '#00ffff');
       if (def.id !== 'fwd') ncAnnounce(`Route locked: ${def.name}. Sit tight, ${novaAddr()}.`);
     }
@@ -16383,7 +16408,7 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
       NW_DESTS.forEach((def, i) => {
         const card = NavUI.cards[i]; if (!card) return;
         if (def.lock && def.lock()) { novaCardDraw(card, '#556677', '??? UNKNOWN SIGNAL', 'no route on file', 'the story reveals new routes', 'NO SIGNAL', 'locked'); return; }
-        const inf = novaWarpInfo(def.id), meta = NS_META[def.id];
+        const inf = novaWarpInfo(def.id), meta = def.meta || NS_META[def.id];
         const col2 = meta ? meta.col : def.id === 'fwd' ? '#00e5ff' : def.id === 'station' ? '#00ff88' : def.id === 'colony' ? '#ffaa33' : '#ff3355';
         const l2 = def.id === 'fwd' ? `drain ${(5 * novaWarpMul()).toFixed(1)}%/s` : `${Math.round(inf.dist)} m · cost ${inf.cost}% · ETA ${Math.round(inf.eta)}s`;
         const l3 = meta ? meta.l3 : def.id === 'fwd' ? 'free flight · ambush risk' : def.id === 'station' ? 'dock · trade · contracts' : def.id === 'colony' ? 'FREE refuel · ore boom x2' : 'ambush · bounty 4000 CR';
@@ -20265,6 +20290,11 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
       showToast('FLIGHT MODEL: ' + mode.toUpperCase(), 2200, mode === 'arcade' ? '#33ff99' : '#ffaa55');
       const panel = NP.panels[1]; if (panel) panel.drawT = 0;
     }
+    const novaDzSlots = () => { const d = NOPT.o.dzSlots; return (Array.isArray(d) && d.length === 3 ? d : [0.08, 0.12, 0.18]).map(v => Math.max(0.02, Math.min(0.30, Number(v) || 0.12))); };
+    const novaDzSlotIdx = () => Math.max(0, Math.min(2, NOPT.o.dzSlot | 0));
+    function novaDzSlotNext() { const S = novaDzSlots(), i = (novaDzSlotIdx() + 1) % 3; NOPT.o.dzSlots = S; NOPT.o.dzSlot = i; NOPT.o.deadzone = S[i]; noptSave(); showToast('DEADZONE SLOT ' + 'ABC'[i] + ': ' + Math.round(S[i] * 100) + '%', 1800, '#33ff99'); }
+    function novaDzSlotSave() { const S = novaDzSlots(), i = novaDzSlotIdx(); S[i] = Math.max(0.02, Math.min(0.30, Number(NOPT.o.deadzone) || 0.12)); NOPT.o.dzSlots = S; NOPT.o.dzSlot = i; noptSave(); showToast('SAVED ' + Math.round(S[i] * 100) + '% TO SLOT ' + 'ABC'[i], 1800, '#ffd24a'); }
+    window.novaTest = Object.assign(window.novaTest || {}, { dz: () => ({ deadzone: NOPT.o.deadzone, slots: novaDzSlots(), slot: novaDzSlotIdx() }), dzNext: () => novaDzSlotNext(), dzSave: () => novaDzSlotSave(), dzSet: v => { NOPT.o.deadzone = v; } });
     const NP_SYSOPT = { name: 'SYSTEM / OPTIONS', c: '#ffd24a', hint: 'three controls per page · previous is on the far left · next is on the far right',
       row: (P, i, side) => {
         const rows = NP_SYSOPT.rows();
@@ -20286,6 +20316,10 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
         ['RECENTER VIEW', '#ffd24a', () => npRecenterDelayed(), 'One-second seated-headset countdown.'],
         ['SAVE / LOAD GAME', '#33ff99', (P, side) => { if (side === 'right') nsvLoad(1); else nsvSave(1); }, 'Save and restore game state.', { split: true, leftText: 'SAVE GAME', leftCol: '#33ff99', leftFn: () => nsvSave(1), rightText: 'LOAD GAME', rightCol: '#ffd24a', rightFn: () => nsvLoad(1) }],
         [`JOYSTICK DEADZONE  ${Math.round((NOPT.o.deadzone ?? 0.12) * 100)}%`, '#33ff99', () => { const D = [0.05, 0.08, 0.12, 0.16, 0.20]; const i = D.findIndex(v => Math.abs(v - (NOPT.o.deadzone ?? 0.12)) < 0.01); NOPT.o.deadzone = D[(i + 1) % D.length]; noptSave(); showToast('JOYSTICK DEADZONE ' + Math.round(NOPT.o.deadzone * 100) + '%', 1800, '#33ff99'); }, 'Touch to step stick deadband.'],
+        // Lyra Update 1: three quick-preset slots. Left = switch to the next slot and apply it; right = store the current deadzone in the active slot.
+        ['DEADZONE PRESETS', '#33ff99', () => novaDzSlotNext(), `Slots: ${novaDzSlots().map((v, i) => 'ABC'[i] + ' ' + Math.round(v * 100) + '%').join(' \u00b7 ')} \u00b7 active ${'ABC'[novaDzSlotIdx()]}.`,
+          { split: true, leftText: 'USE SLOT ' + 'ABC'[(novaDzSlotIdx() + 1) % 3] + '  ' + Math.round(novaDzSlots()[(novaDzSlotIdx() + 1) % 3] * 100) + '%', leftCol: '#33ff99', leftFn: () => novaDzSlotNext(),
+            rightText: 'SAVE ' + Math.round((NOPT.o.deadzone ?? 0.12) * 100) + '% TO ' + 'ABC'[novaDzSlotIdx()], rightCol: '#ffd24a', rightFn: () => novaDzSlotSave() }],
         [`MASTER VOLUME  ${Math.round(NOPT.o.master * 100)}%`, '#00e5ff', () => { NOPT.o.master = Math.round(((NOPT.o.master + 0.2) % 1.2) * 10) / 10; noptSave(); noptApplyAudio(); }, 'Touch to step the overall sound level.'],
         [`GRAPHICS  ${String(NOPT.o.gfx).toUpperCase()}`, '#b266ff', () => { const L = ['low', 'mid', 'high', 'ultra']; NOPT.o.gfx = L[(L.indexOf(NOPT.o.gfx) + 1) % 4]; noptSave(); noptApplyGfx(); }, 'Quest performance / visual quality.'],
         ['DEBUG SHIPS', '#00ffcc', (P, side) => { if (side === 'right') window.novaUnlockShips(true); else window.novaUnlockShips(false); }, 'Unlock shop / own all ships for testing.', { split: true, leftText: 'UNLOCK SHOP', leftSub: 'Clear rank gates', leftCol: '#00ffcc', leftFn: () => window.novaUnlockShips(false), rightText: 'OWN ALL SHIPS', rightSub: 'Fly any craft', rightCol: '#ffd24a', rightFn: () => window.novaUnlockShips(true) }],
@@ -20510,7 +20544,7 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
       NW_DESTS.forEach(def => {
         if (def.lock && def.lock()) { out.push({ def, col: '#556677', name: '??? UNKNOWN SIGNAL', l2: 'no route on file', l3: 'the story reveals new routes', why: 'NO SIGNAL', locked: true }); return; }
         let inf = {}; try { inf = novaWarpInfo(def.id); } catch (e) { }
-        const meta = (typeof NS_META !== 'undefined') && NS_META[def.id];
+        const meta = def.meta || ((typeof NS_META !== 'undefined') && NS_META[def.id]);
         const col = meta ? meta.col : def.id === 'fwd' ? '#00e5ff' : def.id === 'station' ? '#00ff88' : def.id === 'colony' ? '#ffaa33' : '#ff3355';
         const l3 = meta ? meta.l3 : def.id === 'fwd' ? 'free flight · ambush risk' : def.id === 'station' ? 'dock · trade · contracts' : def.id === 'colony' ? 'FREE refuel · ore boom x2' : 'ambush · bounty 4000 CR';
         const dock = def.id === 'station' && stationGroup.position.distanceTo(shipGroup.position) < 2400 * NOVA_WORLD_SCALE;
@@ -20910,10 +20944,19 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
           ['NYX', nteamStatus('nyx', nyxJoined() ? 'WINGMATE' : 'AT NOVA-1'), '#b266ff'],
           [cd ? cd.name : 'COMPANION', cd ? 'ACTIVE · ' + cd.kind : 'NONE SELECTED', cd ? cd.col : '#778899']
         ];
-        members.forEach((m, i) => { const Y = 118 + i * 62; x.fillStyle = 'rgba(255,255,255,0.035)'; x.fillRect(440, Y - 25, 560, 54); x.fillStyle = m[2]; x.beginPath(); x.arc(466, Y, 12, 0, Math.PI * 2); x.fill(); npText(x, m[0], 490, Y - 2, 'bold 20px monospace', m[2], 480); npText(x, m[1], 490, Y + 20, '16px monospace', '#9fc3d8', 480); });
+        // Lyra Update 1: status pulse. Aboard / on station = slow pulse in the crew colour, AWAY on a job = fast amber pulse, not with you = grey, no pulse.
+        const pNow = performance.now() / 1000;
+        members.forEach((m, i) => { const Y = 118 + i * 62; x.fillStyle = 'rgba(255,255,255,0.035)'; x.fillRect(440, Y - 25, 560, 54);
+          const away = /^AWAY/.test(m[1]), absent = /AT NOVA-1|NONE SELECTED/.test(m[1]);
+          if (!absent) { const ph = (pNow * (away ? 1.6 : 0.6) + i * 0.23) % 1, pc = away ? '#ffaa33' : m[2]; x.strokeStyle = pc; x.lineWidth = 3; x.globalAlpha = (1 - ph) * 0.9; x.beginPath(); x.arc(466, Y, 12 + ph * 12, 0, Math.PI * 2); x.stroke(); x.globalAlpha = 1; if (away) m[2] = '#ffaa33'; }
+          else m[2] = '#778899';
+          x.fillStyle = m[2]; x.beginPath(); x.arc(466, Y, 12, 0, Math.PI * 2); x.fill(); npText(x, m[0], 490, Y - 2, 'bold 20px monospace', m[2], 480); npText(x, m[1], 490, Y + 20, '16px monospace', '#9fc3d8', 480); });
         npText(x, `SHIP ${novaShipDef().name} · ${NM.fleet.length} ALLIES`, 450, 374, 'bold 18px monospace', '#33ff99', 540);
         npText(x, `TEAM ${NCT.emblems[NCT.emblem]}  ${NCT.colors[NCT.color].toUpperCase()}`, 450, 404, 'bold 18px monospace', NCT.colors[NCT.color], 540);
+        NP_CREW_TAB.pulseAt = performance.now();
       } };
+    // keep the CREW tab redrawing about 10 times a second while it is open so the status pulse moves
+    setInterval(() => { try { NP.panels.forEach(P => { if (P && P.cfg && P.cfg.tabs[P.tab] === NP_CREW_TAB && NTEAM.view === 'team') P.drawT = Math.min(P.drawT || 0, 0.02); }); } catch (e) { } }, 100);
     window.novaTest = Object.assign(window.novaTest || {}, {
       teamState: () => ({ view: NTEAM.view, jobs: JSON.parse(JSON.stringify(NTEAM.jobs)), jumps: NW.jumps }),
       teamDispatch: (id = 'obi', type = 'salvage') => { nteamDispatch(id, type); return NTEAM.jobs[id] || null; },
@@ -21964,7 +22007,8 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
     // warp-nav: the rift lives on card 12 (cards 10/11 stay the drone wing and companion)
     { const _nd = navDraw; navDraw = function () {
         const k = NW_DESTS.findIndex(x => x.nfCard); const def = k >= 0 ? NW_DESTS.splice(k, 1)[0] : null;
-        try { _nd(); } finally { if (def) NW_DESTS.push(def); }
+        const ex = NW_DESTS.filter(x => x.extra); ex.forEach(x => NW_DESTS.splice(NW_DESTS.indexOf(x), 1));
+        try { _nd(); } finally { if (def) NW_DESTS.push(def); ex.forEach(x => NW_DESTS.push(x)); }
         try {
           const card = NavUI.cards[11]; if (!card || !def) return; card.m.visible = true;
           const inf = novaWarpInfo('mindspace');
@@ -21974,7 +22018,8 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
     { const _np = navPick; navPick = function (i) {
         if (i === 11) { novaWarpStart('mindspace'); return; }
         const k = NW_DESTS.findIndex(x => x.nfCard); const def = k >= 0 ? NW_DESTS.splice(k, 1)[0] : null;
-        try { return _np(i); } finally { if (def) NW_DESTS.push(def); }
+        const ex = NW_DESTS.filter(x => x.extra); ex.forEach(x => NW_DESTS.splice(NW_DESTS.indexOf(x), 1));
+        try { return _np(i); } finally { if (def) NW_DESTS.push(def); ex.forEach(x => NW_DESTS.push(x)); }
       }; }
 
 
@@ -22896,6 +22941,12 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
     }
     window.novaTractorPress = novaTractorPress;
     window.novaHeatCores = () => NSV.cores || 0;
+    // hooks for modules/places.js
+    window.novaAddHeatCores = n => { NSV.cores = Math.max(0, (NSV.cores || 0) + (n | 0)); try { localStorage.setItem('novaHeatCores', String(NSV.cores)); } catch (e) { } return NSV.cores; };
+    window.novaAddCredits = n => { bankCredits = Math.max(0, bankCredits + Math.round(Number(n) || 0)); try { drawInventoryPanel(); } catch (e) { } return bankCredits; };
+    window.novaOre = () => cargoOre;
+    window.novaSellOre = pricePerTon => { const t = cargoOre; if (t <= 0) return 0; const cr = Math.round(t * pricePerTon * (window.novaLaws && window.novaLaws.oreSell || 1)); bankCredits += cr; cargoOre = 0; try { novaOreSeen = 0; } catch (e) { } try { sound.tradeCash(); } catch (e) { } return cr; };
+    window.novaWorldScale = NOVA_WORLD_SCALE;
     window.novaHeatCoreSpend = n => { if ((NSV.cores || 0) < n) return false; NSV.cores -= n; try { localStorage.setItem('novaHeatCores', String(NSV.cores)); } catch (e) { } return true; };
     window.addEventListener('keydown', e => { if (e.code === 'KeyG' && !e.repeat && !isCommsKeyboardOpen) novaTractorPress(); });
     function nsvTick(dt) {
@@ -23365,7 +23416,7 @@ const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
         { k: 'OPEN SKIES', t: rift === 'contact' ? 'The ring is quiet. It listens.' : rift ? 'The rift is closed.' : 'The lanes are open.', b: ['Convoys run again. The colonies have power. Nova-1 sleeps easy.', 'And everyone on the station knows the name Nova Lead.'] },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(0, 4) },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(4).concat([kept]) },
-        { k: 'PROJECT NOVA', t: 'Alpha 1.6 · KESTREL', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
+        { k: 'PROJECT NOVA', t: 'Alpha 1.7 · LYRA', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
         { k: 'CREDITS', t: 'Ships, cockpit and crew', b: ['3D models generated for Project Nova (Tripo), optimised for Quest.', 'Faction fleets: Mind Space, the Corsair Line, the EDF.', 'Obi the cat-bot, Nyx, Valkyrie-7, John, Kip, Mother Kestrel, ADA-9.'] },
         { k: 'CREDITS', t: 'Music and art', b: ['Music: ScifiMusicPack (Fab), tracks Voyager, Space Caravan, Battle in the Market.', 'Sky, planets, icons and key art generated for Project Nova.'] },
         { k: 'THANK YOU FOR FLYING', t: 'The sector is yours.', b: ['Free flight continues: contracts, bounties, markets, the reef and the rift.', 'Fly safe, Nova Lead.'], last: true }
