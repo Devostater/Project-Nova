@@ -10,7 +10,7 @@ Change both places together: `RELEASE` in `tools/sync_html.mjs` and `GAME_VERSIO
 |---|---|---|
 | Alpha 1.4 | — | Cold Run, boarding, cantina, owner models |
 | **Alpha 1.5** | **MONGOOSE** | galaxy map room, politics (Council Floor), billboards, emblems, boarding props/enemies, SFX fix, canopy button, menu build info |
-| Alpha 1.6 | KESTREL | (next) |
+| **Alpha 1.6** | **KESTREL** | talk radio (Drift Report, Beacon, Subspace Ledger on the MUSIC panel), fix for full-screen black flashes on PC (bloom guard) |
 | Alpha 1.7 | BARRACUDA | |
 | Alpha 1.8 | WOLVERINE | |
 | Alpha 1.9 | MANTA | |

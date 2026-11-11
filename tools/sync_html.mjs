@@ -18,7 +18,7 @@ const outputs = {
 };
 
 // Release version + code name (bump both together; list in docs/RELEASES.md) and the exact git build, shown on the main menu.
-const RELEASE = { version: 'ALPHA 1.5', codename: 'MONGOOSE' };
+const RELEASE = { version: 'ALPHA 1.6', codename: 'KESTREL' };
 let commit = 'local', date = new Date().toISOString().slice(0, 10);
 try {
   const { execSync } = await import('node:child_process');

@@ -14,6 +14,13 @@ In-world shows the player can tune into (MUSIC / radio, NOVA NET) and see advert
 - **Subspace Ledger** mirrors the galaxy map's territory colours and open bounties: a factual list the player can act on.
 - Voices: generate with ElevenLabs (see `news/audio/ELEVENLABS_GUIDE_AND_SCRIPTS.md`); Orin needs a raspy older male voice.
 
+## How the shows play (Alpha 1.6) — `modules/radio.js`
+- Tune on the **MUSIC** panel: STN ◀ / ▶ goes past the music stations to **THE DRIFT REPORT 77.7**, **THE BEACON 101.1** and **SUBSPACE LEDGER 88.4**. Music stops while a show is on; the MUSIC button (or any music station) goes back.
+- PLAY/PAUSE takes the show on and off air, NEXT / NEXT ITEM skips to the next bulletin, and touching a bulletin on the left replays it.
+- Bulletins are built from live state: council laws and the motion on the floor, the Nova-1 raid timer, distances to the warp destinations, hull, prices with law multipliers. Written in-world lines fill the rest.
+- Each line is spoken with the browser speech voice (if the device has one and MUTE RADIO is off) and shown as a subtitle toast and on the panel. No recorded voices yet: ElevenLabs voices for Orin are the next step.
+- Events: `radioLine { channel, title, text }`. API: `window.novaRadio` (tune, toggle, skip, replay, state), `window.novaMusic.tune('drift' | 'beacon' | 'ledger')`.
+
 ## The Council Floor (politics channel) — `modules/politics.js`
 - **Nova Accord Council** seats: Nova-1 Authority 3, Nova Defense Compact (EDF) 3, Ceres Mining Co-op 2, Meridian Combine 2, Civilian Network 2, Lantern Freeports 1. Red Wake pirates and the Veyran Assembly have no seats.
 - Every 4–8 minutes of play a faction tables a **motion**; the vote closes after 3 minutes. Factions vote by their leanings; the player can **lobby** for or against with credits (each lobby moves one seat; cost rises with each push). Lobby from the COUNCIL panel in the galaxy map room (H) or with `[` / `]`.
