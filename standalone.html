@@ -752,7 +752,7 @@
     <div id="hud-controls">STICK: +0.0° PITCH · +0.0° ROLL | THROTTLE: 0% | SEAT: +5cm</div>
   </div>
 
-  <div id="version-badge">Alpha 1.7 · LYRA</div>
+  <div id="version-badge">Alpha 1.8 · WOLVERINE</div>
   <div id="status-toast"></div>
 
   <!-- Desktop / PC Voice HUD -->
@@ -795,7 +795,7 @@
       <div class="modal-subtitle">
         6DOF Space Flight Simulator • Newtonian HOTAS Flight Model • Proportional Navigation Dogfights • Hyperspace Drive
       </div>
-      <div id="menu-build" style="font: bold 12px monospace; color: #ffcc00; letter-spacing: 1px; margin: -4px 0 10px; opacity: .9">ALPHA 1.7 · LYRA</div>
+      <div id="menu-build" style="font: bold 12px monospace; color: #ffcc00; letter-spacing: 1px; margin: -4px 0 10px; opacity: .9">ALPHA 1.8 · WOLVERINE</div>
       <script>
         // version + code name + exact build (tools/sync_html.mjs writes build.json from git on every local start and deploy)
         fetch('build.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(b => { if (!b) return; const el = document.getElementById('menu-build');
@@ -967,7 +967,7 @@ git push -u origin main</pre>
 
         let pirateBoss = null;
     let pirateBossSpawned = false;
-const GAME_VERSION = 'Alpha 1.7';   // code name LYRA (see docs/RELEASES.md)
+const GAME_VERSION = 'Alpha 1.8';   // code name WOLVERINE (see docs/RELEASES.md)
     let passthroughActive = false;
     let seatOffset = 0.12; // Elevated command default (+12cm)
     let throttlePct = 0;
@@ -20314,6 +20314,8 @@ const GAME_VERSION = 'Alpha 1.7';   // code name LYRA (see docs/RELEASES.md)
         [`FLIGHT MODEL  ${String(NOPT.o.flightMode || 'arcade').toUpperCase()}`, '#33ff99', () => npSetFlightMode((NOPT.o.flightMode || 'arcade') === 'arcade' ? 'advanced' : 'arcade'), 'Switch assisted Arcade / full-rate Advanced.'],
         [(passthroughActive ? 'VIEW  FULL VR' : 'VIEW  MIXED REALITY'), '#ff66cc', () => togglePassthrough(), 'Change between space and passthrough.'],
         ['RECENTER VIEW', '#ffd24a', () => npRecenterDelayed(), 'One-second seated-headset countdown.'],
+        [`RETRO 2002 LOOK  ${window.novaRetro && window.novaRetro.on ? 'ON' : 'OFF'}`, '#ff8a2a', () => { try { window.novaRetro && window.novaRetro.set(); } catch (e) { } }, 'Cel-painted 2000s animated sci-fi look, CRT cockpit screens.'],
+        ['CONSTRUCTION BAY', '#ff8a2a', () => { try { window.novaBay && window.novaBay.open(); } catch (e) { } }, 'Console, tuning sliders and fix requests for the AIs.'],
         ['SAVE / LOAD GAME', '#33ff99', (P, side) => { if (side === 'right') nsvLoad(1); else nsvSave(1); }, 'Save and restore game state.', { split: true, leftText: 'SAVE GAME', leftCol: '#33ff99', leftFn: () => nsvSave(1), rightText: 'LOAD GAME', rightCol: '#ffd24a', rightFn: () => nsvLoad(1) }],
         [`JOYSTICK DEADZONE  ${Math.round((NOPT.o.deadzone ?? 0.12) * 100)}%`, '#33ff99', () => { const D = [0.05, 0.08, 0.12, 0.16, 0.20]; const i = D.findIndex(v => Math.abs(v - (NOPT.o.deadzone ?? 0.12)) < 0.01); NOPT.o.deadzone = D[(i + 1) % D.length]; noptSave(); showToast('JOYSTICK DEADZONE ' + Math.round(NOPT.o.deadzone * 100) + '%', 1800, '#33ff99'); }, 'Touch to step stick deadband.'],
         // Lyra Update 1: three quick-preset slots. Left = switch to the next slot and apply it; right = store the current deadzone in the active slot.
@@ -21249,6 +21251,7 @@ const GAME_VERSION = 'Alpha 1.7';   // code name LYRA (see docs/RELEASES.md)
       high: { pr: 2, xr: 1.3, fov: 0.2, fx: 1.2, label: 'HIGH: sharp' },
       ultra: { pr: 2, xr: 1.5, fov: 0.1, fx: 1.5, label: 'ULTRA: max graphics (desktop)' }
     };
+    window.noptApplyGfx = () => noptApplyGfx(); window.noptSave = () => noptSave();   // Construction Bay (modules/construct.js)
     function noptApplyGfx() {
       const q = NOPT_GFX[NOPT.o.gfx] || NOPT_GFX.mid;
       window.novaGfx = NOPT.o.gfx; window.novaFxScale = q.fx;
@@ -23416,7 +23419,7 @@ const GAME_VERSION = 'Alpha 1.7';   // code name LYRA (see docs/RELEASES.md)
         { k: 'OPEN SKIES', t: rift === 'contact' ? 'The ring is quiet. It listens.' : rift ? 'The rift is closed.' : 'The lanes are open.', b: ['Convoys run again. The colonies have power. Nova-1 sleeps easy.', 'And everyone on the station knows the name Nova Lead.'] },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(0, 4) },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(4).concat([kept]) },
-        { k: 'PROJECT NOVA', t: 'Alpha 1.7 · LYRA', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
+        { k: 'PROJECT NOVA', t: 'Alpha 1.8 · WOLVERINE', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
         { k: 'CREDITS', t: 'Ships, cockpit and crew', b: ['3D models generated for Project Nova (Tripo), optimised for Quest.', 'Faction fleets: Mind Space, the Corsair Line, the EDF.', 'Obi the cat-bot, Nyx, Valkyrie-7, John, Kip, Mother Kestrel, ADA-9.'] },
         { k: 'CREDITS', t: 'Music and art', b: ['Music: ScifiMusicPack (Fab), tracks Voyager, Space Caravan, Battle in the Market.', 'Sky, planets, icons and key art generated for Project Nova.'] },
         { k: 'THANK YOU FOR FLYING', t: 'The sector is yours.', b: ['Free flight continues: contracts, bounties, markets, the reef and the rift.', 'Fly safe, Nova Lead.'], last: true }

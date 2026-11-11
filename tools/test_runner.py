@@ -32,6 +32,32 @@ class NoCacheHandler(SimpleHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
 
+    # Construction Bay fix requests (modules/construct.js): append-only, one JSON object per line, size-limited.
+    # This is the only thing the server writes; it never runs anything it receives.
+    def do_POST(self):
+        if self.path != "/__nova/fix":
+            self.send_response(404); self.end_headers(); return
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+            if n <= 0 or n > 20000:
+                raise ValueError("bad size")
+            import json
+            data = json.loads(self.rfile.read(n).decode("utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("not an object")
+            data["received"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            out_dir = os.path.join(REPO_ROOT, "requests")
+            os.makedirs(out_dir, exist_ok=True)
+            out = os.path.join(out_dir, "fix_requests.jsonl")
+            if os.path.exists(out) and os.path.getsize(out) > 2_000_000:
+                raise ValueError("queue full")
+            with open(out, "a", encoding="utf-8") as f:
+                f.write(json.dumps(data, ensure_ascii=False) + "\n")
+            print(f"  [FIX] {data.get('cat', '?')}: {str(data.get('text', ''))[:80]}")
+            self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
+        except Exception as e:
+            self.send_response(400); self.end_headers(); self.wfile.write(str(e).encode("utf-8")[:200])
+
     def log_message(self, format, *args):
         # Concise logging
         sys.stdout.write(f"  [{time.strftime('%H:%M:%S')}] {args[0]} - {args[1]}\n")

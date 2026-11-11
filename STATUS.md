@@ -2,6 +2,13 @@
 
 Read this file, [docs/DECISIONS.md](docs/DECISIONS.md) (locked owner decisions) and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. Don't read anything in `docs/archive/` unless asked.
 
+## Round 2026-11-11c (Claude, lead) — Alpha 1.8 WOLVERINE
+- #75 merged (Alpha 1.7 LYRA: places, warp cost fix, Lyra Update 1).
+- **RETRO 2002 look** (`modules/retro.js`, OPTIONS → SYSTEM / OPTIONS → RETRO 2002 LOOK, or `retro` in the console): inside the materials, so it also works on Quest. Lit materials get 4 cel bands, ink silhouettes, rim light and a blue-shadow / orange-highlight grade; cockpit canvas screens get CRT scanlines + vignette. Glass and additive glows are skipped. Default OFF.
+- **Construction Bay** (`modules/construct.js`): OPTIONS → CONSTRUCTION BAY opens a hangar room (works in VR, same pattern as the galaxy map room); **F2** opens a typed console on PC (` was already the Voice Tester). Tabs: CONSOLE (commands + buttons), TUNE (12 sliders saved as `window.novaTune`; price/bounty/warp/pirate tunes multiply into `window.novaLaws`), FIX REQUESTS (category + dictation/typed note + game state). The game never runs system commands or edits code.
+- **Fix-request pipeline:** `tools/test_runner.py` (PLAY_NOVA.bat) accepts `POST /__nova/fix` and appends to `requests/fix_requests.jsonl` (append-only, 20 KB per request, 2 MB cap). AIs: read `requests/README.md` at the start of a round.
+- **Owner asked:** Lyra (the Forge app on the owner's PC) newscasts are blurry; prompt given to fix resolution, lip-sync crop, layout and bring back topic B-roll; Nova can then play them on NOVA NET. The childhood-movie YouTube link could not be opened (YouTube is blocked from cloud sessions).
+
 ## Round 2026-11-11b (Claude, lead) — Alpha 1.7 LYRA
 - **Places** (`modules/places.js` + `public/data/places.json`, copies in root `modules/` and `data/`): VEIL OUTPOST (nebula survey buoys), KORVA ICE WORKS (buys ore, free hull repair), THE SILENT GATE (4 glyph pylons, one-time heat core), ASHFALL FIELD (salvage crates, mines, nav chip), BLACK ANCHOR (pirate hideout, locked until the nav chip or six Drift Report rumor segments), TALOS IV (planet, orbit only). They are normal warp destinations (`def.extra`, `def.meta`, `def.terr`, `def.ads`), so they show on the WARP tab, the galaxy map and get billboards. Add a place by adding a JSON entry with an existing `kind`.
 - **Warp cost fix:** the cost formula predated the x3 world scale, so from Nova-1 even Cygnus Colony cost 164% of a 100% core and every plotted route fell back to a forward jump. Cost is now `dist / (48 * NOVA_WORLD_SCALE)`. Far places (Silent Gate, Talos IV) still need a core upgrade or a hop.

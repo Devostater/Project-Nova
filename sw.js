@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.34-lyra-places';
+const VERSION = 'nova-alpha-1.35-wolverine-retro-bay';
 const FILES = [
   "./Alien/Alien all around wrokercargo drone.glb",
   "./Alien/Alien carrier ship.glb",
@@ -225,6 +225,8 @@ const FILES = [
 "./modules/politics.js",
 "./modules/radio.js",
 "./modules/places.js",
+"./modules/retro.js",
+"./modules/construct.js",
 "./data/places.json",
 "./art/ads/ad_cantina.jpg",
 "./art/ads/ad_ceres.jpg",
