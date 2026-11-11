@@ -27,7 +27,7 @@ const MOTIONS = [
 export function init(nova) {
   const ls = (v) => { try { if (v === undefined) return JSON.parse(localStorage.getItem(KEY) || 'null'); localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) { return null; } };
   const S = ls() || { laws: {}, active: null, next: 90, history: [], lobbied: 0 };   // laws: motionId → true while in force
-  const laws = () => { const L = { heatCoreSell: 1, bounty: 1, pirateActivity: 1, warpCost: 1, oreSell: 1 }; Object.keys(S.laws).forEach(id => { const m = MOTIONS.find(x => x.id === id); if (m) Object.entries(m.law).forEach(([k, v]) => { L[k] *= v; }); }); return L; };
+  const laws = () => { const L = { heatCoreSell: 1, bounty: 1, pirateActivity: 1, warpCost: 1, oreSell: 1 }; Object.keys(S.laws).forEach(id => { const m = MOTIONS.find(x => x.id === id); if (m) Object.entries(m.law).forEach(([k, v]) => { L[k] *= v; }); }); const tn = window.novaTune || {}; Object.keys(L).forEach(k => { const t = Number(tn[k]); if (isFinite(t) && t > 0) L[k] *= t; }); return L; };   // owner tunes (Construction Bay) stack with laws
   function publishLaws() { window.novaLaws = laws(); }
   const save = () => ls(S);
   const credits = () => (typeof window.novaCredits === 'function' ? window.novaCredits() : null);
@@ -74,7 +74,7 @@ export function init(nova) {
   publishLaws();
   const off = nova.onTick ? nova.onTick(tick) : null;
   const api = {
-    ready: true, FACTIONS, MOTIONS, lobby, lobbyCost, propose, resolve,
+    ready: true, FACTIONS, MOTIONS, lobby, lobbyCost, propose, resolve, refresh: publishLaws,
     get state() { const a = S.active, m = a && MOTIONS.find(x => x.id === a.id); return { active: a ? { ...a, title: m.title, text: m.text, sponsor: FACTIONS[m.sponsor].name } : null, laws: Object.keys(S.laws).map(id => MOTIONS.find(x => x.id === id)).filter(Boolean).map(m => ({ id: m.id, title: m.title, law: m.law })), history: S.history.slice(), effects: window.novaLaws }; },
     dispose() { off && off(); save(); }
   };

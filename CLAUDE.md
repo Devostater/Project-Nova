@@ -6,3 +6,4 @@ Claude is the lead and integrator. Read [STATUS.md](STATUS.md) and [OWNER_FEATUR
 - **Merging:** merge agent branches, run the cheap checks from STATUS.md plus a headless load of `public/` (0 failed requests), push to `main`, then confirm the commit in Pages `version.txt`.
 - **"Old version on the Quest":** inspect the headset over adb devtools (`adb forward tcp:9333 localabstract:chrome_devtools_remote`) before guessing.
 - Update STATUS.md when a round changes.
+- **Fix requests:** the owner files bugs from the in-game Construction Bay into `requests/fix_requests.jsonl`. Check it at the start of a round (see `requests/README.md`).
