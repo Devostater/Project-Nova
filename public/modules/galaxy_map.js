@@ -117,7 +117,7 @@ export function init(nova) {
       const stem = new T.Mesh(new T.CylinderGeometry(0.004, 0.004, Math.abs(g.position.y), 6), new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35 }));
       stem.position.y = -g.position.y / 2; g.add(stem);   // drop line to the plane shows height
       const lab = label(locked ? '??? SIGNAL' : d.name, locked ? '#667788' : '#9fefff', 0.42); lab.position.y = 0.1; g.add(lab);
-      const tr = !locked && TERR[d.id];
+      const tr = !locked && (d.terr || TERR[d.id]);
       if (tr) {   // territory bubble + faction emblem
         const bub = new T.Mesh(bubbleGeo, new T.MeshBasicMaterial({ color: tr[1], transparent: true, opacity: 0.1, depthWrite: false, blending: T.AdditiveBlending }));
         bub.scale.setScalar(0.16 + Math.min(0.12, (d.r || 200) / 4000)); g.add(bub);
@@ -140,7 +140,7 @@ export function init(nova) {
     const g = panelC.getContext('2d'), it = S.items[S.sel]; g.clearRect(0, 0, 1024, 640);
     g.fillStyle = 'rgba(3,12,22,0.92)'; g.fillRect(0, 0, 1024, 640); g.strokeStyle = '#33e6ff'; g.lineWidth = 8; g.strokeRect(4, 4, 1016, 632);
     g.fillStyle = '#33e6ff'; g.font = 'bold 44px monospace'; g.fillText('GALAXY MAP', 40, 70);
-    if (it) { const tr = !it.locked && TERR[it.d.id]; if (tr) { g.fillStyle = '#' + tr[1].toString(16).padStart(6, '0'); g.font = 'bold 30px monospace'; g.fillText('TERRITORY · ' + tr[2], 40, 490); } }
+    if (it) { const tr = !it.locked && (it.d.terr || TERR[it.d.id]); if (tr) { g.fillStyle = '#' + tr[1].toString(16).padStart(6, '0'); g.font = 'bold 30px monospace'; g.fillText('TERRITORY · ' + tr[2], 40, 490); } }
     if (!it) { g.fillStyle = '#9fc3d8'; g.font = '32px monospace'; g.fillText('No routes on file.', 40, 160); panelT.needsUpdate = true; return; }
     const inf = info(it.d), ship = window.shipGroup ? window.shipGroup.position : new T.Vector3();
     let dy = 0; try { dy = it.d.pos().y - ship.y; } catch (e) { }

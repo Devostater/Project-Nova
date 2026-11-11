@@ -25,6 +25,7 @@
     "galaxy_map.js",
     "space_ads.js",
     "politics.js",
-    "radio.js"
+    "radio.js",
+    "places.js"
   ]
 }

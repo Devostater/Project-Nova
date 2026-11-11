@@ -161,3 +161,24 @@ Rule: build in `modules/` + `public/modules/`. Touch `standalone.html` only for 
 - **Running it:** hire staff (contacts/crew), pay upkeep, earn passive income, defend it from pirate raids or faction sieges (task 20 drama). Station status shows on the galaxy map (task 23) and in news (task 19).
 - **Two play styles:** hands-on (walk around, talk to staff, fix things) or a management screen on the phone/wrist (task 16) for quick decisions.
 - Saved via `save.js`. Modular kit pieces so it stays light on Quest.
+
+
+### 26. Next big leaps (owner, 2026-11-11)
+The owner wants big steps that turn the cockpit demo into a complete VR experience, ahead of small fixes. Suggested order: C, A, B (C is cheapest and builds on what shipped in 1.6/1.7).
+
+**A. Cockpit damage and power routing** (`modules/power.js` + small hooks)
+- Three buses: ENGINES, SHIELDS/WEAPONS, AUX (life support, comms, cabin lights). A power panel on the cockpit with three physical sliders or toggles.
+- Shields below 25%: non-essential cockpit lights flicker and dim, panels lose brightness, radio gets static. Hull below 30%: sparks, a failed panel, alarm.
+- Diverting AUX to engines keeps thrust up but costs something real: comms/radio cut out, cabin goes dark, a life-support timer starts. Diverting to shields speeds recharge and slows the ship.
+- Needs hooks: thrust multiplier, shield recharge multiplier, cockpit light groups, panel brightness. First step: lights + flicker + one AUX-to-ENGINES toggle.
+
+**B. Hangar walkaround (pre-flight)** (builds on `fps_core.js`, `interior.js`)
+- Before launch the player stands in the Nova-1 hangar next to the ship at real scale (on foot / VR room scale).
+- Tap hull sections for status (hull, shields, missiles, core). Faults appear as glowing spots; grab a tool from a rack and hold it on the spot to patch (small hull bonus or a debuff removed).
+- Then climb the ladder / touch the canopy to board, which runs the existing launch.
+- Needs: the ship model at walkable scale in the hangar, hand-grab for tools (vr_hands), fault generation from the last flight's damage. First step: walk around the ship + tap for status + board.
+
+**C. Sector radio chatter by zone** (extends `modules/radio.js` and `places.js`)
+- Each place and lane gets a zone id and a chatter set: freighters and patrols near Nova-1, miners at Korva and Ceres, pirates near the Reef and Black Anchor, silence and odd signals at the Silent Gate, distress calls at Ashfall.
+- Plays on the COMMS frequency as short NPC-to-NPC exchanges with distinct voices, more often in busy zones, never over a direct hail. A low music layer per zone type fades in under it.
+- First step: zone lookup from the nearest destination + written exchanges per zone + the existing speech voice.

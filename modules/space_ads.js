@@ -37,10 +37,10 @@ export function init(nova) {
     return { g, scr, scan, beaconM, list, i: Math.floor(Math.random() * list.length), t: 4 + Math.random() * 6, flick: 0, w };
   }
   function placeAll() {
-    const D = (window.NW_DESTS || []).filter(d => d.pos && SITE[d.id]);
+    const D = (window.NW_DESTS || []).filter(d => d.pos && (d.ads || SITE[d.id]) && !(d.lock && d.lock()));
     if (!D.length) return false;
     D.forEach((d, di) => {
-      const list = SITE[d.id], n = d.id === 'station' ? 4 : 2, c = d.pos();
+      const list = d.ads || SITE[d.id], n = d.id === 'station' ? 4 : 2, c = d.pos();
       for (let k = 0; k < n; k++) {
         const a = (k / n) * Math.PI * 2 + di, R = (d.r || 250) * (d.id === 'station' ? 1.15 : 1.4) + 120;
         const b = makeBoard(list.slice(k % list.length).concat(list.slice(0, k % list.length)), d.id === 'station' ? 64 : 48, frameCols[(di + k) % frameCols.length]);

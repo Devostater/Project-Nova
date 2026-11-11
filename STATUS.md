@@ -2,6 +2,13 @@
 
 Read this file, [docs/DECISIONS.md](docs/DECISIONS.md) (locked owner decisions) and [OWNER_FEATURES.md](OWNER_FEATURES.md) (the backlog) first. Don't read anything in `docs/archive/` unless asked.
 
+## Round 2026-11-11b (Claude, lead) — Alpha 1.7 LYRA
+- **Places** (`modules/places.js` + `public/data/places.json`, copies in root `modules/` and `data/`): VEIL OUTPOST (nebula survey buoys), KORVA ICE WORKS (buys ore, free hull repair), THE SILENT GATE (4 glyph pylons, one-time heat core), ASHFALL FIELD (salvage crates, mines, nav chip), BLACK ANCHOR (pirate hideout, locked until the nav chip or six Drift Report rumor segments), TALOS IV (planet, orbit only). They are normal warp destinations (`def.extra`, `def.meta`, `def.terr`, `def.ads`), so they show on the WARP tab, the galaxy map and get billboards. Add a place by adding a JSON entry with an existing `kind`.
+- **Warp cost fix:** the cost formula predated the x3 world scale, so from Nova-1 even Cygnus Colony cost 164% of a 100% core and every plotted route fell back to a forward jump. Cost is now `dist / (48 * NOVA_WORLD_SCALE)`. Far places (Silent Gate, Talos IV) still need a core upgrade or a hop.
+- **Lyra Update 1:** warp engage audio cue (`novaWarpCue`), status pulse on the CREW tab, deadzone preset slots A/B/C on SYSTEM / OPTIONS.
+- **Not done:** Talos IV landing; hideout trading UI; no owner playtest of any of this yet (headless only).
+- **Next big leaps (owner, 2026-11-11), plan in `docs/NEXT_UPDATE.md` section 26:** cockpit damage + power routing, hangar walkaround pre-flight, sector radio chatter by zone.
+
 ## Round 2026-11-11 (Claude, lead) — Alpha 1.6 KESTREL
 - #70–#72 billboards (`space_ads.js`), broadcasts doc, politics (`politics.js`); #73 Alpha 1.5 MONGOOSE: menu build line, CANOPY button, `PLAY_NOVA.bat`, code names (`docs/RELEASES.md`).
 - **Talk radio** (`modules/radio.js`): The Drift Report 77.7, The Beacon 101.1, Subspace Ledger 88.4 as stations on the MUSIC panel; bulletins from live state (laws, council motion, raid timer, distances, prices). Browser speech voice + subtitles; recorded voices are next. See `docs/BROADCASTS.md`.
