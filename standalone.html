@@ -752,7 +752,7 @@
     <div id="hud-controls">STICK: +0.0° PITCH · +0.0° ROLL | THROTTLE: 0% | SEAT: +5cm</div>
   </div>
 
-  <div id="version-badge">Alpha 1.5 · MONGOOSE</div>
+  <div id="version-badge">Alpha 1.6 · KESTREL</div>
   <div id="status-toast"></div>
 
   <!-- Desktop / PC Voice HUD -->
@@ -795,7 +795,7 @@
       <div class="modal-subtitle">
         6DOF Space Flight Simulator • Newtonian HOTAS Flight Model • Proportional Navigation Dogfights • Hyperspace Drive
       </div>
-      <div id="menu-build" style="font: bold 12px monospace; color: #ffcc00; letter-spacing: 1px; margin: -4px 0 10px; opacity: .9">ALPHA 1.5 · MONGOOSE</div>
+      <div id="menu-build" style="font: bold 12px monospace; color: #ffcc00; letter-spacing: 1px; margin: -4px 0 10px; opacity: .9">ALPHA 1.6 · KESTREL</div>
       <script>
         // version + code name + exact build (tools/sync_html.mjs writes build.json from git on every local start and deploy)
         fetch('build.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(b => { if (!b) return; const el = document.getElementById('menu-build');
@@ -967,7 +967,7 @@ git push -u origin main</pre>
 
         let pirateBoss = null;
     let pirateBossSpawned = false;
-const GAME_VERSION = 'Alpha 1.5';   // code name MONGOOSE (see docs/RELEASES.md)
+const GAME_VERSION = 'Alpha 1.6';   // code name KESTREL (see docs/RELEASES.md)
     let passthroughActive = false;
     let seatOffset = 0.12; // Elevated command default (+12cm)
     let throttlePct = 0;
@@ -22676,8 +22676,15 @@ const GAME_VERSION = 'Alpha 1.5';   // code name MONGOOSE (see docs/RELEASES.md)
       { name: 'SYNTHWAVE 88', logo: 'synth', sub: 'retro synth classics', c: '#ff66cc', has: t => (!t.ctx && !t.obi && (t.station === 'synth' || (!t.file && !t.station))) },
       { name: 'DEEP SPACE RADIO', logo: 'deep', sub: 'slow ambient for long hauls', c: '#7fa8ff', has: t => t.station === 'deep' },
       { name: 'PIRATE RADIO', logo: 'pirate', sub: 'fast and loud, off the black market', c: '#ff5544', has: t => (t.station === 'pirate') },
-      { name: "OBI'S MIX", logo: 'obi', sub: 'Obi dances to these', c: '#ffd24a', has: t => !!t.obi }
+      { name: "OBI'S MIX", logo: 'obi', sub: 'Obi dances to these', c: '#ffd24a', has: t => !!t.obi },
+      // talk radio (modules/radio.js): no music tracks; bulletins are built from live game state
+      { name: 'THE DRIFT REPORT 77.7', logo: 'pirate', sub: 'pirate radio \u00b7 Orin "Subspace" Rook', c: '#ff8a3c', has: () => false, talk: 'drift' },
+      { name: 'THE BEACON 101.1', logo: 'nova', sub: 'shipping, hazards, space weather', c: '#7fe3ff', has: () => false, talk: 'beacon' },
+      { name: 'SUBSPACE LEDGER 88.4', logo: 'deep', sub: 'bounties, prices, council votes', c: '#c9e27a', has: () => false, talk: 'ledger' }
     ];
+    const nmsTalk = () => NMS_STATIONS[NMS.st].talk || null;
+    const nmsRadio = () => window.novaRadio || null;
+    window.novaCommsMuted = () => isCommsVoiceMuted;
     const NMS = { st: 0, btns: [], built: false, img: {} };
     const nmsLogo = k => { if (!NMS.img[k]) { const im = new Image(); im.src = './art/station_' + k + '.jpg'; NMS.img[k] = im; } return NMS.img[k]; };
     const nmsList = st => BGM_TRACKS.map((t, i) => ({ t, i })).filter(o => NMS_STATIONS[st].has(o.t));
@@ -22686,13 +22693,24 @@ const GAME_VERSION = 'Alpha 1.5';   // code name MONGOOSE (see docs/RELEASES.md)
     const nmsLevel = () => { try { return NOPT.o.music ?? 0.4; } catch (e) { return 0.4; } };
     function nmsPlay(idx, auto) {
       try { sound.init(); } catch (e) { }
+      try { const R0 = nmsRadio(); if (R0) R0.tune(null); } catch (e) { }
       bgmTrackIdx = idx; bgmStep = 0; isBgmPlaying = true; NRM.auto = !!auto; NMS.st = nmsStationOf(idx);
       try { nrmTick(); } catch (e) { }
       try { updateBgmDisplay(); } catch (e) { }
       showToast('\u266B ' + NMS_STATIONS[NMS.st].name + ' \u00b7 ' + BGM_TRACKS[idx].name, 1800, NMS_STATIONS[NMS.st].c);
     }
-    function nmsStation(dir) { NMS.st = (NMS.st + dir + NMS_STATIONS.length) % NMS_STATIONS.length; const L = nmsList(NMS.st); if (L.length) nmsPlay(L[0].i, NMS.st === 0); }
-    function nmsStep(dir) { const L = nmsList(NMS.st); if (!L.length) return; let k = L.findIndex(o => o.i === bgmTrackIdx); k = (k + dir + L.length) % L.length; nmsPlay(L[k].i, false); }
+    function nmsStation(dir) {
+      NMS.st = (NMS.st + dir + NMS_STATIONS.length) % NMS_STATIONS.length;
+      const S = NMS_STATIONS[NMS.st], R0 = nmsRadio();
+      if (S.talk) {   // talk radio: music stops, the show starts
+        if (!R0) { showToast('RADIO IS STILL LOADING', 1500, '#ffaa00'); return; }
+        try { sound.init(); } catch (e) { }
+        NRM.auto = false; if (isBgmPlaying) { isBgmPlaying = false; try { nrmTick(); } catch (e) { } try { updateBgmDisplay(); } catch (e) { } }
+        R0.tune(S.talk); showToast('\uD83D\uDCFB ' + S.name + ' \u00b7 ' + S.sub, 2200, S.c); return;
+      }
+      const L = nmsList(NMS.st); if (L.length) nmsPlay(L[0].i, NMS.st === 0); else if (R0) R0.tune(null);
+    }
+    function nmsStep(dir) { if (nmsTalk()) { const R0 = nmsRadio(); if (R0) R0.skip(); return; } const L = nmsList(NMS.st); if (!L.length) return; let k = L.findIndex(o => o.i === bgmTrackIdx); k = (k + dir + L.length) % L.length; nmsPlay(L[k].i, false); }
     function nmsVol(d) {
       try { NOPT.o.music = Math.max(0, Math.min(1, Math.round((nmsLevel() + d) * 10) / 10)); noptSave(); } catch (e) { }
       bgmVolume = 0.2 * nmsLevel(); try { noptApplyAudio(); } catch (e) { }
@@ -22702,20 +22720,34 @@ const GAME_VERSION = 'Alpha 1.5';   // code name MONGOOSE (see docs/RELEASES.md)
       { id: 'STATION PREV', x: 430, y: 58, w: 130, h: 56, l: () => '\u25C0 STN', fn: () => nmsStation(-1) },
       { id: 'STATION NEXT', x: 880, y: 58, w: 130, h: 56, l: () => 'STN \u25B6', fn: () => nmsStation(1) },
       { id: 'PREV', x: 430, y: 290, w: 186, h: 66, l: () => '\u23EE PREV', fn: () => nmsStep(-1) },
-      { id: 'PLAY', x: 627, y: 290, w: 186, h: 66, l: () => isBgmPlaying ? '\u275A\u275A PAUSE' : '\u25B6 PLAY', fn: () => { try { toggleBgm(); } catch (e) { } } },
+      { id: 'PLAY', x: 627, y: 290, w: 186, h: 66, l: () => (nmsTalk() ? (nmsRadio() && nmsRadio().state.onAir) : isBgmPlaying) ? '\u275A\u275A PAUSE' : '\u25B6 PLAY', fn: () => { try { if (nmsTalk()) { const R0 = nmsRadio(); if (R0) R0.toggle(); } else toggleBgm(); } catch (e) { } } },
       { id: 'NEXT', x: 824, y: 290, w: 186, h: 66, l: () => 'NEXT \u23ED', fn: () => nmsStep(1) },
       { id: 'VOL DOWN', x: 430, y: 366, w: 137, h: 66, l: () => 'VOL \u2212', fn: () => nmsVol(-0.1) },
       { id: 'VOL UP', x: 577, y: 366, w: 137, h: 66, l: () => 'VOL +', fn: () => nmsVol(0.1) },
-      { id: 'RANDOM', x: 724, y: 366, w: 137, h: 66, l: () => 'RANDOM', fn: () => { const L = nmsList(NMS.st); if (L.length) nmsPlay(L[Math.floor(Math.random() * L.length)].i, false); } },
-      { id: 'AUTO', x: 871, y: 366, w: 139, h: 66, l: () => 'AUTO ' + (NRM.auto ? 'ON' : 'OFF'), fn: () => {
+      { id: 'RANDOM', x: 724, y: 366, w: 137, h: 66, l: () => nmsTalk() ? 'NEXT ITEM' : 'RANDOM', fn: () => { if (nmsTalk()) { const R0 = nmsRadio(); if (R0) R0.skip(); return; } const L = nmsList(NMS.st); if (L.length) nmsPlay(L[Math.floor(Math.random() * L.length)].i, false); } },
+      { id: 'AUTO', x: 871, y: 366, w: 139, h: 66, l: () => nmsTalk() ? 'MUSIC' : 'AUTO ' + (NRM.auto ? 'ON' : 'OFF'), fn: () => {
+        if (nmsTalk()) { NMS.st = 0; const L0 = nmsList(0); if (L0.length) nmsPlay(L0[0].i, true); return; }
         NRM.auto = !NRM.auto; if (NRM.auto) { const L = nmsList(0); if (L.length) nmsPlay(L[0].i, true); }
         showToast('AUTO MUSIC ' + (NRM.auto ? 'ON: follows cantina / flight / combat' : 'OFF'), 1800, '#00e5ff'); } }
     ];
     NP_MUSIC.hint = 'pick a station \u00b7 touch a track on the left \u00b7 controls on the right';
     NP_MUSIC.pads = [];
-    NP_MUSIC.row = (P, i) => { const L = nmsList(NMS.st); if (i < L.length) nmsPlay(L[i].i, NMS.st === 0 && i === 0); };
+    NP_MUSIC.row = (P, i) => { if (nmsTalk()) { const R0 = nmsRadio(); if (R0) R0.replay(i); return; } const L = nmsList(NMS.st); if (i < L.length) nmsPlay(L[i].i, NMS.st === 0 && i === 0); };
+    // wrap text into at most n lines for the talk-radio subtitle
+    const nmsWrap = (x, text, font, maxW, n) => { x.font = font; const out = []; let cur = ''; String(text || '').split(' ').forEach(w => { const t = cur ? cur + ' ' + w : w; if (x.measureText(t).width > maxW && cur) { out.push(cur); cur = w; } else cur = t; }); if (cur) out.push(cur); if (out.length > n) { out.length = n; out[n - 1] = out[n - 1].replace(/.{3}$/, '...'); } return out; };
     NP_MUSIC.draw = (x, P) => {
       const S = NMS_STATIONS[NMS.st], L = nmsList(NMS.st), cur = BGM_TRACKS[bgmTrackIdx] || { name: '-' };
+      const RS = S.talk && nmsRadio() ? nmsRadio().state : null;
+      if (S.talk) {   // left column: recent bulletins (touch one to hear it again)
+        const G = RS ? RS.log : [];
+        if (!G.length) npText(x, RS ? 'tuning...' : 'radio is loading', 18, 81, '20px monospace', '#9fc3d8', 380);
+        G.slice(0, 8).forEach((o, i) => {
+          const Y = 52 + i * 44, on = i === 0 && RS.onAir;
+          x.fillStyle = on ? 'rgba(255,255,255,0.12)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(8, Y, 392, 42);
+          if (on) { x.strokeStyle = S.c; x.lineWidth = 3; x.strokeRect(8, Y, 392, 42); }
+          npText(x, (on ? '\u25B6 ' : '  ') + o.title, 18, Y + 29, 'bold 20px monospace', on ? '#ffffff' : S.c, 370);
+        });
+      }
       L.slice(0, 8).forEach((o, i) => {
         const Y = 52 + i * 44, on = o.i === bgmTrackIdx;
         x.fillStyle = on ? 'rgba(255,102,204,0.22)' : (i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0)'); x.fillRect(8, Y, 392, 42);
@@ -22731,14 +22763,21 @@ const GAME_VERSION = 'Alpha 1.5';   // code name MONGOOSE (see docs/RELEASES.md)
       NMS_STATIONS.forEach((st, i) => { x.fillStyle = i === NMS.st ? st.c : 'rgba(159,195,216,0.35)'; x.beginPath(); x.arc(720 - (NMS_STATIONS.length - 1) * 11 + i * 22, 128, i === NMS.st ? 6 : 4, 0, Math.PI * 2); x.fill(); });
       x.textAlign = 'left';
       // now playing
+      if (S.talk) {
+        const air = !!(RS && RS.onAir);
+        npText(x, air ? '\u25CF ON AIR' : 'OFF AIR', 430, 160, 'bold 17px monospace', air ? '#ff5544' : '#9fc3d8');
+        npText(x, (RS && RS.title) || S.name, 430, 190, 'bold 25px monospace', S.c, 460);
+        nmsWrap(x, (RS && RS.line) || (air ? '...' : 'touch PLAY to listen'), '18px monospace', 455, 4).forEach((ln, i) => npText(x, ln, 430, 216 + i * 21, '18px monospace', '#e6f4ff', 460));
+      } else {
       npText(x, isBgmPlaying ? 'NOW PLAYING' : 'PAUSED', 430, 160, 'bold 17px monospace', '#9fc3d8');
       npText(x, cur.name, 430, 190, 'bold 25px monospace', S.c, 460);
       npText(x, (cur.file ? 'soundtrack' : cur.bpm + ' bpm') + ' \u00b7 volume ' + Math.round(nmsLevel() * 100) + '%' + (NRM.auto ? ' \u00b7 AUTO' : ''), 430, 216, '17px monospace', '#7fb6d0', 580);
+      }
       try { const im = nmsLogo(S.logo); if (im.complete && im.naturalWidth) x.drawImage(im, 900, 130, 110, 110); } catch (e) { }
-      if (isBgmPlaying) for (let i = 0; i < 23; i++) { const hgt = 6 + Math.abs(Math.sin(NKS.t * (3 + i % 5) + i)) * 44; x.fillStyle = S.c; x.globalAlpha = 0.75; x.fillRect(430 + i * 20, 280 - hgt, 12, hgt); x.globalAlpha = 1; }
+      if (isBgmPlaying && !S.talk) for (let i = 0; i < 23; i++) { const hgt = 6 + Math.abs(Math.sin(NKS.t * (3 + i % 5) + i)) * 44; x.fillStyle = S.c; x.globalAlpha = 0.75; x.fillRect(430 + i * 20, 280 - hgt, 12, hgt); x.globalAlpha = 1; }
       // buttons
       NMS.layout.forEach(b => {
-        const lit = (b.id === 'AUTO' && NRM.auto) || (b.id === 'PLAY' && isBgmPlaying);
+        const lit = S.talk ? (b.id === 'PLAY' && RS && RS.onAir) : ((b.id === 'AUTO' && NRM.auto) || (b.id === 'PLAY' && isBgmPlaying));
         x.fillStyle = lit ? 'rgba(0,229,255,0.22)' : 'rgba(15,36,54,0.92)'; x.fillRect(b.x, b.y, b.w, b.h);
         x.strokeStyle = b.id.startsWith('STATION') ? S.c : '#ff66cc'; x.lineWidth = 3; x.strokeRect(b.x + 1.5, b.y + 1.5, b.w - 3, b.h - 3);
         x.textAlign = 'center'; npText(x, b.l(), b.x + b.w / 2, b.y + b.h / 2 + 8, 'bold 21px monospace', '#ffffff', b.w - 12); x.textAlign = 'left';
@@ -22763,7 +22802,7 @@ const GAME_VERSION = 'Alpha 1.5';   // code name MONGOOSE (see docs/RELEASES.md)
       if (on) cockpitInteractables.forEach(e => { if (e.label && e.mesh && /^R (SYSOPT TILE|EMERGENCY MISSILES|SCROLL)/.test(e.label)) e.mesh.visible = false; });
     }
     { const _npt = npTick; npTick = function (dt) { _npt(dt); try { nmsSync(); } catch (e) { if (!window._nmsErr) { window._nmsErr = 1; console.error('[music]', e); } } }; }
-    window.novaMusic = { stations: NMS_STATIONS, station: d => nmsStation(d), step: d => nmsStep(d), vol: d => nmsVol(d), state: () => ({ st: NMS.st, idx: bgmTrackIdx, playing: isBgmPlaying, auto: NRM.auto, n: BGM_TRACKS.length }) };
+    window.novaMusic = { stations: NMS_STATIONS, tune: id => { const k = NMS_STATIONS.findIndex(st => st.talk === id); if (k < 0) return false; NMS.st = (k - 1 + NMS_STATIONS.length) % NMS_STATIONS.length; nmsStation(1); return true; }, station: d => nmsStation(d), step: d => nmsStep(d), vol: d => nmsVol(d), state: () => ({ st: NMS.st, idx: bgmTrackIdx, playing: isBgmPlaying, auto: NRM.auto, n: BGM_TRACKS.length }) };
     // ── SALVAGE (AI_QUEUE A2 / FPS_PLAN §1): drops on kills, greyed targets, TRACTOR pulls them in ──
     // Lore anchor (owner): humanity is growing colder; heat cores are the prize.
     const NSV = { pods: [], max: 8, life: 120, range: 500 * NOVA_WORLD_SCALE, pulling: null };
@@ -23326,7 +23365,7 @@ const GAME_VERSION = 'Alpha 1.5';   // code name MONGOOSE (see docs/RELEASES.md)
         { k: 'OPEN SKIES', t: rift === 'contact' ? 'The ring is quiet. It listens.' : rift ? 'The rift is closed.' : 'The lanes are open.', b: ['Convoys run again. The colonies have power. Nova-1 sleeps easy.', 'And everyone on the station knows the name Nova Lead.'] },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(0, 4) },
         { k: 'WHAT YOU DID', t: 'How the Nova Sector remembers you', b: L.slice(4).concat([kept]) },
-        { k: 'PROJECT NOVA', t: 'Alpha 1.5 · MONGOOSE', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
+        { k: 'PROJECT NOVA', t: 'Alpha 1.6 · KESTREL', b: ['Created, designed and directed by Devonte.', 'Built with three.js and cannon-es, coded with Claude.'] },
         { k: 'CREDITS', t: 'Ships, cockpit and crew', b: ['3D models generated for Project Nova (Tripo), optimised for Quest.', 'Faction fleets: Mind Space, the Corsair Line, the EDF.', 'Obi the cat-bot, Nyx, Valkyrie-7, John, Kip, Mother Kestrel, ADA-9.'] },
         { k: 'CREDITS', t: 'Music and art', b: ['Music: ScifiMusicPack (Fab), tracks Voyager, Space Caravan, Battle in the Market.', 'Sky, planets, icons and key art generated for Project Nova.'] },
         { k: 'THANK YOU FOR FLYING', t: 'The sector is yours.', b: ['Free flight continues: contracts, bounties, markets, the reef and the rift.', 'Fly safe, Nova Lead.'], last: true }

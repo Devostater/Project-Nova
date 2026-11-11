@@ -233,6 +233,29 @@ export function init(nova = {}) {
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
+    // Guard pass: a single NaN / infinite / negative pixel from any material gets smeared over the whole frame by the
+    // bloom blur and shows up as full-screen black flashes. Clean the image before bloom sees it.
+    {
+      const SP0 = ShaderPass || THREE.ShaderPass;
+      if (SP0) {
+        const guard = new SP0(new THREE.ShaderMaterial({
+          uniforms: { tDiffuse: { value: null } },
+          vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+          fragmentShader: `
+            uniform sampler2D tDiffuse; varying vec2 vUv;
+            void main(){
+              vec4 c = texture2D(tDiffuse, vUv);
+              // comparisons with NaN are false, so anything not inside [0, 64] (NaN, inf, negative) is replaced
+              vec3 ok = vec3(c.r >= 0.0 && c.r <= 64.0 ? 1.0 : 0.0, c.g >= 0.0 && c.g <= 64.0 ? 1.0 : 0.0, c.b >= 0.0 && c.b <= 64.0 ? 1.0 : 0.0);
+              vec3 safe = vec3(ok.r > 0.5 ? c.r : 0.0, ok.g > 0.5 ? c.g : 0.0, ok.b > 0.5 ? c.b : 0.0);
+              gl_FragColor = vec4(min(safe, vec3(16.0)), 1.0);
+            }`
+        }));
+        guard.name = 'NanGuard';
+        composer.addPass(guard);
+      }
+    }
+
     bloomPass = new UnrealBloomPass(
       new THREE.Vector2(w, h),
       settings.bloomStrength,

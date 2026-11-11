@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.32-politics';
+const VERSION = 'nova-alpha-1.33-kestrel-radio';
 const FILES = [
   "./Alien/Alien all around wrokercargo drone.glb",
   "./Alien/Alien carrier ship.glb",
@@ -223,6 +223,7 @@ const FILES = [
 "./modules/galaxy_map.js",
 "./modules/space_ads.js",
 "./modules/politics.js",
+"./modules/radio.js",
 "./art/ads/ad_cantina.jpg",
 "./art/ads/ad_ceres.jpg",
 "./art/ads/ad_drift.jpg",
