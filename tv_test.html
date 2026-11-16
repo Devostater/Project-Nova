@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NOVA · TV test</title>
+<!-- In-game TV test: a newscast MP4 playing on a screen in 3D (VideoTexture). Not part of the game yet.
+     Desktop/phone: drag to look around, tap the TV or press C to change channel, M for sound.
+     Quest: open this page in the Quest browser (same address as the game) and press ENTER VR. -->
+<style>
+  html, body { margin: 0; height: 100%; background: #04060c; color: #cfe8ff; font: 14px system-ui, sans-serif; overflow: hidden; }
+  #ui { position: fixed; left: 12px; top: 12px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 2; }
+  button { background: #0f1830; color: #cfe8ff; border: 1px solid #2c4b7a; border-radius: 10px; padding: 9px 14px; font: inherit; cursor: pointer; }
+  button:hover { border-color: #5ef2ff; }
+  #info { position: fixed; left: 12px; bottom: 12px; opacity: .8; z-index: 2; }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body>
+<div id="ui">
+  <button id="chan">📺 Next channel</button>
+  <button id="snd">🔇 Sound off</button>
+  <button id="vr" hidden>🥽 Enter VR</button>
+</div>
+<div id="info">Channel 1</div>
+<script type="module">
+import * as THREE from 'three';
+
+// Channels: newscasts made in LYRA's Studio, copied to assets/video/news-N.mp4
+const CHANNELS = ['assets/video/news-1.mp4', 'assets/video/news-2.mp4', 'assets/video/news-3.mp4'];
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05070f);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 100);
+camera.position.set(0, 1.6, 2.6);
+
+// A simple lounge: floor, back wall, a couple of lights (cheap: no textures, no models)
+scene.add(new THREE.HemisphereLight(0x88aaff, 0x101018, 0.6));
+const key = new THREE.PointLight(0x5ef2ff, 6, 8); key.position.set(-1.5, 2.4, 1.5); scene.add(key);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshStandardMaterial({ color: 0x0b0f1c, roughness: 0.9 }));
+floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(12, 5), new THREE.MeshStandardMaterial({ color: 0x111a2e, roughness: 0.8 }));
+wall.position.set(0, 2.5, -1.2); scene.add(wall);
+
+// The TV: frame + screen. The screen uses MeshBasicMaterial so the picture isn't darkened by scene lighting.
+const video = document.createElement('video');
+video.crossOrigin = 'anonymous'; video.loop = true; video.muted = true; video.playsInline = true;
+const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace;
+const W = 1.6, H = 0.9;
+const tv = new THREE.Group(); tv.position.set(0, 1.55, -1.1); scene.add(tv);
+const frame = new THREE.Mesh(new THREE.BoxGeometry(W + 0.12, H + 0.12, 0.08), new THREE.MeshStandardMaterial({ color: 0x1a1f2b, metalness: 0.6, roughness: 0.35 }));
+tv.add(frame);
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+screen.position.z = 0.041; tv.add(screen);
+// soft glow on the wall behind the TV
+const glow = new THREE.PointLight(0x4fd8ff, 2.5, 3); glow.position.set(0, 1.55, -0.7); scene.add(glow);
+
+let ch = 0;
+function tune(n) {
+  ch = (n + CHANNELS.length) % CHANNELS.length;
+  video.src = CHANNELS[ch]; video.play().catch(() => {});
+  document.getElementById('info').textContent = `Channel ${ch + 1} · ${CHANNELS[ch].split('/').pop()}`;
+}
+tune(0);
+const next = () => tune(ch + 1);
+const toggleSound = () => { video.muted = !video.muted; video.play().catch(() => {}); document.getElementById('snd').textContent = video.muted ? '🔇 Sound off' : '🔊 Sound on'; };
+document.getElementById('chan').onclick = next;
+document.getElementById('snd').onclick = toggleSound;
+addEventListener('keydown', e => { if (e.key === 'c' || e.key === 'C') next(); if (e.key === 'm' || e.key === 'M') toggleSound(); });
+
+// Look around by dragging; tap/click the TV to change channel.
+let drag = null, yaw = 0, pitch = 0;
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: false }; });
+addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+  yaw -= dx * 0.004; pitch = Math.max(-1, Math.min(1, pitch - dy * 0.004)); drag.x = e.clientX; drag.y = e.clientY;
+});
+addEventListener('pointerup', e => {
+  if (drag && !drag.moved) {
+    ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+    if (ray.intersectObject(tv, true).length) next();
+  }
+  drag = null;
+});
+
+// VR (Quest): plain WebXR, no extra libraries. The controller trigger changes channel.
+if (navigator.xr) navigator.xr.isSessionSupported('immersive-vr').then(ok => {
+  const b = document.getElementById('vr'); b.hidden = !ok;
+  b.onclick = async () => {
+    const s = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
+    renderer.xr.setReferenceSpaceType('local-floor'); await renderer.xr.setSession(s);
+    video.muted = false; video.play().catch(() => {});
+    s.addEventListener('select', next);
+  };
+}).catch(() => {});
+
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+renderer.setAnimationLoop(() => {
+  if (!renderer.xr.isPresenting) camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  glow.intensity = 2.2 + Math.sin(performance.now() / 300) * 0.3; // a little screen flicker on the wall
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

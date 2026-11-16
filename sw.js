@@ -1,5 +1,5 @@
 // Project Nova offline cache. Bump VERSION whenever the game files change.
-const VERSION = 'nova-alpha-1.2';
+const VERSION = 'nova-alpha-1.0-rc3';
 const FILES = [
 "./art/alien_planet.jpg",
 "./art/asteroid.jpg",
@@ -22,17 +22,6 @@ const FILES = [
 "./art/reticle_lock.png",
 "./art/ring.png",
 "./art/sky.jpg",
-"./fx/vfx_engine_glow.png",
-"./fx/vfx_explosion_8x8.jpg",
-"./fx/vfx_explosion_small_4x4.png",
-"./fx/vfx_flare.png",
-"./fx/vfx_laser.png",
-"./fx/vfx_lightning.png",
-"./fx/vfx_muzzle_4x4.png",
-"./fx/vfx_shield.png",
-"./fx/vfx_shield_hex.png",
-"./fx/vfx_spark.png",
-"./fx/vfx_warp_streaks.png",
 "./manifest.webmanifest",
 "./models/alien_attack_drone.glb",
 "./models/alien_attack_drone_lo.glb",
@@ -103,10 +92,8 @@ const FILES = [
 "./standalone.html",
 "./vendor/cannon-es.js",
 "./vendor/loaders/GLTFLoader.js",
-"./vendor/three.core.js",
 "./vendor/three.module.js",
-"./vendor/utils/BufferGeometryUtils.js",
-"./vendor/utils/SkeletonUtils.js"
+"./vendor/utils/BufferGeometryUtils.js"
 ];
 self.addEventListener('install', e => e.waitUntil((async () => {
   const c = await caches.open(VERSION);

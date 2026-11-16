@@ -84,12 +84,11 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "./vendor/three.module.js",
-        "cannon-es": "./vendor/cannon-es.js"
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
       }
     }
   </script>
-
   <!-- Immediate Synchronous Startup Script -->
   <script>
     // Automatic HTTPS Redirect for Meta Quest 3 WebXR Support
@@ -196,6 +195,12 @@
     // offline play: cache the game the first time it loads (needs https or localhost)
     if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(e => console.warn('[NOVA] offline cache unavailable', e)));
   </script>
+<!-- LYRA live updates -->
+<script>(()=>{let last=null,inXR=false,pending=null;const x=navigator.xr;
+if(x&&x.requestSession){const rs=x.requestSession.bind(x);x.requestSession=async(...a)=>{const s=await rs(...a);if(a[0]!=='inline'){inXR=true;s.addEventListener('end',()=>{inXR=false;if(pending)go(pending)})}return s}}
+const toast=(t)=>{let d=document.getElementById('lyraLive');if(!d){d=document.createElement('div');d.id='lyraLive';d.style.cssText='position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:2147483647;max-width:80vw;padding:10px 16px;border-radius:12px;background:rgba(10,14,30,.92);color:#fff;font:600 15px system-ui,sans-serif;border:1px solid #b16cff;box-shadow:0 8px 30px rgba(0,0,0,.5);pointer-events:none';(document.body||document.documentElement).appendChild(d)}d.textContent=t};
+const go=(m)=>{toast('\u2726 LYRA updated the game: '+(m.text||'')+' \u2014 reloading\u2026');setTimeout(()=>fetch(location.href,{cache:'reload'}).catch(()=>{}).finally(()=>location.reload()),1200)};
+setInterval(async()=>{try{const r=await fetch('lyra-live.html',{cache:'no-store'});if(!r.ok)return;const m=JSON.parse(await r.text());if(last===null){last=m.stamp;return}if(m.stamp===last)return;last=m.stamp;if(m.note&&!m.reload){toast('\u2726 '+m.note);return}if(inXR&&!m.force){pending=m;toast('\u2726 LYRA updated the game. Leave VR or say \u201cLyra, reload\u201d to see it.')}else go(m)}catch(e){}},2000)})();</script>
 </head>
 <body>
   <canvas id="game-canvas"></canvas>
@@ -288,6 +293,12 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     let invArmFoldAngle = 0.0;
     let targetInvArmFoldAngle = 0.0;
     let bankCredits = 14250;
+    // 🏙️ Sci-Fi City, Spaceport RPG & Monorail Transit State
+    let isCityConcourseActive = false;
+    let cityTrafficList = [];
+    let monorailTrainPos = 0.0;
+    let holoPhoneActive = false;
+    let activeCityJobs = [];
     let cargoOre = 18;
     let cargoFlares = 4;
     let cargoShieldCaps = 2;
@@ -298,6 +309,9 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     let lastFireTime = 0;
     let lastSeatAdjustTime = 0;
     let lastVoiceChatterTime = performance.now();
+    // 📡 The Outer Rim Wire: Jax "Frequency" Malone's pirate news cuts in every 5-8 minutes (first one after ~3 min).
+    let nextOuterRimWireTime = performance.now() + 180000;
+    let lastOuterRimWireLine = -1;
 
     
     // ── Radio Comms Voice Mute & Central Speech Helper ──
@@ -2139,9 +2153,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     }
 
     // Interior Cockpit Dome Light
-    const cockpitDomeLight = new THREE.PointLight(0x00f0ff, 1.2, 3.5);
-    cockpitDomeLight.position.set(0, 0.75, -0.12);
-    cockpit.add(cockpitDomeLight);
+    const cockpitDomeLight = new THREE.PointLight(0x00f0ff, 1.6, 4.0);
 
     // Cockpit Translucent Canopy Glass Arch
     const canopyMat = new THREE.MeshStandardMaterial({
@@ -2228,6 +2240,64 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     cockpit.add(shieldBubble);
     let shieldFlashTimer = 0.0;
 
+    // ── Attack Warning Vignette Overlay (Pulsing Red Border / Alert Glow) ──
+    const attackCanvas = document.createElement('canvas');
+    attackCanvas.width = 512;
+    attackCanvas.height = 512;
+    const attackCtx = attackCanvas.getContext('2d');
+    function updateAttackVignetteTexture(alpha) {
+      attackCtx.clearRect(0, 0, 512, 512);
+      if (alpha <= 0.01) return;
+      const grad = attackCtx.createRadialGradient(256, 256, 100, 256, 256, 260);
+      grad.addColorStop(0, 'rgba(255, 0, 0, 0)');
+      grad.addColorStop(0.5, `rgba(255, 20, 20, ${alpha * 0.3})`);
+      grad.addColorStop(0.85, `rgba(255, 0, 0, ${alpha * 0.8})`);
+      grad.addColorStop(1, `rgba(255, 80, 80, ${alpha * 0.95})`);
+      attackCtx.fillStyle = grad;
+      attackCtx.fillRect(0, 0, 512, 512);
+      
+      // Draw alert text / chevrons and heavy damage warning chevrons
+      attackCtx.strokeStyle = `rgba(255, 40, 40, ${alpha * 0.95})`;
+      attackCtx.lineWidth = 8;
+      attackCtx.strokeRect(16, 16, 480, 480);
+
+      // Inner danger border
+      attackCtx.strokeStyle = `rgba(255, 120, 120, ${alpha * 0.6})`;
+      attackCtx.lineWidth = 2;
+      attackCtx.strokeRect(28, 28, 456, 456);
+      
+      attackCtx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
+      attackCtx.font = 'bold 26px monospace';
+      attackCtx.textAlign = 'center';
+      attackCtx.fillText('⚠️ HEAVY ATTACK ⚠️', 256, 54);
+
+      // Corner target brackets for immersive cockpit feel
+      const bracketLen = 40;
+      attackCtx.strokeStyle = `rgba(255, 60, 60, ${alpha})`;
+      attackCtx.lineWidth = 5;
+      // Top-left
+      attackCtx.beginPath(); attackCtx.moveTo(20, 20 + bracketLen); attackCtx.lineTo(20, 20); attackCtx.lineTo(20 + bracketLen, 20); attackCtx.stroke();
+      // Top-right
+      attackCtx.beginPath(); attackCtx.moveTo(512 - 20 - bracketLen, 20); attackCtx.lineTo(512 - 20, 20); attackCtx.lineTo(512 - 20, 20 + bracketLen); attackCtx.stroke();
+      // Bottom-left
+      attackCtx.beginPath(); attackCtx.moveTo(20, 512 - 20 - bracketLen); attackCtx.lineTo(20, 512 - 20); attackCtx.lineTo(20 + bracketLen, 512 - 20); attackCtx.stroke();
+      // Bottom-right
+      attackCtx.beginPath(); attackCtx.moveTo(512 - 20 - bracketLen, 512 - 20); attackCtx.lineTo(512 - 20, 512 - 20); attackCtx.lineTo(512 - 20, 512 - 20 - bracketLen); attackCtx.stroke();
+    }
+    updateAttackVignetteTexture(0.0);
+    const attackTex = new THREE.CanvasTexture(attackCanvas);
+    const attackMat = new THREE.MeshBasicMaterial({
+      map: attackTex,
+      transparent: true,
+      opacity: 0.0,
+      side: THREE.BackSide,
+      depthWrite: false
+    });
+    const attackVignetteMesh = new THREE.Mesh(new THREE.SphereGeometry(1.55, 20, 20), attackMat);
+    attackVignetteMesh.raycast = () => {};
+    cockpit.add(attackVignetteMesh);
+    let attackWarningTimer = 0.0;
+
 
 
     // 1. Overhead environment button (Normal -> Red Alert -> Stealth -> Polarize)
@@ -2245,7 +2315,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       if (lightMode === 0) {
         if (isCanopyPolarized) { isCanopyPolarized = false; canopyMat.color.setHex(0x88ccff); canopyMat.opacity = 0.10; }
         cockpitDomeLight.color.setHex(0x00f0ff);
-        cockpitDomeLight.intensity = 1.2;
+        cockpitDomeLight.intensity = 1.6;
         domeBtnMat.color.setHex(0x00f0ff);
         domeBtnMat.emissive.setHex(0x00aacc);
         showToast('💡 MODE: NORMAL', 2000, '#00f0ff');
@@ -2268,7 +2338,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         isCanopyPolarized = true;
         canopyMat.color.setHex(0xffcc33); canopyMat.opacity = 0.32;
         polarizerBtnMat.emissiveIntensity = 1.2;
-        cockpitDomeLight.color.setHex(0x00f0ff); cockpitDomeLight.intensity = 1.2;
+        cockpitDomeLight.color.setHex(0x00f0ff); cockpitDomeLight.intensity = 1.6;
         domeBtnMat.color.setHex(0xaa88ff); domeBtnMat.emissive.setHex(0x6655aa);
         showToast('🕶️ MODE: CANOPY POLARIZED', 2000, '#aa88ff');
       }
@@ -2487,6 +2557,15 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         pilot: 'Capt. Elena Vance',
         freq: '134.40 MHz',
         role: 'ESCORT / WINGMAN'
+      },
+      {
+        id: 'space_pirate_anchor',
+        type: 'broadcast',
+        name: 'RADIO FREE PIRATE SECTOR',
+        callsign: 'CAPTAIN NOVA',
+        pilot: 'Capt. Nova (Cyber Pirate)',
+        freq: '101.99 MHz',
+        role: 'PIRATE NEWS ANCHOR'
       },
       {
         id: 'station_alpha',
@@ -2737,7 +2816,21 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         commsRecognition.onresult = (ev) => {
           if (ev.results && ev.results[0] && ev.results[0][0]) {
             const spokenText = ev.results[0][0].transcript;
-            transmitPilotText(spokenText);
+            const lowerSpoken = spokenText.toLowerCase().trim();
+            console.log('[NOVA VOICE COMMAND]', lowerSpoken);
+            let cmdHandled = false;
+            if (lowerSpoken.includes('afterburner') || lowerSpoken.includes('boost') || lowerSpoken.includes('thrust')) {
+              try { triggerAfterburner(); cmdHandled = true; } catch(e) {}
+            } else if (lowerSpoken.includes('autopilot') || lowerSpoken.includes('auto pilot') || lowerSpoken.includes('engage auto')) {
+              try { toggleAutopilot(); cmdHandled = true; showToast('✈️ VOICE: AUTOPILOT TOGGLED', 2500, '#00ffcc'); } catch(e) {}
+            } else if (lowerSpoken.includes('dock') || lowerSpoken.includes('docking')) {
+              try { novaDockAny(); cmdHandled = true; showToast('⚓ VOICE: DOCKING INITIATED', 2500, '#00f0ff'); } catch(e) {}
+            } else if (lowerSpoken.includes('target') || lowerSpoken.includes('next target')) {
+              try { cycleTarget(); cmdHandled = true; showToast('🎯 VOICE: TARGET CYCLED', 2500, '#ff4455'); } catch(e) {}
+            } else if (lowerSpoken.includes('shield') || lowerSpoken.includes('deflector')) {
+              try { sound.shieldSurge(); shieldFlashTimer = 1.2; window.novaShield = 100; cmdHandled = true; showToast('🛡️ VOICE: SHIELDS CHARGED', 2500, '#00aaff'); } catch(e) {}
+            }
+            if (!cmdHandled) transmitPilotText(spokenText);
           }
           isCommsMicListening = false;
           drawCommsPanel();
@@ -3243,13 +3336,35 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         msgY += 13;
       });
 
-      // Active Terminal Input Cursor
+      // Active Terminal Input Cursor & Quick Action Bar at Bottom of Chat
       const blink = (Math.floor(performance.now() / 450) % 2 === 0);
       ctx.fillStyle = '#00f0ff';
       ctx.font = 'bold 10px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(`> SECURE FREQ: ${selEnt.freq || '142.80 MHz'} ${blink ? '█' : ''}`, rightX + 8, botY + botH - 8);
+      ctx.fillText(`> FREQ: ${selEnt.freq || '142.80 MHz'} ${blink ? '█' : ''}`, rightX + 8, botY + botH - 34);
 
+      // 4 Interactive Touch Buttons along the bottom of the right panel
+      const bW = (rightW - 20) / 4;
+      const bY = botY + botH - 28;
+      const bH = 22;
+      const buttons = [
+        { label: '📡 HAIL', color: '#00f0ff' },
+        { label: '🎯 LOCK', color: '#00ff88' },
+        { label: '🔇 MUTE', color: '#ffaa00' },
+        { label: '📋 LOG', color: '#cc88ff' }
+      ];
+      buttons.forEach((b, idx) => {
+        const bx = rightX + 6 + idx * (bW + 2);
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.18)';
+        ctx.fillRect(bx, bY, bW, bH);
+        ctx.strokeStyle = b.color;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx, bY, bW, bH);
+        ctx.fillStyle = b.color;
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(b.label, bx + bW / 2, bY + 15);
+      });
       commsTexture.needsUpdate = true;
     }
     drawCommsPanel();
@@ -4153,9 +4268,10 @@ const GAME_VERSION = 'Alpha 1.0 RC';
               lockRingMesh.visible = true;
               lockRingMesh.position.copy(blip.position);
               lockRingMesh.lookAt(camera.getWorldPosition(new THREE.Vector3()));
-              lockRingMesh.scale.setScalar(1 + 0.25 * Math.sin(performance.now() * 0.01));
+              const pulseScale = 1 + 0.35 * Math.sin(performance.now() * 0.02);
+              lockRingMesh.scale.setScalar(pulseScale);
+              lockRingMesh.material.color.setHex(cand.isHostile ? 0xff1133 : 0x00ff88);
             }
-
             if (cand.type === 'station') {
               blip.geometry = blipGeoStation;
               blip.material = blipMatStation;
@@ -4255,31 +4371,58 @@ const GAME_VERSION = 'Alpha 1.0 RC';
       ctx.lineWidth = 3;
       ctx.strokeRect(6, 6, w - 12, h - 12);
 
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = 'bold 20px monospace';
-      ctx.fillText(`TARGET: ${currentLockedTarget ? currentLockedTarget.name : 'NO TARGET LOCK'}`, 18, 36);
+      const hasLock = !!(currentLockedTarget && currentLockedTarget.targetObj);
+      const isHostile = hasLock && currentLockedTarget.isHostile;
+      const isArmed = isMissileLidOpen || isMissileArmed;
+
+      // Header lock status box
+      ctx.fillStyle = hasLock ? (isHostile ? 'rgba(255, 30, 60, 0.25)' : 'rgba(0, 255, 136, 0.2)') : 'rgba(0, 240, 255, 0.1)';
+      ctx.fillRect(12, 12, w - 24, 38);
+      ctx.strokeStyle = hasLock ? (isHostile ? '#ff3355' : '#00ff88') : '#00f0ff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(12, 12, w - 24, 38);
+
+      ctx.fillStyle = hasLock ? (isHostile ? '#ff4466' : '#00ff88') : '#00f0ff';
+      ctx.font = 'bold 18px monospace';
+      const statusIcon = hasLock ? (isHostile ? '🎯 [LOCK ACTIVE]' : '🔒 [LOCK ALLIED]') : '🔍 [NO LOCK]';
+      const targetName = currentLockedTarget ? currentLockedTarget.name : 'NO TARGET DESIGNATED';
+      ctx.fillText(`${statusIcon} ${targetName}`, 22, 37);
 
       ctx.fillStyle = '#ffcc00';
       ctx.font = '16px monospace';
       const distStr = currentLockedTarget ? `${Math.round(currentLockedTarget.dist)}M` : '---';
-      ctx.fillText(`RANGE: ${distStr} · SENSOR: ${OBSERVE_MODES[observeMode]}`, 18, 76);
+      ctx.fillText(`RANGE: ${distStr} · SENSOR: ${OBSERVE_MODES[observeMode]}`, 18, 78);
 
-      // Target lock indicator
-      ctx.fillStyle = isMissileLidOpen ? '#00ff88' : '#ff4444';
-      ctx.fillText(isMissileLidOpen ? '● MISSILE SYSTEM: ARMED & READY' : '🔒 MISSILE SYSTEM: SAFE (LID CLOSED)', 18, 116);
+      // Target lock indicator / Missile readiness badge
+      if (isArmed && hasLock) {
+        const pulse = Math.sin(performance.now() * 0.015) > 0;
+        ctx.fillStyle = pulse ? (isHostile ? '#ff1133' : '#00ff88') : '#aa8800';
+        ctx.fillText(isHostile ? '🔥 MISSILE LOCK: READY TO FIRE' : '● SYSTEM READY (FRIENDLY LOCK)', 18, 118);
+      } else if (isArmed) {
+        ctx.fillStyle = '#00ff88';
+        ctx.fillText('● MISSILE SYSTEM: ARMED & SEARCHING', 18, 118);
+      } else {
+        ctx.fillStyle = '#ff4444';
+        ctx.fillText('🔒 MISSILE SYSTEM: SAFE (LID CLOSED)', 18, 118);
+      }
 
       ctx.fillStyle = '#aaddff';
-      ctx.fillText(`MODE: ${TARGETING_MODES[targetingMode]}`, 18, 156);
+      ctx.fillText(`MODE: ${TARGETING_MODES[targetingMode]}`, 18, 158);
 
       if (pirateBoss && !isPirateDefeated) {
         ctx.fillStyle = '#ff1133';
-        ctx.fillText(`THREAT: PIRATE CORSAIR [HP: ${pirateHealth}%]`, 18, 196);
+        ctx.fillText(`THREAT: PIRATE CORSAIR [HP: ${pirateHealth}%]`, 18, 198);
       } else {
         ctx.fillStyle = '#7799aa';
-        ctx.fillText('THREAT LEVEL: LOW / SECTOR PATROL', 18, 196);
+        ctx.fillText('THREAT LEVEL: LOW / SECTOR PATROL', 18, 198);
       }
       ctx.fillStyle = '#ff9966';
-      ctx.fillText(`MISSILES: ${missileAmmo} / 6 · ${isMissileArmed ? 'ARMED' : 'SAFE'}`, 18, 236);
+      ctx.fillText(`MISSILES: ${missileAmmo} / 6 · ${isArmed ? 'ARMED' : 'SAFE'}`, 18, 238);
+      if (typeof lastMissileLaunchTime !== 'undefined' && performance.now() - lastMissileLaunchTime < 800) {
+        ctx.fillStyle = '#ff2244';
+        ctx.font = 'bold 20px monospace';
+        ctx.fillText('🚀 LAUNCH', 380, 238);
+      }
       mScreenTexture.needsUpdate = true;
     }
 
@@ -7870,6 +8013,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     function novaDamage(amount) {
       if (novaDisabled || isInsideCantina) return;
       novaLastHit = performance.now();
+      attackWarningTimer = amount >= 15 ? 3.2 : 1.8;
       if (window.novaShield > 0) {
         window.novaShield = Math.max(0, window.novaShield - amount);
         shieldFlashTimer = 0.7;
@@ -9889,13 +10033,17 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         }
       }
 
-      // Deflector Shield Dome Flash
-      if (shieldFlashTimer > 0) {
-        shieldFlashTimer -= delta;
-        shieldBubbleMat.opacity = Math.sin(shieldFlashTimer * 3.0) * 0.45;
+      // Attack Warning Vignette Flash & Fade
+      if (attackWarningTimer > 0) {
+        attackWarningTimer -= delta;
+        const alpha = Math.max(0, attackWarningTimer / 1.8);
+        updateAttackVignetteTexture(alpha);
+        attackMat.opacity = alpha * 0.9;
       } else {
-        shieldBubbleMat.opacity = 0.0;
+        attackMat.opacity = 0.0;
       }
+
+      // Deflector Shield Dome Flash
 
       // Rotate Hologram Target Projector
       holoRotatingTarget.rotation.y += 1.15 * delta;
@@ -10064,6 +10212,29 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         ];
         const line = banterLines[Math.floor(Math.random() * banterLines.length)];
         broadcastCommsTransmission(line.s, line.m);
+      }
+
+      // ── 📡 THE OUTER RIM WIRE: pirate news with Jax "Frequency" Malone ──
+      // A smooth-talking con artist broadcasting from a rusted-out cargo tug in an immaculate, outdated suit.
+      // His "news" pumps and dumps market prices and steers rival pirate crews into traps. Never trust a tip from Jax.
+      if (now > nextOuterRimWireTime) {
+        nextOuterRimWireTime = now + 300000 + Math.random() * 180000;
+        const wireLines = [
+          "Good evening, Outer Rim. This is Jax Frequency Malone on the Wire, coming to you live from the finest suit this side of the belt. Rumor says titanium's about to triple. Buy, my friends. Buy everything.",
+          "Breaking news on the Wire: a fat, unescorted freighter is drifting near the old debris field, grid nine. No guards, no guns. I'd go myself, but this suit doesn't do vacuum.",
+          "Market watch with your old pal Frequency. Ore prices at the station? Collapsing. Sell now, sell cheap. Somebody has to take it off your hands, and I'm a generous man.",
+          "Attention, Black Comet crew. The Fleet patrol is three sectors away tonight. Totally clear. Go loud. You can thank me later. Or not. Probably not.",
+          "This is the Outer Rim Wire. Remember, the news is free. The truth costs extra. And the truth, my friends, is out of stock.",
+          "Shoutout to the boys at Rustline. That cargo you lifted? Worth twice what you think. Bring it to my buyer at the old relay. Come alone. Trust me.",
+          "Weather on the Wire: solar storm in the asteroid belt, very dangerous, nobody should mine there for at least a week. Not me, though. I have a strong constitution.",
+          "Frequency Malone, still on the air, still in the suit. They say a man is only as good as his word. Lucky for me, nobody's checking.",
+          "Hot tip for any pirate with a pulse: the Fleet's new escort ships are all paint and no guns. Charge right in. Somebody's got to test that theory.",
+          "This broadcast was brought to you by nobody, paid for by everybody, and verified by absolutely no one. Stay tuned, stay greedy. Jax out."
+        ];
+        let k = Math.floor(Math.random() * wireLines.length);
+        if (k === lastOuterRimWireLine) k = (k + 1) % wireLines.length;
+        lastOuterRimWireLine = k;
+        broadcastCommsTransmission('JAX "FREQUENCY" MALONE // OUTER RIM WIRE', wireLines[k], 0.82);
       }
 
       if (typeof campaignTick === 'function') campaignTick(delta);
@@ -11299,12 +11470,19 @@ const GAME_VERSION = 'Alpha 1.0 RC';
     function novaTutPanel() {
       if (NovaTut.panel) return NovaTut.panel;
       const p = document.createElement('div');
-      p.style.cssText = 'position:absolute;left:50%;bottom:54px;transform:translateX(-50%);max-width:640px;width:90%;background:rgba(5,15,25,0.94);border:2px solid #ffcc00;border-radius:10px;padding:12px 16px;color:#fff;font:14px monospace;z-index:90;display:none;text-align:left;';
-      p.innerHTML = '<div id="tut-step" style="color:#ffcc00;font-weight:bold;margin-bottom:6px"></div><div id="tut-text" style="line-height:1.4"></div><button id="tut-skip" style="margin-top:8px;background:transparent;border:1px solid #ffcc00;color:#ffcc00;font:12px monospace;padding:3px 10px;border-radius:4px;cursor:pointer">SKIP TUTORIAL</button>';
+      p.style.cssText = 'position:absolute;left:50%;bottom:54px;transform:translateX(-50%);max-width:640px;width:90%;background:rgba(5,20,35,0.85);border:2px solid #00f0ff;border-radius:12px;padding:14px 18px;color:#e0f7ff;font:14px/1.5 monospace;z-index:90;display:none;text-align:left;box-shadow:0 0 25px rgba(0,240,255,0.35);backdrop-filter:blur(6px);';
+      p.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(0,240,255,0.3);padding-bottom:6px;margin-bottom:8px;"><span id="tut-step" style="color:#00f0ff;font-weight:bold;letter-spacing:1px;"></span><span style="font-size:11px;color:#88ccee;background:rgba(0,240,255,0.1);padding:2px 6px;border-radius:4px;">HOLO-GUIDE v0.7</span></div><div id="tut-text" style="color:#ffffff;text-shadow:0 0 8px rgba(0,240,255,0.4);"></div><div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end;"><button id="tut-next" style="background:rgba(0,240,255,0.2);border:1px solid #00f0ff;color:#00f0ff;font:12px monospace;padding:4px 12px;border-radius:4px;cursor:pointer;">NEXT STEP</button><button id="tut-skip" style="background:transparent;border:1px solid rgba(255,204,0,0.5);color:#ffcc00;font:12px monospace;padding:4px 10px;border-radius:4px;cursor:pointer;">SKIP</button></div>';
       document.body.appendChild(p);
       p.querySelector('#tut-skip').addEventListener('click', (e) => { e.stopPropagation(); window.novaTutSkip(); });
+      p.querySelector('#tut-next').addEventListener('click', (e) => { e.stopPropagation(); window.novaTutNext(); });
       NovaTut.panel = p; return p;
     }
+    window.novaTutNext = () => {
+      if (!NovaTut.on) return;
+      NovaTut.i++;
+      if (NovaTut.i >= NOVA_GT.length) novaTutStop(true);
+      else novaTutShowStep();
+    };
     function novaTutShowStep() {
       const st = NOVA_GT[NovaTut.i], vr = renderer.xr.isPresenting;
       const msg = st.say + (vr ? (st.vr || '') : (st.d2 || ''));
@@ -16663,7 +16841,7 @@ const GAME_VERSION = 'Alpha 1.0 RC';
         showToast('SILENT RUNNING: emissions down, enemies have to get close to see you.', 2600, '#9a7dff'); try { sound.beep(300, 0.2, 'triangle'); } catch (e) { }
       } else {
         toggleRadioVoice(radioMuteBeforeStealth);
-        if (lightMode === 2) { lightMode = 0; cockpitDomeLight.color.setHex(0x00f0ff); cockpitDomeLight.intensity = 1.2; domeBtnMat.color.setHex(0x00f0ff); domeBtnMat.emissive.setHex(0x00aacc); }
+        if (lightMode === 2) { lightMode = 0; cockpitDomeLight.color.setHex(0x00f0ff); cockpitDomeLight.intensity = 1.6; domeBtnMat.color.setHex(0x00f0ff); domeBtnMat.emissive.setHex(0x00aacc); }
         showToast('STEALTH OFF' + (why ? ': ' + why : ''), 1800, '#9a7dff'); try { sound.beep(600, 0.1); } catch (e) { }
       }
     }
