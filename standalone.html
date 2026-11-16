@@ -21359,7 +21359,10 @@ const GAME_VERSION = 'Alpha 1.4';
       faction3_cruiser:   { file: 'faction3_cruiser',   size: 140, yaw: Math.PI / 2,  loAt: 900 },
       alien_crew:         { file: 'alien_crew',         size: 0.17, yaw: 0, rig: true },
       matrix_character:   { file: 'matrix_character',   size: 0.17, yaw: 0, rig: true },
-      alien_planet_tex:   { file: '../art/alien_planet.jpg' }
+      alien_planet_tex:   { file: '../art/alien_planet.jpg' },
+      station_dock:       { file: 'station_dock',       lo: 'station_dock_lo',       size: 180, yaw: 0,            loAt: 1200 },
+      npc_pilot:          { file: 'npc_pilot',          size: 1.7, yaw: 0, rig: true },
+      repair_droid:       { file: 'repair_droid',       size: 1.2, yaw: 0 }
     };
     window.NF_ASSETS = NF_ASSETS;
     try { ((new URLSearchParams(location.search)).get('nfyaw') || '').split(',').filter(Boolean).forEach(s => { const [k, d] = s.split(':'); if (NF_ASSETS[k]) NF_ASSETS[k].yaw = (+d) * Math.PI / 180; }); } catch (e) { }
