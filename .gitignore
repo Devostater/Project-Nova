@@ -45,3 +45,15 @@ news/video/**/*.mp4
 .build/
 dist/*.apk
 /public/build.json
+
+# Secrets: these live in C:\AZI\Security\Keys and are never committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.keystore
+*.jks
+*.pfx
+*.p12
+keystore.properties
